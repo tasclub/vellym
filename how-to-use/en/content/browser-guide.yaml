@@ -1,0 +1,79 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: browser-guide
+  title: Using the Browser UI
+spec:
+  documentType: guide
+  locale: en
+  blocks:
+    - id: browser-guide
+      type: rich-text
+      format: commonmark
+      content: |
+        ## Audience
+
+        This page is for users of the browser UI (dynamic mode) started with
+        `vellym dev`. See [Getting Started](#page=getting-started) to start it and [CLI Reference](#page=cli-reference) for
+        commands. The static build is read-only and has no editing, search, or settings
+        ([Static Publishing and Self-Hosting](#page=self-hosting)).
+
+        ## Initial setup
+
+        Running `vellym dev` in a project without a config file shows the initial setup,
+        which proceeds as follows.
+
+        1. **Intro**: choose the **language** of the UI and initial documents.
+        2. **Location**: confirm or set the **content folder** (relative to project root)
+           where documents are saved. It never writes outside the project you started in,
+           and it creates the folder if it does not exist.
+        3. **Structure**: pick a profile; the list of documents to create appears. Toggle
+           which ones to create (documents that collide with existing ones are unchecked
+           by default), and rename files if needed.
+        4. **Done**: the number created is shown; open the first document to enter the
+           workspace.
+
+        After completion it switches to the document workspace on the same server.
+
+        ## Layout
+
+        - **Product rail** (far left): switch between "Documents" and "Settings".
+        - **Document navigation**: open/close and resize the document tree; pick a page.
+        - **Outline**: the heading list of the current page.
+        - **Breadcrumbs**: the hierarchy of your current location.
+
+        ## Reading
+
+        Select a page from the document tree to view its body. Follow internal links
+        (`#page=` links) in the body to move to related pages.
+
+        ## Search
+
+        Open **full-text search** ("Search documents") to find text across page bodies.
+        (Full-text search is a dynamic-mode feature and is not in the static build.)
+
+        ## Editing and saving
+
+        - Page bodies can be edited in the browser, both as rich text and as direct YAML.
+        - Saving writes the content back to **local YAML** (it does not create a Git commit).
+        - If the underlying YAML changes externally while you edit, the conflict is
+          detected and you can compare your draft with the YAML.
+        - If you try to leave with unsaved changes, a dialog lets you keep or discard the draft.
+
+        ## Creating and structure editing
+
+        - Use "Create" to add pages or folders.
+        - Existing pages and folders can be renamed (edit), moved, and archived.
+        - Reordering is reflected in the folder's display order (`_index.yaml`).
+
+        ## Settings and administration
+
+        "Settings" shows source information (project root, content root, config file
+        location), load state, and the save method (write to local YAML). It surfaces
+        detailed information that is kept out of the everyday reading view.
+
+        ## Related
+
+        - Writing YAML → [Authoring Documents (YAML)](#page=authoring)
+        - Static publishing → [Static Publishing and Self-Hosting](#page=self-hosting)
+        - Current scope → [Current Scope and Limitations](#page=limitations)

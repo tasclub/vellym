@@ -1,0 +1,52 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: configuration
+  title: Configuration File
+spec:
+  documentType: guide
+  locale: en
+  blocks:
+    - id: configuration
+      type: rich-text
+      format: commonmark
+      content: |
+        ## vellym.config.yaml
+
+        Project configuration lives in `vellym.config.yaml` at the project root. That is
+        the default name; you can point to another path with `--config` ([CLI Reference](#page=cli-reference)).
+
+        ```yaml
+        schemaVersion: "1.0"
+        contentRoot: content
+        outputDir: dist
+        ui:
+          language: en
+        plugins: []
+        ```
+
+        ## Fields
+
+        | Key | Required | Type / value | Description |
+        | --- | --- | --- | --- |
+        | `schemaVersion` | yes | `"1.0"` | Config schema version. Fixed at `"1.0"` for now. |
+        | `contentRoot` | yes | string | Root directory of the source YAML (relative to project root). Cannot start with `./` or `..`. |
+        | `outputDir` | yes | string | Base for static site output (`build`). |
+        | `ui.language` | yes | `ja` \| `en` | Browser SPA display language. One language per build. |
+        | `plugins` | yes | array of strings | Plugin list. Not implemented at this stage; use an empty array `[]`. |
+
+        ## outputDir and generated output
+
+        `build` does not write into `outputDir` itself. Instead it creates a unique,
+        timestamped folder under the **parent** of `outputDir` (e.g. `20260728-143002-dist`).
+        This keeps each build without overwriting the previous one. See [Static Publishing and Self-Hosting](#page=self-hosting).
+
+        ## Language and configuration
+
+        `ui.language` is the browser display language and is distinct from each Page's
+        `spec.locale`. For presenting Japanese and English together, see [Terminology and Concepts](#page=concepts).
+
+        ## Related
+
+        - Commands → [CLI Reference](#page=cli-reference)
+        - Authoring documents → [Authoring Documents (YAML)](#page=authoring)

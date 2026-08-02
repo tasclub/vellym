@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.astro/
+.cache/
+coverage/
+packages/*/dist/
+*.tgz
+*.tmp
+.DS_Store
+testdocs
+docs/
+
+# Machine-local deployment scripts and settings
+.local/

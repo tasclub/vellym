@@ -1,0 +1,10 @@
+.git
+.cache
+.astro
+coverage
+dist
+node_modules
+packages/*/dist
+testdocs
+*.tgz
+*.tmp

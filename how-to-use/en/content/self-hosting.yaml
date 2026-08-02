@@ -1,0 +1,86 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: self-hosting
+  title: Static Publishing and Self-Hosting
+spec:
+  documentType: guide
+  locale: en
+  blocks:
+    - id: self-hosting
+      type: rich-text
+      format: commonmark
+      content: |
+        ## Audience
+
+        This page is for people who want to distribute documents as a static site, or run
+        Vellym self-hosted. For command details, see [CLI Reference](#page=cli-reference).
+
+        ## Export a static site
+
+        ```bash
+        vellym build
+        ```
+
+        Exports a **read-only** static site (SPA) from the source. If there are errors,
+        generation is aborted. It includes reading only — no editing, saving, structure
+        management, full-text search, or settings.
+
+        The output contains:
+
+        - `index.html`: the SPA itself
+        - `assets/`: JS and CSS
+        - `data/`: baked-in data (`bootstrap.json` / `repository.json` / `pages/*.json`)
+        - `vellym-build.json`: build provenance (built-at, source revision, dirty flag, etc.)
+        - `README.md`: serving instructions
+
+        ## Output location and generations
+
+        Output goes into the **parent** of the config's `outputDir`, as a unique
+        timestamped folder (e.g. `20260728-143002-dist`). Because each build is a new
+        folder, previous outputs are not overwritten. See [Configuration File](#page=configuration).
+
+        ## Serving (serve over HTTP)
+
+        Serve the output **over HTTP**. Opening `index.html` directly in a browser
+        (`file://`) fails: browser security prevents loading JS, CSS, and data.
+
+        In the generated folder, run one of:
+
+        ```bash
+        # Python
+        python3 -m http.server 8080
+
+        # Node
+        npx serve .
+        # or
+        npx http-server -p 8080
+        ```
+
+        Then open `http://localhost:8080/`. It uses relative paths, so it also works under
+        a server subdirectory (or as the document root of Nginx / Apache, etc.).
+
+        ## Run with Docker (self-hosting)
+
+        To avoid installing Node.js on the host, you can use the candidate runtime image.
+
+        ```bash
+        docker build --target runtime -t vellym:local .
+        docker run --rm \
+          -p 127.0.0.1:4173:4173 \
+          -v "$PWD/testdocs:/workspace" \
+          vellym:local
+        ```
+
+        Inside the container it listens on `0.0.0.0:4173`. **Limit the published address to
+        `127.0.0.1:4173`** and do not carelessly expose it to the wider network. An empty
+        workspace shows the browser setup, and created content is saved back to the mount.
+
+        > Publishing to an image registry, pinning versions, and update procedures are not
+        > finalized yet.
+
+        ## Related
+
+        - Static vs. dynamic → [Terminology and Concepts](#page=concepts)
+        - Config file → [Configuration File](#page=configuration)
+        - Current scope → [Current Scope and Limitations](#page=limitations)

@@ -1,0 +1,13 @@
+{
+  "name": "@vellym-internal/runtime-node",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@vellym-internal/core": "*",
+    "chokidar": "^5.0.0",
+    "yaml": "^2.8.0"
+  }
+}

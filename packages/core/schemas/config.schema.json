@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vellym.tasclub.com/schemas/config-v1.schema.json",
+  "title": "Vellym configuration",
+  "type": "object",
+  "required": ["schemaVersion", "contentRoot", "outputDir", "ui", "plugins"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "contentRoot": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![./\\\\])(?!.*/(?:\\.|\\.\\.)(?:/|$))[^\\\\\\0]+$"
+    },
+    "outputDir": { "type": "string", "minLength": 1 },
+    "ui": {
+      "type": "object",
+      "required": ["language"],
+      "properties": {
+        "language": { "enum": ["ja", "en"] }
+      },
+      "additionalProperties": true
+    },
+    "plugins": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

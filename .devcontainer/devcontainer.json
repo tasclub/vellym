@@ -1,0 +1,33 @@
+{
+  "name": "Vellym Development",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "..",
+    "target": "development"
+  },
+  "remoteUser": "node",
+  "mounts": [
+    "source=vellym-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume"
+  ],
+  "postCreateCommand": "sudo chown -R node:node node_modules && npm ci && npm run build && sudo npm link --workspace vellym",
+  "forwardPorts": [
+    4173
+  ],
+  "portsAttributes": {
+    "4173": {
+      "label": "Vellym",
+      "onAutoForward": "notify",
+      "requireLocalPort": true
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "redhat.vscode-yaml"
+      ]
+    }
+  }
+}

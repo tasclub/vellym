@@ -1,0 +1,42 @@
+name: Publish
+
+# GitHub Release を published にすると npm へ provenance 付きで公開する。
+# 事前に npm の自動化トークンをリポジトリの Secrets に NPM_TOKEN として登録すること。
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance の署名に必要
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm run release:check -- "${{ github.event.release.tag_name }}"
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run pack:smoke
+      - run: npx playwright install --with-deps chromium
+      - run: npm run verify:core
+      - id: dist-tag
+        name: Select npm dist-tag
+        run: |
+          VERSION="$(node -p "require('./packages/vellym/package.json').version")"
+          PRERELEASE="${VERSION#*-}"
+          if [ "$PRERELEASE" = "$VERSION" ]; then
+            TAG=latest
+          else
+            TAG="${PRERELEASE%%.*}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - run: npm publish --workspace vellym --provenance --access public --tag "${{ steps.dist-tag.outputs.tag }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

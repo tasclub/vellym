@@ -1,0 +1,25 @@
+name: Feature request
+description: Describe a user problem before proposing a feature.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Who encounters the problem, in what situation, and what are they trying to achieve?
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current alternative
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the desired outcome; implementation details are optional.
+    validations:
+      required: true

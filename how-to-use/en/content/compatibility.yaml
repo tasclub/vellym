@@ -1,0 +1,57 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: document-format
+  title: Document format and compatibility
+spec:
+  documentType: compatibility-policy
+  locale: en
+  blocks:
+    - id: contract
+      type: rich-text
+      format: commonmark
+      content: |
+        ## Current compatibility stage
+
+        `vellym.tasclub.com/v1alpha1` is the default prerelease format.
+        `vellym.tasclub.com/v1` is available for migration testing, but may change until it is
+        frozen for the 1.0 release candidate. Vellym never migrates documents automatically.
+
+        ## v1 resource envelope
+
+        - `apiVersion: vellym.tasclub.com/v1`
+        - `kind: Page` or `kind: Folder`
+        - `metadata`: identity and display information
+        - `spec`: resource content
+
+        A Page identity is the lowercase alphanumeric and hyphen value in `metadata.name`.
+        Changing a title, slug, path, or filename does not implicitly change that identity.
+        A Page contains ordered `spec.blocks`; v1 defines CommonMark `rich-text` blocks.
+        Unknown blocks and properties are preserved as extension points.
+
+        A Folder is represented by an optional `_index.yaml`. `metadata.title` is its display
+        name, while `spec.description` and `spec.order` are optional. Each order entry is an
+        immediate filename or directory name.
+
+        ## Published schemas
+
+        - [Page v1](https://vellym.tasclub.com/schemas/v1/page.schema.json)
+        - [Folder v1](https://vellym.tasclub.com/schemas/v1/folder.schema.json)
+        - [rich-text v1](https://vellym.tasclub.com/schemas/v1/rich-text-block.schema.json)
+        - [config 1.0](https://vellym.tasclub.com/schemas/config-v1.schema.json)
+
+        ## Saving and migration
+
+        Editing known fields preserves comments, unknown properties, and unknown blocks.
+        Aliases, anchors, custom tags, and multiple YAML documents are read-only because safe
+        round trips cannot be guaranteed.
+
+        Review `vellym migrate --to v1 --plan` before running `vellym migrate --to v1`.
+        Migration checks source hashes, writes through temporary files, and restores written
+        files after a partial failure. It does not run Git, so commit or back up the project first.
+
+        ## Planned 1.0 stability boundary
+
+        The stability contract covers v1 Page and Folder YAML, config schema 1.0, public CLI
+        commands, options and exit codes, and public JSON envelopes. Internal workspace packages,
+        browser-server HTTP endpoints, generated SPA data, CSS, and DOM are not public APIs.

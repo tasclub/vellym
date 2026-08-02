@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Vellym: init testdocs (preview)",
+      "type": "shell",
+      "command": "node packages/vellym/dist/cli.mjs init testdocs --plan",
+      "problemMatcher": []
+    },
+    {
+      "label": "Vellym: init testdocs",
+      "type": "shell",
+      "command": "node packages/vellym/dist/cli.mjs init testdocs --profile software-basic",
+      "problemMatcher": []
+    },
+    {
+      "label": "Vellym: dev testdocs",
+      "type": "shell",
+      "command": "npm run dev -- --config testdocs/vellym.config.yaml --host 0.0.0.0",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    }
+  ]
+}

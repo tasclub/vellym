@@ -1,0 +1,38 @@
+{
+  "name": "vellym-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "npm run build --workspace @vellym-internal/ui-react && node scripts/build.mjs",
+    "dev": "npm run build && node packages/vellym/dist/cli.mjs dev",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && vitest run",
+    "validate": "npm run build && node packages/vellym/dist/cli.mjs validate --config how-to-use/ja/vellym.config.yaml",
+    "pack:check": "npm run build && npm pack --workspace vellym --dry-run --json",
+    "pack:smoke": "npm run build && sh scripts/smoke-pack.sh",
+    "smoke:100": "npm run build && node scripts/smoke-100-pages.mjs",
+    "verify:core": "npm run build && node scripts/verify-core.mjs",
+    "site:build": "npm run build && node scripts/build-site.mjs",
+    "site:verify": "npm run site:build && node scripts/verify-site.mjs",
+    "release:check": "node scripts/verify-release.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-react": "5.1.4",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.9.0",
+    "vite": "7.3.6",
+    "vitest": "^4.0.0"
+  },
+  "overrides": {
+    "vite": "7.3.6"
+  }
+}

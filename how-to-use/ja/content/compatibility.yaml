@@ -1,0 +1,53 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: document-format
+  title: 文書形式と互換性
+spec:
+  documentType: compatibility-policy
+  locale: ja
+  blocks:
+    - id: contract
+      type: rich-text
+      format: commonmark
+      content: |
+        ## 現在の互換性段階
+
+        `vellym.tasclub.com/v1alpha1`はprereleaseの既定生成形式である。
+        `vellym.tasclub.com/v1`はmigration検証に利用できるが、1.0 RCで凍結するまでは変更され得る。
+        Vellymは文書を自動migrationしない。
+
+        ## v1 resource envelope
+
+        - `apiVersion: vellym.tasclub.com/v1`
+        - `kind: Page`または`kind: Folder`
+        - `metadata`: identityと表示情報
+        - `spec`: resource内容
+
+        Page identityは小文字英数字とhyphenの`metadata.name`である。title、slug、path、filenameの
+        変更はidentityを暗黙変更しない。Pageは順序付き`spec.blocks`を持ち、v1はCommonMarkの
+        `rich-text`を定義する。未知blockと未知propertyは拡張点として保持する。
+
+        Folderは任意の`_index.yaml`で表す。`metadata.title`が表示名、`spec.description`と
+        `spec.order`は任意である。order entryは直下のfilenameまたはdirectory nameとする。
+
+        ## 公開schema
+
+        - [Page v1](https://vellym.tasclub.com/schemas/v1/page.schema.json)
+        - [Folder v1](https://vellym.tasclub.com/schemas/v1/folder.schema.json)
+        - [rich-text v1](https://vellym.tasclub.com/schemas/v1/rich-text-block.schema.json)
+        - [config 1.0](https://vellym.tasclub.com/schemas/config-v1.schema.json)
+
+        ## 保存とmigration
+
+        既知fieldの編集ではcomment、未知property、未知blockを保持する。alias、anchor、custom tag、
+        複数YAML documentは安全な往復を保証できないためread-onlyとする。
+
+        `vellym migrate --to v1 --plan`で確認後、`vellym migrate --to v1`を実行する。
+        migrationはsource hashを検査し、temporary file経由で書き、途中失敗時は書込済みfileを戻す。
+        Git操作は行わないため、適用前に利用者がcommitまたはbackupする。
+
+        ## 1.0の公開安定境界
+
+        v1 YAML、config schema 1.0、公開CLIのcommand／option／exit code、公開JSON envelopeを対象とする。
+        内部workspace package、browser-server HTTP endpoint、生成SPA data、CSS／DOMは公開APIに含めない。

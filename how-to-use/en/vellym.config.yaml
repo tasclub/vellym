@@ -1,0 +1,6 @@
+schemaVersion: "1.0"
+contentRoot: content
+outputDir: dist
+ui:
+  language: en
+plugins: []

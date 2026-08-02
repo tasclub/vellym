@@ -1,0 +1,47 @@
+{
+  "name": "vellym",
+  "version": "0.1.0-alpha.2",
+  "description": "Git-native YAML documentation viewer and editor",
+  "keywords": [
+    "documentation",
+    "yaml",
+    "git",
+    "docs-as-code",
+    "source-of-truth",
+    "markdown",
+    "static-site",
+    "cli",
+    "ai-agents"
+  ],
+  "license": "MIT",
+  "author": "tasclub",
+  "homepage": "https://vellym.tasclub.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tasclub/vellym.git",
+    "directory": "packages/vellym"
+  },
+  "bugs": {
+    "url": "https://github.com/tasclub/vellym/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "bin": {
+    "vellym": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@inquirer/prompts": "^8.5.2"
+  },
+  "devDependencies": {
+    "@vellym-internal/core": "*",
+    "@vellym-internal/runtime-node": "*",
+    "@vellym-internal/ui-react": "*"
+  }
+}

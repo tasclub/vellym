@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage guide
+    url: https://vellym.tasclub.com/
+    about: Check the guide and current limitations before filing an issue.

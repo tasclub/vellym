@@ -1,0 +1,23 @@
+name: Template request
+description: Propose a new or improved setup template.
+title: "template: "
+labels: [templates]
+body:
+  - type: input
+    id: audience
+    attributes:
+      label: Intended user
+    validations:
+      required: true
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decisions this template should support
+    validations:
+      required: true
+  - type: textarea
+    id: structure
+    attributes:
+      label: Suggested headings and completion criteria
+    validations:
+      required: true
