@@ -14,7 +14,7 @@ import {
 import path from "node:path";
 import { parseDocument, stringify } from "yaml";
 import {
-  API_VERSION,
+  STABLE_API_VERSION,
   SUPPORTED_API_VERSIONS,
   validatePage
 } from "@vellym-internal/core";
@@ -770,7 +770,7 @@ export async function planStructureChange(
 function pageSource(pageId: string, slug: string, title: string): string {
   return stringify(
     {
-      apiVersion: API_VERSION,
+      apiVersion: STABLE_API_VERSION,
       kind: "Page",
       metadata: { name: pageId, slug, title },
       spec: {
@@ -812,7 +812,7 @@ async function writeFolderMetadata(
     ? parseDocument(source, { keepSourceTokens: true })
     : parseDocument(
         stringify({
-          apiVersion: API_VERSION,
+          apiVersion: STABLE_API_VERSION,
           kind: "Folder",
           metadata: { title: path.basename(directory) || "文書" },
           spec: {}

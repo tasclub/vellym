@@ -21,7 +21,7 @@ spec:
         一つのYAMLファイルが一つのPageに対応する。最小の構造は次のとおり。
 
         ```yaml
-        apiVersion: vellym.tasclub.com/v1alpha1
+        apiVersion: vellym.tasclub.com/v1
         kind: Page
         metadata:
           name: getting-started
@@ -89,7 +89,7 @@ spec:
         ディレクトリの表示順は、そのディレクトリの`_index.yaml`（`kind: Folder`）で定義する。
 
         ```yaml
-        apiVersion: vellym.tasclub.com/v1alpha1
+        apiVersion: vellym.tasclub.com/v1
         kind: Folder
         metadata:
           title: 利用ガイド

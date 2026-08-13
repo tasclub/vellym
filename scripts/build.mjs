@@ -1,6 +1,7 @@
 import { chmod, cp, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { build } from "esbuild";
+import { generateThirdPartyNotices } from "./third-party-notices.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const output = path.join(root, "packages/vellym/dist");
@@ -18,7 +19,7 @@ await build({
   bundle: true,
   platform: "node",
   format: "esm",
-  target: "node24",
+  target: "node22",
   define: {
     __VELLYM_VERSION__: JSON.stringify(version)
   },
@@ -37,3 +38,12 @@ await cp(
   path.join(output, "schemas"),
   { recursive: true }
 );
+const notices = await generateThirdPartyNotices(
+  root,
+  path.join(root, "packages/vellym/THIRD-PARTY-NOTICES.md")
+);
+if (notices.missing.length) {
+  process.stdout.write(
+    `THIRD-PARTY-NOTICES: ライセンス本文が見つからないpackage ${notices.missing.length}件: ${notices.missing.join(", ")}\n`
+  );
+}

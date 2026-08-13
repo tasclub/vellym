@@ -1,27 +1,49 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vellym.tasclub.com/schemas/v1alpha1/folder.schema.json",
+  "$id": "https://vellym.tasclub.com/schemas/folder.schema.json",
   "title": "Vellym Folder",
   "type": "object",
-  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
   "properties": {
-    "apiVersion": { "const": "vellym.tasclub.com/v1alpha1" },
-    "kind": { "const": "Folder" },
+    "apiVersion": {
+      "enum": [
+        "vellym.tasclub.com/v1alpha1",
+        "vellym.tasclub.com/v1"
+      ]
+    },
+    "kind": {
+      "const": "Folder"
+    },
     "metadata": {
       "type": "object",
-      "required": ["title"],
+      "required": [
+        "title"
+      ],
       "properties": {
-        "title": { "type": "string", "minLength": 1 }
+        "title": {
+          "type": "string",
+          "minLength": 1
+        }
       },
       "additionalProperties": true
     },
     "spec": {
       "type": "object",
       "properties": {
-        "description": { "type": "string" },
+        "description": {
+          "type": "string"
+        },
         "order": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "uniqueItems": true
         }
       },

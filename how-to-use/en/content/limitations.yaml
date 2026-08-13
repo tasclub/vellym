@@ -49,11 +49,18 @@ spec:
 
         - A static site cannot be served over `file://`; always serve it over HTTP
           ([Static Publishing and Self-Hosting](#page=self-hosting)).
-        - `dev` binds to `127.0.0.1` by default; mind the exposure when publishing externally.
+        - `dev` binds to `127.0.0.1` by default. Vellym has no authentication, so anyone who
+          can reach a `--host 0.0.0.0` server can read, edit, and restructure your documents.
+          Use it only on a trusted network.
         - Registry publishing, version pinning, and update procedures for the Docker image
           are not finalized.
-        - Explicit `v1alpha1` to `v1` migration is available, but the formal `v1` contract
-          may change until the release candidate.
+        - New documents are generated as `v1`. Existing `v1alpha1` documents keep working, and
+          explicit migration is available, but the formal `v1` contract may change until the
+          release candidate.
+        - Automated verification runs on Chromium (axe, keyboard, 320 CSS px, 200% text,
+          Japanese IME composition, CommonMark round-trip). Safari, Firefox, and screen
+          readers such as VoiceOver are **not verified** at this stage. Please report what
+          you find through the issue form.
 
         ## Related
 

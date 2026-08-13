@@ -13,9 +13,34 @@ spec:
       content: |
         ## Current compatibility stage
 
-        `vellym.tasclub.com/v1alpha1` is the default prerelease format.
-        `vellym.tasclub.com/v1` is available for migration testing, but may change until it is
-        frozen for the 1.0 release candidate. Vellym never migrates documents automatically.
+        `vellym.tasclub.com/v1` is the default format generated from beta onward, and may
+        change until it is frozen for the 1.0 release candidate.
+        `vellym.tasclub.com/v1alpha1` was the default during alpha and remains readable,
+        editable, and searchable. Vellym never migrates documents automatically; run
+        `vellym migrate --to v1` explicitly to move them.
+
+        ## How the format evolves
+
+        Vellym does not evolve the format by accumulating versions. The rules are:
+
+        1. **Additions never bump the version.** New block types and new optional `metadata`
+           or `spec` properties stay valid under the existing version. The schema allows
+           `additionalProperties` and preserves unknown blocks and properties, so an older
+           Vellym can still read a newer document.
+        2. **The version is bumped only for a breaking change**: a new required property,
+           a change in the meaning of an existing property, or a removal.
+        3. **Only one conversion step is provided**, from the immediately preceding version.
+           No direct v1-to-v3 conversion is written.
+        4. **At most two versions are supported at a time.** Once a new version ships, the
+           previous one is removed in the next major release.
+
+        As a result, Vellym ships a single Page schema rather than one per version.
+        `apiVersion` is not a record of when a file was generated; it declares how the file
+        should be read. The schema is split only when a version is genuinely structurally
+        different.
+
+        Published schema URLs remain version-specific and accept only that version's
+        `apiVersion`.
 
         ## v1 resource envelope
 

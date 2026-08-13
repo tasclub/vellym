@@ -8,22 +8,36 @@ const output = path.join(root, "dist/site");
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 
-const schemaTargets = [
-  ["v1alpha1", "page.schema.json", "page.schema.json"],
-  ["v1alpha1", "folder.schema.json", "folder.schema.json"],
-  ["v1alpha1", "rich-text-block.schema.json", "rich-text-block.schema.json"],
-  ["v1", "page.schema.json", "page-v1.schema.json"],
-  ["v1", "folder.schema.json", "folder-v1.schema.json"],
-  ["v1", "rich-text-block.schema.json", "rich-text-block.schema.json"]
+// 製品が持つschemaは版で分けず、apiVersionをenumで受ける1枚だけにしている。
+// 公開URLは版ごとに分かれているため、公開時にenumをその版のconstへ狭める。
+// 外部の検証ツールが/schemas/v1/page.schema.jsonでv1だけを検証できる状態を保つ。
+const schemaNames = [
+  "page.schema.json",
+  "folder.schema.json",
+  "rich-text-block.schema.json"
 ];
-for (const [version, targetName, sourceName] of schemaTargets) {
+for (const version of ["v1alpha1", "v1"]) {
   const directory = path.join(output, "schemas", version);
   await mkdir(directory, { recursive: true });
-  let source = await readFile(path.join(root, "packages/core/schemas", sourceName), "utf8");
-  if (version === "v1" && sourceName === "rich-text-block.schema.json") {
-    source = source.replace("/schemas/v1alpha1/", "/schemas/v1/");
+  for (const name of schemaNames) {
+    const schema = JSON.parse(
+      await readFile(path.join(root, "packages/core/schemas", name), "utf8")
+    );
+    schema.$id = `https://vellym.tasclub.com/schemas/${version}/${name}`;
+    const apiVersion = schema.properties?.apiVersion;
+    if (apiVersion?.enum) {
+      const value = `vellym.tasclub.com/${version}`;
+      if (!apiVersion.enum.includes(value)) {
+        throw new Error(`${name} does not support ${value}`);
+      }
+      schema.properties.apiVersion = { const: value };
+    }
+    await writeFile(
+      path.join(directory, name),
+      `${JSON.stringify(schema, null, 2)}\n`,
+      "utf8"
+    );
   }
-  await writeFile(path.join(directory, targetName), source, "utf8");
 }
 await cp(
   path.join(root, "packages/core/schemas/config.schema.json"),

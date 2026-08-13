@@ -24,7 +24,7 @@ spec:
         1. **プロジェクトを初期化する**（対話形式）
 
            ```bash
-           npx vellym@alpha init
+           npx vellym@beta init
            ```
 
            言語、content root、初期profile、作成する文書を対話で選ぶと、`vellym.config.yaml`
@@ -33,7 +33,7 @@ spec:
         2. **開発サーバーを起動する**
 
            ```bash
-           npx vellym@alpha dev
+           npx vellym@beta dev
            ```
 
            既定で `http://127.0.0.1:4173` にバインドする。起動時に表示されるURLを

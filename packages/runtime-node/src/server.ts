@@ -78,6 +78,67 @@ async function readJson(request: AsyncIterable<Uint8Array>): Promise<unknown> {
   }
 }
 
+// UI bundleが実際に含みうる拡張子だけを持つ。未知の拡張子は
+// text/htmlとして解釈させず、ダウンロード扱いになる既定値へ落とす。
+const CONTENT_TYPES = new Map<string, string>([
+  [".html", "text/html; charset=utf-8"],
+  [".js", "text/javascript; charset=utf-8"],
+  [".mjs", "text/javascript; charset=utf-8"],
+  [".css", "text/css; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"],
+  [".map", "application/json; charset=utf-8"],
+  [".txt", "text/plain; charset=utf-8"],
+  [".svg", "image/svg+xml"],
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".gif", "image/gif"],
+  [".webp", "image/webp"],
+  [".avif", "image/avif"],
+  [".ico", "image/x-icon"],
+  [".woff", "font/woff"],
+  [".woff2", "font/woff2"],
+  [".ttf", "font/ttf"],
+  [".otf", "font/otf"]
+]);
+
+function contentTypeFor(extension: string): string {
+  return CONTENT_TYPES.get(extension) ?? "application/octet-stream";
+}
+
+export function isLoopbackHost(host: string): boolean {
+  return host === "127.0.0.1" || host === "::1" || host === "localhost";
+}
+
+// Hostヘッダのhost部分だけを取り出す。"127.0.0.1:4173"→"127.0.0.1"、
+// "[::1]:4173"→"[::1]"。portは許可判定に使わない。
+function hostName(header: string | undefined): string {
+  const value = (header ?? "").trim().toLowerCase();
+  if (value.startsWith("[")) {
+    const end = value.indexOf("]");
+    return end < 0 ? value : value.slice(0, end + 1);
+  }
+  const separator = value.indexOf(":");
+  return separator < 0 ? value : value.slice(0, separator);
+}
+
+// loopbackへbindしている間は、DNS rebindingで外部サイトから
+// ローカルのAPIへ到達されないようHostを限定する。
+// 利用者が明示的に外部bindを選んだ場合は到達に使うhost名を決められないため、
+// 起動時の警告へ委ねて許可する。
+function assertAllowedHost(
+  header: string | undefined,
+  allowed: ReadonlySet<string>
+): void {
+  if (!allowed.size) return;
+  if (allowed.has(hostName(header))) return;
+  throw new RuntimeError(
+    "許可されていないHostです",
+    403,
+    "HOST"
+  );
+}
+
 function assertAllowedOrigin(
   method: string | undefined,
   origin: string | undefined,
@@ -246,6 +307,9 @@ export async function startDevServer(options: {
   port: number;
 }): Promise<{ url: string; close(): Promise<void> }> {
   const host = options.host ?? "127.0.0.1";
+  const allowedHosts: ReadonlySet<string> = isLoopbackHost(host)
+    ? new Set(["localhost", "127.0.0.1", "[::1]", host.toLowerCase()])
+    : new Set<string>();
   const configPath = path.resolve(options.configPath);
   const projectRoot = path.dirname(configPath);
   let loadedConfig: LoadedConfig | undefined;
@@ -402,6 +466,7 @@ export async function startDevServer(options: {
   const server = createServer(async (request, response) => {
     try {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
+      assertAllowedHost(request.headers.host, allowedHosts);
       assertAllowedOrigin(
         request.method,
         request.headers.origin,
@@ -842,30 +907,34 @@ export async function startDevServer(options: {
       if (request.method !== "GET") {
         throw new RuntimeError("Not found", 404, "NOT_FOUND");
       }
-      const requested =
-        url.pathname === "/" ? "index.html" : url.pathname.slice(1);
+      let requested: string;
+      try {
+        requested =
+          url.pathname === "/" ? "index.html" : decodeURIComponent(url.pathname.slice(1));
+      } catch {
+        throw new RuntimeError("Not found", 404, "NOT_FOUND");
+      }
       const uiRoot = path.resolve(options.uiRoot);
       const candidate = path.resolve(uiRoot, requested);
       const filePath = isInside(uiRoot, candidate)
         ? candidate
         : path.join(uiRoot, "index.html");
+      const extension = path.extname(filePath).toLowerCase();
       let body: Buffer;
       let served = filePath;
       try {
         body = await readFile(filePath);
       } catch {
+        // 拡張子を持つ要求はアセットとして扱い、SPAのindex.htmlで代替しない。
+        // 代替するとimageやfontの取得失敗が200のHTMLとして返り、原因が分からなくなる。
+        if (extension && extension !== ".html") {
+          throw new RuntimeError("Not found", 404, "NOT_FOUND");
+        }
         served = path.join(uiRoot, "index.html");
         body = await readFile(served);
       }
-      const extension = path.extname(served);
-      const contentType =
-        extension === ".js"
-          ? "text/javascript"
-          : extension === ".css"
-            ? "text/css"
-            : "text/html";
       response.writeHead(200, {
-        "Content-Type": `${contentType}; charset=utf-8`
+        "Content-Type": contentTypeFor(path.extname(served).toLowerCase())
       });
       response.end(body);
     } catch (error) {

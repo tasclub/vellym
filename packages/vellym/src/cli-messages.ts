@@ -16,6 +16,7 @@ export interface CliMessages {
   optionNeedsValue(name: string): string;
   validateSummary(pages: number, diagnostics: number): string;
   hostInvalid(): string;
+  externalBindWarning(): string;
   portInvalid(): string;
   languageInvalid(): string;
   unknownCommand(command: string): string;
@@ -112,6 +113,8 @@ Options:
   validateSummary: (pages, diagnostics) =>
     `検証結果: ${pages}ページ、診断${diagnostics}件`,
   hostInvalid: () => "--hostは127.0.0.1または0.0.0.0を指定してください",
+  externalBindWarning: () =>
+    "警告: 外部bind(0.0.0.0)で起動しました。Vellymに認証はなく、到達できる相手は文書の閲覧・編集・構成変更ができます。信頼できるネットワークだけで使用してください。",
   portInvalid: () => "--portは1から65535の整数で指定してください",
   languageInvalid: () => "--languageはjaまたはenを指定してください",
   unknownCommand: (command) => `不明なコマンドです: ${command}`,
@@ -209,6 +212,8 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   validateSummary: (pages, diagnostics) =>
     `Validation: ${pages} page(s), ${diagnostics} diagnostic(s)`,
   hostInvalid: () => "--host must be 127.0.0.1 or 0.0.0.0",
+  externalBindWarning: () =>
+    "Warning: started with an external bind (0.0.0.0). Vellym has no authentication, so anyone who can reach this address can read, edit, and restructure your documents. Use it only on a trusted network.",
   portInvalid: () => "--port must be an integer between 1 and 65535",
   languageInvalid: () => "--language must be ja or en",
   unknownCommand: (command) => `Unknown command: ${command}`,

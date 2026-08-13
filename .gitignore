@@ -6,6 +6,8 @@ coverage/
 packages/*/dist/
 *.tgz
 *.tmp
+# ビルド時にpackage-lock.jsonから生成する
+packages/vellym/THIRD-PARTY-NOTICES.md
 .DS_Store
 testdocs
 docs/

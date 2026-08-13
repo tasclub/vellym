@@ -1,6 +1,6 @@
 {
   "name": "vellym",
-  "version": "0.1.0-alpha.2",
+  "version": "0.2.0-beta.1",
   "description": "Git-native YAML documentation viewer and editor",
   "keywords": [
     "documentation",
@@ -26,7 +26,7 @@
   },
   "type": "module",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.12.0"
   },
   "bin": {
     "vellym": "dist/cli.mjs"
@@ -34,7 +34,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md"
   ],
   "dependencies": {
     "@inquirer/prompts": "^8.5.2"
