@@ -14,6 +14,7 @@ import {
   type SetupPlan,
   type SetupProfileId
 } from "./api.js";
+import { errorMessage } from "./error-message.js";
 
 const profileChoices: Array<{
   id: string;
@@ -207,7 +208,7 @@ export function SetupWizard(props: {
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setMessage(error instanceof Error ? error.message : String(error));
+        setMessage(errorMessage(error, t));
       });
     return () => controller.abort();
   }, []);
@@ -279,7 +280,7 @@ export function SetupWizard(props: {
       }
       setPlan(next);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(errorMessage(error, t));
     } finally {
       setBusy(false);
     }
@@ -324,7 +325,7 @@ export function SetupWizard(props: {
         setMessage(t("wizard.error.conflict"));
         await refreshPlan();
       } else {
-        setMessage(error instanceof Error ? error.message : String(error));
+        setMessage(errorMessage(error, t));
       }
     } finally {
       setBusy(false);

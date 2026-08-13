@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   createEditorAdapter,
   type VellymEditorAdapter,
   type EditorStateSnapshot
 } from "./editor-adapter.js";
+import { errorMessage } from "./error-message.js";
 
 export function MilkdownBlockEditor(props: {
   value: string;
@@ -16,6 +18,7 @@ export function MilkdownBlockEditor(props: {
     state: EditorStateSnapshot
   ): void;
 }) {
+  const { t } = useTranslation();
   const rootRef = useRef<HTMLDivElement>(null);
   const callbacks = useRef(props);
   const [error, setError] = useState("");
@@ -54,7 +57,7 @@ export function MilkdownBlockEditor(props: {
       })
       .catch((reason: unknown) => {
         if (!disposed) {
-          setError(reason instanceof Error ? reason.message : String(reason));
+          setError(errorMessage(reason, t));
         }
       });
 

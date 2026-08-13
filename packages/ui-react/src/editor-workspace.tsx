@@ -22,6 +22,7 @@ import type {
 } from "./save-state.js";
 import { draftCopyText } from "./save-state.js";
 import { DocumentView } from "./view.js";
+import { errorMessage } from "./error-message.js";
 
 const FORMAT_ACTIONS: {
   command: EditorCommand;
@@ -518,7 +519,7 @@ export function EditorWorkspace(props: {
                   void props.onRenameFile(fileName)
                     .catch((error) => {
                       setFileError(
-                        error instanceof Error ? error.message : String(error)
+                        errorMessage(error, t)
                       );
                     })
                     .finally(() => setFileBusy(false));

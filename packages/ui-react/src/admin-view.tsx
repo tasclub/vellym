@@ -15,6 +15,7 @@ import {
   type SlugMigrationPlan
 } from "./api.js";
 import styles from "./admin-view.module.css";
+import { errorMessage } from "./error-message.js";
 
 export function AdminView(props: {
   contentRoot: string;
@@ -50,7 +51,7 @@ export function AdminView(props: {
     try {
       setArchived((await fetchArchived()).data.entries);
     } catch (caught) {
-      setArchiveError(caught instanceof Error ? caught.message : String(caught));
+      setArchiveError(errorMessage(caught, t));
     } finally {
       setArchivedLoaded(true);
     }
@@ -77,7 +78,7 @@ export function AdminView(props: {
       await loadArchived();
       onConfigApplied();
     } catch (caught) {
-      setArchiveError(caught instanceof Error ? caught.message : String(caught));
+      setArchiveError(errorMessage(caught, t));
     } finally {
       setArchiveBusy(null);
     }
@@ -89,7 +90,7 @@ export function AdminView(props: {
     try {
       setPlan((await previewContentRoot(contentRoot)).data);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught, t));
     } finally {
       setBusy(false);
     }
@@ -105,7 +106,7 @@ export function AdminView(props: {
       props.onConfigApplied();
     } catch (caught) {
       setPlan(undefined);
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught, t));
     } finally {
       setBusy(false);
     }
@@ -120,7 +121,7 @@ export function AdminView(props: {
       props.onConfigApplied();
     } catch (caught) {
       setUiLanguage(props.language);
-      setLanguageError(caught instanceof Error ? caught.message : String(caught));
+      setLanguageError(errorMessage(caught, t));
     } finally {
       setLanguageBusy(false);
     }
@@ -133,7 +134,7 @@ export function AdminView(props: {
     try {
       setSlugPlan((await previewSlugMigration()).data);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught, t));
     } finally {
       setBusy(false);
     }
@@ -150,7 +151,7 @@ export function AdminView(props: {
       props.onConfigApplied();
     } catch (caught) {
       setSlugPlan(undefined);
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught, t));
     } finally {
       setBusy(false);
     }

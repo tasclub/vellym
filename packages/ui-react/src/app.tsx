@@ -48,6 +48,7 @@ import {
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog.js";
 import { WorkspaceShell } from "./workspace-shell.js";
 import { setUiLanguage } from "./i18n.js";
+import { errorMessage } from "./error-message.js";
 
 function locationFromHash(): { page?: string; heading?: string } {
   const values = new URLSearchParams(window.location.hash.slice(1));
@@ -151,7 +152,7 @@ export function App() {
       setBootstrapError("");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      setBootstrapError(error instanceof Error ? error.message : String(error));
+      setBootstrapError(errorMessage(error, t));
     }
   }
 
@@ -181,7 +182,7 @@ export function App() {
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(errorMessage(error, t));
     }
   }
 
@@ -216,7 +217,7 @@ export function App() {
       applyView(next);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(errorMessage(error, t));
     }
   }
 
@@ -643,7 +644,7 @@ export function App() {
       acceptStructureResult(plan, result);
       setMessage(t("app.structureSaved"));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(errorMessage(error, t));
     }
   }
 
@@ -767,7 +768,7 @@ export function App() {
         return false;
       }
       setSaveState("failure");
-      setSaveError(error instanceof Error ? error.message : String(error));
+      setSaveError(errorMessage(error, t));
       return false;
     }
   }
@@ -1065,7 +1066,7 @@ export function App() {
                   setMessage(t("app.structureUndone"));
                 })
                 .catch((error) => {
-                  setMessage(error instanceof Error ? error.message : String(error));
+                  setMessage(errorMessage(error, t));
                 });
             }}
           >

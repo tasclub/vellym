@@ -338,6 +338,11 @@ plugins: []
       const rebound = await requestWithHost(server.url, "attacker.example");
       expect(rebound.status).toBe(403);
       expect(
+        (await fetch(`${server.url}/api/v1/bootstrap`)).headers.get(
+          "x-content-type-options"
+        )
+      ).toBe("nosniff");
+      expect(
         (JSON.parse(rebound.body) as { diagnostics: Array<{ code: string }> })
           .diagnostics[0]?.code
       ).toBe("HOST");
@@ -382,6 +387,10 @@ plugins: []
       const index = await fetch(`${server.url}/`);
       expect(index.status).toBe(200);
       expect(index.headers.get("content-type")).toBe("text/html; charset=utf-8");
+      // Content-Typeを厳密化した意味を保つため、推測を禁止する。
+      expect(index.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(index.headers.get("x-frame-options")).toBe("DENY");
+      expect(index.headers.get("referrer-policy")).toBe("no-referrer");
       const svg = await fetch(`${server.url}/icon.svg`);
       expect(svg.status).toBe(200);
       expect(svg.headers.get("content-type")).toBe("image/svg+xml");
