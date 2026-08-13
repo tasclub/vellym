@@ -13,6 +13,7 @@ import {
 import { Icon } from "./icon.js";
 import { fetchSearch } from "./api.js";
 import styles from "./search-dialog.module.css";
+import { errorMessage } from "./error-message.js";
 
 export function SearchDialog(props: {
   isOpen: boolean;
@@ -53,7 +54,7 @@ export function SearchDialog(props: {
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError") return;
           setState("error");
-          setMessage(error instanceof Error ? error.message : String(error));
+          setMessage(errorMessage(error, t));
         });
     }, 180);
     return () => {

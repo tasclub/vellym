@@ -180,12 +180,16 @@ export interface StructureUndoPlan {
 }
 
 export class ApiError extends Error {
+  // serverが返す安定した識別子。表示文言はUI側でこのcodeから引く。
+  readonly code: string | undefined;
+
   constructor(
     message: string,
     public readonly status: number,
     public readonly diagnostics: Diagnostic[]
   ) {
     super(message);
+    this.code = diagnostics[0]?.code;
   }
 }
 
