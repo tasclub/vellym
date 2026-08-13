@@ -59,6 +59,11 @@ name instead of recreating the tag and release.
 
 ## Design boundaries
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how the packages fit together, which
+boundaries `tests/architecture.test.ts` enforces, and where to make a given change.
+
+The short version:
+
 - YAML under the configured content root is the source of truth.
 - Preserve comments, unknown keys, and unknown blocks when changing known fields.
 - Do not write outside the configured project root or silently overwrite external changes.
