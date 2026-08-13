@@ -13,7 +13,7 @@ spec:
       content: |
         ## Prerequisites
 
-        - **Node.js 22 or 24** and **npm**.
+        - **Node.js 22.12 or later** and **npm** (verified on the 22 and 24 lines).
         - If you would rather not install Node.js on the host, there is a Docker path
           ([Static Publishing and Self-Hosting](#page=self-hosting)).
 

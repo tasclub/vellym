@@ -8,7 +8,9 @@
 
 ## Development
 
-Vellym requires Node.js 22 or 24 and npm.
+Vellym requires Node.js 22.12 or later and npm. CI verifies the current 22 and 24
+release lines. Versions below 22.12 cannot load JSON modules reliably and are not
+supported.
 
 ```bash
 npm ci
