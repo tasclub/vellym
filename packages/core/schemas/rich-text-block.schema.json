@@ -1,17 +1,28 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vellym.tasclub.com/schemas/v1alpha1/rich-text-block.schema.json",
+  "$id": "https://vellym.tasclub.com/schemas/rich-text-block.schema.json",
   "title": "Vellym rich-text block",
   "type": "object",
-  "required": ["id", "type", "format", "content"],
+  "required": [
+    "id",
+    "type",
+    "format",
+    "content"
+  ],
   "properties": {
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
     },
-    "type": { "const": "rich-text" },
-    "format": { "const": "commonmark" },
-    "content": { "type": "string" }
+    "type": {
+      "const": "rich-text"
+    },
+    "format": {
+      "const": "commonmark"
+    },
+    "content": {
+      "type": "string"
+    }
   },
   "additionalProperties": true
 }

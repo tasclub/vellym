@@ -97,6 +97,16 @@ describe("published CLI shape", () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-migrate-"));
     expect(run(initArgs(root)).status).toBe(0);
     const config = path.join(root, "vellym.config.yaml");
+    // initはv1で生成するため、alpha時代のprojectをv1alpha1へ戻して再現する。
+    const welcome = path.join(root, "docs/ようこそ.yaml");
+    await writeFile(
+      welcome,
+      (await readFile(welcome, "utf8")).replace(
+        "apiVersion: vellym.tasclub.com/v1\n",
+        "apiVersion: vellym.tasclub.com/v1alpha1\n"
+      ),
+      "utf8"
+    );
     const preview = run(["migrate", "--to", "v1", "--config", config, "--plan", "--json"]);
     expect(preview.status).toBe(0);
     expect(JSON.parse(preview.stdout).data.files.length).toBeGreaterThan(0);

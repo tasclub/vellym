@@ -14,7 +14,7 @@ Vellym はその間を **Kubernetes マニフェスト風の型付き YAML（`ap
   arc42 / PMBOK は「保存形式」ではなく初期テンプレート（プロファイル）。
 - **中立な器** — 製品内へ AI モデル・AI チャット・AI 生成機能を組み込まない。ローカル完結でロックインなし。
 
-> alpha版。CLI は `init` / `dev` / `validate` / `build` / `migrate` を提供する。
+> beta版。CLI は `init` / `dev` / `validate` / `build` / `migrate` を提供する。
 
 ## クイックスタート
 
@@ -22,16 +22,20 @@ Vellym はその間を **Kubernetes マニフェスト風の型付き YAML（`ap
 
 ```bash
 # 空ディレクトリから対話セットアップ付きで起動
-npx vellym@alpha dev
+npx vellym@beta dev
 
 # もしくは CLI で初期化してから起動
-npx vellym@alpha init myproject --profile software-basic
+npx vellym@beta init myproject --profile software-basic
 cd myproject
-npx vellym@alpha dev
+npx vellym@beta dev
 ```
 
 `dev` は既定で `127.0.0.1` にバインドする。コンテナ内など外部から接続する場合のみ
 `--host 0.0.0.0` を明示する。起動後はブラウザで `http://127.0.0.1:4173` を開く。
+
+Vellym に認証はない。`--host 0.0.0.0` で起動したサーバーへ到達できる相手は、
+文書の閲覧・編集・構成変更ができる。信頼できるネットワークだけで使用すること。
+既定の loopback バインド中は、`Host` を `localhost` / `127.0.0.1` / `[::1]` に限定する。
 
 ## コマンド
 
@@ -62,7 +66,7 @@ CLI は初期化全体を中止し、既存ファイルを上書き・削除し�
 ## 正本の形（例）
 
 ```yaml
-apiVersion: vellym.tasclub.com/v1alpha1
+apiVersion: vellym.tasclub.com/v1
 kind: Page
 metadata:
   name: project-charter
@@ -133,7 +137,7 @@ MIT © tasclub
 
 - 利用ガイド: <https://vellym.tasclub.com/>
 - 不具合・要望: <https://github.com/tasclub/vellym/issues/new/choose>
-- 変更履歴: <https://github.com/tasclub/vellym/releases>
+- 変更履歴: [CHANGELOG.md](CHANGELOG.md)
 - 開発参加: [CONTRIBUTING.md](CONTRIBUTING.md)
 - セキュリティ: [SECURITY.md](SECURITY.md)
 - 文書形式と互換性: <https://vellym.tasclub.com/#page=document-format>

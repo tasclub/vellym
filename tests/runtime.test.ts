@@ -5,6 +5,7 @@ import {
   readdir,
   writeFile
 } from "node:fs/promises";
+import { request } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { mkdtemp } from "node:fs/promises";
@@ -43,6 +44,37 @@ spec:
       payload:
         preserved: true
 `;
+}
+
+// fetchはHostヘッダを差し替えられないため、Host検証の確認だけnode:httpで送る。
+function requestWithHost(
+  serverUrl: string,
+  host: string
+): Promise<{ status: number; body: string }> {
+  const target = new URL("/api/v1/bootstrap", serverUrl);
+  return new Promise((resolve, reject) => {
+    const call = request(
+      {
+        hostname: target.hostname,
+        port: target.port,
+        path: target.pathname,
+        method: "GET",
+        headers: { Host: host }
+      },
+      (response) => {
+        let body = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk: string) => {
+          body += chunk;
+        });
+        response.on("end", () =>
+          resolve({ status: response.statusCode ?? 0, body })
+        );
+      }
+    );
+    call.on("error", reject);
+    call.end();
+  });
 }
 
 async function fixture(): Promise<string> {
@@ -274,6 +306,96 @@ plugins: []
     }
   });
 
+  it("limits the Host header while bound to loopback", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-host-"));
+    const root = path.join(project, "docs/content");
+    await mkdir(root, { recursive: true });
+    await writeFile(path.join(root, "page.yaml"), source(), "utf8");
+    const configPath = path.join(project, "vellym.config.yaml");
+    await writeFile(
+      configPath,
+      `schemaVersion: "1.0"
+contentRoot: docs/content
+outputDir: dist/vellym
+ui:
+  language: ja
+plugins: []
+`,
+      "utf8"
+    );
+    const ui = await mkdtemp(path.join(tmpdir(), "vellym-ui-host-"));
+    await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
+    const server = await startDevServer({
+      configPath,
+      uiRoot: ui,
+      host: "127.0.0.1",
+      port: 0
+    });
+    try {
+      expect((await fetch(`${server.url}/api/v1/bootstrap`)).status).toBe(200);
+      // DNS rebindingでは攻撃者のhost名でloopbackへ到達する。
+      // fetchはHostを差し替えられないため、node:httpで直接送る。
+      const rebound = await requestWithHost(server.url, "attacker.example");
+      expect(rebound.status).toBe(403);
+      expect(
+        (JSON.parse(rebound.body) as { diagnostics: Array<{ code: string }> })
+          .diagnostics[0]?.code
+      ).toBe("HOST");
+      const allowed = await requestWithHost(server.url, "localhost");
+      expect(allowed.status).toBe(200);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("serves UI assets with their own content type and 404s missing ones", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-assets-"));
+    const root = path.join(project, "docs/content");
+    await mkdir(root, { recursive: true });
+    await writeFile(path.join(root, "page.yaml"), source(), "utf8");
+    const configPath = path.join(project, "vellym.config.yaml");
+    await writeFile(
+      configPath,
+      `schemaVersion: "1.0"
+contentRoot: docs/content
+outputDir: dist/vellym
+ui:
+  language: ja
+plugins: []
+`,
+      "utf8"
+    );
+    const ui = await mkdtemp(path.join(tmpdir(), "vellym-ui-assets-"));
+    await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
+    await writeFile(
+      path.join(ui, "icon.svg"),
+      "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>",
+      "utf8"
+    );
+    const server = await startDevServer({
+      configPath,
+      uiRoot: ui,
+      host: "127.0.0.1",
+      port: 0
+    });
+    try {
+      const index = await fetch(`${server.url}/`);
+      expect(index.status).toBe(200);
+      expect(index.headers.get("content-type")).toBe("text/html; charset=utf-8");
+      const svg = await fetch(`${server.url}/icon.svg`);
+      expect(svg.status).toBe(200);
+      expect(svg.headers.get("content-type")).toBe("image/svg+xml");
+      // 存在しないアセットをindex.htmlで代替すると失敗が200のHTMLとして隠れる。
+      expect((await fetch(`${server.url}/missing.png`)).status).toBe(404);
+      // 拡張子のない経路はSPAのentryへ委ねる。
+      const route = await fetch(`${server.url}/settings`);
+      expect(route.status).toBe(200);
+      expect(route.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    } finally {
+      await server.close();
+    }
+  });
+
   it("starts uninitialized and becomes ready after browser setup", async () => {
     const project = await mkdtemp(
       path.join(tmpdir(), "vellym-server-setup-")
@@ -456,7 +578,7 @@ describe("setup plan and apply", () => {
     expect(folder).toContain("- yaml-guide.yaml");
     expect(
       await readFile(path.join(root, "docs/yaml-guide.yaml"), "utf8")
-    ).toContain("apiVersion: vellym.tasclub.com/v1alpha1");
+    ).toContain("apiVersion: vellym.tasclub.com/v1");
   });
 
   it("creates a valid empty root when every optional Page is deselected", async () => {

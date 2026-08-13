@@ -26,7 +26,7 @@ spec:
         1. **Initialize a project** (interactive)
 
            ```bash
-           npx vellym@alpha init
+           npx vellym@beta init
            ```
 
            Choose language, content root, initial profile, and which documents to create.
@@ -36,7 +36,7 @@ spec:
         2. **Start the dev server**
 
            ```bash
-           npx vellym@alpha dev
+           npx vellym@beta dev
            ```
 
            Binds to `http://127.0.0.1:4173` by default. Open the URL printed at startup.

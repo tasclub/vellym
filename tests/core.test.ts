@@ -1,7 +1,10 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   API_VERSION,
   STABLE_API_VERSION,
+  SUPPORTED_API_VERSIONS,
   isVellymCandidate,
   knownRichTextBlocks,
   validatePage,
@@ -33,6 +36,22 @@ describe("page schema", () => {
     const stable = { ...page, apiVersion: STABLE_API_VERSION };
     expect(validatePage(stable, "page.yaml").page).toEqual(stable);
     expect(isVellymCandidate(stable)).toBe(true);
+  });
+
+  // schemaは1枚しか持たない。対応版はTS定数とschemaのenumの2箇所にあるため、
+  // 片方だけ増えるとPageを読めない・読めてはいけない版を通す事故になる。
+  it("keeps the schema apiVersion enum in sync with the supported versions", async () => {
+    for (const name of ["page.schema.json", "folder.schema.json"]) {
+      const schema = JSON.parse(
+        await readFile(
+          path.join(import.meta.dirname, "../packages/core/schemas", name),
+          "utf8"
+        )
+      ) as { properties: { apiVersion: { enum?: string[] } } };
+      expect(schema.properties.apiVersion.enum).toEqual([
+        ...SUPPORTED_API_VERSIONS
+      ]);
+    }
   });
 
   it("rejects a missing required title", () => {

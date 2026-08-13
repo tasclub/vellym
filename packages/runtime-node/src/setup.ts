@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { access, mkdir, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseDocument } from "yaml";
-import { validatePage } from "@vellym-internal/core";
+import { STABLE_API_VERSION, validatePage } from "@vellym-internal/core";
 import { loadConfig } from "./config.js";
 import { RuntimeError } from "./errors.js";
 import { loadRepository } from "./repository.js";
@@ -215,7 +215,7 @@ Vellym manages ordinary YAML files. It does not depend on a particular AI produc
 Pageは1ファイルに1件保存します。次は最小例です。
 
 \`\`\`yaml
-apiVersion: vellym.tasclub.com/v1alpha1
+apiVersion: ${STABLE_API_VERSION}
 kind: Page
 metadata:
   name: example-page
@@ -247,7 +247,7 @@ spec:
 Store one Page in each file. This is a minimal example.
 
 \`\`\`yaml
-apiVersion: vellym.tasclub.com/v1alpha1
+apiVersion: ${STABLE_API_VERSION}
 kind: Page
 metadata:
   name: example-page
@@ -500,7 +500,7 @@ function pageSource(
       : "文書ツリーの「＋」からページを作成し、「編集」で内容を変更できます。保存先は設定から変更できます。Vellymは通常のYAMLファイルへ保存し、自動でcommitしません。"
     : text?.description ?? template.description;
   const body = guideBody(template.id, language) ?? `## ${heading}\n\n${description}`;
-  return `apiVersion: vellym.tasclub.com/v1alpha1\nkind: Page\nmetadata:\n  name: ${pageId}\n  slug: ${slug}\n  title: ${title}\nspec:\n  documentType: ${template.documentType}\n  locale: ${language}\n  blocks:\n    - id: body\n      type: rich-text\n      format: commonmark\n      content: |\n${body.split("\n").map((line) => `        ${line}`).join("\n")}\n`;
+  return `apiVersion: ${STABLE_API_VERSION}\nkind: Page\nmetadata:\n  name: ${pageId}\n  slug: ${slug}\n  title: ${title}\nspec:\n  documentType: ${template.documentType}\n  locale: ${language}\n  blocks:\n    - id: body\n      type: rich-text\n      format: commonmark\n      content: |\n${body.split("\n").map((line) => `        ${line}`).join("\n")}\n`;
 }
 
 export interface SetupPlan {
@@ -634,7 +634,7 @@ function folderSource(title: string, order: string[]): string {
   const orderSource = order.length
     ? `\n${order.map((item) => `    - ${item}`).join("\n")}`
     : " []";
-  return `apiVersion: vellym.tasclub.com/v1alpha1\nkind: Folder\nmetadata:\n  title: ${title}\nspec:\n  order:${orderSource}\n`;
+  return `apiVersion: ${STABLE_API_VERSION}\nkind: Folder\nmetadata:\n  title: ${title}\nspec:\n  order:${orderSource}\n`;
 }
 
 function rootChildrenForPlan(plan: SetupPlan): string[] {

@@ -88,6 +88,11 @@ describe("structure plan and apply", () => {
     expect(repository.folders.some((folder) =>
       folder.path === "新しいフォルダ"
     )).toBe(true);
+
+    // 新規作成は安定版のapiVersionで書き出す。v1alpha1の既存Pageは読めるままにする。
+    expect(
+      await readFile(path.join(root, "新しいフォルダ/新しいページ.yaml"), "utf8")
+    ).toContain("apiVersion: vellym.tasclub.com/v1\n");
   });
 
   it("updates folder metadata and explicit child order", async () => {
@@ -112,6 +117,7 @@ describe("structure plan and apply", () => {
     await applyStructureChange(root, order);
 
     const source = await readFile(path.join(root, "existing/_index.yaml"), "utf8");
+    expect(source).toContain("apiVersion: vellym.tasclub.com/v1\n");
     expect(source).toContain("title: 表示名");
     expect(source).toContain("description: 説明");
     expect(source.indexOf("second.yaml")).toBeLessThan(source.indexOf("page.yaml"));

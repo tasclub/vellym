@@ -13,9 +13,28 @@ spec:
       content: |
         ## 現在の互換性段階
 
-        `vellym.tasclub.com/v1alpha1`はprereleaseの既定生成形式である。
-        `vellym.tasclub.com/v1`はmigration検証に利用できるが、1.0 RCで凍結するまでは変更され得る。
-        Vellymは文書を自動migrationしない。
+        `vellym.tasclub.com/v1`はbeta以降の既定生成形式である。1.0 RCで凍結するまでは
+        変更され得る。`vellym.tasclub.com/v1alpha1`はalphaの既定生成形式で、
+        読み込み・編集・検索は引き続き利用できる。
+        Vellymは文書を自動migrationしない。`v1`へ移す場合は`vellym migrate --to v1`を
+        明示的に実行する。
+
+        ## 形式を進化させる規則
+
+        Vellymは版を増やすことで形式を進化させない。次の規則で運用する。
+
+        1. **追加は版を上げない。** 新しいblock種別、任意の`metadata`／`spec`項目の追加は、
+           既存の版のままで有効である。schemaは`additionalProperties`を許可し、
+           未知blockと未知propertyを保持するため、古いVellymも新しい文書を読める。
+        2. **版を上げるのは破壊的変更のときだけ。** 必須項目の追加、既存項目の意味変更、削除が対象。
+        3. **変換は直前の版からの一段だけ**を提供する。v1からv3への直接変換は作らない。
+        4. **同時にサポートする版は2つまで**とし、次の版を出した後、前の版は次のmajorで削除する。
+
+        この規則の結果、Vellymが持つPage schemaは版ごとに分かれておらず1枚である。
+        `apiVersion`は「いつ生成したか」の記録ではなく「この文書をどう読むか」の宣言であり、
+        構造が実際に異なる版を導入したときに初めてschemaを分割する。
+
+        公開schemaのURLは版ごとに分かれており、その版の`apiVersion`だけを受け付ける。
 
         ## v1 resource envelope
 

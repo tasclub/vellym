@@ -2,11 +2,9 @@ import * as Ajv2020Module from "ajv/dist/2020.js";
 import * as addFormatsModule from "ajv-formats";
 import type { ErrorObject, Options, ValidateFunction } from "ajv";
 import pageSchema from "../schemas/page.schema.json" with { type: "json" };
-import pageV1Schema from "../schemas/page-v1.schema.json" with { type: "json" };
 import richTextSchema from "../schemas/rich-text-block.schema.json" with { type: "json" };
 import configSchema from "../schemas/config.schema.json" with { type: "json" };
 import {
-  STABLE_API_VERSION,
   SUPPORTED_API_VERSIONS,
   type Diagnostic,
   type VellymConfig,
@@ -20,7 +18,6 @@ const Ajv2020 = Ajv2020Module.default as unknown as new (options?: Options) => {
 
 interface Validators {
   page: ValidateFunction<Page>;
-  pageV1: ValidateFunction<Page>;
   richText: ValidateFunction<RichTextBlock>;
   config: ValidateFunction<VellymConfig>;
 }
@@ -37,7 +34,6 @@ function getValidators(): Validators {
   addFormats(ajv);
   validators = {
     page: ajv.compile<Page>(pageSchema),
-    pageV1: ajv.compile<Page>(pageV1Schema),
     richText: ajv.compile<RichTextBlock>(richTextSchema),
     config: ajv.compile<VellymConfig>(configSchema)
   };
@@ -99,16 +95,14 @@ export function isVellymCandidate(value: unknown): boolean {
   );
 }
 
+// Pageのschemaは版ごとに分けない。追加（新しいblock種別、optionalな項目）は
+// どの版でも同じschemaを通り、版を上げるのは破壊的変更のときだけとする。
+// 実際に構造が異なる版を導入したときに初めてschemaを分割する。
 export function validatePage(
   value: unknown,
   file: string
 ): { page?: Page; diagnostics: Diagnostic[] } {
-  const validators = getValidators();
-  const validator =
-    value && typeof value === "object" &&
-    (value as Record<string, unknown>).apiVersion === STABLE_API_VERSION
-      ? validators.pageV1
-      : validators.page;
+  const validator = getValidators().page;
   if (!validator(value)) {
     return {
       diagnostics: diagnosticsFromAjv(validator.errors, file, "PAGE_SCHEMA")

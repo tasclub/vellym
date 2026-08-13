@@ -4,6 +4,7 @@ import {
   loadConfig,
   loadRepository,
   applyMigration,
+  isLoopbackHost,
   pageSummaries,
   planMigration,
   setupManifest,
@@ -167,6 +168,9 @@ async function devCommand(args: string[]): Promise<void> {
     host,
     port
   });
+  if (!isLoopbackHost(host)) {
+    process.stderr.write(`${messages.externalBindWarning()}\n`);
+  }
   process.stdout.write(`Vellym: ${server.url}\n`);
   let closing = false;
   const close = async () => {
