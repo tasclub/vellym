@@ -46,6 +46,27 @@ for (const relativePath of documents) {
     );
   }
 }
+// enginesで宣言した最小Node.jsと、利用者向け文書の必須環境を一致させる。
+// 宣言だけ上げて文書が古いままだと、対象外の版でinstallさせてしまう。
+const engines = manifest.engines?.node ?? "";
+const engineMatch = engines.match(/^>=\s*(\d+)\.(\d+)/);
+if (!engineMatch) {
+  throw new Error(`engines.nodeを解釈できません: ${engines}`);
+}
+const requiredNode = `${engineMatch[1]}.${engineMatch[2]}`;
+const environmentDocuments = [
+  "../README.md",
+  "../how-to-use/ja/content/getting-started.yaml",
+  "../how-to-use/en/content/getting-started.yaml"
+];
+for (const relativePath of environmentDocuments) {
+  const source = await readFile(new URL(relativePath, import.meta.url), "utf8");
+  if (!source.includes(`Node.js ${requiredNode}`)) {
+    throw new Error(
+      `必須Node.jsの記載がenginesと一致しません: ${relativePath} に「Node.js ${requiredNode}」がありません（engines: ${engines}）`
+    );
+  }
+}
 process.stdout.write(
-  `release metadata verified: ${suppliedTag} (dist-tag: ${distTag})\n`
+  `release metadata verified: ${suppliedTag} (dist-tag: ${distTag}, node: >=${requiredNode})\n`
 );

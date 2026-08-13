@@ -13,7 +13,7 @@ spec:
       content: |
         ## 前提
 
-        - **Node.js 22または24** と **npm**。
+        - **Node.js 22.12以降** と **npm**（22・24系で動作確認済み）。
         - Node.jsをホストへ導入したくない場合は、Dockerを使う方法もある（[静的配信と自己ホスト](#page=self-hosting)）。
 
         以下は、開発リポジトリ内の生成済みCLI（`packages/vellym/dist/cli.mjs`）を
