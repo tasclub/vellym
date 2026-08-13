@@ -1,0 +1,150 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: document-format
+  title: 文書形式と互換性
+spec:
+  documentType: compatibility-policy
+  locale: ja
+  blocks:
+    - id: contract
+      type: rich-text
+      format: commonmark
+      content: |
+        ## 現在の互換性段階
+
+        `vellym.tasclub.com/v1`はbeta以降の既定生成形式である。1.0 RCで凍結するまでは
+        変更され得る。`vellym.tasclub.com/v1alpha1`はalphaの既定生成形式で、
+        読み込み・編集・検索は引き続き利用できる。
+        Vellymは文書を自動migrationしない。`v1`へ移す場合は`vellym migrate --to v1`を
+        明示的に実行する。
+
+        ## 形式を進化させる規則
+
+        Vellymは版を増やすことで形式を進化させない。次の規則で運用する。
+
+        1. **追加は版を上げない。** 新しいblock種別、任意の`metadata`／`spec`項目の追加は、
+           既存の版のままで有効である。schemaは`additionalProperties`を許可し、
+           未知blockと未知propertyを保持するため、古いVellymも新しい文書を読める。
+        2. **版を上げるのは破壊的変更のときだけ。** 必須項目の追加、既存項目の意味変更、削除が対象。
+        3. **変換は直前の版からの一段だけ**を提供する。v1からv3への直接変換は作らない。
+        4. **同時にサポートする版は2つまで**とし、次の版を出した後、前の版は次のmajorで削除する。
+
+        この規則の結果、Vellymが持つPage schemaは版ごとに分かれておらず1枚である。
+        `apiVersion`は「いつ生成したか」の記録ではなく「この文書をどう読むか」の宣言であり、
+        構造が実際に異なる版を導入したときに初めてschemaを分割する。
+
+        公開schemaのURLは版ごとに分かれており、その版の`apiVersion`だけを受け付ける。
+
+        ## v1 resource envelope
+
+        - `apiVersion: vellym.tasclub.com/v1`
+        - `kind: Page`または`kind: Folder`
+        - `metadata`: identityと表示情報
+        - `spec`: resource内容
+
+        Page identityは小文字英数字とhyphenの`metadata.name`である。title、slug、path、filenameの
+        変更はidentityを暗黙変更しない。Pageは順序付き`spec.blocks`を持ち、v1はCommonMarkの
+        `rich-text`を定義する。未知blockと未知propertyは拡張点として保持する。
+
+        Folderは任意の`_index.yaml`で表す。`metadata.title`が表示名、`spec.description`と
+        `spec.order`は任意である。order entryは直下のfilenameまたはdirectory nameとする。
+
+        ## 公開schema
+
+        - [Page v1](https://vellym.tasclub.com/schemas/v1/page.schema.json)
+        - [Folder v1](https://vellym.tasclub.com/schemas/v1/folder.schema.json)
+        - [rich-text v1](https://vellym.tasclub.com/schemas/v1/rich-text-block.schema.json)
+        - [config 1.0](https://vellym.tasclub.com/schemas/config-v1.schema.json)
+
+        ## 保存とmigration
+
+        既知fieldの編集ではcomment、未知property、未知blockを保持する。alias、anchor、custom tag、
+        複数YAML documentは安全な往復を保証できないためread-onlyとする。
+
+        `vellym migrate --to v1 --plan`で確認後、`vellym migrate --to v1`を実行する。
+        migrationはsource hashを検査し、temporary file経由で書き、途中失敗時は書込済みfileを戻す。
+        Git操作は行わないため、適用前に利用者がcommitまたはbackupする。
+
+        ## 1.0の公開安定境界
+
+        v1 YAML、config schema 1.0、公開CLIのcommand／option／exit code、公開JSON envelopeを対象とする。
+        内部workspace package、browser-server HTTP endpoint、生成SPA data、CSS／DOMは公開APIに含めない。
+  translations:
+    en:
+      visibility: published
+      title: Document format and compatibility
+      blocks:
+        - id: contract
+          type: rich-text
+          format: commonmark
+          content: |
+            ## Current compatibility stage
+
+            `vellym.tasclub.com/v1` is the default format generated from beta onward, and may
+            change until it is frozen for the 1.0 release candidate.
+            `vellym.tasclub.com/v1alpha1` was the default during alpha and remains readable,
+            editable, and searchable. Vellym never migrates documents automatically; run
+            `vellym migrate --to v1` explicitly to move them.
+
+            ## How the format evolves
+
+            Vellym does not evolve the format by accumulating versions. The rules are:
+
+            1. **Additions never bump the version.** New block types and new optional `metadata`
+               or `spec` properties stay valid under the existing version. The schema allows
+               `additionalProperties` and preserves unknown blocks and properties, so an older
+               Vellym can still read a newer document.
+            2. **The version is bumped only for a breaking change**: a new required property,
+               a change in the meaning of an existing property, or a removal.
+            3. **Only one conversion step is provided**, from the immediately preceding version.
+               No direct v1-to-v3 conversion is written.
+            4. **At most two versions are supported at a time.** Once a new version ships, the
+               previous one is removed in the next major release.
+
+            As a result, Vellym ships a single Page schema rather than one per version.
+            `apiVersion` is not a record of when a file was generated; it declares how the file
+            should be read. The schema is split only when a version is genuinely structurally
+            different.
+
+            Published schema URLs remain version-specific and accept only that version's
+            `apiVersion`.
+
+            ## v1 resource envelope
+
+            - `apiVersion: vellym.tasclub.com/v1`
+            - `kind: Page` or `kind: Folder`
+            - `metadata`: identity and display information
+            - `spec`: resource content
+
+            A Page identity is the lowercase alphanumeric and hyphen value in `metadata.name`.
+            Changing a title, slug, path, or filename does not implicitly change that identity.
+            A Page contains ordered `spec.blocks`; v1 defines CommonMark `rich-text` blocks.
+            Unknown blocks and properties are preserved as extension points.
+
+            A Folder is represented by an optional `_index.yaml`. `metadata.title` is its display
+            name, while `spec.description` and `spec.order` are optional. Each order entry is an
+            immediate filename or directory name.
+
+            ## Published schemas
+
+            - [Page v1](https://vellym.tasclub.com/schemas/v1/page.schema.json)
+            - [Folder v1](https://vellym.tasclub.com/schemas/v1/folder.schema.json)
+            - [rich-text v1](https://vellym.tasclub.com/schemas/v1/rich-text-block.schema.json)
+            - [config 1.0](https://vellym.tasclub.com/schemas/config-v1.schema.json)
+
+            ## Saving and migration
+
+            Editing known fields preserves comments, unknown properties, and unknown blocks.
+            Aliases, anchors, custom tags, and multiple YAML documents are read-only because safe
+            round trips cannot be guaranteed.
+
+            Review `vellym migrate --to v1 --plan` before running `vellym migrate --to v1`.
+            Migration checks source hashes, writes through temporary files, and restores written
+            files after a partial failure. It does not run Git, so commit or back up the project first.
+
+            ## Planned 1.0 stability boundary
+
+            The stability contract covers v1 Page and Folder YAML, config schema 1.0, public CLI
+            commands, options and exit codes, and public JSON envelopes. Internal workspace packages,
+            browser-server HTTP endpoints, generated SPA data, CSS, and DOM are not public APIs.

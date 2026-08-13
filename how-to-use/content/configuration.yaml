@@ -1,0 +1,126 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: configuration
+  title: 設定ファイル
+spec:
+  documentType: guide
+  locale: ja
+  blocks:
+    - id: configuration
+      type: rich-text
+      format: commonmark
+      content: |
+        ## vellym.config.yaml
+
+        プロジェクトの設定は、project root直下の`vellym.config.yaml`に置く。
+        既定のファイル名で、`--config`で別パスも指定できる（[CLIリファレンス](#page=cli-reference)）。
+
+        ```yaml
+        schemaVersion: "1.0"
+        contentRoot: content
+        outputDir: dist
+        ui:
+          language: ja
+        i18n:
+          defaultLocale: ja
+          displayNames:
+            ja: 日本語
+            en: English
+        static:
+          publicBaseUrl: https://docs.example.com/
+        plugins: []
+        ```
+
+        ## 各項目
+
+        | キー | 必須 | 型・値 | 説明 |
+        | --- | --- | --- | --- |
+        | `schemaVersion` | はい | `"1.0"` | 設定スキーマのバージョン。現在は`"1.0"`固定。 |
+        | `contentRoot` | はい | 文字列 | 正本YAMLを置くルートディレクトリ（project rootからの相対path）。`./`や`..`で始まる指定はできない。 |
+        | `outputDir` | はい | 文字列 | 静的サイト生成（`build`）の出力先の基準。 |
+        | `ui.language` | はい | `ja` \| `en` | Vellym自身のUI表示言語。`i18n.defaultLocale`省略時は文書の既定言語も兼ねる。 |
+        | `i18n.defaultLocale` | いいえ | locale文字列 | URLで言語を省略したときの文書言語。 |
+        | `i18n.displayNames` | いいえ | 文字列の対応表 | 言語切り替えに表示するlocale名を上書きする。 |
+        | `static.publicBaseUrl` | いいえ | `/`で終わるHTTPS URL | 静的HTMLのcanonicalとhreflangに使う公開URL。未指定時はそれらを出力しない。 |
+        | `plugins` | はい | 文字列の配列 | プラグイン指定。現段階では未実装のため空配列`[]`とする。 |
+
+        ## outputDirと生成先
+
+        `build`は、`outputDir`をそのまま出力先にするのではなく、`outputDir`の**親**
+        ディレクトリの下に、生成日時を付けた一意なフォルダを作る
+        （例: `20260728-143002-dist`）。これにより毎回の生成が上書きされずに残る。
+        配信・世代管理の詳細は[静的配信と自己ホスト](#page=self-hosting)を参照。
+
+        ## 言語と設定の関係
+
+        `ui.language`はVellym自身の表示言語であり、Pageの言語とは別である。
+        文書の既定言語は`i18n.defaultLocale`で指定する。省略時だけ、既存プロジェクトとの
+        互換性のため`ui.language`を既定言語として使う。追加言語はPage／Folderの
+        `spec.translations`から検出され、設定へ言語一覧を重複記載する必要はない。
+
+        ## 関連
+
+        - コマンド → [CLIリファレンス](#page=cli-reference)
+        - 文書の書き方 → [文書の書き方（YAML）](#page=authoring)
+  translations:
+    en:
+      visibility: published
+      title: Configuration File
+      blocks:
+        - id: configuration
+          type: rich-text
+          format: commonmark
+          content: |
+            ## vellym.config.yaml
+
+            Project configuration lives in `vellym.config.yaml` at the project root. That is
+            the default name; you can point to another path with `--config` ([CLI Reference](#page=cli-reference)).
+
+            ```yaml
+            schemaVersion: "1.0"
+            contentRoot: content
+            outputDir: dist
+            ui:
+              language: en
+            i18n:
+              defaultLocale: en
+              displayNames:
+                en: English
+                ja: 日本語
+            static:
+              publicBaseUrl: https://docs.example.com/
+            plugins: []
+            ```
+
+            ## Fields
+
+            | Key | Required | Type / value | Description |
+            | --- | --- | --- | --- |
+            | `schemaVersion` | yes | `"1.0"` | Config schema version. Fixed at `"1.0"` for now. |
+            | `contentRoot` | yes | string | Root directory of the source YAML (relative to project root). Cannot start with `./` or `..`. |
+            | `outputDir` | yes | string | Base for static site output (`build`). |
+            | `ui.language` | yes | `ja` \| `en` | Language of Vellym's own UI. Also acts as the document default only when `i18n.defaultLocale` is omitted. |
+            | `i18n.defaultLocale` | no | locale string | Document language used when the URL omits a locale. |
+            | `i18n.displayNames` | no | string map | Overrides locale names shown in the language switcher. |
+            | `static.publicBaseUrl` | no | HTTPS URL ending in `/` | Public URL used for static canonical and hreflang links. They are omitted when this setting is absent. |
+            | `plugins` | yes | array of strings | Plugin list. Not implemented at this stage; use an empty array `[]`. |
+
+            ## outputDir and generated output
+
+            `build` does not write into `outputDir` itself. Instead it creates a unique,
+            timestamped folder under the **parent** of `outputDir` (e.g. `20260728-143002-dist`).
+            This keeps each build without overwriting the previous one. See [Static Publishing and Self-Hosting](#page=self-hosting).
+
+            ## Language and configuration
+
+            `ui.language` controls Vellym's own interface and is separate from Page content.
+            Set the document default with `i18n.defaultLocale`. Only when it is absent does
+            Vellym use `ui.language` as the default for backward compatibility. Additional
+            locales are discovered from Page and Folder `spec.translations`; there is no
+            separate locale list to maintain in the config.
+
+            ## Related
+
+            - Commands → [CLI Reference](#page=cli-reference)
+            - Authoring documents → [Authoring Documents (YAML)](#page=authoring)

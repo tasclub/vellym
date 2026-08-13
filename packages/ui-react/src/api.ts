@@ -1,13 +1,16 @@
 import type {
   Diagnostic,
   FolderSummary,
+  FolderEditView,
   PageSummary,
+  PageEditView,
   PageView,
   SearchProjection
 } from "@vellym-internal/core";
 
 export interface Envelope<T> {
   schemaVersion: string;
+  buildId?: string;
   data: T;
   diagnostics: Diagnostic[];
 }
@@ -19,6 +22,11 @@ export interface BootstrapData {
     contentRoot: string;
     resolvedContentRoot: string;
     language: "ja" | "en";
+    defaultLocale: string;
+    requestedLocale: string;
+    resolvedLocale: string;
+    uiLocale: string;
+    availableLocales: string[];
     configPath: string;
   };
   capabilities: {
@@ -29,6 +37,14 @@ export interface BootstrapData {
     setup: boolean;
     live: boolean;
   };
+}
+
+export interface RepositoryData {
+  locale: string;
+  defaultLocale: string;
+  availableLocales: string[];
+  pages: PageSummary[];
+  folders: FolderSummary[];
 }
 
 export type SetupProfileId =
@@ -216,16 +232,29 @@ async function request<T>(
 
 declare global {
   interface Window {
-    __VELLYM_STATIC__?: { dataBase: string };
+    __VELLYM_STATIC__?: {
+      appBase: string;
+      assetBase: string;
+      dataBase: string;
+      buildId: string;
+      locale: string;
+      defaultLocale: string;
+    };
   }
 }
 
 // 静的配信では、同じSPAがHTTP APIの代わりにビルド時へ焼き込んだJSONを読む。
 // 静的index.htmlが window.__VELLYM_STATIC__ を注入している場合だけ静的経路になる。
 function staticBase(): string | undefined {
-  return typeof window !== "undefined"
-    ? window.__VELLYM_STATIC__?.dataBase
-    : undefined;
+  if (typeof window === "undefined" || !window.__VELLYM_STATIC__) return undefined;
+  const config = window.__VELLYM_STATIC__;
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(config.appBase)) {
+    const documentBase = document.baseURI;
+    config.appBase = new URL(config.appBase, documentBase).href;
+    config.assetBase = new URL(config.assetBase, documentBase).href;
+    config.dataBase = new URL(config.dataBase, documentBase).href.replace(/\/$/, "");
+  }
+  return config.dataBase;
 }
 
 async function fetchStatic<T>(base: string, file: string): Promise<Envelope<T>> {
@@ -243,15 +272,26 @@ async function fetchStatic<T>(base: string, file: string): Promise<Envelope<T>> 
       result.diagnostics
     );
   }
+  const expectedBuild = window.__VELLYM_STATIC__?.buildId;
+  if (expectedBuild && result.buildId !== expectedBuild) {
+    throw new ApiError("静的サイトのHTMLとデータの版が一致しません。再読み込みしてください", 409, [{
+      file: file,
+      severity: "error",
+      code: "STATIC_BUILD_MISMATCH",
+      message: "静的サイトのHTMLとデータのbuild IDが一致しません"
+    }]);
+  }
   return result as Envelope<T>;
 }
 
 export function fetchBootstrap(
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  locale?: string
 ): Promise<Envelope<BootstrapData>> {
   const base = staticBase();
   if (base) return fetchStatic<BootstrapData>(base, "bootstrap.json");
-  return request("/api/v1/bootstrap", { signal });
+  const query = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  return request(`/api/v1/bootstrap${query}`, { signal });
 }
 
 export function fetchSetupManifest(
@@ -282,16 +322,18 @@ export function applySetup(
 }
 
 export async function fetchPages(
-  signal?: AbortSignal
-): Promise<Envelope<{ pages: PageSummary[]; folders: FolderSummary[] }>> {
+  signal?: AbortSignal,
+  locale?: string
+): Promise<Envelope<RepositoryData>> {
   const base = staticBase();
   if (base) {
-    return fetchStatic<{ pages: PageSummary[]; folders: FolderSummary[] }>(
+    return fetchStatic<RepositoryData>(
       base,
       "repository.json"
     );
   }
-  return request("/api/v1/repository", { signal });
+  const query = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  return request(`/api/v1/repository${query}`, { signal });
 }
 
 export function previewContentRoot(
@@ -338,22 +380,42 @@ export function applySlugMigration(
   });
 }
 
-export async function fetchPage(
+export function fetchPage(
   name: string,
   signal?: AbortSignal
+): Promise<Envelope<PageView>>;
+export function fetchPage(
+  name: string,
+  signal: AbortSignal | undefined,
+  locale: string
+): Promise<Envelope<PageView>>;
+export async function fetchPage(
+  name: string,
+  signal?: AbortSignal,
+  locale?: string
 ): Promise<Envelope<PageView>> {
   const base = staticBase();
   if (base) {
     return fetchStatic<PageView>(base, `pages/${encodeURIComponent(name)}.json`);
   }
-  return request(`/api/v1/pages/${name}`, { signal });
+  const query = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  return request(`/api/v1/pages/${name}${query}`, { signal });
+}
+
+export function fetchPageEdit(
+  name: string,
+  signal?: AbortSignal
+): Promise<Envelope<PageEditView>> {
+  return request(`/api/v1/pages/${encodeURIComponent(name)}/edit`, { signal });
 }
 
 export function fetchSearch(
   query: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  locale?: string
 ): Promise<Envelope<SearchProjection>> {
-  return request(`/api/v1/search?q=${encodeURIComponent(query)}`, { signal });
+  const localeQuery = locale ? `&locale=${encodeURIComponent(locale)}` : "";
+  return request(`/api/v1/search?q=${encodeURIComponent(query)}${localeQuery}`, { signal });
 }
 
 export async function patchPage(
@@ -363,6 +425,19 @@ export async function patchPage(
     title?: string;
     slug?: string;
     richTextBlocks?: Array<{ id: string; content: string }>;
+    localeChanges?: Array<{
+      locale: string;
+      operation: "create" | "update";
+      baselineHash?: string;
+      visibility?: "draft" | "published";
+      initialize?:
+        | { type: "empty" }
+        | { type: "copy"; sourceLocale: string };
+      title?: string;
+      richTextBlocks?: Array<{ id: string; content: string }>;
+    }>;
+    removeLocales?: string[];
+    removeTranslationKeys?: string[];
   }
 ): Promise<Envelope<PageView>> {
   return request(`/api/v1/pages/${name}`, {
@@ -370,6 +445,37 @@ export async function patchPage(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch)
   });
+}
+
+export function patchFolder(patch: {
+  folderPath: string;
+  baseHash: string | null;
+  localeChanges: Array<{
+    locale: string;
+    operation: "create" | "update";
+    baselineHash?: string;
+    visibility?: "draft" | "published";
+    initialize?:
+      | { type: "empty" }
+      | { type: "copy"; sourceLocale: string };
+    title?: string;
+    description?: string | null;
+  }>;
+  removeLocales: string[];
+  removeTranslationKeys?: string[];
+}): Promise<Envelope<FolderSummary>> {
+  return request("/api/v1/folders", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch)
+  });
+}
+
+export function fetchFolderEdit(
+  folderPath: string,
+  signal?: AbortSignal
+): Promise<Envelope<FolderEditView>> {
+  return request(`/api/v1/folders/edit?path=${encodeURIComponent(folderPath)}`, { signal });
 }
 
 export function fetchArchived(): Promise<Envelope<{ entries: ArchivedEntry[] }>> {

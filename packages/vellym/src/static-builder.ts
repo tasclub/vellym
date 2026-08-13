@@ -12,11 +12,18 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Diagnostic } from "@vellym-internal/core";
 import {
+  localeUrlSegment,
+  publishedPageLocales,
+  resolveDefaultLocale,
+  type Diagnostic
+} from "@vellym-internal/core";
+import {
+  localizedFolderSummaries,
+  localizedPage,
+  localizedPageSummaries,
   loadConfig,
-  loadRepository,
-  pageSummaries
+  loadRepository
 } from "@vellym-internal/runtime-node";
 import { VELLYM_VERSION } from "./version.js";
 
@@ -29,8 +36,8 @@ export interface StaticBuildResult {
   message: string;
 }
 
-function envelope<T>(data: T, diagnostics: Diagnostic[] = []) {
-  return { schemaVersion: SCHEMA_VERSION, data, diagnostics };
+function envelope<T>(data: T, buildId: string, diagnostics: Diagnostic[] = []) {
+  return { schemaVersion: SCHEMA_VERSION, buildId, data, diagnostics };
 }
 
 // CLIバンドル(dist/cli.mjs)と同じ dist に同梱されるSPAクライアント束の場所。
@@ -39,12 +46,57 @@ function uiRoot(): string {
 }
 
 // 静的配信では、同じSPAがHTTP APIではなく焼き込みJSONを読む。その印をindex.htmlへ注入する。
-function injectStaticMarker(html: string, language: "ja" | "en"): string {
-  const marker = `<script>window.__VELLYM_STATIC__={dataBase:"./data"};</script>`;
-  const localized = html.replace(/<html lang="[^"]*">/, `<html lang="${language}">`);
-  return localized.includes("</head>")
-    ? localized.replace("</head>", `${marker}</head>`)
-    : `${marker}${localized}`;
+function relativeBase(depth: number): string {
+  return depth === 0 ? "./" : "../".repeat(depth);
+}
+
+function injectStaticMarker(html: string, options: {
+  locale: string;
+  defaultLocale: string;
+  depth: number;
+  buildId: string;
+  canonical?: string;
+  alternates?: Array<{ locale: string; href: string }>;
+}): string {
+  const base = relativeBase(options.depth);
+  const marker = `<script>window.__VELLYM_STATIC__=${JSON.stringify({
+    appBase: base,
+    assetBase: `${base}assets`,
+    dataBase: `${base}data/${options.buildId}/${localeUrlSegment(options.locale)}`,
+    buildId: options.buildId,
+    locale: options.locale,
+    defaultLocale: options.defaultLocale
+  }).replaceAll("<", "\\u003c")};</script>`;
+  const links = [
+    ...(options.canonical ? [`<link rel="canonical" href="${options.canonical}">`] : []),
+    ...(options.alternates ?? []).map(({ locale, href }) =>
+      `<link rel="alternate" hreflang="${locale}" href="${href}">`
+    )
+  ].join("");
+  return html
+    .replace(/<html lang="[^"]*"(?: dir="[^"]*")?>/, `<html lang="${options.locale}" dir="${direction(options.locale)}">`)
+    .replaceAll('href="./assets/', `href="${base}assets/`)
+    .replaceAll('src="./assets/', `src="${base}assets/`)
+    .replace('href="./favicon.png"', `href="${base}favicon.png"`)
+    .replace("</head>", `${links}${marker}</head>`);
+}
+
+function direction(locale: string): "ltr" | "rtl" {
+  return ["ar", "fa", "he", "ur"].includes(locale.split("-")[0]!) ? "rtl" : "ltr";
+}
+
+function pageRoute(locale: string, defaultLocale: string, slug: string): string {
+  return locale === defaultLocale
+    ? `pages/${encodeURIComponent(slug)}/`
+    : `${localeUrlSegment(locale)}/pages/${encodeURIComponent(slug)}/`;
+}
+
+function localeRoute(locale: string, defaultLocale: string): string {
+  return locale === defaultLocale ? "" : `${localeUrlSegment(locale)}/`;
+}
+
+function publicUrl(base: string | undefined, route: string): string | undefined {
+  return base ? new URL(route, base).href : undefined;
 }
 
 function pad(value: number): string {
@@ -78,6 +130,9 @@ function readme(info: {
   revision: string | null;
   dirty: boolean | null;
   pages: number;
+  buildId: string;
+  defaultLocale: string;
+  locales: string[];
 }): string {
   return `# Vellym 静的サイト
 
@@ -100,7 +155,7 @@ JS/CSS/データを読み込めず表示できません。次のいずれかで�
 
 - index.html : SPA本体
 - assets/    : JS・CSS
-- data/      : 焼き込みデータ (bootstrap.json / repository.json / pages/*.json)
+- data/<build ID>/<locale>/ : 言語別データ (bootstrap.json / repository.json / pages/*.json)
 - vellym-build.json : ビルド来歴
 
 ## ビルド情報
@@ -109,13 +164,25 @@ JS/CSS/データを読み込めず表示できません。次のいずれかで�
 - ソースリビジョン: ${info.revision ?? "-"}
 - 未コミット変更(dirty): ${info.dirty === null ? "-" : info.dirty}
 - ページ数: ${info.pages}
+- ビルドID: ${info.buildId}
+- 既定言語: ${info.defaultLocale}
+- 公開言語: ${info.locales.join(", ")}
 `;
 }
 
 export async function buildStatic(configPath: string): Promise<StaticBuildResult> {
   const loaded = await loadConfig(configPath);
   const repository = await loadRepository(loaded.contentRoot);
-  const summaries = pageSummaries(repository);
+  const defaultLocale = resolveDefaultLocale(loaded.config);
+  const discoveredLocales = [...new Set(repository.pages.flatMap(({ view }) =>
+    publishedPageLocales(view.page, defaultLocale, view.relativePath)
+  ))];
+  const locales = [
+    defaultLocale,
+    ...discoveredLocales
+      .filter((locale) => locale !== defaultLocale)
+      .sort((left, right) => left.localeCompare(right))
+  ];
   const errors = repository.diagnostics.filter((item) => item.severity === "error");
   if (errors.length) {
     return {
@@ -129,6 +196,18 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
   const revision = gitValue(loaded.projectRoot, ["rev-parse", "HEAD"]);
   const status = gitValue(loaded.projectRoot, ["status", "--porcelain"]);
   const dirty = status === null ? null : status !== "";
+  const contentHash = createHash("sha256")
+    .update(
+      repository.pages
+        .map(({ view }) => `${view.relativePath}:${view.hash}`)
+        .sort()
+        .join("\n")
+    )
+    .digest("hex");
+  const buildId = createHash("sha256")
+    .update(`${VELLYM_VERSION}:${contentHash}:${defaultLocale}`)
+    .digest("hex")
+    .slice(0, 16);
 
   const temporary = await mkdtemp(path.join(loaded.projectRoot, ".vellym-build-"));
   let target = "";
@@ -136,30 +215,29 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
     // 1) 動的devと同一のSPAクライアント束をそのままコピーする。
     await cp(uiRoot(), temporary, { recursive: true });
 
-    // 2) 静的モードの印をindex.htmlへ注入する。
+    // 2) locale別dataと、root／locale／PageごとのSPA入口を生成する。
     const indexPath = path.join(temporary, "index.html");
-    await writeFile(
-      indexPath,
-      injectStaticMarker(
-        await readFile(indexPath, "utf8"),
-        loaded.config.ui.language
-      ),
-      "utf8"
-    );
+    const sourceHtml = await readFile(indexPath, "utf8");
 
-    // 3) HTTP APIの代替となる焼き込みデータ(閲覧専用capabilities)を出力する。
-    const dataDir = path.join(temporary, "data");
-    await mkdir(path.join(dataDir, "pages"), { recursive: true });
-    await writeFile(
-      path.join(dataDir, "bootstrap.json"),
-      `${JSON.stringify(
-        envelope({
+    const dataRoot = path.join(temporary, "data", buildId);
+    for (const locale of locales) {
+      const segment = localeUrlSegment(locale)!;
+      const summaries = localizedPageSummaries(repository, locale, defaultLocale);
+      const folders = localizedFolderSummaries(repository, locale, defaultLocale);
+      const dataDir = path.join(dataRoot, segment);
+      await mkdir(path.join(dataDir, "pages"), { recursive: true });
+      await writeFile(path.join(dataDir, "bootstrap.json"), `${JSON.stringify(envelope({
           state: "ready",
           project: {
             projectRoot: loaded.projectRoot,
             contentRoot: loaded.config.contentRoot,
             resolvedContentRoot: loaded.contentRoot,
             language: loaded.config.ui.language,
+            defaultLocale,
+            requestedLocale: locale,
+            resolvedLocale: locale,
+            uiLocale: locale === "ja" || locale === "en" ? locale : loaded.config.ui.language,
+            availableLocales: locales,
             configPath:
               path.relative(loaded.projectRoot, loaded.configPath) ||
               "vellym.config.yaml"
@@ -172,37 +250,58 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
             setup: false,
             live: false
           }
-        })
-      )}\n`,
-      "utf8"
-    );
-    await writeFile(
-      path.join(dataDir, "repository.json"),
-      `${JSON.stringify(
-        envelope(
-          { pages: summaries, folders: repository.folders },
-          repository.diagnostics
-        )
-      )}\n`,
-      "utf8"
-    );
-    for (const loadedPage of repository.pages) {
-      await writeFile(
-        path.join(dataDir, "pages", `${loadedPage.view.page.metadata.name}.json`),
-        `${JSON.stringify(envelope(loadedPage.view))}\n`,
-        "utf8"
-      );
+        }, buildId))}\n`, "utf8");
+      await writeFile(path.join(dataDir, "repository.json"), `${JSON.stringify(
+        envelope({ locale, defaultLocale, availableLocales: locales, pages: summaries, folders }, buildId, repository.diagnostics)
+      )}\n`, "utf8");
+
+      for (const summary of summaries) {
+        const projected = localizedPage(repository, summary.name, locale, defaultLocale);
+        if (!projected || "state" in projected) continue;
+        await writeFile(
+          path.join(dataDir, "pages", `${summary.name}.json`),
+          `${JSON.stringify(envelope(projected, buildId))}\n`,
+          "utf8"
+        );
+        const route = pageRoute(locale, defaultLocale, summary.slug ?? summary.name);
+        const publishedLocales = (projected.availableLocales ?? [defaultLocale]);
+        const canonical = publicUrl(loaded.config.static?.publicBaseUrl, route);
+        const alternates = loaded.config.static?.publicBaseUrl
+          ? publishedLocales.map((item) => ({
+              locale: item,
+              href: publicUrl(
+                loaded.config.static!.publicBaseUrl,
+                pageRoute(item, defaultLocale, summary.slug ?? summary.name)
+              )!
+            }))
+          : undefined;
+        const pageIndex = path.join(temporary, route, "index.html");
+        await mkdir(path.dirname(pageIndex), { recursive: true });
+        await writeFile(pageIndex, injectStaticMarker(sourceHtml, {
+          locale,
+          defaultLocale,
+          depth: locale === defaultLocale ? 2 : 3,
+          buildId,
+          ...(canonical ? { canonical } : {}),
+          ...(alternates ? { alternates } : {})
+        }), "utf8");
+      }
+
+      const route = localeRoute(locale, defaultLocale);
+      const localeIndex = path.join(temporary, route, "index.html");
+      await mkdir(path.dirname(localeIndex), { recursive: true });
+      await writeFile(localeIndex, injectStaticMarker(sourceHtml, {
+        locale,
+        defaultLocale,
+        depth: locale === defaultLocale ? 0 : 1,
+        buildId,
+        ...(publicUrl(loaded.config.static?.publicBaseUrl, route)
+          ? { canonical: publicUrl(loaded.config.static?.publicBaseUrl, route)! }
+          : {})
+      }), "utf8");
     }
 
-    // 4) 来歴とREADMEを出力する。
-    const contentHash = createHash("sha256")
-      .update(
-        repository.pages
-          .map(({ view }) => `${view.relativePath}:${view.hash}`)
-          .sort()
-          .join("\n")
-      )
-      .digest("hex");
+    // 3) 来歴とREADMEを出力する。
     await writeFile(
       path.join(temporary, "vellym-build.json"),
       `${JSON.stringify({
@@ -210,7 +309,10 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
         generatorVersion: VELLYM_VERSION,
         sourceRevision: revision || null,
         dirty,
-        contentHash
+        contentHash,
+        buildId,
+        defaultLocale,
+        locales
       }, null, 2)}\n`,
       "utf8"
     );
@@ -220,12 +322,15 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
         builtAt: builtAt.toISOString(),
         revision: revision || null,
         dirty,
-        pages: repository.pages.length
+        pages: repository.pages.length,
+        buildId,
+        defaultLocale,
+        locales
       }),
       "utf8"
     );
 
-    // 5) outputDirの親に、年月日日時で一意なバージョンフォルダとして配置する。
+    // 4) outputDirの親に、年月日日時で一意なバージョンフォルダとして配置する。
     const parent = path.dirname(loaded.outputDir);
     const leaf = path.basename(loaded.outputDir);
     await mkdir(parent, { recursive: true });

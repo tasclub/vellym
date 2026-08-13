@@ -1,0 +1,147 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: concepts
+  title: 用語と基本概念
+spec:
+  documentType: guide
+  locale: ja
+  blocks:
+    - id: concepts
+      type: rich-text
+      format: commonmark
+      content: |
+        ## 正本と生成物
+
+        - **正本（source of truth）**: 文書の唯一の原本。VellymではGit管理できる
+          YAMLファイルが正本である。
+        - **生成物**: 正本から作られる派生物。ブラウザ表示や静的サイトのHTMLはすべて
+          生成物であり、直接の編集対象ではない。
+
+        矛盾が生じた場合は常に正本（YAML）を優先する。
+
+        ## Page・Block・Folder
+
+        - **Page**: 一つのYAMLファイルが一つのPageに対応する。`kind: Page`で表す。
+          タイトルや種別などの`metadata`と、本文にあたる`blocks`を持つ。
+        - **Block**: Pageの本文を構成する要素。現在の実装で利用できるのは
+          `rich-text`ブロック（Markdown／CommonMark記法）である。
+        - **Folder**: ディレクトリを表す。`_index.yaml`（`kind: Folder`）で、その
+          ディレクトリ内のページ・サブフォルダの**表示順**を定義する。
+
+        Pageの具体的な書き方は[文書の書き方（YAML）](#page=authoring)を参照。
+
+        ## contentRoot
+
+        **contentRoot**は、正本YAMLを置くルートディレクトリである。
+        設定ファイル`vellym.config.yaml`の`contentRoot`で指定する。Vellymは
+        このディレクトリ配下のYAMLを読み込んで文書ツリーを構成する。詳細は
+        [設定ファイル](#page=configuration)を参照。
+
+        ## 動的版（dev）と静的版（build）
+
+        Vellymには文書を扱う二つのモードがある。
+
+        - **動的版（`vellym dev`）**: ローカルでサーバーを起動し、ブラウザ上で
+          閲覧・編集・検索・構造編集ができる。保存内容はローカルのYAMLへ書き戻される。
+        - **静的版（`vellym build`）**: 正本から**閲覧専用**の静的サイトを書き出す。
+          編集・保存・検索・構成管理・設定は含まれない。ホスティングや資料配布に使う。
+
+        コマンドの詳細は[CLIリファレンス](#page=cli-reference)、静的配信は[静的配信と自己ホスト](#page=self-hosting)を参照。
+
+        ## ロケール（locale）
+
+        - `spec.locale`はPage正本の言語で、省略時は設定の既定言語になる。
+        - `spec.translations.<locale>`に、そのPageの翻訳タイトルと本文を追加できる。
+        - `i18n.defaultLocale`はURLで言語を省略したときの既定言語である。未指定時は
+          後方互換のため`ui.language`が使われる。
+        - `ui.language`はVellym自身のボタンやメッセージに使うUI言語であり、文書の言語とは別である。
+
+        Page ID、slug、Folder構造、`metadata`の分類情報は全言語で共有し、タイトルとblocksだけを
+        言語ごとに管理する。Vellymは翻訳を生成せず、翻訳が古いかどうかも判定しない。
+        翻訳内容と更新判断は利用者が管理する。
+
+        ## 内部リンク
+
+        本文中で他のPageへリンクするには、標準のMarkdownリンクで参照先を
+        `#page=<slug>`と指定する。`slug`は参照先Pageの`metadata.slug`で、未設定時は
+        `metadata.name`が使われる。例えばこのページからCLIリファレンスへは
+        `[CLIリファレンス](#page=cli-reference)`と書く。
+
+        ## 関連
+
+        - はじめて動かす → [はじめかた](#page=getting-started)
+        - 全体像 → [Vellymとは](#page=overview)
+  translations:
+    en:
+      visibility: published
+      title: Terminology and Concepts
+      blocks:
+        - id: concepts
+          type: rich-text
+          format: commonmark
+          content: |
+            ## Source of truth vs. artifacts
+
+            - **Source of truth**: the single original of a document. In Vellym this is
+              Git-managed YAML.
+            - **Artifacts**: everything derived from the source. Browser rendering and static
+              HTML are artifacts, not the thing you edit directly.
+
+            When they disagree, the YAML source of truth always wins.
+
+            ## Page, Block, Folder
+
+            - **Page**: one YAML file corresponds to one Page (`kind: Page`). It has
+              `metadata` (title, type, etc.) and `blocks` (the body).
+            - **Block**: a body element of a Page. The block available in the current
+              implementation is the `rich-text` block (Markdown / CommonMark).
+            - **Folder**: represents a directory. Its `_index.yaml` (`kind: Folder`) defines
+              the **display order** of pages and subfolders in that directory.
+
+            See [Authoring Documents (YAML)](#page=authoring) for how to write a Page.
+
+            ## contentRoot
+
+            **contentRoot** is the root directory that holds the source YAML. It is set via
+            `contentRoot` in `vellym.config.yaml`. Vellym reads the YAML under this
+            directory to build the document tree. See [Configuration File](#page=configuration).
+
+            ## Dynamic (dev) vs. static (build)
+
+            Vellym has two modes for working with documents.
+
+            - **Dynamic (`vellym dev`)**: runs a local server; you can read, edit, search,
+              and edit structure in the browser. Saves are written back to local YAML.
+            - **Static (`vellym build`)**: exports a **read-only** static site from the
+              source. It contains no editing, saving, search, structure management, or
+              settings. Use it for hosting or distributing materials.
+
+            See [CLI Reference](#page=cli-reference) for commands and [Static Publishing and Self-Hosting](#page=self-hosting) for static publishing.
+
+            ## Locale
+
+            - `spec.locale` is the language of the canonical Page. If omitted, the configured
+              default locale is used.
+            - `spec.translations.<locale>` adds the translated title and body for that Page.
+            - `i18n.defaultLocale` is used when the URL omits a locale. For backward
+              compatibility, it falls back to `ui.language` when unset.
+            - `ui.language` controls Vellym's own buttons and messages; it is separate from
+              the document locale.
+
+            Page IDs, slugs, Folder structure, and classification metadata are shared across
+            languages; titles and blocks are language-specific. Vellym does not generate
+            translations or determine whether they are stale. Authors own translation content
+            and update decisions.
+
+            ## Internal links
+
+            To link to another Page, use a standard Markdown link whose target is
+            `#page=<slug>`. The `slug` is the target Page's `metadata.slug`, falling back to
+            `metadata.name` when unset. For example, this page links to the CLI reference as
+            `[CLI Reference](#page=cli-reference)`.
+
+            ## Related
+
+            - Run it for the first time → [Getting Started](#page=getting-started)
+            - Big picture → [What is Vellym](#page=overview)

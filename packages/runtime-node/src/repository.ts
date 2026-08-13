@@ -8,17 +8,25 @@ import {
   type Document
 } from "yaml";
 import {
-  SUPPORTED_API_VERSIONS,
   isVellymCandidate,
   knownRichTextBlocks,
+  knownRichTextBlocksFrom,
+  projectFolder,
+  projectPage,
+  publishedPageLocales,
   searchPages,
+  validateFolder,
   validatePage,
   type Diagnostic,
   type FolderSummary,
+  type FolderEditView,
+  type PageEditView,
+  type PageView,
   type PageSummary
 } from "@vellym-internal/core";
 import { RuntimeError } from "./errors.js";
 import { contentHash } from "./path-utils.js";
+import { folderLocaleHashes, pageLocaleHashes } from "./locale-hash.js";
 import type {
   LoadedPage,
   RepositorySnapshot
@@ -74,8 +82,12 @@ async function loadFolderSummaries(
   contentRoot: string,
   directories: string[],
   diagnostics: Diagnostic[]
-): Promise<FolderSummary[]> {
+): Promise<{
+  summaries: FolderSummary[];
+  resources: RepositorySnapshot["folderResources"];
+}> {
   const summaries: FolderSummary[] = [];
+  const resources: RepositorySnapshot["folderResources"] = new Map();
   for (const directory of directories) {
     const relative = path.relative(contentRoot, directory).replaceAll("\\", "/");
     const name = relative ? path.basename(directory) : "";
@@ -86,9 +98,12 @@ async function loadFolderSummaries(
     let description: string | undefined;
     let order: string[] = [];
     let readOnly = false;
+    let folderHash: string | undefined;
+    let folderResource: import("@vellym-internal/core").Folder | undefined;
     const readOnlyReasons: string[] = [];
     try {
       const source = await readFile(indexPath, "utf8");
+      folderHash = contentHash(source);
       const documents = parseAllDocuments(source, { keepSourceTokens: true });
       const first = documents[0];
       if (!first || first.errors.length || documents.length !== 1) {
@@ -96,24 +111,14 @@ async function loadFolderSummaries(
           first?.errors[0]?.message ?? "単一YAML documentではありません"
         );
       }
-      const value = first.toJS({ maxAliasCount: 100 }) as Record<string, unknown>;
-      const metadata =
-        value.metadata && typeof value.metadata === "object"
-          ? value.metadata as Record<string, unknown>
-          : {};
-      const spec =
-        value.spec && typeof value.spec === "object"
-          ? value.spec as Record<string, unknown>
-          : {};
-      if (
-        !SUPPORTED_API_VERSIONS.some((version) => version === value.apiVersion) ||
-        value.kind !== "Folder" ||
-        typeof metadata.title !== "string" ||
-        !metadata.title.trim()
-      ) {
-        throw new Error("Folder resourceの必須項目が不正です");
-      }
-      title = metadata.title;
+      const value = first.toJS({ maxAliasCount: 100 });
+      const validated = validateFolder(value, relativeIndex);
+      diagnostics.push(...validated.diagnostics);
+      if (!validated.folder) throw new Error("Folder resourceの必須項目が不正です");
+      const folder = validated.folder;
+      folderResource = folder;
+      const spec = folder.spec;
+      title = folder.metadata.title;
       if (spec.description !== undefined) {
         if (typeof spec.description !== "string") {
           throw new Error("spec.descriptionは文字列で指定してください");
@@ -160,17 +165,27 @@ async function loadFolderSummaries(
         );
       }
     }
-    summaries.push({
+    const summary: FolderSummary = {
       path: relative,
       name,
       title,
       ...(description === undefined ? {} : { description }),
       order,
       readOnly,
-      readOnlyReasons
-    });
+      readOnlyReasons,
+      ...(folderHash ? { hash: folderHash } : {})
+    };
+    summaries.push(summary);
+    if (folderResource) {
+      resources.set(relative, {
+        resource: folderResource,
+        sourcePath: indexPath,
+        summary,
+        hash: folderHash!
+      });
+    }
   }
-  return summaries;
+  return { summaries, resources };
 }
 
 function unsafeYamlReasons(document: Document.Parsed, documentCount: number): string[] {
@@ -207,11 +222,12 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
   const { files, directories } = await findRepositoryEntries(contentRoot);
   const pages: LoadedPage[] = [];
   const diagnostics: Diagnostic[] = [];
-  const folders = await loadFolderSummaries(
+  const loadedFolders = await loadFolderSummaries(
     contentRoot,
     directories,
     diagnostics
   );
+  const folders = loadedFolders.summaries;
 
   for (const sourcePath of files) {
     const relativePath = path.relative(contentRoot, sourcePath);
@@ -360,6 +376,7 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
       ])
     ),
     folders,
+    folderResources: loadedFolders.resources,
     diagnostics
   };
 }
@@ -376,4 +393,249 @@ export function pageSummaries(snapshot: RepositorySnapshot): PageSummary[] {
 
 export function searchRepository(snapshot: RepositorySnapshot, query: string) {
   return searchPages(snapshot.pages.map(({ view }) => view), query);
+}
+
+export function localizedPageSummaries(
+  snapshot: RepositorySnapshot,
+  locale: string,
+  defaultLocale: string
+): PageSummary[] {
+  return snapshot.pages.flatMap(({ view }) => {
+    const requested = projectPage(
+      view.page,
+      locale,
+      defaultLocale,
+      view.relativePath
+    );
+    const projection = requested ?? projectPage(
+      view.page,
+      resolvePageBaseLocale(view.page, defaultLocale) ?? defaultLocale,
+      defaultLocale,
+      view.relativePath
+    );
+    if (!projection) return [];
+    return [{
+      name: projection.page.metadata.name,
+      slug: projection.page.metadata.slug ?? projection.page.metadata.name,
+      title: projection.page.metadata.title,
+      relativePath: view.relativePath,
+      readOnly: view.readOnly,
+      locale: projection.locale,
+      baseLocale: projection.baseLocale
+    }];
+  });
+}
+
+export function localizedFolderSummaries(
+  snapshot: RepositorySnapshot,
+  locale: string,
+  defaultLocale: string
+): FolderSummary[] {
+  const visiblePages = localizedPageSummaries(snapshot, locale, defaultLocale);
+  const visibleFolderPaths = new Set<string>([""]);
+  for (const page of visiblePages) {
+    const parts = page.relativePath.replaceAll("\\", "/").split("/").slice(0, -1);
+    for (let index = 1; index <= parts.length; index += 1) {
+      visibleFolderPaths.add(parts.slice(0, index).join("/"));
+    }
+  }
+  const requestedIsDefault = locale === defaultLocale;
+  return snapshot.folders
+    .filter((summary) => requestedIsDefault || visibleFolderPaths.has(summary.path))
+    .map((summary) => {
+    const loaded = snapshot.folderResources.get(summary.path);
+    if (!loaded) return summary;
+    const projection = projectFolder(
+      loaded.resource,
+      locale,
+      defaultLocale,
+      summary.path ? `${summary.path}/_index.yaml` : "_index.yaml"
+    );
+    if (!projection) return summary;
+    return {
+      ...summary,
+      title: projection.folder.metadata.title,
+      locale: projection.locale,
+      baseLocale: projection.baseLocale,
+      sourceLocale: projection.sourceLocale,
+      localeHashes: folderLocaleHashes(loaded.resource, defaultLocale),
+      ...(projection.folder.spec.description === undefined
+        ? { description: undefined }
+        : { description: projection.folder.spec.description })
+    };
+    });
+}
+
+export function localizedPage(
+  snapshot: RepositorySnapshot,
+  pageId: string,
+  locale: string,
+  defaultLocale: string
+): PageView | undefined {
+  const loaded = snapshot.byName.get(pageId);
+  if (!loaded) return undefined;
+  const baseLocale = resolvePageBaseLocale(loaded.view.page, defaultLocale);
+  if (!baseLocale) return undefined;
+  const requestedProjection = projectPage(
+    loaded.view.page,
+    locale,
+    defaultLocale,
+    loaded.view.relativePath
+  );
+  const projection = requestedProjection ?? projectPage(
+    loaded.view.page,
+    baseLocale,
+    defaultLocale,
+    loaded.view.relativePath
+  );
+  const validation = validatePage(loaded.view.page, loaded.view.relativePath);
+  const availableLocales = publishedPageLocales(
+    loaded.view.page,
+    defaultLocale,
+    loaded.view.relativePath
+  );
+  if (!projection) return undefined;
+  return {
+    ...loaded.view,
+    page: projection.page,
+    knownBlocks: projection.knownBlocks,
+    locale: projection.locale,
+    requestedLocale: locale,
+    baseLocale,
+    availableLocales,
+    editableLocales: [
+      baseLocale,
+      ...validation.translations.map(({ locale: item }) => item),
+      ...validation.invalidTranslations.flatMap(({ canonicalLocale }) =>
+        canonicalLocale ? [canonicalLocale] : []
+      )
+    ].filter((item, index, all) => all.indexOf(item) === index),
+    isBaseLocale: projection.isBaseLocale,
+    invalidTranslations: validation.invalidTranslations,
+    localeHashes: pageLocaleHashes(loaded.view.page, defaultLocale)
+  };
+}
+
+export function editablePage(
+  snapshot: RepositorySnapshot,
+  pageId: string,
+  defaultLocale: string
+): PageEditView | undefined {
+  const loaded = snapshot.byName.get(pageId) ?? snapshot.bySlug.get(pageId);
+  if (!loaded) return undefined;
+  const validation = validatePage(loaded.view.page, loaded.view.relativePath);
+  const baseLocale = resolvePageBaseLocale(loaded.view.page, defaultLocale);
+  if (!baseLocale) return undefined;
+  const hashes = pageLocaleHashes(loaded.view.page, defaultLocale);
+  return {
+    pageId: loaded.view.page.metadata.name,
+    slug: loaded.view.page.metadata.slug ?? loaded.view.page.metadata.name,
+    relativePath: loaded.view.relativePath,
+    hash: loaded.view.hash,
+    baseLocale,
+    locales: [
+      {
+        locale: baseLocale,
+        isBaseLocale: true,
+        visibility: "published" as const,
+        title: loaded.view.page.metadata.title,
+        blocks: knownRichTextBlocks(
+          loaded.view.page,
+          loaded.view.relativePath
+        ).blocks,
+        baselineHash: hashes[baseLocale]!
+      },
+      ...validation.translations.map(({ locale, value, rawKey }) => ({
+        locale,
+        isBaseLocale: false,
+        visibility: value.visibility ?? "published" as const,
+        title: value.title,
+        blocks: knownRichTextBlocksFrom(
+          value.blocks,
+          loaded.view.relativePath,
+          `/spec/translations/${rawKey}/blocks`
+        ).blocks,
+        baselineHash: hashes[locale]!
+      }))
+    ],
+    invalidTranslations: validation.invalidTranslations,
+    readOnly: loaded.view.readOnly,
+    readOnlyReasons: loaded.view.readOnlyReasons
+  };
+}
+
+export function editableFolder(
+  snapshot: RepositorySnapshot,
+  folderPath: string,
+  defaultLocale: string
+): FolderEditView | undefined {
+  const summary = snapshot.folders.find(({ path: item }) => item === folderPath);
+  if (!summary) return undefined;
+  const loaded = snapshot.folderResources.get(folderPath);
+  const folder = loaded?.resource ?? {
+    apiVersion: "vellym.tasclub.com/v1alpha1",
+    kind: "Folder" as const,
+    metadata: { title: summary.title },
+    spec: summary.description === undefined ? {} : { description: summary.description }
+  };
+  const validation = validateFolder(folder, folderPath ? `${folderPath}/_index.yaml` : "_index.yaml");
+  const baseLocale = resolveDefaultFolderLocale(folder, defaultLocale);
+  if (!baseLocale) return undefined;
+  const hashes = folderLocaleHashes(folder, defaultLocale);
+  return {
+    folderPath,
+    hash: loaded?.hash ?? null,
+    baseLocale,
+    locales: [
+      {
+        locale: baseLocale,
+        isBaseLocale: true,
+        visibility: "published",
+        title: folder.metadata.title,
+        ...(folder.spec.description === undefined ? {} : { description: folder.spec.description }),
+        baselineHash: hashes[baseLocale]!
+      },
+      ...validation.translations.map(({ locale, value }) => ({
+        locale,
+        isBaseLocale: false,
+        visibility: value.visibility ?? "published" as const,
+        title: value.title,
+        ...(value.description === undefined ? {} : { description: value.description }),
+        baselineHash: hashes[locale]!
+      }))
+    ],
+    invalidTranslations: validation.invalidTranslations,
+    readOnly: summary.readOnly,
+    readOnlyReasons: summary.readOnlyReasons
+  };
+}
+
+function resolveDefaultFolderLocale(
+  folder: import("@vellym-internal/core").Folder,
+  defaultLocale: string
+): string | undefined {
+  return projectFolder(folder, folder.spec.locale ?? defaultLocale, defaultLocale)?.baseLocale;
+}
+
+function resolvePageBaseLocale(page: PageView["page"], defaultLocale: string) {
+  const projection = projectPage(page, page.spec.locale ?? defaultLocale, defaultLocale);
+  return projection?.baseLocale;
+}
+
+export function localizedSearchRepository(
+  snapshot: RepositorySnapshot,
+  query: string,
+  locale: string,
+  defaultLocale: string
+) {
+  const views = snapshot.pages.flatMap(({ view }) => {
+    const localized = localizedPage(
+      snapshot,
+      view.page.metadata.name,
+      locale,
+      defaultLocale
+    );
+    return localized && !("state" in localized) ? [localized] : [];
+  });
+  return searchPages(views, query);
 }

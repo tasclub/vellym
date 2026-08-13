@@ -111,6 +111,8 @@ export function WorkspaceShell(props: {
   canSearch: boolean;
   canManage: boolean;
   canConfigure: boolean;
+  uiLocale: string;
+  currentLocale: string;
   onSelect(name: string): void;
   onSelectFolder(path: string): void;
   onAreaChange(area: "documents" | "settings"): void;
@@ -125,6 +127,7 @@ export function WorkspaceShell(props: {
     plan: StructurePlan,
     result: StructureApplyResult
   ): void;
+  onFolderApplied(folder: FolderSummary): void;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -524,16 +527,19 @@ export function WorkspaceShell(props: {
           isOpen={searchOpen}
           onOpenChange={setSearchOpen}
           onSelect={props.onNavigate}
+          locale={props.currentLocale}
         />
       )}
       <StructureActionDialog
         action={structureAction}
         pages={props.pages}
         folders={props.folders}
+        uiLocale={props.uiLocale}
         onOpenChange={(open) => {
           if (!open) setStructureAction(undefined);
         }}
         onApplied={props.onStructureApplied}
+        onFolderApplied={props.onFolderApplied}
       />
     </div>
   );

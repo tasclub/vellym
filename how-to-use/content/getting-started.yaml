@@ -78,3 +78,83 @@ spec:
         - 用語の確認 → [用語と基本概念](#page=concepts)
         - コマンド一覧 → [CLIリファレンス](#page=cli-reference)
         - 設定ファイル → [設定ファイル](#page=configuration)
+  translations:
+    en:
+      visibility: published
+      title: Getting Started
+      blocks:
+        - id: getting-started
+          type: rich-text
+          format: commonmark
+          content: |
+            ## Prerequisites
+
+            - **Node.js 22.12 or later** and **npm** (verified on the 22 and 24 lines).
+            - If you would rather not install Node.js on the host, there is a Docker path
+              ([Static Publishing and Self-Hosting](#page=self-hosting)).
+
+            The examples below invoke the built CLI in the development repo
+            (`packages/vellym/dist/cli.mjs`) directly. In a distributed build you run it as
+            the `vellym` command.
+
+            ## Shortest path
+
+            1. **Initialize a project** (interactive)
+
+               ```bash
+               npx vellym@beta init
+               ```
+
+               Choose language, content root, initial profile, and which documents to create.
+               This writes `vellym.config.yaml` and the initial document YAML. For
+               non-interactive use, see [CLI Reference](#page=cli-reference).
+
+            2. **Start the dev server**
+
+               ```bash
+               npx vellym@beta dev
+               ```
+
+               Binds to `http://127.0.0.1:4173` by default. Open the URL printed at startup.
+
+            3. **Read and edit in the browser**
+
+               Document tree, outline, search, editing, and structure editing are available.
+               See [Using the Browser UI](#page=browser-guide).
+
+            ## Start without a config file
+
+            If you run `vellym dev` in a directory with no `vellym.config.yaml`, the
+            in-browser **setup** appears. Follow it to choose language, location, and document
+            structure; it then switches to the document workspace on the same server. The
+            setup flow is described in [Using the Browser UI](#page=browser-guide).
+
+            If a config file exists but is broken, Vellym does not overwrite it and shows a
+            config error instead.
+
+            ## Validate
+
+            To check documents for schema or reference problems:
+
+            ```bash
+            vellym validate
+            ```
+
+            It reports the page count and a list of diagnostics (errors / warnings). See
+            [CLI Reference](#page=cli-reference).
+
+            ## Distribute as material
+
+            To export a read-only static site:
+
+            ```bash
+            vellym build
+            ```
+
+            See [Static Publishing and Self-Hosting](#page=self-hosting) for serving and caveats.
+
+            ## Related
+
+            - Check terminology → [Terminology and Concepts](#page=concepts)
+            - Command list → [CLI Reference](#page=cli-reference)
+            - Config file → [Configuration File](#page=configuration)

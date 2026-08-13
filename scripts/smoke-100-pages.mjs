@@ -31,17 +31,18 @@ await Promise.all(
 
 const cli = path.resolve("packages/vellym/dist/cli.mjs");
 const started = performance.now();
+let output;
 for (const command of ["validate", "build"]) {
   const result = spawnSync(
     process.execPath,
-    [cli, command, "--config", path.join(root, "vellym.config.yaml")],
+    [cli, command, "--config", path.join(root, "vellym.config.yaml"), "--json"],
     { encoding: "utf8" }
   );
   if (result.status !== 0) {
     throw new Error(`${command} failed\n${result.stdout}\n${result.stderr}`);
   }
+  if (command === "build") output = JSON.parse(result.stdout).data.outputDir;
 }
-const output = path.join(root, "dist/vellym");
 const generatedPages = (
   await readdir(path.join(output, "pages"), { withFileTypes: true })
 )
@@ -59,17 +60,20 @@ const htmlFiles = [
 ];
 for (const htmlFile of htmlFiles) {
   const source = await readFile(htmlFile, "utf8");
-  if (/<script(?:\s|>)/i.test(source)) {
-    throw new Error(`static output unexpectedly depends on JavaScript: ${htmlFile}`);
+  if (!source.includes("__VELLYM_STATIC__")) {
+    throw new Error(`static marker is missing: ${htmlFile}`);
   }
-  const hrefs = [...source.matchAll(/href="([^"]+)"/g)].map(
+  const hrefs = [
+    ...source.matchAll(/(?:href|src)="([^"]+)"/g)
+  ].map(
     (match) => match[1]
   );
   for (const href of hrefs) {
     if (
       href.startsWith("#") ||
       href.startsWith("http:") ||
-      href.startsWith("https:")
+      href.startsWith("https:") ||
+      href.startsWith("data:")
     ) {
       continue;
     }

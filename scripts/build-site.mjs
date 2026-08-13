@@ -14,6 +14,8 @@ await mkdir(output, { recursive: true });
 const schemaNames = [
   "page.schema.json",
   "folder.schema.json",
+  "page-translation.schema.json",
+  "folder-translation.schema.json",
   "rich-text-block.schema.json"
 ];
 for (const version of ["v1alpha1", "v1"]) {
@@ -44,25 +46,17 @@ await cp(
   path.join(output, "schemas/config-v1.schema.json")
 );
 
-const documentSites = [
-  { target: ".", config: "how-to-use/ja/vellym.config.yaml" },
-  { target: "en", config: "how-to-use/en/vellym.config.yaml" }
-];
-for (const documentSite of documentSites) {
-  const config = path.join(root, documentSite.config);
-  const result = spawnSync(
-    process.execPath,
-    [path.join(root, "packages/vellym/dist/cli.mjs"), "build", "--config", config, "--json"],
-    { cwd: root, encoding: "utf8" }
-  );
-  if (result.status !== 0) {
-    throw new Error(`document site build failed (${documentSite.target})\n${result.stdout}\n${result.stderr}`);
-  }
-  const built = JSON.parse(result.stdout).data.outputDir;
-  const target = path.join(output, documentSite.target);
-  await mkdir(target, { recursive: true });
-  await cp(built, target, { recursive: true });
-  await rm(built, { recursive: true, force: true });
+const config = path.join(root, "how-to-use/vellym.config.yaml");
+const result = spawnSync(
+  process.execPath,
+  [path.join(root, "packages/vellym/dist/cli.mjs"), "build", "--config", config, "--json"],
+  { cwd: root, encoding: "utf8" }
+);
+if (result.status !== 0) {
+  throw new Error(`document site build failed\n${result.stdout}\n${result.stderr}`);
 }
+const built = JSON.parse(result.stdout).data.outputDir;
+await cp(built, output, { recursive: true });
+await rm(built, { recursive: true, force: true });
 
 process.stdout.write(`official site built: ${output}\n`);

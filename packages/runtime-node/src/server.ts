@@ -2,7 +2,12 @@ import { access, readFile, writeFile } from "node:fs/promises";
 import { createServer, type ServerResponse } from "node:http";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
-import type { Diagnostic } from "@vellym-internal/core";
+import {
+  normalizeLocale,
+  projectLocales,
+  resolveDefaultLocale,
+  type Diagnostic
+} from "@vellym-internal/core";
 import {
   applyContentRootChange,
   applyUiLanguage,
@@ -11,12 +16,18 @@ import {
   type ContentRootPlan
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
+import { parseFolderPatch, saveFolder } from "./folder-store.js";
 import { parsePagePatch, savePage } from "./page-store.js";
 import { isInside } from "./path-utils.js";
 import {
+  editablePage,
+  editableFolder,
   loadRepository,
-  pageSummaries,
-  searchRepository
+  localizedFolderSummaries,
+  localizedPage,
+  localizedPageSummaries,
+  localizedSearchRepository,
+  pageSummaries
 } from "./repository.js";
 import {
   applyProjectSetup,
@@ -60,6 +71,38 @@ function json(response: ServerResponse, status: number, value: unknown): void {
 
 function envelope(data: unknown, diagnostics: Diagnostic[] = []): unknown {
   return { schemaVersion: "1.0", data, diagnostics };
+}
+
+function localeRequest(
+  url: URL,
+  config: Pick<LoadedConfig["config"], "ui" | "i18n">
+): { defaultLocale: string; requestedLocale: string; uiLocale: string } {
+  const defaultLocale = resolveDefaultLocale(config);
+  const raw = url.searchParams.get("locale") ?? defaultLocale;
+  const normalized = normalizeLocale(raw);
+  if (!normalized.valid) {
+    throw new RuntimeError(
+      `locale「${raw}」はVellymで利用できる形式ではありません`,
+      400,
+      "INVALID_LOCALE"
+    );
+  }
+  const requestedLocale = normalized.canonical!;
+  const uiLocale = requestedLocale === "ja" || requestedLocale === "en"
+    ? requestedLocale
+    : config.ui.language;
+  return { defaultLocale, requestedLocale, uiLocale };
+}
+
+function availableProjectLocales(
+  snapshot: RepositorySnapshot,
+  defaultLocale: string
+): string[] {
+  return projectLocales(
+    snapshot.pages.map(({ view }) => view.page),
+    [...snapshot.folderResources.values()].map(({ resource }) => resource),
+    defaultLocale
+  );
 }
 
 async function readJson(request: AsyncIterable<Uint8Array>): Promise<unknown> {
@@ -114,6 +157,19 @@ const CONTENT_TYPES = new Map<string, string>([
 
 function contentTypeFor(extension: string): string {
   return CONTENT_TYPES.get(extension) ?? "application/octet-stream";
+}
+
+// Viteのbundleは静的サイトのsubdirectory配信に備えて相対asset URLを持つ。
+// dev serverのSPA fallbackでそのまま返すと、深いlocale URLでは
+// /en/pages/<slug>/assets/... と解決されるため、動的版だけ配信rootへ固定する。
+function dynamicIndexHtml(body: Buffer): Buffer {
+  return Buffer.from(
+    body.toString("utf8")
+      .replaceAll('href="./assets/', 'href="/assets/')
+      .replaceAll('src="./assets/', 'src="/assets/')
+      .replace('href="./favicon.png"', 'href="/favicon.png"'),
+    "utf8"
+  );
 }
 
 export function isLoopbackHost(host: string): boolean {
@@ -300,13 +356,15 @@ function publicPlan(plan: SetupPlan): Omit<SetupPlan, "projectRoot"> & {
 
 function diagnostic(
   code: string,
-  message: string
+  message: string,
+  itemPath?: string
 ): Diagnostic {
   return {
     file: ".",
     severity: "error",
     code,
-    message
+    message,
+    ...(itemPath ? { path: itemPath } : {})
   };
 }
 
@@ -486,6 +544,10 @@ export async function startDevServer(options: {
         url.pathname === "/api/v1/bootstrap" &&
         request.method === "GET"
       ) {
+        const localeState = localeRequest(
+          url,
+          loadedConfig?.config ?? { ui: { language: "ja" } }
+        );
         json(
           response,
           200,
@@ -499,6 +561,13 @@ export async function startDevServer(options: {
                 resolvedContentRoot:
                   loadedConfig?.contentRoot ?? path.join(projectRoot, "docs"),
                 language: loadedConfig?.config.ui.language ?? "ja",
+                defaultLocale: localeState.defaultLocale,
+                requestedLocale: localeState.requestedLocale,
+                resolvedLocale: localeState.requestedLocale,
+                uiLocale: localeState.uiLocale,
+                availableLocales: snapshot
+                  ? availableProjectLocales(snapshot, localeState.defaultLocale)
+                  : [localeState.defaultLocale],
                 configPath: path.relative(projectRoot, configPath) || "vellym.config.yaml"
               },
               capabilities: {
@@ -582,13 +651,28 @@ export async function startDevServer(options: {
         request.method === "GET"
       ) {
         const ready = requireReady();
+        const localeState = localeRequest(url, ready.loadedConfig.config);
         json(
           response,
           200,
           envelope(
             {
-              pages: pageSummaries(ready.snapshot),
-              folders: ready.snapshot.folders
+              locale: localeState.requestedLocale,
+              defaultLocale: localeState.defaultLocale,
+              availableLocales: availableProjectLocales(
+                ready.snapshot,
+                localeState.defaultLocale
+              ),
+              pages: localizedPageSummaries(
+                ready.snapshot,
+                localeState.requestedLocale,
+                localeState.defaultLocale
+              ),
+              folders: localizedFolderSummaries(
+                ready.snapshot,
+                localeState.requestedLocale,
+                localeState.defaultLocale
+              )
             },
             ready.snapshot.diagnostics
           )
@@ -640,6 +724,7 @@ export async function startDevServer(options: {
           throw error;
         }
         publishChange("config-change");
+        const localeState = localeRequest(url, loadedConfig!.config);
         json(response, 200, envelope({
           state: "ready",
           project: {
@@ -647,6 +732,14 @@ export async function startDevServer(options: {
             contentRoot: loadedConfig!.config.contentRoot,
             resolvedContentRoot: loadedConfig!.contentRoot,
             language: loadedConfig!.config.ui.language,
+            defaultLocale: localeState.defaultLocale,
+            requestedLocale: localeState.requestedLocale,
+            resolvedLocale: localeState.requestedLocale,
+            uiLocale: localeState.uiLocale,
+            availableLocales: availableProjectLocales(
+              snapshot!,
+              localeState.defaultLocale
+            ),
             configPath: path.relative(projectRoot, configPath) || "vellym.config.yaml"
           }
         }));
@@ -674,6 +767,7 @@ export async function startDevServer(options: {
           throw error;
         }
         publishChange("config-change");
+        const localeState = localeRequest(url, loadedConfig!.config);
         json(response, 200, envelope({
           state: "ready",
           project: {
@@ -681,6 +775,14 @@ export async function startDevServer(options: {
             contentRoot: loadedConfig!.config.contentRoot,
             resolvedContentRoot: loadedConfig!.contentRoot,
             language: loadedConfig!.config.ui.language,
+            defaultLocale: localeState.defaultLocale,
+            requestedLocale: localeState.requestedLocale,
+            resolvedLocale: localeState.requestedLocale,
+            uiLocale: localeState.uiLocale,
+            availableLocales: availableProjectLocales(
+              snapshot!,
+              localeState.defaultLocale
+            ),
             configPath: path.relative(projectRoot, configPath) || "vellym.config.yaml"
           }
         }));
@@ -839,6 +941,7 @@ export async function startDevServer(options: {
         request.method === "GET"
       ) {
         const ready = requireReady();
+        const localeState = localeRequest(url, ready.loadedConfig.config);
         const query = url.searchParams.get("q")?.trim() ?? "";
         if (!query) {
           throw new RuntimeError(
@@ -851,10 +954,61 @@ export async function startDevServer(options: {
           response,
           200,
           envelope(
-            searchRepository(ready.snapshot, query),
+            localizedSearchRepository(
+              ready.snapshot,
+              query,
+              localeState.requestedLocale,
+              localeState.defaultLocale
+            ),
             ready.snapshot.diagnostics
           )
         );
+        return;
+      }
+      if (
+        url.pathname === "/api/v1/folders" &&
+        request.method === "PATCH"
+      ) {
+        const ready = requireReady();
+        const patch = parseFolderPatch(await readJson(request));
+        const saved = await saveFolder(
+          ready.loadedConfig.contentRoot,
+          patch,
+          resolveDefaultLocale(ready.loadedConfig.config)
+        );
+        snapshot = await loadRepository(ready.loadedConfig.contentRoot);
+        publishChange("repository-change");
+        json(response, 200, envelope(saved, snapshot.diagnostics));
+        return;
+      }
+      const pageEditMatch = url.pathname.match(
+        /^\/api\/v1\/pages\/([a-z0-9-]+)\/edit$/
+      );
+      if (url.pathname === "/api/v1/folders/edit" && request.method === "GET") {
+        const ready = requireReady();
+        const folderPath = url.searchParams.get("path") ?? "";
+        const editable = editableFolder(
+          ready.snapshot,
+          folderPath,
+          resolveDefaultLocale(ready.loadedConfig.config)
+        );
+        if (!editable) {
+          throw new RuntimeError("Folderが見つかりません", 404, "NOT_FOUND");
+        }
+        json(response, 200, envelope(editable, ready.snapshot.diagnostics));
+        return;
+      }
+      if (pageEditMatch && request.method === "GET") {
+        const ready = requireReady();
+        const editable = editablePage(
+          ready.snapshot,
+          pageEditMatch[1]!,
+          resolveDefaultLocale(ready.loadedConfig.config)
+        );
+        if (!editable) {
+          throw new RuntimeError("Pageが見つかりません", 404, "NOT_FOUND");
+        }
+        json(response, 200, envelope(editable, ready.snapshot.diagnostics));
         return;
       }
       const pageMatch = url.pathname.match(
@@ -862,15 +1016,29 @@ export async function startDevServer(options: {
       );
       if (pageMatch && request.method === "GET") {
         const ready = requireReady();
-        const loaded = ready.snapshot.byName.get(pageMatch[1]!);
-        if (!loaded) {
+        const localeState = localeRequest(url, ready.loadedConfig.config);
+        const requestedPage = pageMatch[1]!;
+        const pageId = ready.snapshot.byName.has(requestedPage)
+          ? requestedPage
+          : ready.snapshot.pages.find(
+              ({ view }) =>
+                (view.page.metadata.slug ?? view.page.metadata.name) ===
+                requestedPage
+            )?.view.page.metadata.name;
+        const localized = localizedPage(
+          ready.snapshot,
+          pageId ?? requestedPage,
+          localeState.requestedLocale,
+          localeState.defaultLocale
+        );
+        if (!localized) {
           throw new RuntimeError(
             "Pageが見つかりません",
             404,
             "NOT_FOUND"
           );
         }
-        json(response, 200, envelope(loaded.view));
+        json(response, 200, envelope(localized, ready.snapshot.diagnostics));
         return;
       }
       if (pageMatch && request.method === "PATCH") {
@@ -887,7 +1055,8 @@ export async function startDevServer(options: {
         const saved = await savePage(
           ready.loadedConfig.contentRoot,
           loaded,
-          patch
+          patch,
+          resolveDefaultLocale(ready.loadedConfig.config)
         );
         snapshot = await loadRepository(ready.loadedConfig.contentRoot);
         json(response, 200, envelope(saved, snapshot.diagnostics));
@@ -944,6 +1113,9 @@ export async function startDevServer(options: {
         served = path.join(uiRoot, "index.html");
         body = await readFile(served);
       }
+      if (served === path.join(uiRoot, "index.html")) {
+        body = dynamicIndexHtml(body);
+      }
       response.writeHead(200, {
         ...SECURITY_HEADERS,
         "Content-Type": contentTypeFor(path.extname(served).toLowerCase())
@@ -955,7 +1127,11 @@ export async function startDevServer(options: {
           response,
           error.status,
           envelope(null, [
-            diagnostic(error.code, error.message.replaceAll(projectRoot, "."))
+            diagnostic(
+              error.code,
+              error.message.replaceAll(projectRoot, "."),
+              error.path
+            )
           ])
         );
         return;

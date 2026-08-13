@@ -14,7 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && vitest run",
     "coverage": "npm run build && vitest run --coverage",
-    "validate": "npm run build && node packages/vellym/dist/cli.mjs validate --config how-to-use/ja/vellym.config.yaml",
+    "validate": "npm run build && node packages/vellym/dist/cli.mjs validate --config how-to-use/vellym.config.yaml",
     "pack:check": "npm run build && npm pack --workspace vellym --dry-run --json",
     "pack:smoke": "npm run build && sh scripts/smoke-pack.sh",
     "smoke:100": "npm run build && node scripts/smoke-100-pages.mjs",
