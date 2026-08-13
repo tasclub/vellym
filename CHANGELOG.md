@@ -44,6 +44,9 @@
 
 ### 追加
 
+- npmのdist-tagは、prereleaseでも`latest`を同じ版へ向ける。`npm install vellym`と
+  `npx vellym`が解決できる状態を保つため。版を明示する場合は`vellym@beta`を使う。
+- npmの公開をTrusted Publishing（OIDC）へ移行し、publish用のtokenを保持しないようにした。
 - 導入コマンドの案内がdist-tagと一致しない場合、publishを中止するようにした。
   README（2件）と日英の「はじめかた」の`npx vellym@<tag>`を検査する。
 - 配布物へ`THIRD-PARTY-NOTICES.md`を同梱するようにした。
