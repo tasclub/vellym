@@ -41,8 +41,18 @@ import {
 } from "./structure.js";
 import type { LoadedConfig, RepositorySnapshot } from "./types.js";
 
+// 応答すべてに付ける防御的なheader。
+// nosniffはContent-Typeを厳密化した意味を保つために必須で、
+// これがないとbrowserが中身を推測して別種のresourceとして解釈しうる。
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer"
+} as const;
+
 function json(response: ServerResponse, status: number, value: unknown): void {
   response.writeHead(status, {
+    ...SECURITY_HEADERS,
     "Content-Type": "application/json; charset=utf-8"
   });
   response.end(JSON.stringify(value));
@@ -889,6 +899,7 @@ export async function startDevServer(options: {
       ) {
         requireReady();
         response.writeHead(200, {
+          ...SECURITY_HEADERS,
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive"
@@ -934,25 +945,36 @@ export async function startDevServer(options: {
         body = await readFile(served);
       }
       response.writeHead(200, {
+        ...SECURITY_HEADERS,
         "Content-Type": contentTypeFor(path.extname(served).toLowerCase())
       });
       response.end(body);
     } catch (error) {
-      const runtime =
-        error instanceof RuntimeError
-          ? error
-          : new RuntimeError(
-              error instanceof Error ? error.message : String(error),
-              500,
-              "INTERNAL"
-            );
+      if (error instanceof RuntimeError) {
+        json(
+          response,
+          error.status,
+          envelope(null, [
+            diagnostic(error.code, error.message.replaceAll(projectRoot, "."))
+          ])
+        );
+        return;
+      }
+      // 想定外の例外は原因をそのまま返さない。fsのerror等はprojectRoot外の
+      // 絶対pathを含みうるため、詳細は起動した端末のstderrへ出し、
+      // 応答は固定文言に留める。
+      process.stderr.write(
+        `[vellym] 予期しないエラー: ${
+          error instanceof Error ? (error.stack ?? error.message) : String(error)
+        }\n`
+      );
       json(
         response,
-        runtime.status,
+        500,
         envelope(null, [
           diagnostic(
-            runtime.code,
-            runtime.message.replaceAll(projectRoot, ".")
+            "INTERNAL",
+            "サーバー内部でエラーが発生しました。詳細は起動した端末の出力を確認してください"
           )
         ])
       );
