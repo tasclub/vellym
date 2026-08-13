@@ -1,5 +1,10 @@
 # Vellym
 
+[![npm](https://img.shields.io/npm/v/vellym/beta?label=npm%40beta)](https://www.npmjs.com/package/vellym)
+[![CI](https://github.com/tasclub/vellym/actions/workflows/ci.yml/badge.svg)](https://github.com/tasclub/vellym/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/vellym)](LICENSE)
+[![node](https://img.shields.io/node/v/vellym)](https://nodejs.org/)
+
 **Git管理できる型付きYAMLを「正本」とし、同じ実体を人間にはブラウザ上の読みやすい文書として、
 AIエージェントには構造化ファイルとして両対応で提供する、ローカルファーストの文書管理ツール。**
 
@@ -85,6 +90,10 @@ spec:
 ```
 
 使い方の詳細（日本語・英語）は [`how-to-use/`](how-to-use/) を参照。
+
+公式サイト <https://vellym.tasclub.com/> は Vellym 自身で生成している。
+`vellym build` の静的サイト出力がどう見えるかは、あのサイトがそのまま例になる。
+
 
 ## 開発
 
