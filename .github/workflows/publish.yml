@@ -46,24 +46,28 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-      # 認証がOIDCへ乗っているかを失敗前に判別できるようにする。
-      # authTokenが設定されていると、npmはOIDCを試さずそのtokenで公開しようとする。
+      # OIDCへ乗る前提条件を失敗前に確認する。
+      # npm 11.5.1以降と、id-token: writeによるOIDC要求URLの両方が必要。
       - name: Show npm auth configuration
         run: |
+          echo "npm: $(npm --version)"
           echo "registry: $(npm config get registry)"
           echo "userconfig: ${NPM_CONFIG_USERCONFIG:-(none)}"
-          if [ -n "$(npm config get //registry.npmjs.org/:_authToken)" ] \
-            && [ "$(npm config get //registry.npmjs.org/:_authToken)" != "undefined" ]; then
-            echo "authToken: 設定あり（OIDCではなくtokenで公開される）"
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "OIDC要求URL: あり"
           else
-            echo "authToken: なし（OIDCで公開される）"
+            echo "OIDC要求URL: なし（id-token権限を確認する）"
           fi
       - name: Publish to npm
+        # package directoryから実行する。--workspace経由ではnpmがOIDCの交換を行わず
+        # ENEEDAUTHになるため、trusted publishingでは通常のpublishと同じ形にする。
+        #
         # prereleaseは専用tag（beta等）で公開したうえで、latestも同じ版へ向ける。
         # 1.0未満の間はlatestを持たないと`npx vellym`が解決できず、
         # 見つけた利用者の最初のコマンドが失敗するため。
+        working-directory: packages/vellym
         run: |
-          npm publish --workspace vellym --provenance --access public \
+          npm publish --provenance --access public \
             --tag "${{ steps.dist-tag.outputs.tag }}"
           if [ "${{ steps.dist-tag.outputs.tag }}" != "latest" ]; then
             npm dist-tag add "vellym@${{ steps.dist-tag.outputs.version }}" latest
