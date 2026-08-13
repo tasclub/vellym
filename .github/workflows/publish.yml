@@ -6,9 +6,18 @@ name: Publish
 # npm側でpackage vellymのTrusted Publisherに、このリポジトリと
 # workflowファイル名publish.ymlを登録しておくこと（Environmentは未設定）。
 # npm CLIは11.5.1以降が必要で、Node.js 24に同梱される版がこれを満たす。
+#
+# dist-tagの変更はこのworkflowでは行わない。OIDCの資格情報はpublishに限定され、
+# dist-tagのPUTは401になるため。prerelease時のlatest更新は公開後に手元で実行する。
 on:
   release:
     types: [published]
+  # 公開だけが失敗した場合に、tagとReleaseを作り直さず再実行できるようにする。
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "公開するrelease tag（例: v0.2.0-beta.1）"
+        required: true
 
 jobs:
   publish:
@@ -16,8 +25,12 @@ jobs:
     permissions:
       contents: read
       id-token: write # npm Trusted Publishing の認証と provenance の署名に必要
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
       # registry-urlは指定しない。指定するとsetup-nodeが
       # _authToken=${NODE_AUTH_TOKEN}を含む.npmrcを生成し、
       # NODE_AUTH_TOKENへダミー値を設定する。npmはそれを認証情報とみなして
@@ -28,7 +41,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run release:check -- "${{ github.event.release.tag_name }}"
+      - run: npm run release:check -- "$RELEASE_TAG"
       - run: npm run typecheck
       - run: npm test
       - run: npm run pack:smoke
@@ -61,19 +74,24 @@ jobs:
       - name: Publish to npm
         # package directoryから実行する。--workspace経由ではnpmがOIDCの交換を行わず
         # ENEEDAUTHになるため、trusted publishingでは通常のpublishと同じ形にする。
-        #
-        # prereleaseは専用tag（beta等）で公開したうえで、latestも同じ版へ向ける。
-        # 1.0未満の間はlatestを持たないと`npx vellym`が解決できず、
-        # 見つけた利用者の最初のコマンドが失敗するため。
         working-directory: packages/vellym
         run: |
           npm publish --provenance --access public \
             --tag "${{ steps.dist-tag.outputs.tag }}"
-          if [ "${{ steps.dist-tag.outputs.tag }}" != "latest" ]; then
-            npm dist-tag add "vellym@${{ steps.dist-tag.outputs.version }}" latest
-          fi
-      - name: Report manual dist-tag fallback
-        if: failure()
+      # prereleaseはlatestを指さないまま公開される。1.0未満の間latestを持たないと
+      # `npx vellym`が解決できないため、公開後にlatestを同じ版へ向ける。
+      # OIDCの資格情報はpublishに限定されdist-tagのPUTは401になるので、
+      # ここでは実行せず手順を出力するだけにする。
+      - name: Next step for the latest dist-tag
+        if: steps.dist-tag.outputs.tag != 'latest'
         run: |
-          echo "publish後にlatestの更新だけ失敗した場合は、次を手元で実行する:" >&2
-          echo "  npm dist-tag add vellym@${{ steps.dist-tag.outputs.version }} latest" >&2
+          {
+            echo "### 公開後の手作業"
+            echo
+            echo "prereleaseのため\`latest\`は更新されていない。npmへログイン済みの環境で実行する。"
+            echo
+            echo '```bash'
+            echo "npm dist-tag add vellym@${{ steps.dist-tag.outputs.version }} latest"
+            echo "npm dist-tag ls vellym"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
