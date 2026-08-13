@@ -36,6 +36,25 @@ this). Version-specific schemas are produced only when publishing them to the si
 - Plugin-provided blocks are namespaced (`vendor-name/block-type`) and are validated by
   the plugin that owns them. They never require a core schema change.
 
+## Releasing
+
+Publishing to npm uses trusted publishing (OIDC), so no npm token is stored in this
+repository. The npm package must have a trusted publisher registered for this repository
+with workflow filename `publish.yml` and no environment.
+
+1. Bump the version with `npm version --workspace vellym <version>` so `package.json` and
+   `package-lock.json` stay in sync, and date the release in `CHANGELOG.md`.
+2. Point the install commands in both READMEs and the two getting-started guides at the
+   dist-tag the version implies. `npm run release:check` fails the publish otherwise.
+3. Create a GitHub Release for tag `v<version>`; mark prereleases as such. Publishing the
+   release runs the workflow.
+4. For a prerelease, update the `latest` dist-tag manually after publishing. OIDC
+   credentials are scoped to publishing, so the workflow cannot change dist-tags:
+   `npm dist-tag add vellym@<version> latest`. The workflow prints this in its summary.
+
+If only the publish step fails, re-run the workflow with `workflow_dispatch` and the tag
+name instead of recreating the tag and release.
+
 ## Design boundaries
 
 - YAML under the configured content root is the source of truth.
