@@ -14,3 +14,4 @@ docs/
 
 # Machine-local deployment scripts and settings
 .local/
+coverage/
