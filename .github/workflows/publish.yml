@@ -18,10 +18,14 @@ jobs:
       id-token: write # npm Trusted Publishing の認証と provenance の署名に必要
     steps:
       - uses: actions/checkout@v4
+      # registry-urlは指定しない。指定するとsetup-nodeが
+      # _authToken=${NODE_AUTH_TOKEN}を含む.npmrcを生成し、
+      # NODE_AUTH_TOKENへダミー値を設定する。npmはそれを認証情報とみなして
+      # OIDCの交換を行わず、publishが404になる。
+      # registryの既定値はhttps://registry.npmjs.org/のため指定は不要。
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
       - run: npm run release:check -- "${{ github.event.release.tag_name }}"
@@ -42,6 +46,18 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      # 認証がOIDCへ乗っているかを失敗前に判別できるようにする。
+      # authTokenが設定されていると、npmはOIDCを試さずそのtokenで公開しようとする。
+      - name: Show npm auth configuration
+        run: |
+          echo "registry: $(npm config get registry)"
+          echo "userconfig: ${NPM_CONFIG_USERCONFIG:-(none)}"
+          if [ -n "$(npm config get //registry.npmjs.org/:_authToken)" ] \
+            && [ "$(npm config get //registry.npmjs.org/:_authToken)" != "undefined" ]; then
+            echo "authToken: 設定あり（OIDCではなくtokenで公開される）"
+          else
+            echo "authToken: なし（OIDCで公開される）"
+          fi
       - name: Publish to npm
         # prereleaseは専用tag（beta等）で公開したうえで、latestも同じ版へ向ける。
         # 1.0未満の間はlatestを持たないと`npx vellym`が解決できず、
