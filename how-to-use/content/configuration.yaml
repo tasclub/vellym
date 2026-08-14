@@ -14,7 +14,7 @@ spec:
         ## vellym.config.yaml
 
         プロジェクトの設定は、project root直下の`vellym.config.yaml`に置く。
-        既定のファイル名で、`--config`で別パスも指定できる（[CLIリファレンス](#page=cli-reference)）。
+        既定のファイル名で、`--config`で別パスも指定できる（[[cli-reference|CLIリファレンス]]）。
 
         ```yaml
         schemaVersion: "1.0"
@@ -50,7 +50,7 @@ spec:
         `build`は、`outputDir`をそのまま出力先にするのではなく、`outputDir`の**親**
         ディレクトリの下に、生成日時を付けた一意なフォルダを作る
         （例: `20260728-143002-dist`）。これにより毎回の生成が上書きされずに残る。
-        配信・世代管理の詳細は[静的配信と自己ホスト](#page=self-hosting)を参照。
+        配信・世代管理の詳細は[[self-hosting|静的配信と自己ホスト]]を参照。
 
         ## 言語と設定の関係
 
@@ -61,8 +61,8 @@ spec:
 
         ## 関連
 
-        - コマンド → [CLIリファレンス](#page=cli-reference)
-        - 文書の書き方 → [文書の書き方（YAML）](#page=authoring)
+        - コマンド → [[cli-reference|CLIリファレンス]]
+        - 文書の書き方 → [[authoring|文書の書き方（YAML）]]
   translations:
     en:
       visibility: published
@@ -75,7 +75,7 @@ spec:
             ## vellym.config.yaml
 
             Project configuration lives in `vellym.config.yaml` at the project root. That is
-            the default name; you can point to another path with `--config` ([CLI Reference](#page=cli-reference)).
+            the default name; you can point to another path with `--config` ([[cli-reference|CLI Reference]]).
 
             ```yaml
             schemaVersion: "1.0"
@@ -110,7 +110,7 @@ spec:
 
             `build` does not write into `outputDir` itself. Instead it creates a unique,
             timestamped folder under the **parent** of `outputDir` (e.g. `20260728-143002-dist`).
-            This keeps each build without overwriting the previous one. See [Static Publishing and Self-Hosting](#page=self-hosting).
+            This keeps each build without overwriting the previous one. See [[self-hosting|Static Publishing and Self-Hosting]].
 
             ## Language and configuration
 
@@ -122,5 +122,5 @@ spec:
 
             ## Related
 
-            - Commands → [CLI Reference](#page=cli-reference)
-            - Authoring documents → [Authoring Documents (YAML)](#page=authoring)
+            - Commands → [[cli-reference|CLI Reference]]
+            - Authoring documents → [[authoring|Authoring Documents (YAML)]]

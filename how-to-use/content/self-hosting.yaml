@@ -14,7 +14,7 @@ spec:
         ## 対象
 
         このページは、文書を静的サイトとして配布したい人、Vellymを自己ホストで
-        運用したい人向けである。コマンドの詳細は[CLIリファレンス](#page=cli-reference)を参照。
+        運用したい人向けである。コマンドの詳細は[[cli-reference|CLIリファレンス]]を参照。
 
         ## 静的サイトを書き出す
 
@@ -48,7 +48,7 @@ spec:
 
         生成物は、設定の`outputDir`の**親**ディレクトリに、生成日時を付けた一意な
         フォルダとして置かれる（例: `20260728-143002-dist`）。毎回別フォルダになるため、
-        過去の生成物は上書きされずに残る。設定は[設定ファイル](#page=configuration)を参照。
+        過去の生成物は上書きされずに残る。設定は[[configuration|設定ファイル]]を参照。
 
         ## 配信（HTTPで配信する）
 
@@ -95,11 +95,11 @@ spec:
 
         ## 関連
 
-        * 静的版と動的版の違い → [用語と基本概念](#page=concepts)
+        * 静的版と動的版の違い → [[concepts|用語と基本概念]]
 
-        * 設定ファイル → [設定ファイル](#page=configuration)
+        * 設定ファイル → [[configuration|設定ファイル]]
 
-        * 現段階の範囲 → [現段階の範囲と制約](#page=limitations)
+        * 現段階の範囲 → [[limitations|現段階の範囲と制約]]
   translations:
     en:
       visibility: published
@@ -112,7 +112,7 @@ spec:
             ## Audience
 
             This page is for people who want to distribute documents as a static site, or run
-            Vellym self-hosted. For command details, see [CLI Reference](#page=cli-reference).
+            Vellym self-hosted. For command details, see [[cli-reference|CLI Reference]].
 
             ## Export a static site
 
@@ -143,7 +143,7 @@ spec:
 
             Output goes into the **parent** of the config's `outputDir`, as a unique
             timestamped folder (e.g. `20260728-143002-dist`). Because each build is a new
-            folder, previous outputs are not overwritten. See [Configuration File](#page=configuration).
+            folder, previous outputs are not overwritten. See [[configuration|Configuration File]].
 
             ## Serving (serve over HTTP)
 
@@ -190,6 +190,6 @@ spec:
 
             ## Related
 
-            - Static vs. dynamic → [Terminology and Concepts](#page=concepts)
-            - Config file → [Configuration File](#page=configuration)
-            - Current scope → [Current Scope and Limitations](#page=limitations)
+            - Static vs. dynamic → [[concepts|Terminology and Concepts]]
+            - Config file → [[configuration|Configuration File]]
+            - Current scope → [[limitations|Current Scope and Limitations]]

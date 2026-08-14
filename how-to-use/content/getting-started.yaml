@@ -14,7 +14,7 @@ spec:
         ## 前提
 
         - **Node.js 22.12以降** と **npm**（22・24系で動作確認済み）。
-        - Node.jsをホストへ導入したくない場合は、Dockerを使う方法もある（[静的配信と自己ホスト](#page=self-hosting)）。
+        - Node.jsをホストへ導入したくない場合は、Dockerを使う方法もある（[[self-hosting|静的配信と自己ホスト]]）。
 
         以下は、開発リポジトリ内の生成済みCLI（`packages/vellym/dist/cli.mjs`）を
         直接呼び出す例で示す。配布物のCLIでは`vellym`コマンドとして実行できる。
@@ -28,7 +28,7 @@ spec:
            ```
 
            言語、content root、初期profile、作成する文書を対話で選ぶと、`vellym.config.yaml`
-           と初期文書のYAMLが作成される。非対話で実行する場合の指定は[CLIリファレンス](#page=cli-reference)を参照。
+           と初期文書のYAMLが作成される。非対話で実行する場合の指定は[[cli-reference|CLIリファレンス]]を参照。
 
         2. **開発サーバーを起動する**
 
@@ -42,14 +42,14 @@ spec:
         3. **ブラウザで閲覧・編集する**
 
            文書ツリー、アウトライン、検索、編集、構造編集が使える。画面操作は
-           [ブラウザ画面の使い方](#page=browser-guide)を参照。
+           [[browser-guide|ブラウザ画面の使い方]]を参照。
 
         ## 設定ファイルなしで始める
 
         `vellym.config.yaml`が無いディレクトリで`vellym dev`を起動すると、
         ブラウザ上の**初期セットアップ**が表示される。画面の案内に従って言語・保存先・
         文書構成を選ぶと、そのまま同じサーバーで文書ワークスペースへ切り替わる。
-        セットアップ画面の流れは[ブラウザ画面の使い方](#page=browser-guide)を参照。
+        セットアップ画面の流れは[[browser-guide|ブラウザ画面の使い方]]を参照。
 
         設定ファイルが存在するが壊れている場合は、上書きせず設定エラーとして表示する。
 
@@ -61,7 +61,7 @@ spec:
         vellym validate
         ```
 
-        ページ数と診断（エラー・警告）の一覧を表示する。詳細は[CLIリファレンス](#page=cli-reference)を参照。
+        ページ数と診断（エラー・警告）の一覧を表示する。詳細は[[cli-reference|CLIリファレンス]]を参照。
 
         ## 配布・資料化する
 
@@ -71,13 +71,13 @@ spec:
         vellym build
         ```
 
-        生成物の配信手順と注意点は[静的配信と自己ホスト](#page=self-hosting)を参照。
+        生成物の配信手順と注意点は[[self-hosting|静的配信と自己ホスト]]を参照。
 
         ## 関連
 
-        - 用語の確認 → [用語と基本概念](#page=concepts)
-        - コマンド一覧 → [CLIリファレンス](#page=cli-reference)
-        - 設定ファイル → [設定ファイル](#page=configuration)
+        - 用語の確認 → [[concepts|用語と基本概念]]
+        - コマンド一覧 → [[cli-reference|CLIリファレンス]]
+        - 設定ファイル → [[configuration|設定ファイル]]
   translations:
     en:
       visibility: published
@@ -91,7 +91,7 @@ spec:
 
             - **Node.js 22.12 or later** and **npm** (verified on the 22 and 24 lines).
             - If you would rather not install Node.js on the host, there is a Docker path
-              ([Static Publishing and Self-Hosting](#page=self-hosting)).
+              ([[self-hosting|Static Publishing and Self-Hosting]]).
 
             The examples below invoke the built CLI in the development repo
             (`packages/vellym/dist/cli.mjs`) directly. In a distributed build you run it as
@@ -107,7 +107,7 @@ spec:
 
                Choose language, content root, initial profile, and which documents to create.
                This writes `vellym.config.yaml` and the initial document YAML. For
-               non-interactive use, see [CLI Reference](#page=cli-reference).
+               non-interactive use, see [[cli-reference|CLI Reference]].
 
             2. **Start the dev server**
 
@@ -120,14 +120,14 @@ spec:
             3. **Read and edit in the browser**
 
                Document tree, outline, search, editing, and structure editing are available.
-               See [Using the Browser UI](#page=browser-guide).
+               See [[browser-guide|Using the Browser UI]].
 
             ## Start without a config file
 
             If you run `vellym dev` in a directory with no `vellym.config.yaml`, the
             in-browser **setup** appears. Follow it to choose language, location, and document
             structure; it then switches to the document workspace on the same server. The
-            setup flow is described in [Using the Browser UI](#page=browser-guide).
+            setup flow is described in [[browser-guide|Using the Browser UI]].
 
             If a config file exists but is broken, Vellym does not overwrite it and shows a
             config error instead.
@@ -141,7 +141,7 @@ spec:
             ```
 
             It reports the page count and a list of diagnostics (errors / warnings). See
-            [CLI Reference](#page=cli-reference).
+            [[cli-reference|CLI Reference]].
 
             ## Distribute as material
 
@@ -151,10 +151,10 @@ spec:
             vellym build
             ```
 
-            See [Static Publishing and Self-Hosting](#page=self-hosting) for serving and caveats.
+            See [[self-hosting|Static Publishing and Self-Hosting]] for serving and caveats.
 
             ## Related
 
-            - Check terminology → [Terminology and Concepts](#page=concepts)
-            - Command list → [CLI Reference](#page=cli-reference)
-            - Config file → [Configuration File](#page=configuration)
+            - Check terminology → [[concepts|Terminology and Concepts]]
+            - Command list → [[cli-reference|CLI Reference]]
+            - Config file → [[configuration|Configuration File]]

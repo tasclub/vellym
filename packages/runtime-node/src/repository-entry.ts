@@ -6,15 +6,26 @@ import {
   type Document
 } from "yaml";
 import {
+  extractWikiLinks,
   headingId,
   isVellymCandidate,
   knownRichTextBlocks,
   knownRichTextBlocksFrom,
   normalizeLocale,
+  pageReferenceDiagnostic,
+  referenceKey,
+  resolvePageReference,
   validatePage,
   type Diagnostic,
+  type InternalPageReference,
   type Page,
+  type PageReferenceDiagnostic,
+  type PageReferenceIndex,
+  type PageReferenceView,
+  type PageRelationsView,
   type PageSummary,
+  type ReferenceHeading,
+  type ResolvedPageReference,
   type RichTextBlock,
   type SearchProjection,
   type SearchResult
@@ -52,18 +63,31 @@ export interface PageEntry {
   base: PageLocaleEntry;
   translations?: Map<string, PageLocaleEntry>;
   availableLocales?: string[];
-  outgoingPageIds?: string[];
+  /**
+   * 本文の`[[...]]`から抽出した未解決の発リンク。解決はrepository全件を読み終えた
+   * 後の横断パス（deriveRepositoryEntryIndex）で行う。
+   */
+  outgoingReferences?: InternalPageReference[];
   fileReadOnlyReasons?: string[];
   readOnly: boolean;
   readOnlyReasons?: string[];
   diagnostics?: Diagnostic[];
 }
 
+/** base projectionを指すlocale key。PageLocaleEntry.locale === undefined に対応する。 */
+export const BASE_LOCALE_KEY = "";
+
 export interface RepositoryEntryIndex {
   pages: PageEntry[];
   byName: Map<string, PageEntry>;
   bySlug: Map<string, PageEntry>;
-  backlinks: Map<string, string[]>;
+  /** source Page ID → そのPageが持つ解決済み参照 */
+  referencesBySource: Map<string, ResolvedPageReference[]>;
+  /** target Page ID → そのPageを参照している解決済み参照 */
+  backlinksByTarget: Map<string, ResolvedPageReference[]>;
+  /** source Page ID → 未解決・曖昧な参照 */
+  brokenReferences: Map<string, ResolvedPageReference[]>;
+  referenceDiagnostics: PageReferenceDiagnostic[];
   localizedSummaryCache: Map<string, PageSummary[]>;
   diagnostics: Diagnostic[];
 }
@@ -162,23 +186,36 @@ function searchableText(
   };
 }
 
-function pageLinks(records: PageLocaleEntry[]): string[] {
-  const ids = new Set<string>();
-  const patterns = [
-    /\[\[([a-z0-9][a-z0-9-]*)\]\]/gi,
-    /(?:[?#&]page=)([a-z0-9][a-z0-9-]*)/gi
-  ];
-  for (const record of records) {
-    for (const pattern of patterns) {
-      pattern.lastIndex = 0;
-      for (;;) {
-        const match = pattern.exec(record.normalizedText);
-        if (!match) break;
-        ids.add(match[1]!.toLocaleLowerCase());
-      }
-    }
+/**
+ * CommonMark構文木から発リンクを抽出する。検索用`normalizedText`はMarkdownリンクの
+ * URLを捨てるため参照抽出には使えず、code fence/inline codeの除外も正規表現では
+ * 保証できない。両者は結合させない。
+ */
+function outgoingReferences(
+  sourcePageId: string,
+  sourceLocale: string,
+  blocks: readonly RichTextBlock[]
+): InternalPageReference[] {
+  return extractWikiLinks(blocks).map((link) => ({
+    sourcePageId,
+    sourceLocale,
+    sourceBlockId: ownedString(link.blockId),
+    target: ownedString(link.target),
+    ...(link.heading === undefined ? {} : { targetHeading: ownedString(link.heading) }),
+    ...(link.label === undefined ? {} : { label: ownedString(link.label) })
+  }));
+}
+
+/** 検索用に平坦化した見出し列を、参照解決が使える形へ戻す。 */
+export function localeHeadings(record: PageLocaleEntry): ReferenceHeading[] {
+  const data = record.headingData ?? [];
+  const headings: ReferenceHeading[] = [];
+  for (let index = 0; index + 2 < data.length + 1; index += 3) {
+    const id = data[index + 1];
+    const text = data[index + 2];
+    if (typeof id === "string" && typeof text === "string") headings.push({ id, text });
   }
-  return [...ids];
+  return headings;
 }
 
 function localeEntry(
@@ -241,12 +278,14 @@ export function extractPageEntryWithPage(input: {
   diagnostics.push(...known.diagnostics);
   const reasons = unsafeYamlReasons(first, documents.length);
 
+  const name = ownedString(page.metadata.name);
   const baseLocale = page.spec.locale === undefined
     ? undefined
     : ownedString(normalizeLocale(page.spec.locale).canonical!);
   const base = localeEntry(page.metadata.title, known.blocks, {
     visibility: "published"
   });
+  const references = outgoingReferences(name, BASE_LOCALE_KEY, known.blocks);
   const translations = new Map<string, PageLocaleEntry>();
   for (const translation of validation.translations) {
     const blocks = knownRichTextBlocksFrom(
@@ -265,14 +304,12 @@ export function extractPageEntryWithPage(input: {
         visibility: translation.value.visibility ?? "published"
       }
     );
+    references.push(...outgoingReferences(name, locale, blocks.blocks));
     translations.set(entry.locale!, entry);
   }
-  const searchableRecords = [base, ...translations.values()];
   const availableLocales = [...translations.values()]
     .filter((item) => item.visibility === "published")
     .map((item) => item.locale!);
-  const outgoingPageIds = pageLinks(searchableRecords);
-  const name = ownedString(page.metadata.name);
   const slug = page.metadata.slug === undefined || page.metadata.slug === page.metadata.name
     ? name
     : ownedString(page.metadata.slug);
@@ -300,7 +337,7 @@ export function extractPageEntryWithPage(input: {
       base,
       ...(translations.size ? { translations } : {}),
       ...(availableLocales.length ? { availableLocales } : {}),
-      ...(outgoingPageIds.length ? { outgoingPageIds } : {}),
+      ...(references.length ? { outgoingReferences: references } : {}),
       ...(reasons.length ? { fileReadOnlyReasons: reasons } : {}),
       readOnly: reasons.length > 0,
       ...(reasons.length ? { readOnlyReasons: reasons } : {}),
@@ -414,25 +451,181 @@ export function deriveRepositoryEntryIndex(
       entry
     ])
   );
-  const backlinkSets = new Map<string, Set<string>>();
-  for (const entry of uniquePages) {
-    for (const target of entry.outgoingPageIds ?? []) {
-      const links = backlinkSets.get(target) ?? new Set<string>();
-      links.add(entry.name);
-      backlinkSets.set(target, links);
-    }
-  }
-  const backlinks = new Map(
-    [...backlinkSets].map(([target, sources]) => [target, [...sources].sort()])
-  );
+  const {
+    referencesBySource,
+    backlinksByTarget,
+    brokenReferences,
+    referenceDiagnostics
+  } = resolveEntryReferences(uniquePages, byName);
+
   return {
     pages: uniquePages,
     byName,
     bySlug,
-    backlinks,
+    referencesBySource,
+    backlinksByTarget,
+    brokenReferences,
+    referenceDiagnostics,
     localizedSummaryCache: new Map(),
     diagnostics
   };
+}
+
+function pushInto<T>(map: Map<string, T[]>, key: string, value: T): void {
+  const list = map.get(key);
+  if (list) list.push(value);
+  else map.set(key, [value]);
+}
+
+/**
+ * repository全件が揃った後に発リンクを解決し、逆参照と診断を反転生成する。
+ * ファイルI/Oを伴わないため全件を対象にしても安価である。
+ */
+function resolveEntryReferences(
+  pages: readonly PageEntry[],
+  byName: ReadonlyMap<string, PageEntry>
+): Pick<
+  RepositoryEntryIndex,
+  "referencesBySource" | "backlinksByTarget" | "brokenReferences" | "referenceDiagnostics"
+> {
+  const nameIndex = new Map<string, string[]>();
+  const slugIndex = new Map<string, string[]>();
+  const titleIndex = new Map<string, string[]>();
+  for (const entry of pages) {
+    pushInto(nameIndex, referenceKey(entry.name, false), entry.name);
+    pushInto(slugIndex, referenceKey(entry.slug, false), entry.name);
+    // titleはbaseと公開済み翻訳の双方を対象にする。localeをまたいだ重複は
+    // ambiguousとして診断し、自動的な優先順位付けはしない。
+    const titles = new Set([
+      entry.base.title,
+      ...[...(entry.translations?.values() ?? [])]
+        .filter((item) => item.visibility === "published")
+        .map((item) => item.title)
+    ]);
+    for (const title of titles) pushInto(titleIndex, referenceKey(title, true), entry.name);
+  }
+
+  const headingCache = new Map<string, ReferenceHeading[]>();
+  const index: PageReferenceIndex = {
+    byName: nameIndex,
+    bySlug: slugIndex,
+    byTitle: titleIndex,
+    headings(pageId, locale) {
+      const cacheKey = `${pageId}\u0000${locale}`;
+      const cached = headingCache.get(cacheKey);
+      if (cached) return cached;
+      const entry = byName.get(pageId);
+      if (!entry) return undefined;
+      // 参照元のlocaleに公開済み翻訳があればそれを、無ければbaseを見る。
+      const translation = locale === BASE_LOCALE_KEY
+        ? undefined
+        : entry.translations?.get(locale);
+      const record = translation?.visibility === "published" ? translation : entry.base;
+      const headings = localeHeadings(record);
+      headingCache.set(cacheKey, headings);
+      return headings;
+    }
+  };
+
+  const referencesBySource = new Map<string, ResolvedPageReference[]>();
+  const backlinksByTarget = new Map<string, ResolvedPageReference[]>();
+  const brokenReferences = new Map<string, ResolvedPageReference[]>();
+  const referenceDiagnostics: PageReferenceDiagnostic[] = [];
+  // pagesはrelativePath順に整列済み。ここで追記順を保つことで、同じ入力から
+  // 同じ出力を返す。
+  for (const entry of pages) {
+    for (const reference of entry.outgoingReferences ?? []) {
+      const resolved = resolvePageReference(reference, index);
+      pushInto(referencesBySource, entry.name, resolved);
+      if (resolved.status === "resolved" && resolved.resolvedTargetPageId) {
+        pushInto(backlinksByTarget, resolved.resolvedTargetPageId, resolved);
+      } else {
+        pushInto(brokenReferences, entry.name, resolved);
+      }
+      const diagnostic = pageReferenceDiagnostic(resolved, entry.relativePath);
+      if (diagnostic) referenceDiagnostics.push(diagnostic);
+    }
+  }
+  return {
+    referencesBySource,
+    backlinksByTarget,
+    brokenReferences,
+    referenceDiagnostics
+  };
+}
+
+/** localeで公開されている表示title。無ければbase titleへfallbackする。 */
+function displayTitle(entry: PageEntry, locale: string): string {
+  if (locale === BASE_LOCALE_KEY) return entry.base.title;
+  const translation = entry.translations?.get(locale);
+  return translation?.visibility === "published" ? translation.title : entry.base.title;
+}
+
+/** そのlocale projectionが公開対象か。draft翻訳の参照を公開経路へ混入させない。 */
+function isPublishedProjection(entry: PageEntry, locale: string): boolean {
+  if (locale === BASE_LOCALE_KEY) return true;
+  return entry.translations?.get(locale)?.visibility === "published";
+}
+
+function referenceView(
+  reference: ResolvedPageReference,
+  other: PageEntry | undefined,
+  locale: string
+): PageReferenceView {
+  return {
+    ...(other === undefined ? {} : { pageId: other.name, slug: other.slug, title: displayTitle(other, locale) }),
+    target: reference.target,
+    ...(reference.label === undefined ? {} : { label: reference.label }),
+    ...(reference.targetHeading === undefined ? {} : { heading: reference.targetHeading }),
+    ...(reference.resolvedTargetHeadingId === undefined
+      ? {}
+      : { headingId: reference.resolvedTargetHeadingId }),
+    blockId: reference.sourceBlockId,
+    locale: reference.sourceLocale,
+    status: reference.status
+  };
+}
+
+/**
+ * 閲覧用の関係情報を合成する。`localeKey`は実際に描画されるprojectionのlocale
+ * （baseならBASE_LOCALE_KEY）。repository全件のbacklinksではなく、対象Page分だけを返す。
+ */
+export function pageRelationsView(
+  index: RepositoryEntryIndex,
+  pageId: string,
+  localeKey: string
+): PageRelationsView {
+  const entry = index.byName.get(pageId);
+  if (!entry) return { outgoing: [], incoming: [], diagnostics: [] };
+
+  const outgoing = (index.referencesBySource.get(pageId) ?? [])
+    .filter((reference) => reference.sourceLocale === localeKey)
+    .map((reference) =>
+      referenceView(
+        reference,
+        reference.resolvedTargetPageId === undefined
+          ? undefined
+          : index.byName.get(reference.resolvedTargetPageId),
+        localeKey
+      )
+    );
+
+  const seenSources = new Set<string>();
+  const incoming: PageReferenceView[] = [];
+  for (const reference of index.backlinksByTarget.get(pageId) ?? []) {
+    const source = index.byName.get(reference.sourcePageId);
+    if (!source) continue;
+    // draft翻訳にのみ存在する参照は公開逆参照に含めない。
+    if (!isPublishedProjection(source, reference.sourceLocale)) continue;
+    if (seenSources.has(source.name)) continue;
+    seenSources.add(source.name);
+    incoming.push(referenceView(reference, source, localeKey));
+  }
+
+  const diagnostics = index.referenceDiagnostics.filter(
+    (diagnostic) => diagnostic.pageId === pageId && diagnostic.locale === localeKey
+  );
+  return { outgoing, incoming, diagnostics };
 }
 
 function breadcrumbs(relativePath: string): string[] {

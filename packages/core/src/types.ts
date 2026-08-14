@@ -207,4 +207,9 @@ export interface PageView {
   isBaseLocale?: boolean;
   invalidTranslations?: InvalidTranslation[];
   localeHashes?: Record<string, string>;
+  /**
+   * 本文の`[[...]]`から導出した派生情報。正本Page YAMLには書き戻さない。
+   * dynamic Page APIとstatic Page payloadで同形にする。
+   */
+  relations?: import("./relations.js").PageRelationsView;
 }

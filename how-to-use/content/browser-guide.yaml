@@ -14,8 +14,8 @@ spec:
         ## 対象
 
         このページは、`vellym dev`で起動したブラウザ画面（動的版）を使う利用者向けである。
-        起動方法は[はじめかた](#page=getting-started)、コマンドは[CLIリファレンス](#page=cli-reference)を参照。静的版（`build`）は
-        閲覧専用で、編集・検索・設定は含まれない（[静的配信と自己ホスト](#page=self-hosting)）。
+        起動方法は[[getting-started|はじめかた]]、コマンドは[[cli-reference|CLIリファレンス]]を参照。静的版（`build`）は
+        閲覧専用で、編集・検索・設定は含まれない（[[self-hosting|静的配信と自己ホスト]]）。
 
         ## 初期セットアップ
 
@@ -40,8 +40,9 @@ spec:
 
         ## 閲覧
 
-        文書ツリーからページを選ぶと本文が表示される。本文中の内部リンク（`#page=`形式）を
-        たどって関連ページへ移動できる。
+        文書ツリーからページを選ぶと本文が表示される。本文中の内部リンク（`[[...]]`形式）を
+        たどって関連ページへ移動できる。本文の下部には、そのページを参照している
+        ページの一覧が表示される。参照先が見つからないリンクは、本文中とリンクの問題欄で示される。
 
         Pageに複数の公開言語がある場合は、本文上部の言語切り替えから同じPageの別言語へ移動できる。
         URLは既定言語では`/pages/<slug>/`、追加言語では`/<locale>/pages/<slug>/`となる。
@@ -87,9 +88,9 @@ spec:
 
         ## 関連
 
-        - YAMLの書き方 → [文書の書き方（YAML）](#page=authoring)
-        - 静的配信 → [静的配信と自己ホスト](#page=self-hosting)
-        - 現段階の範囲 → [現段階の範囲と制約](#page=limitations)
+        - YAMLの書き方 → [[authoring|文書の書き方（YAML）]]
+        - 静的配信 → [[self-hosting|静的配信と自己ホスト]]
+        - 現段階の範囲 → [[limitations|現段階の範囲と制約]]
   translations:
     en:
       visibility: published
@@ -102,9 +103,9 @@ spec:
             ## Audience
 
             This page is for users of the browser UI (dynamic mode) started with
-            `vellym dev`. See [Getting Started](#page=getting-started) to start it and [CLI Reference](#page=cli-reference) for
+            `vellym dev`. See [[getting-started|Getting Started]] to start it and [[cli-reference|CLI Reference]] for
             commands. The static build is read-only and has no editing, search, or settings
-            ([Static Publishing and Self-Hosting](#page=self-hosting)).
+            ([[self-hosting|Static Publishing and Self-Hosting]]).
 
             ## Initial setup
 
@@ -133,7 +134,9 @@ spec:
             ## Reading
 
             Select a page from the document tree to view its body. Follow internal links
-            (`#page=` links) in the body to move to related pages.
+            (`[[...]]` links) in the body to move to related pages. Pages that link to the
+            current one are listed below the body, and links whose target cannot be resolved
+            are flagged in the body and in the link problems section.
 
             When a Page has multiple published locales, use the language switcher above the
             body to open the same Page in another language. Default-locale URLs use
@@ -180,6 +183,6 @@ spec:
 
             ## Related
 
-            - Writing YAML → [Authoring Documents (YAML)](#page=authoring)
-            - Static publishing → [Static Publishing and Self-Hosting](#page=self-hosting)
-            - Current scope → [Current Scope and Limitations](#page=limitations)
+            - Writing YAML → [[authoring|Authoring Documents (YAML)]]
+            - Static publishing → [[self-hosting|Static Publishing and Self-Hosting]]
+            - Current scope → [[limitations|Current Scope and Limitations]]

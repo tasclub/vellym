@@ -7,7 +7,6 @@ import {
   isLoopbackHost,
   pageSummaries,
   planMigration,
-  setupManifest,
   startDevServer
 } from "@vellym-internal/runtime-node";
 import type { Diagnostic } from "@vellym-internal/core";
@@ -37,19 +36,10 @@ function usage(): string {
   return messages.usage();
 }
 
-// コマンド別のヘルプ。initは有効なprofile／template IDも併記して、
-// --profile／--templateに何を渡せるかCLI単体で分かるようにする。
 function commandHelp(command: string): string {
   switch (command) {
     case "init": {
-      const manifest = setupManifest();
-      const profiles = manifest.profiles
-        .map((profile) => `  ${profile.id}（${profile.title}）`)
-        .join("\n");
-      const templates = manifest.templates
-        .map((template) => `  ${template.id}（${template.title}）`)
-        .join("\n");
-      return messages.initHelp(profiles, templates);
+      return messages.initHelp();
     }
     case "dev":
       return messages.devHelp();
@@ -202,23 +192,33 @@ async function main(args = process.argv.slice(2)): Promise<void> {
     return;
   }
   if (command === "init") {
-    const profileValue = option(args.slice(1), "--profile");
-    const languageValue = option(args.slice(1), "--language");
+    const initArgs = args.slice(1);
+    const allowed = new Set(["--size", "--method", "--language", "--content-root"]);
+    const unsupported = initArgs.find(
+      (item) => item.startsWith("--") && !allowed.has(item)
+    );
+    if (unsupported) {
+      throw new UsageError(`initでは${unsupported}を使用できません`);
+    }
+    const languageValue = option(initArgs, "--language");
     if (languageValue && languageValue !== "ja" && languageValue !== "en") {
       throw new UsageError(messages.languageInvalid());
+    }
+    const sizeValue = option(initArgs, "--size");
+    if (sizeValue && !["personal", "small-team", "medium-large"].includes(sizeValue)) {
+      throw new UsageError("--sizeはpersonal、small-team、medium-largeから指定してください");
+    }
+    const methodValue = option(initArgs, "--method");
+    if (methodValue && !["agile", "hybrid", "waterfall"].includes(methodValue)) {
+      throw new UsageError("--methodはagile、hybrid、waterfallから指定してください");
     }
     await initializeProject(
       args[1] && !args[1].startsWith("--") ? args[1] : undefined,
       {
-        planOnly: args.includes("--plan"),
-        json: args.includes("--json"),
-        yes: args.includes("--yes"),
+        size: sizeValue as import("@vellym-internal/runtime-node").ProjectSize | undefined,
+        method: methodValue as import("@vellym-internal/runtime-node").DevelopmentMethod | undefined,
         language: languageValue as "ja" | "en" | undefined,
-        contentRoot: option(args.slice(1), "--content-root"),
-        templateIds: option(args.slice(1), "--template")?.split(","),
-        profiles: profileValue
-          ? profileValue.split(",") as import("@vellym-internal/runtime-node").SetupProfileId[]
-          : undefined
+        contentRoot: option(initArgs, "--content-root")
       }
     );
     return;

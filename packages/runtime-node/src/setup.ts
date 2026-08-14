@@ -1,11 +1,26 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { access, mkdir, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { parseDocument } from "yaml";
-import { STABLE_API_VERSION, validatePage } from "@vellym-internal/core";
+import { parseDocument, stringify } from "yaml";
+import {
+  STABLE_API_VERSION,
+  validateConfig,
+  validateFolder,
+  validatePage
+} from "@vellym-internal/core";
 import { loadConfig } from "./config.js";
 import { RuntimeError } from "./errors.js";
 import { loadRepository } from "./repository.js";
+import {
+  CORE_SETUP_PACK,
+  SETUP_AREAS,
+  recommendSetupTemplates,
+  setupRule,
+  type DevelopmentMethod,
+  type DocumentationLevel,
+  type ProjectSize,
+  type SetupMode
+} from "./setup-catalog.js";
 
 export type SetupProfileId =
   | "minimal"
@@ -14,6 +29,7 @@ export type SetupProfileId =
   | "project-management"
   | "product-planning";
 export type SetupLanguage = "ja" | "en";
+export type SetupOperation = "initialize" | "add";
 
 export interface SetupTemplate {
   id: string;
@@ -29,6 +45,13 @@ export interface SetupTemplate {
   titleEn?: string;
   headingEn?: string;
   descriptionEn?: string;
+  areaId?: string;
+  minimumLevel?: DocumentationLevel;
+  requiredness?: string;
+  templateFamilyId?: string;
+  sizes?: ProjectSize[];
+  methods?: DevelopmentMethod[];
+  dependencies?: string[];
 }
 
 export interface SetupProfile {
@@ -38,9 +61,9 @@ export interface SetupProfile {
 }
 
 const templates: SetupTemplate[] = [
-  { id: "welcome", relativePath: "docs/content/welcome.yaml", pageId: "welcome", title: "Vellymへようこそ", documentType: "guide", heading: "はじめに", description: "このYAMLがVellymで表示・編集する文書の正本です。" },
-  { id: "project-guide", relativePath: "docs/content/index.yaml", pageId: "project-guide", title: "プロジェクト文書の案内", documentType: "repository-guide", heading: "このページの役割", description: "管理対象文書の種類、正本の優先順位、必要な文書だけを読む方法を案内します。", defaultSelected: false, defaultFileName: "index.yaml", editableFileName: true },
-  { id: "external-ai-document-guide", relativePath: "docs/content/ai-guide.yaml", pageId: "external-ai-document-guide", title: "外部AI向け文書利用ガイド", documentType: "guide", heading: "外部AIエージェントから利用する", description: "外部AIエージェントがYAMLから必要な正本を限定して読むための原則を案内します。", defaultSelected: false, defaultFileName: "ai-guide.yaml", editableFileName: true },
+  { id: "welcome", relativePath: "docs/content/welcome.yaml", pageId: "welcome", title: "Vellymへようこそ", documentType: "guide", heading: "はじめに", description: "このPage YAMLをVellymが直接表示・編集します。" },
+  { id: "project-guide", relativePath: "docs/content/index.yaml", pageId: "project-guide", title: "プロジェクト文書の案内", documentType: "repository-guide", heading: "このページの役割", description: "初期構成、情報の配置、タスクに必要なPageの読み方を案内します。", defaultSelected: false, defaultFileName: "index.yaml", editableFileName: true },
+  { id: "external-ai-document-guide", relativePath: "docs/content/ai-guide.yaml", pageId: "external-ai-document-guide", title: "外部AI向け文書利用ガイド", documentType: "guide", heading: "外部AIエージェントから利用する", description: "外部AIエージェントがPage YAMLから必要な情報だけを読む原則を案内します。", defaultSelected: false, defaultFileName: "ai-guide.yaml", editableFileName: true },
   { id: "yaml-editing-guide", relativePath: "docs/content/yaml-guide.yaml", pageId: "yaml-editing-guide", title: "YAML直接編集ガイド", documentType: "guide", heading: "YAMLを直接編集する", description: "Page YAMLの最小構造と、安全に直接編集して検証する方法を案内します。", defaultSelected: false, defaultFileName: "yaml-guide.yaml", editableFileName: true },
   { id: "project-charter", relativePath: "docs/content/project/プロジェクト憲章.yaml", pageId: "project-charter", title: "プロジェクト憲章", documentType: "project-charter", heading: "目的", description: "製品の目的、解決する課題、境界を記載します。" },
   { id: "requirements", relativePath: "docs/content/requirements/要求.yaml", pageId: "requirements", title: "要求", documentType: "requirement", heading: "要求", description: "利用者が必要とすることと受入条件を記載します。" },
@@ -58,7 +81,15 @@ const templates: SetupTemplate[] = [
   { id: "product-vision", relativePath: "docs/content/product/プロダクトビジョン.yaml", pageId: "product-vision", title: "プロダクトビジョン", documentType: "product-vision", heading: "ビジョン", description: "誰のどの課題を、どのような状態へ変えるかを記載します。" },
   { id: "user-problem", relativePath: "docs/content/product/ユーザー課題.yaml", pageId: "user-problem", title: "ユーザー課題", documentType: "user-problem", heading: "ユーザーと課題", description: "対象ユーザー、状況、現在の代替手段、困りごとを記載します。" },
   { id: "product-hypotheses", relativePath: "docs/content/product/仮説.yaml", pageId: "product-hypotheses", title: "プロダクト仮説", documentType: "product-hypotheses", heading: "検証する仮説", description: "価値、利用、実現性に関する仮説と検証方法を記載します。" },
-  { id: "release-plan", relativePath: "docs/content/product/リリース計画.yaml", pageId: "release-plan", title: "リリース計画", documentType: "release-plan", heading: "リリースの目的", description: "対象、提供内容、品質ゲート、告知、リリース後確認を記載します。" }
+  { id: "release-plan", relativePath: "docs/content/product/リリース計画.yaml", pageId: "release-plan", title: "リリース計画", documentType: "release-plan", heading: "リリースの目的", description: "対象、提供内容、品質ゲート、告知、リリース後確認を記載します。" },
+  { id: "design-overview", relativePath: "docs/content/design/設計概要.yaml", pageId: "design-overview", title: "設計概要", documentType: "design", heading: "設計の目的", description: "主要な設計対象、境界、関連する詳細設計を記載します。" },
+  { id: "development-policy", relativePath: "docs/content/implementation/開発方針.yaml", pageId: "development-policy", title: "開発方針", documentType: "development-policy", heading: "開発方針", description: "開発、Git、build、deployの基本方針を記載します。" },
+  { id: "test-strategy", relativePath: "docs/content/quality/テスト方針.yaml", pageId: "test-strategy", title: "テスト方針", documentType: "test-strategy", heading: "テスト方針", description: "品質目標、テスト範囲、判定基準を記載します。" },
+  { id: "test-plan", relativePath: "docs/content/quality/テスト計画.yaml", pageId: "test-plan", title: "テスト計画", documentType: "test-plan", heading: "テスト計画", description: "対象、環境、実施順序、完了条件を記載します。" },
+  { id: "migration-plan", relativePath: "docs/content/release/移行計画.yaml", pageId: "migration-plan", title: "移行計画", documentType: "migration-plan", heading: "移行計画", description: "移行対象、手順、検証、rollbackを記載します。" },
+  { id: "operations-guide", relativePath: "docs/content/operations/運用設計.yaml", pageId: "operations-guide", title: "運用設計", documentType: "operations-guide", heading: "運用設計", description: "監視、backup、復旧、障害対応を記載します。" },
+  { id: "handover", relativePath: "docs/content/closure/引継ぎ.yaml", pageId: "handover", title: "引継ぎ", documentType: "handover", heading: "引継ぎ", description: "成果物、運用責任、未完了事項を記載します。" },
+  { id: "retrospective", relativePath: "docs/content/closure/振り返り.yaml", pageId: "retrospective", title: "振り返り", documentType: "retrospective", heading: "振り返り", description: "結果、学び、次に変えることを記載します。" }
 ];
 
 const defaultFolderNames: Record<SetupLanguage, Record<string, string>> = {
@@ -68,7 +99,8 @@ const defaultFolderNames: Record<SetupLanguage, Record<string, string>> = {
     decisions: "設計判断",
     architecture: "アーキテクチャ",
     "project-management": "プロジェクト管理",
-    product: "プロダクト企画"
+    product: "プロダクト企画",
+    ...Object.fromEntries(SETUP_AREAS.map((area) => [area.id, area.folderName.ja]))
   },
   en: {
     project: "project",
@@ -76,14 +108,15 @@ const defaultFolderNames: Record<SetupLanguage, Record<string, string>> = {
     decisions: "decisions",
     architecture: "architecture",
     "project-management": "project-management",
-    product: "product"
+    product: "product",
+    ...Object.fromEntries(SETUP_AREAS.map((area) => [area.id, area.folderName.en]))
   }
 };
 
 const english = new Map<string, Pick<SetupTemplate, "title" | "heading" | "description">>([
   ["welcome", { title: "Welcome to Vellym", heading: "Getting started", description: "Learn how to create, organize, edit, and store project documents." }],
-  ["project-guide", { title: "Project document guide", heading: "Purpose of this page", description: "Learn the document roles, source-of-truth order, and how to read only what a task needs." }],
-  ["external-ai-document-guide", { title: "Document guide for external AI agents", heading: "Using documents from an external AI agent", description: "Learn how an external AI agent should select and read the YAML sources of truth." }],
+  ["project-guide", { title: "Project document guide", heading: "Purpose of this page", description: "Learn the initial structure, information locations, and how to read only what a task needs." }],
+  ["external-ai-document-guide", { title: "Document guide for external AI agents", heading: "Using documents from an external AI agent", description: "Learn how an external AI agent should select and read the necessary Page YAML files." }],
   ["yaml-editing-guide", { title: "Direct YAML editing guide", heading: "Editing YAML directly", description: "Learn the minimum Page YAML structure and how to edit and validate it safely." }],
   ["project-charter", { title: "Project charter", heading: "Purpose", description: "Describe the product purpose, problem, and boundaries." }],
   ["requirements", { title: "Requirements", heading: "Requirements", description: "Describe user needs and acceptance criteria." }],
@@ -101,7 +134,15 @@ const english = new Map<string, Pick<SetupTemplate, "title" | "heading" | "descr
   ["product-vision", { title: "Product vision", heading: "Vision", description: "Describe whose problem the product solves and the outcome it creates." }],
   ["user-problem", { title: "User problem", heading: "User and problem", description: "Describe the target user, context, alternatives, and pain." }],
   ["product-hypotheses", { title: "Product hypotheses", heading: "Hypotheses to test", description: "Record value, usability, and feasibility hypotheses and how to test them." }],
-  ["release-plan", { title: "Release plan", heading: "Release objective", description: "Record audience, deliverables, quality gates, announcement, and follow-up." }]
+  ["release-plan", { title: "Release plan", heading: "Release objective", description: "Record audience, deliverables, quality gates, announcement, and follow-up." }],
+  ["design-overview", { title: "Design overview", heading: "Design purpose", description: "Record major design targets, boundaries, and detailed design links." }],
+  ["development-policy", { title: "Development policy", heading: "Development policy", description: "Record development, Git, build, and deployment policies." }],
+  ["test-strategy", { title: "Test strategy", heading: "Test strategy", description: "Record quality goals, test scope, and acceptance criteria." }],
+  ["test-plan", { title: "Test plan", heading: "Test plan", description: "Record scope, environments, sequence, and completion criteria." }],
+  ["migration-plan", { title: "Migration plan", heading: "Migration plan", description: "Record migration scope, steps, verification, and rollback." }],
+  ["operations-guide", { title: "Operations design", heading: "Operations design", description: "Record monitoring, backup, recovery, and incident response." }],
+  ["handover", { title: "Handover", heading: "Handover", description: "Record deliverables, operational ownership, and open items." }],
+  ["retrospective", { title: "Retrospective", heading: "Retrospective", description: "Record outcomes, lessons, and changes for the next cycle." }]
 ]);
 
 const profiles: SetupProfile[] = [
@@ -113,7 +154,13 @@ const profiles: SetupProfile[] = [
 ];
 
 function configSource(contentRoot: string, language: SetupLanguage): string {
-  return `schemaVersion: "1.0"\ncontentRoot: ${contentRoot}\noutputDir: dist/vellym\nui:\n  language: ${language}\nplugins: []\n`;
+  return stringify({
+    schemaVersion: "1.0",
+    contentRoot,
+    outputDir: "dist/vellym",
+    ui: { language },
+    plugins: []
+  }, { lineWidth: 0 });
 }
 const templateById = new Map(templates.map((template) => [template.id, template]));
 const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
@@ -123,12 +170,58 @@ export function setupProfiles(): SetupProfile[] {
 }
 
 export function setupManifest(): {
+  packId: string;
+  packVersion: string;
+  schemaVersion: string;
   profiles: SetupProfile[];
   templates: SetupTemplate[];
+  areas: typeof SETUP_AREAS;
+  sizes: ProjectSize[];
+  methods: DevelopmentMethod[];
+  levels: DocumentationLevel[];
 } {
   return {
+    packId: CORE_SETUP_PACK.id,
+    packVersion: CORE_SETUP_PACK.version,
+    schemaVersion: CORE_SETUP_PACK.schemaVersion,
     profiles: setupProfiles(),
-    templates: templates.map((template) => ({ ...template }))
+    templates: templates.map((template) => {
+      const rule = setupRule(template.id);
+      return {
+        ...template,
+        ...(english.get(template.id)
+          ? {
+              titleEn: english.get(template.id)!.title,
+              headingEn: english.get(template.id)!.heading,
+              descriptionEn: english.get(template.id)!.description
+            }
+          : {}),
+        ...(rule
+          ? {
+              areaId: rule.areaId,
+              minimumLevel: rule.minimumLevel,
+              requiredness: rule.requiredness,
+              ...(rule.sizes ? { sizes: [...rule.sizes] } : {}),
+              ...(rule.methods ? { methods: [...rule.methods] } : {}),
+              ...(rule.dependencies
+                ? { dependencies: [...rule.dependencies] }
+                : {}),
+              ...(rule.templateFamilyId
+                ? { templateFamilyId: rule.templateFamilyId }
+                : {})
+            }
+          : {})
+      };
+    }),
+    areas: SETUP_AREAS.map((area) => ({
+      ...area,
+      title: { ...area.title },
+      folderName: { ...area.folderName },
+      description: { ...area.description }
+    })),
+    sizes: ["personal", "small-team", "medium-large"],
+    methods: ["agile", "hybrid", "waterfall"],
+    levels: ["light", "standard", "strict"]
   };
 }
 
@@ -136,7 +229,7 @@ const guideBodies: Record<string, Record<SetupLanguage, string>> = {
   "project-guide": {
     ja: `## このページの役割
 
-このページは、このフォルダから必要な正本文書を探すための入口です。
+このページは、このフォルダから必要なPage YAMLを探すための入口です。
 個別の要求、判断、進捗はここへ複製せず、それぞれのPageを確認します。
 
 ## 文書を探す順序
@@ -147,7 +240,7 @@ const guideBodies: Record<string, Record<SetupLanguage, string>> = {
 4. 必要な画面仕様、計画、リスク、検証資料だけを追加で確認します。
 
 最初から全Pageを読まず、title、文書種別、フォルダ、見出し、検索結果から候補を絞ります。
-このPageは初期案なので、project固有の正本と読み順に合わせて編集できます。
+このPageは初期案なので、project固有の構成と読み順に合わせて編集できます。
 
 ## 情報が矛盾する場合
 
@@ -155,7 +248,7 @@ const guideBodies: Record<string, Record<SetupLanguage, string>> = {
 矛盾を推測で解消せず、対象Pageと未決事項を確認します。`,
     en: `## Purpose of this page
 
-This page is the entry point for finding the sources of truth in this folder.
+This page is the entry point for finding the Page YAML files in this folder.
 Do not copy individual requirements, decisions, or status here; open their Pages instead.
 
 ## Reading order
@@ -166,7 +259,7 @@ Do not copy individual requirements, decisions, or status here; open their Pages
 4. Open only the screen specifications, plans, risks, and verification material the task needs.
 
 Do not read every Page up front. Narrow candidates by title, document type, folder, heading, and search result.
-This Page is an initial draft and can be edited to match the project-specific sources of truth.
+This Page is an initial draft and can be edited to match the project-specific structure.
 
 ## Conflicting information
 
@@ -180,7 +273,7 @@ Vellymの管理対象は通常のYAMLファイルです。特定のAI製品やpr
 
 ## 読み方
 
-- 最初に共通入口があれば読み、正本の種類と優先順位を確認します。
+- 最初に共通入口があれば読み、情報の配置と読み順を確認します。
 - title、\`spec.documentType\`、フォルダ、見出し、検索語から候補を絞ります。
 - 候補を選んでから必要なPageまたは見出しだけを読みます。
 - 完了済み計画、対象外の段階、生成物、無関係な調査記録を通常は読みません。
@@ -197,7 +290,7 @@ Vellym manages ordinary YAML files. It does not depend on a particular AI produc
 
 ## Reading
 
-- If a shared entry Page exists, read it first to learn the source-of-truth roles and priority.
+- If a shared entry Page exists, read it first to learn the information layout and reading order.
 - Narrow candidates by title, \`spec.documentType\`, folder, heading, and search term.
 - Read only the selected Page or headings after narrowing the candidates.
 - Normally exclude completed plans, unrelated stages, generated output, and unrelated research notes.
@@ -489,21 +582,58 @@ function pageSource(
   template: SetupTemplate,
   pageId: string,
   slug: string,
-  language: SetupLanguage
+  language: SetupLanguage,
+  titleOverride?: string,
+  bodyOverride?: string
 ): string {
   const text = language === "en" ? english.get(template.id) : undefined;
-  const title = text?.title ?? template.title;
+  const title = titleOverride ?? text?.title ?? template.title;
   const heading = text?.heading ?? template.heading;
   const description = template.id === "welcome"
     ? language === "en"
       ? "Create pages from the plus button in the document tree, edit a page with Edit, and change storage under Settings. Vellym writes ordinary YAML files and never commits them automatically."
       : "文書ツリーの「＋」からページを作成し、「編集」で内容を変更できます。保存先は設定から変更できます。Vellymは通常のYAMLファイルへ保存し、自動でcommitしません。"
     : text?.description ?? template.description;
-  const body = guideBody(template.id, language) ?? `## ${heading}\n\n${description}`;
-  return `apiVersion: ${STABLE_API_VERSION}\nkind: Page\nmetadata:\n  name: ${pageId}\n  slug: ${slug}\n  title: ${title}\nspec:\n  documentType: ${template.documentType}\n  locale: ${language}\n  blocks:\n    - id: body\n      type: rich-text\n      format: commonmark\n      content: |\n${body.split("\n").map((line) => `        ${line}`).join("\n")}\n`;
+  const body = bodyOverride ?? guideBody(template.id, language) ?? (
+    language === "ja"
+      ? `## ${heading}\n\n${description}\n\n## 初期項目\n\n- 目的:\n- 対象範囲:\n- 現在分かっていること:\n- 未決事項:\n- 次に確認すること:`
+      : `## ${heading}\n\n${description}\n\n## Initial items\n\n- Purpose:\n- Scope:\n- Known information:\n- Open questions:\n- Next validation:`
+  );
+  const rule = setupRule(template.id);
+  return stringify({
+    apiVersion: STABLE_API_VERSION,
+    kind: "Page",
+    metadata: {
+      name: pageId,
+      slug,
+      title,
+      annotations: {
+        "vellym.tasclub.com/setup-pack-id": CORE_SETUP_PACK.id,
+        "vellym.tasclub.com/setup-pack-version": CORE_SETUP_PACK.version,
+        "vellym.tasclub.com/template-id": template.id,
+        "vellym.tasclub.com/template-version": "1.0.0",
+        ...(rule?.areaId
+          ? { "vellym.tasclub.com/information-area-id": rule.areaId }
+          : {}),
+        ...(rule?.templateFamilyId
+          ? { "vellym.tasclub.com/template-family-id": rule.templateFamilyId }
+          : {})
+      }
+    },
+    spec: {
+      documentType: template.documentType,
+      locale: language,
+      blocks: [{ id: "body", type: "rich-text", format: "commonmark", content: body }]
+    }
+  }, { lineWidth: 0, blockQuote: "literal" });
 }
 
 export interface SetupPlan {
+  operation: SetupOperation;
+  mode?: SetupMode;
+  size?: ProjectSize;
+  method?: DevelopmentMethod;
+  level?: DocumentationLevel;
   profiles: SetupProfileId[];
   selectedTemplateIds: string[];
   conflictResolutions: Record<string, "skip" | "alternate">;
@@ -512,14 +642,19 @@ export interface SetupPlan {
   language: SetupLanguage;
   folderNames: Record<string, string>;
   pageFileNames: Record<string, string>;
+  pageTitles: Record<string, string>;
+  plannedPageIds: Record<string, string>;
+  recommendationReasons: Record<string, string>;
   files: Array<{
     relativePath: string;
+    kind?: "page" | "folder" | "config";
     templateId?: string;
+    areaId?: string;
     pageId?: string;
     slug?: string;
     title: string;
     status: "create" | "conflict" | "skip";
-    conflictReason?: "path" | "page-id";
+    conflictReason?: "path" | "page-id" | "template-existing";
   }>;
   planHash: string;
 }
@@ -570,9 +705,9 @@ function safePageFileNames(
   const result: Record<string, string> = {};
   for (const [templateId, raw] of Object.entries(values ?? {})) {
     const template = templateById.get(templateId);
-    if (!template?.editableFileName) {
+    if (!template) {
       throw new RuntimeError(
-        `ファイル名を変更できないtemplateです: ${templateId}`,
+        `不明なtemplateです: ${templateId}`,
         400,
         "SETUP_FILE_NAME"
       );
@@ -597,6 +732,21 @@ function safePageFileNames(
   return result;
 }
 
+function safePageTitles(values: Record<string, string> | undefined): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [templateId, raw] of Object.entries(values ?? {})) {
+    if (!templateById.has(templateId)) {
+      throw new RuntimeError(`不明なtemplateです: ${templateId}`, 400, "SETUP_PAGE_TITLE");
+    }
+    const value = raw.normalize("NFC").trim();
+    if (!value || /[\0\r\n]/.test(value) || value.length > 200) {
+      throw new RuntimeError(`Page名が不正です: ${templateId}`, 400, "SETUP_PAGE_TITLE");
+    }
+    result[templateId] = value;
+  }
+  return result;
+}
+
 function slugFromTitle(title: string): string {
   return title
     .normalize("NFC")
@@ -611,14 +761,18 @@ function outputPath(
   contentRoot: string,
   language: SetupLanguage,
   folderNames: Record<string, string>,
-  pageFileNames: Record<string, string>
+  pageFileNames: Record<string, string>,
+  useAreaLayout: boolean
 ): string {
   const relative = template.relativePath.replace(/^docs\/content\//, "");
   const parts = relative.split("/");
   const filename = parts.pop()!;
-  const folders = parts.map(
-    (part) => folderNames[part] ?? defaultFolderNames[language][part] ?? part
-  );
+  const rule = setupRule(template.id);
+  const folders = useAreaLayout && rule && template.id !== "project-guide"
+    ? [folderNames[rule.areaId] ?? defaultFolderNames[language][rule.areaId] ?? rule.areaId]
+    : parts.map(
+        (part) => folderNames[part] ?? defaultFolderNames[language][part] ?? part
+      );
   const localizedFilename =
     pageFileNames[template.id] ??
     template.defaultFileName ??
@@ -630,34 +784,124 @@ function outputPath(
   return path.posix.join(contentRoot, ...folders, localizedFilename);
 }
 
-function folderSource(title: string, order: string[]): string {
-  const orderSource = order.length
-    ? `\n${order.map((item) => `    - ${item}`).join("\n")}`
-    : " []";
-  return `apiVersion: ${STABLE_API_VERSION}\nkind: Folder\nmetadata:\n  title: ${title}\nspec:\n  order:${orderSource}\n`;
+function folderSource(
+  title: string,
+  order: string[],
+  language: SetupLanguage,
+  description?: string,
+  areaId?: string
+): string {
+  return stringify({
+    apiVersion: STABLE_API_VERSION,
+    kind: "Folder",
+    metadata: {
+      title,
+      ...(areaId
+        ? { annotations: { "vellym.tasclub.com/information-area-id": areaId } }
+        : {})
+    },
+    spec: {
+      locale: language,
+      ...(description ? { description } : {}),
+      order
+    }
+  }, { lineWidth: 0 });
 }
 
 function rootChildrenForPlan(plan: SetupPlan): string[] {
   const prefix = `${plan.contentRoot}/`;
   const pagePaths = plan.files
-    .filter((file) => file.templateId)
+    .filter((file) => file.kind === "page" && file.status === "create")
     .map((file) => file.relativePath.slice(prefix.length));
   const directPages = pagePaths
     .filter((relative) => !relative.includes("/"))
     .map((relative) => path.posix.basename(relative));
-  const folders = [
-    "project",
-    "requirements",
-    "decisions",
-    "architecture",
-    "project-management",
-    "product"
-  ]
-    .map((logical) => plan.folderNames[logical])
-    .filter((folder): folder is string =>
-      Boolean(folder) && pagePaths.some((relative) => relative.startsWith(`${folder}/`))
-    );
+  const folders = [...new Set(
+    pagePaths
+      .filter((relative) => relative.includes("/"))
+      .map((relative) => relative.split("/")[0]!)
+  )];
   return [...directPages, ...folders];
+}
+
+function areaChildrenForPlan(plan: SetupPlan, areaId: string): string[] {
+  return plan.files
+    .filter(
+      (file) =>
+        file.kind === "page" &&
+        file.areaId === areaId &&
+        file.templateId !== "project-guide" &&
+        file.status === "create"
+    )
+    .map((file) => path.posix.basename(file.relativePath));
+}
+
+function projectInformationGuide(plan: SetupPlan): string {
+  const ja = plan.language === "ja";
+  const pages = plan.files.filter(
+    (file) => file.kind === "page" && file.status === "create" && file.templateId !== "project-guide"
+  );
+  const areaLines = SETUP_AREAS.map((area) => {
+    const areaPages = pages.filter((file) => file.areaId === area.id);
+    if (!areaPages.length) return undefined;
+    const folder = plan.folderNames[area.id] ?? area.folderName[plan.language];
+    return `- ${area.title[plan.language]}: \`${folder}\` — ${areaPages
+      .map((file) => `[[${file.pageId} | ${file.title}]]`)
+      .join(ja ? "、" : ", ")}`;
+  }).filter((line): line is string => Boolean(line));
+  const omitted = SETUP_AREAS
+    .filter((area) => !pages.some((file) => file.areaId === area.id))
+    .map((area) => area.title[plan.language]);
+  if (ja) {
+    return `## このPageの役割
+
+このPageは、初期セットアップ時点の構成と読み順を人間と外部AIへ案内する入口です。後から構成を追加した場合は、必要に応じて利用者が編集してください。
+
+## 採用した構成
+
+- 規模: ${plan.size ?? "未指定"}
+- 開発方式: ${plan.method ?? "未指定"}
+- 管理level: ${plan.level ?? "個別選択"}
+- Template Pack: \`${CORE_SETUP_PACK.id}@${CORE_SETUP_PACK.version}\`
+
+## 情報領域とPage
+
+${areaLines.join("\n") || "標準Pageは生成していません。"}
+
+## 読み方
+
+1. プロジェクトの目的と範囲を確認します。
+2. 要求と重要な判断を確認します。
+3. 作業に必要な設計、品質、リリース、運用のPageだけを確認します。
+
+意図的に生成しなかった領域: ${omitted.join("、") || "なし"}
+
+Vellymは本文の意味的な重複や矛盾を自動判定しません。また、Git add、commit、pushを自動実行しません。`;
+  }
+  return `## Purpose of this Page
+
+This Page is the entry point that explains the initial structure and reading order to people and external AI agents. If the structure changes later, update this Page manually when needed.
+
+## Selected structure
+
+- Size: ${plan.size ?? "not specified"}
+- Development method: ${plan.method ?? "not specified"}
+- Management level: ${plan.level ?? "manual selection"}
+- Template Pack: \`${CORE_SETUP_PACK.id}@${CORE_SETUP_PACK.version}\`
+
+## Information areas and Pages
+
+${areaLines.join("\n") || "No standard Pages were created."}
+
+## Reading order
+
+1. Read the project purpose and scope.
+2. Read requirements and significant decisions.
+3. Read only the design, quality, release, or operations Pages needed for the task.
+
+Intentionally omitted areas: ${omitted.join(", ") || "none"}
+
+Vellym does not infer semantic duplication or contradictions, and it never runs Git add, commit, or push automatically.`;
 }
 
 async function exists(target: string): Promise<boolean> {
@@ -686,9 +930,65 @@ function selection(
   return [...new Set(selected)].map((id) => templateById.get(id)!);
 }
 
+function setupSelection(options: {
+  mode?: SetupMode;
+  size?: ProjectSize;
+  method?: DevelopmentMethod;
+  level?: DocumentationLevel;
+  profiles: SetupProfileId[];
+  selectedTemplateIds?: string[];
+}): { templates: SetupTemplate[]; reasons: Record<string, string> } {
+  if (!options.mode) {
+    return {
+      templates: selection(options.profiles, options.selectedTemplateIds),
+      reasons: {}
+    };
+  }
+  if (options.mode === "empty") return { templates: [], reasons: {} };
+  if (options.mode === "templates") {
+    const ids = [...new Set(options.selectedTemplateIds ?? [])];
+    for (const id of ids) {
+      if (!templateById.has(id)) {
+        throw new RuntimeError(`不明なtemplateです: ${id}`, 400, "SETUP_TEMPLATE");
+      }
+    }
+    return {
+      templates: ids.map((id) => templateById.get(id)!),
+      reasons: Object.fromEntries(ids.map((id) => [id, "ユーザーが選択"]))
+    };
+  }
+  if (!options.size || !options.method || !options.level) {
+    throw new RuntimeError(
+      "おすすめ構成には規模、開発方式、levelが必要です",
+      400,
+      "SETUP_RECOMMENDATION"
+    );
+  }
+  const recommendation = recommendSetupTemplates({
+    size: options.size,
+    method: options.method,
+    level: options.level
+  });
+  const ids = options.selectedTemplateIds ?? recommendation.templateIds;
+  for (const id of ids) {
+    if (!templateById.has(id)) {
+      throw new RuntimeError(`不明なtemplateです: ${id}`, 400, "SETUP_TEMPLATE");
+    }
+  }
+  return {
+    templates: [...new Set(ids)].map((id) => templateById.get(id)!),
+    reasons: recommendation.reasons
+  };
+}
+
 export async function planProjectSetup(
   projectRoot: string,
   options: {
+    operation?: SetupOperation;
+    mode?: SetupMode;
+    size?: ProjectSize;
+    method?: DevelopmentMethod;
+    level?: DocumentationLevel;
     profiles?: SetupProfileId[];
     selectedTemplateIds?: string[];
     conflictResolutions?: Record<string, "skip" | "alternate">;
@@ -696,15 +996,37 @@ export async function planProjectSetup(
     language?: SetupLanguage;
     folderNames?: Record<string, string>;
     pageFileNames?: Record<string, string>;
+    pageTitles?: Record<string, string>;
+    plannedPageIds?: Record<string, string>;
   } = {}
 ): Promise<SetupPlan> {
   const root = path.resolve(projectRoot);
+  const operation = options.operation ?? "initialize";
   const profileIds = options.profiles ?? ["minimal"];
   const language = options.language ?? "ja";
   const relativeContentRoot = safeRelativeRoot(options.contentRoot ?? "docs");
+  if (operation === "add") {
+    const loaded = await loadConfig(path.join(root, "vellym.config.yaml"));
+    if (path.resolve(root, relativeContentRoot) !== loaded.contentRoot) {
+      throw new RuntimeError(
+        "構成追加先は現在のcontent rootに限定されます",
+        400,
+        "SETUP_CONTENT_ROOT"
+      );
+    }
+  }
   const folderNames = safeFolderNames(language, options.folderNames);
   const pageFileNames = safePageFileNames(options.pageFileNames);
-  const selected = selection(profileIds, options.selectedTemplateIds);
+  const pageTitles = safePageTitles(options.pageTitles);
+  const selectedResult = setupSelection({
+    mode: options.mode,
+    size: options.size,
+    method: options.method,
+    level: options.level,
+    profiles: profileIds,
+    selectedTemplateIds: options.selectedTemplateIds
+  });
+  const selected = selectedResult.templates;
   const conflictResolutions = { ...(options.conflictResolutions ?? {}) };
   const files: SetupPlan["files"] = [];
   const contentRoot = path.join(root, relativeContentRoot);
@@ -713,14 +1035,30 @@ export async function planProjectSetup(
     : undefined;
   const existingPageIds = new Set(existing?.byName.keys() ?? []);
   const existingSlugs = new Set(existing?.bySlug.keys() ?? []);
+  const existingTemplates = new Map(
+    (existing?.pages ?? [])
+      .filter(
+        (page) =>
+          page.annotations?.["vellym.tasclub.com/setup-pack-id"] ===
+          CORE_SETUP_PACK.id
+      )
+      .map((page) => [
+        page.annotations?.["vellym.tasclub.com/template-id"],
+        page.relativePath
+      ] as const)
+      .filter((entry): entry is readonly [string, string] => Boolean(entry[0]))
+  );
   const plannedPaths = new Set<string>();
+  const plannedPageIds: Record<string, string> = {};
   for (const template of selected) {
+    const areaId = setupRule(template.id)?.areaId;
     const relativePath = outputPath(
       template,
       relativeContentRoot,
       language,
       folderNames,
-      pageFileNames
+      pageFileNames,
+      options.mode !== undefined
     );
     const pathKey = relativePath.normalize("NFC").toLocaleLowerCase();
     if (plannedPaths.has(pathKey)) {
@@ -732,12 +1070,25 @@ export async function planProjectSetup(
     }
     plannedPaths.add(pathKey);
     const target = path.join(root, relativePath);
-    const pageId = `page-${createHash("sha256")
-      .update(`${root}:${relativePath}`)
-      .digest("hex")
-      .slice(0, 24)}`;
-    const localizedTitle =
-      language === "en" ? english.get(template.id)?.title ?? template.title : template.title;
+    let pageId = options.plannedPageIds?.[template.id];
+    if (pageId !== undefined && !/^page-[a-f0-9]{24}$/.test(pageId)) {
+      throw new RuntimeError(
+        `初期Page IDが不正です: ${template.id}`,
+        400,
+        "SETUP_PAGE_ID"
+      );
+    }
+    if (pageId === undefined) {
+      do {
+        pageId = `page-${randomBytes(12).toString("hex")}`;
+      } while (
+        existingPageIds.has(pageId) ||
+        Object.values(plannedPageIds).includes(pageId)
+      );
+    }
+    plannedPageIds[template.id] = pageId;
+    const localizedTitle = pageTitles[template.id] ??
+      (language === "en" ? english.get(template.id)?.title ?? template.title : template.title);
     let slug = slugFromTitle(localizedTitle);
     let slugSuffix = 2;
     while (
@@ -746,12 +1097,29 @@ export async function planProjectSetup(
     ) {
       slug = `${slugFromTitle(localizedTitle)}-${slugSuffix++}`;
     }
+    const generatedPath = existingTemplates.get(template.id);
+    if (operation === "add" && generatedPath) {
+      files.push({
+        relativePath: path.posix.join(relativeContentRoot, generatedPath),
+        kind: "page",
+        templateId: template.id,
+        ...(areaId ? { areaId } : {}),
+        pageId,
+        slug,
+        title: localizedTitle,
+        status: "skip",
+        conflictReason: "template-existing"
+      });
+      continue;
+    }
     const pathConflict = await exists(target);
     const pageIdConflict = existingPageIds.has(pageId);
     if (!pathConflict && !pageIdConflict) {
       files.push({
         relativePath,
+        kind: "page",
         templateId: template.id,
+        ...(areaId ? { areaId } : {}),
         pageId,
         slug,
         title: localizedTitle,
@@ -763,7 +1131,9 @@ export async function planProjectSetup(
     if (resolution === "skip") {
       files.push({
         relativePath,
+        kind: "page",
         templateId: template.id,
+        ...(areaId ? { areaId } : {}),
         pageId,
         slug,
         title: localizedTitle,
@@ -783,7 +1153,9 @@ export async function planProjectSetup(
       }
       files.push({
         relativePath: alternatePath,
+        kind: "page",
         templateId: template.id,
+        ...(areaId ? { areaId } : {}),
         pageId,
         slug,
         title: localizedTitle,
@@ -793,7 +1165,9 @@ export async function planProjectSetup(
     }
     files.push({
       relativePath,
+      kind: "page",
       templateId: template.id,
+      ...(areaId ? { areaId } : {}),
       pageId,
       slug,
       title: localizedTitle,
@@ -801,23 +1175,58 @@ export async function planProjectSetup(
       conflictReason: pageIdConflict ? "page-id" : "path"
     });
   }
-  files.push({
-    relativePath: path.posix.join(relativeContentRoot, "_index.yaml"),
-    title: "Vellym root order",
-    status: (await exists(path.join(root, relativeContentRoot, "_index.yaml"))) ? "conflict" : "create"
-  });
-  files.push({
-    relativePath: "vellym.config.yaml",
-    title: "Vellym設定",
-    status: (await exists(path.join(root, "vellym.config.yaml")))
-      ? "conflict"
-      : "create"
-  });
+  if (options.mode !== undefined) {
+    const selectedAreaIds = [...new Set(
+      files
+        .filter(
+          (file) =>
+            file.kind === "page" &&
+            file.status === "create" &&
+            file.templateId !== "project-guide" &&
+            Boolean(file.areaId)
+        )
+        .map((file) => file.areaId!)
+    )];
+    for (const areaId of selectedAreaIds) {
+      const area = SETUP_AREAS.find((item) => item.id === areaId)!;
+      const folderName = folderNames[areaId] ?? area.folderName[language];
+      const directory = path.join(root, relativeContentRoot, folderName);
+      if (await exists(directory)) continue;
+      files.push({
+        relativePath: path.posix.join(relativeContentRoot, folderName, "_index.yaml"),
+        kind: "folder",
+        areaId,
+        title: area.title[language],
+        status: "create"
+      });
+    }
+  }
+  if (operation === "initialize") {
+    files.push({
+      relativePath: path.posix.join(relativeContentRoot, "_index.yaml"),
+      kind: "folder",
+      title: "Vellym root order",
+      status: (await exists(path.join(root, relativeContentRoot, "_index.yaml"))) ? "conflict" : "create"
+    });
+    files.push({
+      relativePath: "vellym.config.yaml",
+      kind: "config",
+      title: "Vellym設定",
+      status: (await exists(path.join(root, "vellym.config.yaml")))
+        ? "conflict"
+        : "create"
+    });
+  }
   const selectedIds = selected.map((template) => template.id);
   const planHash = createHash("sha256")
     .update(
       JSON.stringify({
+        operation,
         profiles: profileIds,
+        mode: options.mode,
+        size: options.size,
+        method: options.method,
+        level: options.level,
         selectedTemplateIds: selectedIds,
         conflictResolutions,
         projectRoot: root,
@@ -825,11 +1234,18 @@ export async function planProjectSetup(
         language,
         folderNames,
         pageFileNames,
+        pageTitles,
+        plannedPageIds,
         files
       })
     )
     .digest("hex");
   return {
+    operation,
+    ...(options.mode ? { mode: options.mode } : {}),
+    ...(options.size ? { size: options.size } : {}),
+    ...(options.method ? { method: options.method } : {}),
+    ...(options.level ? { level: options.level } : {}),
     profiles: profileIds,
     selectedTemplateIds: selectedIds,
     conflictResolutions,
@@ -838,6 +1254,9 @@ export async function planProjectSetup(
     language,
     folderNames,
     pageFileNames,
+    pageTitles,
+    plannedPageIds,
+    recommendationReasons: selectedResult.reasons,
     files,
     planHash
   };
@@ -845,13 +1264,20 @@ export async function planProjectSetup(
 
 export async function applyProjectSetup(expected: SetupPlan): Promise<void> {
   const current = await planProjectSetup(expected.projectRoot, {
+    operation: expected.operation,
+    mode: expected.mode,
+    size: expected.size,
+    method: expected.method,
+    level: expected.level,
     profiles: expected.profiles,
     selectedTemplateIds: expected.selectedTemplateIds,
     conflictResolutions: expected.conflictResolutions,
     contentRoot: expected.contentRoot,
     language: expected.language,
     folderNames: expected.folderNames,
-    pageFileNames: expected.pageFileNames
+    pageFileNames: expected.pageFileNames,
+    pageTitles: expected.pageTitles,
+    plannedPageIds: expected.plannedPageIds
   });
   if (current.planHash !== expected.planHash) throw new RuntimeError("preview後に対象が変更されました。もう一度確認してください", 409, "SETUP_PLAN_CONFLICT");
   const conflicts = current.files.filter((file) => file.status === "conflict");
@@ -863,30 +1289,48 @@ export async function applyProjectSetup(expected: SetupPlan): Promise<void> {
   const sources = new Map(
     createdCandidates.map((file) => [
       file.relativePath,
-      file.templateId
+      file.kind === "page" && file.templateId
         ? pageSource(
             templateById.get(file.templateId)!,
             file.pageId!,
             file.slug!,
-            current.language
+            current.language,
+            file.title,
+            file.templateId === "project-guide"
+              ? projectInformationGuide(current)
+              : undefined
           )
-        : file.relativePath.endsWith("_index.yaml")
-          ? folderSource(
-              current.language === "ja" ? "文書" : "Documents",
-              rootChildrenForPlan(current)
-            )
+        : file.kind === "folder"
+          ? file.areaId
+            ? (() => {
+                const area = SETUP_AREAS.find((item) => item.id === file.areaId)!;
+                return folderSource(
+                  area.title[current.language],
+                  areaChildrenForPlan(current, file.areaId),
+                  current.language,
+                  area.description[current.language],
+                  file.areaId
+                );
+              })()
+            : folderSource(
+                current.language === "ja" ? "文書" : "Documents",
+                rootChildrenForPlan(current),
+                current.language
+              )
           : configSource(current.contentRoot, current.language)
     ])
   );
   for (const file of createdCandidates) {
-    if (!file.templateId) continue;
     const document = parseDocument(sources.get(file.relativePath)!);
-    if (
-      document.errors.length ||
-      !validatePage(document.toJS(), file.relativePath).page
-    ) {
+    const value = document.toJS();
+    const valid = file.kind === "page"
+      ? Boolean(validatePage(value, file.relativePath).page)
+      : file.kind === "folder"
+        ? Boolean(validateFolder(value, file.relativePath).folder)
+        : Boolean(validateConfig(value, file.relativePath).config);
+    if (document.errors.length || !valid) {
       throw new RuntimeError(
-        "初期Pageの検証に失敗しました",
+        `初期生成YAMLの検証に失敗しました: ${file.relativePath}`,
         500,
         "SETUP_VALIDATION"
       );

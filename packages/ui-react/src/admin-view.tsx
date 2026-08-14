@@ -16,6 +16,7 @@ import {
 } from "./api.js";
 import styles from "./admin-view.module.css";
 import { errorMessage } from "./error-message.js";
+import { SetupWizard } from "./setup-wizard.js";
 
 export function AdminView(props: {
   contentRoot: string;
@@ -40,6 +41,7 @@ export function AdminView(props: {
   const [archivedLoaded, setArchivedLoaded] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState<string | null>(null);
   const [archiveError, setArchiveError] = useState("");
+  const [addingTemplates, setAddingTemplates] = useState(false);
   useEffect(() => setContentRoot(props.contentRoot), [props.contentRoot]);
   useEffect(() => setUiLanguage(props.language), [props.language]);
   const { t } = useTranslation();
@@ -163,6 +165,29 @@ export function AdminView(props: {
         <h1 id="admin-title">{t("admin.title")}</h1>
         <span>{t("admin.subtitle")}</span>
       </header>
+      {addingTemplates ? (
+        <SetupWizard
+          operation="add"
+          projectRoot={props.projectRoot}
+          contentRoot={props.contentRoot}
+          resolvedContentRoot={props.resolvedContentRoot}
+          initialLanguage={props.language}
+          onComplete={() => {
+            setAddingTemplates(false);
+            props.onConfigApplied();
+          }}
+        />
+      ) : (
+        <section className={styles.panel} aria-labelledby="template-add-title">
+          <h2 id="template-add-title">{t("admin.templateAddTitle")}</h2>
+          <p>{t("admin.templateAddDescription")}</p>
+          <div className={styles.configActions}>
+            <button type="button" onClick={() => setAddingTemplates(true)}>
+              {t("admin.templateAddAction")}
+            </button>
+          </div>
+        </section>
+      )}
       <section className={styles.panel} aria-labelledby="source-title">
         <h2 id="source-title">{t("admin.sourceTitle")}</h2>
         <dl>

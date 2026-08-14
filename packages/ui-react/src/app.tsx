@@ -325,9 +325,9 @@ export function App() {
       setPendingLocation({ page: targetName, heading: location.heading });
       setSelected(targetName);
     }
-    // 本文中の内部リンク `[..](#page=slug)` はクリック時にlocation.hashを
+    // 本文中の見出しアンカー（`[..](#heading)`）はクリック時にlocation.hashを
     // 書き換えるだけで、履歴操作のpopstateは発火しない。hashchangeも購読して、
-    // ページ間ハッシュリンクで遷移できるようにする。
+    // ハッシュリンクで遷移できるようにする。
     window.addEventListener("popstate", restoreLocation);
     window.addEventListener("hashchange", restoreLocation);
     return () => {
@@ -1165,6 +1165,7 @@ export function App() {
         ) : (
         <EditorWorkspace
           view={view}
+          onNavigatePage={navigate}
           draft={draft}
           conflictView={conflictView}
           title={title}

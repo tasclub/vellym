@@ -48,19 +48,19 @@ spec:
 
         ## この資料の読み方
 
-        - 用語と全体像を先に押さえたい → [用語と基本概念](#page=concepts)
-        - まず動かしたい → [はじめかた](#page=getting-started)
-        - コマンドを調べたい → [CLIリファレンス](#page=cli-reference)
-        - 設定ファイルを調べたい → [設定ファイル](#page=configuration)
-        - 文書を書きたい → [文書の書き方（YAML）](#page=authoring)
-        - ブラウザ画面の操作を知りたい → [ブラウザ画面の使い方](#page=browser-guide)
-        - 静的配信・自己ホストしたい → [静的配信と自己ホスト](#page=self-hosting)
-        - 現段階でできること・できないこと → [現段階の範囲と制約](#page=limitations)
+        - 用語と全体像を先に押さえたい → [[concepts|用語と基本概念]]
+        - まず動かしたい → [[getting-started|はじめかた]]
+        - コマンドを調べたい → [[cli-reference|CLIリファレンス]]
+        - 設定ファイルを調べたい → [[configuration|設定ファイル]]
+        - 文書を書きたい → [[authoring|文書の書き方（YAML）]]
+        - ブラウザ画面の操作を知りたい → [[browser-guide|ブラウザ画面の使い方]]
+        - 静的配信・自己ホストしたい → [[self-hosting|静的配信と自己ホスト]]
+        - 現段階でできること・できないこと → [[limitations|現段階の範囲と制約]]
 
         ## 提供段階
 
         本ガイドは現在提供している機能の範囲を対象とする。現段階で利用できる機能だけを
-        「利用可能」として記載し、今後拡張予定の機能は[現段階の範囲と制約](#page=limitations)に区別して示す。
+        「利用可能」として記載し、今後拡張予定の機能は[[limitations|現段階の範囲と制約]]に区別して示す。
   translations:
     en:
       visibility: published
@@ -109,17 +109,17 @@ spec:
 
             ## How to read this guide
 
-            - Terminology and the big picture → [Terminology and Concepts](#page=concepts)
-            - Just run it → [Getting Started](#page=getting-started)
-            - Look up commands → [CLI Reference](#page=cli-reference)
-            - Look up the config file → [Configuration File](#page=configuration)
-            - Author documents → [Authoring Documents (YAML)](#page=authoring)
-            - Learn the browser UI → [Using the Browser UI](#page=browser-guide)
-            - Publish a static site / self-host → [Static Publishing and Self-Hosting](#page=self-hosting)
-            - What works and what does not yet → [Current Scope and Limitations](#page=limitations)
+            - Terminology and the big picture → [[concepts|Terminology and Concepts]]
+            - Just run it → [[getting-started|Getting Started]]
+            - Look up commands → [[cli-reference|CLI Reference]]
+            - Look up the config file → [[configuration|Configuration File]]
+            - Author documents → [[authoring|Authoring Documents (YAML)]]
+            - Learn the browser UI → [[browser-guide|Using the Browser UI]]
+            - Publish a static site / self-host → [[self-hosting|Static Publishing and Self-Hosting]]
+            - What works and what does not yet → [[limitations|Current Scope and Limitations]]
 
             ## Scope
 
             This guide covers the features currently available. Only features available at
             this stage are described as available; planned features are listed separately in
-            [Current Scope and Limitations](#page=limitations).
+            [[limitations|Current Scope and Limitations]].

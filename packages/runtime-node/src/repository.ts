@@ -30,8 +30,10 @@ import type {
   RepositorySnapshot
 } from "./types.js";
 import {
+  BASE_LOCALE_KEY,
   deriveRepositoryEntryIndex,
   extractPageEntryWithPage,
+  pageRelationsView,
   searchRepositoryEntries,
   type PageEntry
 } from "./repository-entry.js";
@@ -481,7 +483,12 @@ export async function localizedPage(
     ].filter((item, index, all) => all.indexOf(item) === index),
     isBaseLocale: projection.isBaseLocale,
     invalidTranslations: validation.invalidTranslations,
-    localeHashes: pageLocaleHashes(canonicalPage, defaultLocale)
+    localeHashes: pageLocaleHashes(canonicalPage, defaultLocale),
+    relations: pageRelationsView(
+      snapshot.entryIndex,
+      canonicalPage.metadata.name,
+      projection.isBaseLocale ? BASE_LOCALE_KEY : projection.locale
+    )
   };
 }
 
