@@ -53,6 +53,11 @@ export type SetupProfileId =
   | "arc42"
   | "project-management"
   | "product-planning";
+export type SetupMode = "recommended" | "templates" | "empty";
+export type ProjectSize = "personal" | "small-team" | "medium-large";
+export type DevelopmentMethod = "agile" | "hybrid" | "waterfall";
+export type DocumentationLevel = "light" | "standard" | "strict";
+export type SetupOperation = "initialize" | "add";
 
 export interface SetupProfile {
   id: SetupProfileId;
@@ -69,24 +74,58 @@ export interface SetupTemplate {
   defaultSelected?: boolean;
   defaultFileName?: string;
   editableFileName?: boolean;
+  areaId?: string;
+  minimumLevel?: DocumentationLevel;
+  requiredness?: string;
+  templateFamilyId?: string;
+  titleEn?: string;
+  descriptionEn?: string;
+  sizes?: ProjectSize[];
+  methods?: DevelopmentMethod[];
+  dependencies?: string[];
 }
 
 export interface SetupManifest {
+  packId: string;
+  packVersion: string;
+  schemaVersion: string;
   profiles: SetupProfile[];
   templates: SetupTemplate[];
+  areas: Array<{
+    id: string;
+    order: number;
+    title: { ja: string; en: string };
+    folderName: { ja: string; en: string };
+    description: { ja: string; en: string };
+  }>;
+  sizes: ProjectSize[];
+  methods: DevelopmentMethod[];
+  levels: DocumentationLevel[];
 }
 
 export interface SetupInput {
-  profiles: SetupProfileId[];
-  selectedTemplateIds: string[];
+  operation?: SetupOperation;
+  mode?: SetupMode;
+  size?: ProjectSize;
+  method?: DevelopmentMethod;
+  level?: DocumentationLevel;
+  profiles?: SetupProfileId[];
+  selectedTemplateIds?: string[];
   conflictResolutions: Record<string, "skip" | "alternate">;
   contentRoot: string;
   language: "ja" | "en";
   folderNames: Record<string, string>;
   pageFileNames: Record<string, string>;
+  pageTitles: Record<string, string>;
+  plannedPageIds?: Record<string, string>;
 }
 
 export interface SetupPlan {
+  operation: SetupOperation;
+  mode?: SetupMode;
+  size?: ProjectSize;
+  method?: DevelopmentMethod;
+  level?: DocumentationLevel;
   profiles: SetupProfileId[];
   selectedTemplateIds: string[];
   conflictResolutions: Record<string, "skip" | "alternate">;
@@ -95,14 +134,19 @@ export interface SetupPlan {
   language: "ja" | "en";
   folderNames: Record<string, string>;
   pageFileNames: Record<string, string>;
+  pageTitles: Record<string, string>;
+  plannedPageIds: Record<string, string>;
+  recommendationReasons: Record<string, string>;
   files: Array<{
     relativePath: string;
+    kind?: "page" | "folder" | "config";
     templateId?: string;
+    areaId?: string;
     pageId?: string;
     slug?: string;
     title: string;
     status: "create" | "conflict" | "skip";
-    conflictReason?: "path" | "page-id";
+    conflictReason?: "path" | "page-id" | "template-existing";
   }>;
   planHash: string;
 }
@@ -312,12 +356,16 @@ export function previewSetup(
 
 export function applySetup(
   input: SetupInput,
-  planHash: string
+  plan: Pick<SetupPlan, "planHash" | "plannedPageIds">
 ): Promise<Envelope<SetupApplyResult>> {
   return request("/api/v1/setup/apply", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...input, planHash })
+    body: JSON.stringify({
+      ...input,
+      planHash: plan.planHash,
+      plannedPageIds: plan.plannedPageIds
+    })
   });
 }
 

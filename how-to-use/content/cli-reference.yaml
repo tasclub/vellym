@@ -23,8 +23,7 @@ spec:
         配布物では`vellym <command> [options]`として実行できる。
 
         - `vellym help` / `vellym --help`：使い方を表示する。
-        - `vellym <command> --help`：各コマンドのヘルプを表示する（`init --help`は
-          利用可能なprofile／template IDも併記する）。
+        - `vellym <command> --help`：各コマンドのヘルプを表示する。
         - `vellym --version`：バージョンを表示する。
         - `--language ja|en`：CLI表示の言語を指定する（未指定時は設定の`ui.language`、
           それも無ければ日本語）。
@@ -39,35 +38,16 @@ spec:
 
         | オプション | 説明 |
         | --- | --- |
-        | `--profile <ids>` | 初期profileをカンマ区切りで指定（例: `software-basic,arc42`）。未指定時は`minimal`。 |
-        | `--template <ids>` | profile内から作成するPageをカンマ区切りで明示。未指定時は各profileの既定Pageのみ作成。 |
+        | `--size <value>` | `personal`、`small-team`、`medium-large`のいずれか。 |
+        | `--method <value>` | `agile`、`hybrid`、`waterfall`のいずれか。 |
         | `--language ja\|en` | UIと初期文書の言語。 |
         | `--content-root <path>` | 正本を置くディレクトリ（project rootからの相対path）。 |
-        | `--plan` | ファイルを変更せず、作成予定と競合だけを表示する読取専用プレビュー。 |
-        | `--json` | 結果をJSONで出力する（`--plan`と併用で計画をJSON化）。 |
-        | `--yes` | 対話確認を省略する。非対話（非TTY）で実行する場合に使う。 |
-
-        **profile一覧**
-
-        | ID | 内容 |
-        | --- | --- |
-        | `minimal` | 最小構成（ようこそ・案内・AI向けガイド・YAML編集ガイド）。 |
-        | `software-basic` | ソフトウェア開発の基本（憲章・要求・設計判断・ロードマップ・リスク・現在地など）。 |
-        | `arc42` | アーキテクチャ（コンテキスト・戦略・ビルディングブロック・ランタイムビュー）。 |
-        | `project-management` | プロジェクト管理（ステークホルダー・スコープ・スケジュール）。 |
-        | `product-planning` | プロダクト企画（ビジョン・ユーザー課題・仮説・要求・ロードマップ・リリース計画）。 |
-
-        **対話実行と非対話実行**
-
-        端末（TTY）で`--yes`なしに実行すると、言語・content root・profile・フォルダ名・
-        作成する文書を対話で選ぶ。非対話（非TTY）で実行する場合は、`--yes`（または`--plan`）に
-        加えて`--language`・`--content-root`・`--profile`が必要である。不足時は必要なフラグを
-        名指しするエラーになる。
+        CLIは対話選択を行わず、指定した規模と開発方式の厳格構成を一括生成する。
+        個別候補の追加・除外はブラウザの初期セットアップまたは設定画面で行う。
 
         **安全な初期化**
 
-        生成候補のいずれかが既に存在する場合、CLIは初期化全体を中止する。既存ファイル・
-        既存ディレクトリ・無関係なファイルを上書き・変更・削除せず、他の候補も部分的に作成しない。
+        Page候補と同じpathが既に存在する場合はそのPageだけをskipする。既存ファイルを上書き・変更・削除しない。
 
         ## dev — 開発サーバー
 
@@ -158,36 +138,19 @@ spec:
 
             | Option | Description |
             | --- | --- |
-            | `--profile <ids>` | Initial profiles, comma-separated (e.g. `software-basic,arc42`). Defaults to `minimal`. |
-            | `--template <ids>` | Explicit list of Pages to create from the profiles. If omitted, only each profile's default Pages are created. |
+            | `--size <value>` | One of `personal`, `small-team`, or `medium-large`. |
+            | `--method <value>` | One of `agile`, `hybrid`, or `waterfall`. |
             | `--language ja\|en` | Language of the UI and initial documents. |
             | `--content-root <path>` | Directory that holds the source (relative to project root). |
-            | `--plan` | Read-only preview: shows what would be created and any conflicts without changing files. |
-            | `--json` | Emit results as JSON (with `--plan`, emits the plan as JSON). |
-            | `--yes` | Skip interactive confirmation. Use for non-interactive (non-TTY) runs. |
-
-            **Profiles**
-
-            | ID | Contents |
-            | --- | --- |
-            | `minimal` | Minimal set (welcome, guide, AI-usage guide, YAML-editing guide). |
-            | `software-basic` | Software development basics (charter, requirements, decisions, roadmap, risk, current position, etc.). |
-            | `arc42` | Architecture (context, strategy, building blocks, runtime view). |
-            | `project-management` | Project management (stakeholders, scope, schedule). |
-            | `product-planning` | Product planning (vision, user problem, hypotheses, requirements, roadmap, release plan). |
-
-            **Interactive vs. non-interactive**
-
-            In a terminal (TTY) without `--yes`, you choose language, content root, profiles,
-            folder names, and documents interactively. For non-interactive (non-TTY) runs you
-            need `--yes` (or `--plan`) plus `--language`, `--content-root`, and `--profile`.
-            Missing flags are reported by name.
+            The CLI is non-interactive and creates the strict structure for the selected size
+            and development method. Add or remove individual candidates in the browser setup
+            or later from Settings.
 
             **Safe initialization**
 
-            If any generation candidate already exists, the CLI aborts the whole
-            initialization. It does not overwrite, change, or delete existing files,
-            directories, or unrelated files, and it does not partially create the other
+            If a Page candidate path already exists, the CLI skips that Page. It does not
+            overwrite, change, or delete existing files, directories, or unrelated files. It
+            creates the other non-conflicting
             candidates.
 
             ## dev — dev server

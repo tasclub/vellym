@@ -1,13 +1,12 @@
 // CLIの表示文言を日本語・英語で切り替えるための軽量なメッセージ表。
 // --language／ui.languageに応じて同じフラグで日英どちらの出力も得られる。
-// データ由来の文字列（setupマニフェストのprofile／templateタイトル）は
-// そのまま扱い、ここでは翻訳しない。
+// initは候補選択を持たず、規模・開発方式・言語から厳格案を生成する。
 
 export type CliLanguage = "ja" | "en";
 
 export interface CliMessages {
   usage(): string;
-  initHelp(profiles: string, templates: string): string;
+  initHelp(): string;
   devHelp(): string;
   validateHelp(): string;
   buildHelp(): string;
@@ -30,7 +29,7 @@ const ja: CliMessages = {
   usage: () => `Vellym
 
 Usage:
-  vellym init [directory] [--profile <ids>] [--template <ids>] [--language <ja|en>] [--content-root <path>] [--yes] [--plan] [--json]
+  vellym init [directory] --size <size> --method <method> --language <ja|en> [--content-root <path>]
   vellym dev [--config <path>] [--host <address>] [--port <number>]
   vellym validate [--config <path>] [--json]
   vellym build [--config <path>] [--json]
@@ -38,28 +37,18 @@ Usage:
 
 コマンド別の詳しい説明・例は「vellym <command> --help」で確認できます。
 `,
-  initHelp: (profiles, templates) => `vellym init [directory] [options]
+  initHelp: () => `vellym init [directory] [options]
 
-プロジェクトを初期化し、選んだprofile／templateの文書を作成します。
+規模と開発方式に対応する厳格案のFolder・Pageを一括生成します。
 
 Options:
-  --profile <ids>       作成するprofile（カンマ区切り）
-  --template <ids>      作成するtemplate（カンマ区切り、profileの既定を上書き）
-  --language <ja|en>    UIと初期文書の言語
+  --size <value>        personal | small-team | medium-large
+  --method <value>      agile | hybrid | waterfall
+  --language <ja|en>    初期生成言語
   --content-root <path> project rootからのcontent root相対path（既定: docs）
-  --yes                 対話を省略して実行（非対話時は必須）
-  --plan                作成内容の確認のみ（ファイルを作らない）
-  --json                機械可読なJSONで出力
-
-有効なprofile ID:
-${profiles}
-
-有効なtemplate ID:
-${templates}
 
 例:
-  vellym init --yes --language ja --content-root docs --profile software-basic
-  vellym init ./my-docs --profile minimal,arc42 --plan
+  vellym init ./my-docs --size small-team --method hybrid --language ja
 `,
   devHelp: () => `vellym dev [options]
 
@@ -129,7 +118,7 @@ const en: CliMessages = {
   usage: () => `Vellym
 
 Usage:
-  vellym init [directory] [--profile <ids>] [--template <ids>] [--language <ja|en>] [--content-root <path>] [--yes] [--plan] [--json]
+  vellym init [directory] --size <size> --method <method> --language <ja|en> [--content-root <path>]
   vellym dev [--config <path>] [--host <address>] [--port <number>]
   vellym validate [--config <path>] [--json]
   vellym build [--config <path>] [--json]
@@ -137,28 +126,18 @@ Usage:
 
 Run "vellym <command> --help" for per-command details and examples.
 `,
-  initHelp: (profiles, templates) => `vellym init [directory] [options]
+  initHelp: () => `vellym init [directory] [options]
 
-Initializes a project and creates documents for the chosen profiles/templates.
+Creates the strict Folder and Page set for the selected size and development method.
 
 Options:
-  --profile <ids>       Profiles to create (comma-separated)
-  --template <ids>      Templates to create (comma-separated; overrides profile defaults)
-  --language <ja|en>    Language for the UI and initial documents
+  --size <value>        personal | small-team | medium-large
+  --method <value>      agile | hybrid | waterfall
+  --language <ja|en>    Language for generated documents
   --content-root <path> Content root relative to the project root (default: docs)
-  --yes                 Run without prompts (required in non-interactive mode)
-  --plan                Preview what would be created (writes no files)
-  --json                Emit machine-readable JSON
-
-Valid profile IDs:
-${profiles}
-
-Valid template IDs:
-${templates}
 
 Examples:
-  vellym init --yes --language en --content-root docs --profile software-basic
-  vellym init ./my-docs --profile minimal,arc42 --plan
+  vellym init ./my-docs --size small-team --method hybrid --language en
 `,
   devHelp: () => `vellym dev [options]
 

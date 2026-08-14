@@ -35,8 +35,15 @@ import {
   setupManifest,
   type SetupPlan,
   type SetupProfileId,
-  type SetupLanguage
+  type SetupLanguage,
+  type SetupOperation
 } from "./setup.js";
+import type {
+  DevelopmentMethod,
+  DocumentationLevel,
+  ProjectSize,
+  SetupMode
+} from "./setup-catalog.js";
 import {
   applySlugMigration,
   planSlugMigration,
@@ -258,6 +265,11 @@ const profileIds = new Set<SetupProfileId>([
 ]);
 
 interface SetupHttpInput {
+  operation?: SetupOperation;
+  mode?: SetupMode;
+  size?: ProjectSize;
+  method?: DevelopmentMethod;
+  level?: DocumentationLevel;
   profiles: SetupProfileId[];
   selectedTemplateIds?: string[];
   conflictResolutions: Record<string, "skip" | "alternate">;
@@ -265,6 +277,8 @@ interface SetupHttpInput {
   language: SetupLanguage;
   folderNames: Record<string, string>;
   pageFileNames: Record<string, string>;
+  pageTitles: Record<string, string>;
+  plannedPageIds?: Record<string, string>;
 }
 
 function setupInput(value: unknown): SetupHttpInput {
@@ -276,6 +290,20 @@ function setupInput(value: unknown): SetupHttpInput {
     );
   }
   const input = value as Record<string, unknown>;
+  const operation = input.operation;
+  const mode = input.mode;
+  const size = input.size;
+  const method = input.method;
+  const level = input.level;
+  if (
+    (operation !== undefined && operation !== "initialize" && operation !== "add") ||
+    (mode !== undefined && !["recommended", "templates", "empty"].includes(String(mode))) ||
+    (size !== undefined && !["personal", "small-team", "medium-large"].includes(String(size))) ||
+    (method !== undefined && !["agile", "hybrid", "waterfall"].includes(String(method))) ||
+    (level !== undefined && !["light", "standard", "strict"].includes(String(level)))
+  ) {
+    throw new RuntimeError("おすすめ構成の入力が不正です", 400, "SETUP_RECOMMENDATION");
+  }
   const profiles = input.profiles ?? ["software-basic"];
   if (
     !Array.isArray(profiles) ||
@@ -329,6 +357,8 @@ function setupInput(value: unknown): SetupHttpInput {
   const language = input.language ?? "ja";
   const rawFolderNames = input.folderNames ?? {};
   const rawPageFileNames = input.pageFileNames ?? {};
+  const rawPageTitles = input.pageTitles ?? {};
+  const rawPlannedPageIds = input.plannedPageIds;
   if (
     typeof contentRoot !== "string" ||
     (language !== "ja" && language !== "en") ||
@@ -339,18 +369,36 @@ function setupInput(value: unknown): SetupHttpInput {
     !rawPageFileNames ||
     typeof rawPageFileNames !== "object" ||
     Array.isArray(rawPageFileNames) ||
-    Object.values(rawPageFileNames).some((value) => typeof value !== "string")
+    Object.values(rawPageFileNames).some((value) => typeof value !== "string") ||
+    !rawPageTitles ||
+    typeof rawPageTitles !== "object" ||
+    Array.isArray(rawPageTitles) ||
+    Object.values(rawPageTitles).some((value) => typeof value !== "string") ||
+    (rawPlannedPageIds !== undefined &&
+      (!rawPlannedPageIds ||
+        typeof rawPlannedPageIds !== "object" ||
+        Array.isArray(rawPlannedPageIds) ||
+        Object.values(rawPlannedPageIds).some((value) => typeof value !== "string")))
   ) {
     throw new RuntimeError("セットアップの保存先または言語が不正です", 400, "SETUP_INPUT");
   }
   return {
+    ...(operation === undefined ? {} : { operation: operation as SetupOperation }),
+    ...(mode === undefined ? {} : { mode: mode as SetupMode }),
+    ...(size === undefined ? {} : { size: size as ProjectSize }),
+    ...(method === undefined ? {} : { method: method as DevelopmentMethod }),
+    ...(level === undefined ? {} : { level: level as DocumentationLevel }),
     profiles: profiles as SetupProfileId[],
     selectedTemplateIds: selectedTemplateIds as string[] | undefined,
     conflictResolutions,
     contentRoot,
     language,
     folderNames: rawFolderNames as Record<string, string>,
-    pageFileNames: rawPageFileNames as Record<string, string>
+    pageFileNames: rawPageFileNames as Record<string, string>,
+    pageTitles: rawPageTitles as Record<string, string>,
+    ...(rawPlannedPageIds === undefined
+      ? {}
+      : { plannedPageIds: rawPlannedPageIds as Record<string, string> })
   };
 }
 
@@ -595,7 +643,7 @@ export async function startDevServer(options: {
         url.pathname === "/api/v1/setup/profiles" &&
         request.method === "GET"
       ) {
-        requireSetup();
+        if (state !== "setup" && state !== "ready") requireSetup();
         json(response, 200, envelope(setupManifest()));
         return;
       }
@@ -603,8 +651,9 @@ export async function startDevServer(options: {
         url.pathname === "/api/v1/setup/plan" &&
         request.method === "POST"
       ) {
-        requireSetup();
         const input = setupInput(await readJson(request));
+        if (input.operation === "add") requireReady();
+        else requireSetup();
         const plan = await planProjectSetup(projectRoot, input);
         json(response, 200, envelope(publicPlan(plan)));
         return;
@@ -613,7 +662,6 @@ export async function startDevServer(options: {
         url.pathname === "/api/v1/setup/apply" &&
         request.method === "POST"
       ) {
-        requireSetup();
         const raw = await readJson(request);
         if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
           throw new RuntimeError(
@@ -631,6 +679,8 @@ export async function startDevServer(options: {
           );
         }
         const input = setupInput(raw);
+        if (input.operation === "add") requireReady();
+        else requireSetup();
         const plan = await planProjectSetup(projectRoot, input);
         if (plan.planHash !== expectedHash) {
           throw new RuntimeError(
@@ -641,7 +691,7 @@ export async function startDevServer(options: {
         }
         await applyProjectSetup(plan);
         await activateReady();
-        publishChange("setup-complete");
+        publishChange(plan.operation === "initialize" ? "setup-complete" : "template-add");
         json(
           response,
           200,

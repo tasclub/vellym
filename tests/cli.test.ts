@@ -22,18 +22,17 @@ function run(args: string[]) {
 }
 
 function initArgs(root: string, extra: string[] = []): string[] {
-  const profile = extra.includes("--profile")
-    ? []
-    : ["--profile", "minimal"];
   return [
     "init",
     root,
-    "--yes",
+    "--size",
+    "small-team",
+    "--method",
+    "hybrid",
     "--language",
     "ja",
     "--content-root",
     "docs",
-    ...profile,
     ...extra
   ];
 }
@@ -77,21 +76,21 @@ describe("published CLI shape", () => {
     expect(run(["--version"]).stdout.trim()).toBe(manifest.version);
   });
 
-  it("creates the six-document product planning profile in Japanese and English", async () => {
+  it("creates the strict recommended structure in Japanese and English", async () => {
     for (const language of ["ja", "en"] as const) {
       const root = await mkdtemp(path.join(tmpdir(), `vellym-product-${language}-`));
       const result = run([
-        "init", root, "--yes", "--language", language,
-        "--content-root", "docs", "--profile", "product-planning"
+        "init", root, "--size", "small-team", "--method", "agile",
+        "--language", language, "--content-root", "docs"
       ]);
       expect(result.status).toBe(0);
       const repository = run([
         "validate", "--config", path.join(root, "vellym.config.yaml"), "--json"
       ]);
       expect(repository.status).toBe(0);
-      expect(JSON.parse(repository.stdout).data.pages).toHaveLength(6);
+      expect(JSON.parse(repository.stdout).data.pages.length).toBeGreaterThan(20);
       const vision = await readFile(
-        path.join(root, "docs", language === "ja" ? "プロダクト企画/プロダクトビジョン.yaml" : "product/product-vision.yaml"),
+        path.join(root, "docs", language === "ja" ? "00_プロジェクト概要/プロダクトビジョン.yaml" : "00_project-overview/product-vision.yaml"),
         "utf8"
       );
       expect(vision).toContain(language === "ja" ? "## ビジョン" : "## Vision");
@@ -103,7 +102,7 @@ describe("published CLI shape", () => {
     expect(run(initArgs(root)).status).toBe(0);
     const config = path.join(root, "vellym.config.yaml");
     // initはv1で生成するため、alpha時代のprojectをv1alpha1へ戻して再現する。
-    const welcome = path.join(root, "docs/ようこそ.yaml");
+    const welcome = path.join(root, "docs/index.yaml");
     await writeFile(
       welcome,
       (await readFile(welcome, "utf8")).replace(
@@ -116,7 +115,7 @@ describe("published CLI shape", () => {
     expect(preview.status).toBe(0);
     expect(JSON.parse(preview.stdout).data.files.length).toBeGreaterThan(0);
     expect(run(["migrate", "--to", "v1", "--config", config]).status).toBe(0);
-    expect(await readFile(path.join(root, "docs/ようこそ.yaml"), "utf8"))
+    expect(await readFile(welcome, "utf8"))
       .toContain("apiVersion: vellym.tasclub.com/v1\n");
   });
 
@@ -173,37 +172,25 @@ spec:
     expect(run(initArgs(root)).status).toBe(1);
   });
 
-  it("previews initialization as JSON without writing", async () => {
+  it("rejects removed interactive init options", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-plan-"));
     const result = run(initArgs(root, ["--plan", "--json"]));
-    expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toMatchObject({
-      data: { profiles: ["minimal"] }
-    });
-    expect(JSON.parse(result.stdout).data.files).toEqual(
-      expect.arrayContaining([expect.objectContaining({ status: "create" })])
-    );
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("--plan");
     await expect(access(path.join(root, "vellym.config.yaml"))).rejects.toThrow();
   });
 
-  it("creates only explicitly selected optional guide templates", async () => {
+  it("rejects template selection because CLI uses one strict generation path", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-guides-"));
     const result = run(initArgs(root, [
       "--template",
       "welcome,project-guide,yaml-editing-guide"
     ]));
-    expect(result.status).toBe(0);
-    expect(await readFile(path.join(root, "docs/index.yaml"), "utf8"))
-      .toContain("title: プロジェクト文書の案内");
-    expect(await readFile(path.join(root, "docs/yaml-guide.yaml"), "utf8"))
-      .toContain("title: YAML直接編集ガイド");
-    await expect(
-      access(path.join(root, "docs/ai-guide.yaml"))
-    ).rejects.toThrow();
-    await expect(access(path.join(root, "docs/guides"))).rejects.toThrow();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("--template");
   });
 
-  it("combines setup profiles without duplicating shared pages", async () => {
+  it("rejects removed profile selection", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-profiles-"));
     const preview = run(initArgs(root, [
       "--profile",
@@ -211,37 +198,24 @@ spec:
       "--plan",
       "--json"
     ]));
-    expect(preview.status).toBe(0);
-    const plan = JSON.parse(preview.stdout).data;
-    expect(plan.selectedTemplateIds).toHaveLength(11);
-    expect(new Set(plan.selectedTemplateIds).size).toBe(11);
-    expect(run(initArgs(root, [
-      "--profile",
-      "software-basic,arc42"
-    ])).status).toBe(0);
-    const runtimeView = await readFile(
-      path.join(root, "docs/アーキテクチャ/ランタイムビュー.yaml"),
-      "utf8"
-    );
-    expect(runtimeView).toContain("name: page-");
-    expect(runtimeView).toContain("title: ランタイムビュー");
+    expect(preview.status).toBe(2);
+    expect(preview.stderr).toContain("--profile");
   });
 
-  it("aborts setup without overwriting or partially creating files", async () => {
+  it("skips conflicting Page files and preserves user content", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-safe-existing-"));
-    const existing = path.join(root, "docs/要求/要求.yaml");
+    const existing = path.join(root, "docs/02_要求・要件/要求.yaml");
     await mkdir(path.dirname(existing), { recursive: true });
     await writeFile(existing, "利用者が作成した既存内容\n", "utf8");
     await writeFile(path.join(root, "unrelated.txt"), "keep\n", "utf8");
 
-    const result = run(initArgs(root, ["--profile", "software-basic"]));
+    const result = run(initArgs(root));
 
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("既存ファイルと競合");
+    expect(result.status).toBe(0);
     expect(await readFile(existing, "utf8")).toBe("利用者が作成した既存内容\n");
     expect(await readFile(path.join(root, "unrelated.txt"), "utf8")).toBe("keep\n");
-    await expect(access(path.join(root, "vellym.config.yaml"))).rejects.toThrow();
-    await expect(access(path.join(root, "docs/ようこそ.yaml"))).rejects.toThrow();
+    expect(await readFile(path.join(root, "vellym.config.yaml"), "utf8")).toContain("contentRoot: docs");
+    expect(result.stdout).toContain("skip:");
   });
 
   it("emits JSON-only validation output", async () => {
@@ -270,8 +244,8 @@ spec:
   it("sets the static document language from the project config", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-static-language-"));
     expect(run([
-      "init", root, "--yes", "--language", "en",
-      "--content-root", "docs", "--profile", "minimal"
+      "init", root, "--size", "personal", "--method", "agile",
+      "--language", "en", "--content-root", "docs"
     ]).status).toBe(0);
     const output = buildDir(path.join(root, "vellym.config.yaml"));
     const index = await readFile(path.join(output, "index.html"), "utf8");
