@@ -10,7 +10,7 @@ body:
     id: version
     attributes:
       label: Vellym version
-      placeholder: Output of npx vellym@alpha --version
+      placeholder: Output of npx vellym@beta --version
     validations:
       required: true
   - type: dropdown

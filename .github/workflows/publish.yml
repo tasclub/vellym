@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "公開するrelease tag（例: v0.2.0-beta.1）"
+        description: "公開するrelease tag（例: v0.3.0-beta.1）"
         required: true
 
 jobs:
