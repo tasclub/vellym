@@ -88,7 +88,7 @@ export interface SetupCatalogPage {
 export interface SetupCatalog {
   packId: string;
   packVersion: string;
-  schemaVersion: string;
+  packSchemaVersion: string;
   locale: SetupLanguage;
   areas: Array<{ id: string; order: number; title: string }>;
   folders: SetupCatalogFolder[];
@@ -143,7 +143,7 @@ export function setupCatalog(language: SetupLanguage = "ja"): SetupCatalog {
   return {
     packId: SETUP_PACK.id,
     packVersion: SETUP_PACK.version,
-    schemaVersion: SETUP_PACK.schemaVersion,
+    packSchemaVersion: SETUP_PACK.packSchemaVersion,
     locale: language,
     areas: AREA_IDS.map((id, order) => ({
       id,

@@ -13,6 +13,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  API_SCHEMA_VERSION,
   localeUrlSegment,
   publishedPageLocales,
   resolveDefaultLocale,
@@ -27,7 +28,8 @@ import {
 } from "@vellym-internal/runtime-node";
 import { VELLYM_VERSION } from "./version.js";
 
-const SCHEMA_VERSION = "1.0";
+// vellym-build.json（build来歴）の形式の版。
+const BUILD_SCHEMA_VERSION = "1.0";
 
 export interface StaticBuildResult {
   exitCode: number;
@@ -37,7 +39,7 @@ export interface StaticBuildResult {
 }
 
 function envelope<T>(data: T, buildId: string, diagnostics: Diagnostic[] = []) {
-  return { schemaVersion: SCHEMA_VERSION, buildId, data, diagnostics };
+  return { apiSchemaVersion: API_SCHEMA_VERSION, buildId, data, diagnostics };
 }
 
 // CLIバンドル(dist/cli.mjs)と同じ dist に同梱されるSPAクライアント束の場所。
@@ -306,7 +308,7 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
     await writeFile(
       path.join(temporary, "vellym-build.json"),
       `${JSON.stringify({
-        schemaVersion: SCHEMA_VERSION,
+        buildSchemaVersion: BUILD_SCHEMA_VERSION,
         generatorVersion: VELLYM_VERSION,
         sourceRevision: revision || null,
         dirty,

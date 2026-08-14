@@ -9,7 +9,7 @@ import {
   planMigration,
   startDevServer
 } from "@vellym-internal/runtime-node";
-import type { Diagnostic } from "@vellym-internal/core";
+import { API_SCHEMA_VERSION, type Diagnostic } from "@vellym-internal/core";
 import { initializeProject } from "./init-command.js";
 import { buildStatic } from "./static-builder.js";
 import { VELLYM_VERSION } from "./version.js";
@@ -87,7 +87,7 @@ function output(
 ): void {
   if (json) {
     process.stdout.write(
-      `${JSON.stringify({ schemaVersion: "1.0", data, diagnostics }, null, 2)}\n`
+      `${JSON.stringify({ apiSchemaVersion: API_SCHEMA_VERSION, data, diagnostics }, null, 2)}\n`
     );
   } else if (text) {
     process.stdout.write(`${text}\n`);
