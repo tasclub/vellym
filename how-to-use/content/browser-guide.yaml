@@ -22,12 +22,25 @@ spec:
         設定ファイルが無いプロジェクトで`vellym dev`を起動すると、初期セットアップが表示される。
         次の流れで進む。
 
-        1. **はじめに**: 画面と初期文書の**言語**を選ぶ。
-        2. **保存先**: 文書を保存する**コンテンツフォルダ**（project rootからの相対パス）を確認・指定する。
-           開始したプロジェクトの外へは書き込まない。存在しないフォルダは作成する。
-        3. **構成**: profile（構成）を選ぶと、作成する文書の一覧が表示される。チェックで作成対象を
-           増減でき、既存と重なる文書は既定で外れる。ファイル名は変更できる。
-        4. **完了**: 作成件数が表示され、最初の文書を開いてワークスペースへ移動する。
+        1. **基本情報**: 開始方法、初期文書の**言語**、**コンテンツフォルダ**（project rootからの
+           相対パス）を指定する。開始したプロジェクトの外へは書き込まない。開始方法は次の3種類。
+           - **Vellymのおすすめ**: 規模と開発方式を入力し、推薦された階層から始める。
+           - **Folder・Pageを自分で選ぶ**: 組み込みカタログを空選択から開き、必要なものだけ選ぶ。
+           - **空のプロジェクト**: 設定ファイルとrepository rootだけを作成する。
+        2. **構成案**: おすすめでは軽量・標準・厳格を、Folder数・Page数と実際に生成する階層で
+           比べて選ぶ。自分で選ぶ場合は同じ場所に組み込みカタログが空選択で表示され、情報領域・
+           参考体系・名称で絞り込める。Folderを選ぶと配下がまとめて選択され、Pageを選ぶと
+           その配置先Folderが自動的に生成対象へ加わる。
+        3. **生成内容**: 生成する階層だけを表示する。Folder名、Page名、ファイル名を変更でき、
+           不要な項目は解除できる。推薦された項目も自由に解除できる。既存ファイルと重なるPageは
+           skipまたは別名作成を選べる。Folderの予定pathにファイルがある場合は、Folder名を
+           変更するか、その配下をまとめて作成対象から外す。
+        4. **完了**: 作成したFolder数とPage数が表示され、ワークスペースへ移動する。
+
+        推薦や絞り込みは選択の出発点であり、最終的な構成は利用者が決める。arc42、ADR、C4、
+        PMBOK等は「参考」として表示するだけで、Vellymが準拠や不足を判定することはない。
+
+        生成後の配置変更・並び替えは、通常の構造編集機能で行う。初期セットアップでは行わない。
 
         完了後は同じサーバーのまま文書ワークスペースへ切り替わる。
 
@@ -112,15 +125,33 @@ spec:
             Running `vellym dev` in a project without a config file shows the initial setup,
             which proceeds as follows.
 
-            1. **Intro**: choose the **language** of the UI and initial documents.
-            2. **Location**: confirm or set the **content folder** (relative to project root)
-               where documents are saved. It never writes outside the project you started in,
-               and it creates the folder if it does not exist.
-            3. **Structure**: pick a profile; the list of documents to create appears. Toggle
-               which ones to create (documents that collide with existing ones are unchecked
-               by default), and rename files if needed.
-            4. **Done**: the number created is shown; open the first document to enter the
+            1. **Basics**: choose the starting point, the **language** of the initial
+               documents, and the **content folder** (relative to project root). It never
+               writes outside the project you started in. There are three starting points:
+               - **Vellym recommendation**: enter size and development method, then start
+                 from the proposed hierarchy.
+               - **Choose folders and pages yourself**: open the built-in catalog with
+                 nothing selected and pick only what you need.
+               - **Empty project**: create only the config file and the repository root.
+            2. **Structure**: for the recommendation, compare light, standard, and strict by
+               folder count, page count, and the hierarchy each one creates. For the manual
+               route the built-in catalog appears in the same place with nothing selected,
+               filtered by information area, reference model, or name. Selecting a folder
+               selects everything under it; selecting a page adds the folders it lives in.
+            3. **Create**: only the hierarchy to be created is shown. Rename folders, page
+               titles, and filenames, and clear anything you do not need - including
+               recommended items. A page that collides with an existing file can be skipped
+               or created under another name. If a file occupies a planned folder path,
+               rename the folder or drop that whole subtree.
+            4. **Done**: the number of folders and pages created is shown; continue into the
                workspace.
+
+            Recommendations and filters are a starting point; you decide the final structure.
+            arc42, ADR, C4, PMBOK and others are shown as references only - Vellym never
+            judges conformance or reports anything as missing.
+
+            Moving and reordering after generation is done with the normal structure editing
+            tools, not in the initial setup.
 
             After completion it switches to the document workspace on the same server.
 

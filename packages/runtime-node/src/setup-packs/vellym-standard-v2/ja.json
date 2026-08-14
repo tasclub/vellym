@@ -1,0 +1,887 @@
+{
+  "locale": "ja",
+  "packTitle": "Vellym標準構成",
+  "packDescription": "ISO/IEC/IEEE 12207等を参考にした、FolderとPageからなる標準構成カタログ。",
+  "areas": {
+    "project-overview": {
+      "title": "プロジェクト概要"
+    },
+    "project-management": {
+      "title": "プロジェクト管理"
+    },
+    "requirements": {
+      "title": "要求・要件"
+    },
+    "architecture": {
+      "title": "アーキテクチャ"
+    },
+    "design": {
+      "title": "設計"
+    },
+    "implementation": {
+      "title": "実装・構成管理"
+    },
+    "quality": {
+      "title": "品質・テスト"
+    },
+    "release": {
+      "title": "リリース・移行"
+    },
+    "operations": {
+      "title": "運用・保守"
+    },
+    "closure": {
+      "title": "プロジェクト完了"
+    }
+  },
+  "folders": {
+    "area-project-overview": {
+      "title": "プロジェクト概要",
+      "defaultName": "00_プロジェクト概要",
+      "description": "目的と全体像への入口"
+    },
+    "area-project-management": {
+      "title": "プロジェクト管理",
+      "defaultName": "01_プロジェクト管理",
+      "description": "計画、体制、リスク、変更、進捗"
+    },
+    "area-requirements": {
+      "title": "要求・要件",
+      "defaultName": "02_要求・要件",
+      "description": "背景、要求、要件、範囲、追跡性"
+    },
+    "area-architecture": {
+      "title": "アーキテクチャ",
+      "defaultName": "03_アーキテクチャ",
+      "description": "構造、決定、モデル"
+    },
+    "area-design": {
+      "title": "設計",
+      "defaultName": "04_設計",
+      "description": "画面、API、データ等の設計"
+    },
+    "area-implementation": {
+      "title": "実装・構成管理",
+      "defaultName": "05_実装・構成管理",
+      "description": "開発方針、構成、build、deploy"
+    },
+    "area-quality": {
+      "title": "品質・テスト",
+      "defaultName": "06_品質・テスト",
+      "description": "品質方針、テスト、検証、受入"
+    },
+    "area-release": {
+      "title": "リリース・移行",
+      "defaultName": "07_リリース・移行",
+      "description": "リリース、移行、rollback"
+    },
+    "area-operations": {
+      "title": "運用・保守",
+      "defaultName": "08_運用・保守",
+      "description": "監視、復旧、障害、保守"
+    },
+    "area-closure": {
+      "title": "プロジェクト完了",
+      "defaultName": "09_プロジェクト完了",
+      "description": "引継ぎ、振り返り、教訓"
+    },
+    "pm-planning": {
+      "title": "計画",
+      "defaultName": "01_計画",
+      "description": "計画と管理方針"
+    },
+    "pm-stakeholders": {
+      "title": "ステークホルダー・体制",
+      "defaultName": "02_ステークホルダー・体制",
+      "description": "関係者、体制、責任、承認"
+    },
+    "pm-risks": {
+      "title": "リスク・課題",
+      "defaultName": "03_リスク・課題",
+      "description": "リスクと課題の管理"
+    },
+    "pm-changes": {
+      "title": "変更・意思決定",
+      "defaultName": "04_変更・意思決定",
+      "description": "変更要求、履歴、判断記録"
+    },
+    "pm-progress": {
+      "title": "進捗",
+      "defaultName": "05_進捗",
+      "description": "ロードマップ、節目、進捗"
+    },
+    "req-business": {
+      "title": "ビジネス要求",
+      "defaultName": "01_ビジネス要求",
+      "description": "背景、ビジネス要求、効果"
+    },
+    "req-stakeholder": {
+      "title": "ステークホルダー要求",
+      "defaultName": "02_ステークホルダー要求",
+      "description": "利用者、シナリオ、要求"
+    },
+    "req-system": {
+      "title": "システム要件",
+      "defaultName": "03_システム要件",
+      "description": "機能、非機能、IF、データ、制約"
+    },
+    "req-scope": {
+      "title": "スコープ",
+      "defaultName": "04_スコープ",
+      "description": "対象範囲と境界"
+    },
+    "req-traceability": {
+      "title": "トレーサビリティ",
+      "defaultName": "05_トレーサビリティ",
+      "description": "要求と設計・テストの関連"
+    },
+    "arc-arc42": {
+      "title": "arc42",
+      "defaultName": "01_arc42",
+      "description": "arc42を参考にした構造の説明"
+    },
+    "arc-adr": {
+      "title": "ADR",
+      "defaultName": "02_ADR",
+      "description": "アーキテクチャ上の決定記録"
+    },
+    "arc-models": {
+      "title": "モデル・図",
+      "defaultName": "03_モデル・図",
+      "description": "C4等の構造モデル"
+    },
+    "design-ui": {
+      "title": "画面",
+      "defaultName": "01_画面",
+      "description": "画面構成、遷移、状態を記載します。"
+    },
+    "design-api": {
+      "title": "API",
+      "defaultName": "02_API",
+      "description": "エンドポイント、入出力、エラーを記載します。"
+    },
+    "design-data": {
+      "title": "データ",
+      "defaultName": "03_データ",
+      "description": "データ構造、関係、保持方針を記載します。"
+    },
+    "design-component": {
+      "title": "コンポーネント",
+      "defaultName": "04_コンポーネント",
+      "description": "コンポーネントの責務と依存を記載します。"
+    },
+    "design-process": {
+      "title": "処理",
+      "defaultName": "05_処理",
+      "description": "主要な処理手順と例外を記載します。"
+    },
+    "design-external": {
+      "title": "外部インターフェース",
+      "defaultName": "06_外部インターフェース",
+      "description": "外部連携の方式、契約、障害時の扱いを記載します。"
+    },
+    "quality-policy": {
+      "title": "品質方針",
+      "defaultName": "01_品質方針",
+      "description": "品質目標と、その確認方法の全体方針を記載します。"
+    },
+    "quality-test-plan": {
+      "title": "テスト計画",
+      "defaultName": "02_テスト計画",
+      "description": "対象、環境、実施順序、完了条件を記載します。"
+    },
+    "quality-test-spec": {
+      "title": "テスト仕様",
+      "defaultName": "03_テスト仕様",
+      "description": "テスト観点、条件、期待結果を記載します。"
+    },
+    "quality-test-result": {
+      "title": "テスト結果",
+      "defaultName": "04_テスト結果",
+      "description": "実施結果と判定を記載します。"
+    },
+    "quality-defects": {
+      "title": "不具合",
+      "defaultName": "05_不具合",
+      "description": "検出した不具合、影響、対応状況を記載します。"
+    },
+    "quality-verification": {
+      "title": "検証",
+      "defaultName": "06_検証",
+      "description": "要件どおり作られたことの確認結果を記載します。"
+    },
+    "quality-validation": {
+      "title": "妥当性確認・受入",
+      "defaultName": "07_妥当性確認・受入",
+      "description": "利用目的を満たすことの確認と受入結果を記載します。"
+    }
+  },
+  "pages": {
+    "project-guide": {
+      "title": "プロジェクト文書の案内",
+      "defaultFileName": "index.yaml",
+      "description": "初期構成、情報の配置、読み順を人と外部AIへ案内します。",
+      "body": "## このPageの目的\n\n初期構成、情報の配置、読み順を人と外部AIへ案内します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "welcome": {
+      "title": "Vellymへようこそ",
+      "defaultFileName": "welcome.yaml",
+      "description": "Vellymの基本操作と保存形式を案内します。",
+      "body": "## このPageの目的\n\nVellymの基本操作と保存形式を案内します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "external-ai-document-guide": {
+      "title": "外部AI向け文書利用ガイド",
+      "defaultFileName": "ai-guide.yaml",
+      "description": "外部AIエージェントが必要なPage YAMLだけを読む原則を案内します。",
+      "body": "## このPageの目的\n\n外部AIエージェントが必要なPage YAMLだけを読む原則を案内します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "yaml-editing-guide": {
+      "title": "YAML直接編集ガイド",
+      "defaultFileName": "yaml-guide.yaml",
+      "description": "Page YAMLの最小構造と安全な直接編集方法を案内します。",
+      "body": "## このPageの目的\n\nPage YAMLの最小構造と安全な直接編集方法を案内します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "project-charter": {
+      "title": "プロジェクト憲章",
+      "defaultFileName": "プロジェクト憲章.yaml",
+      "description": "目的、成果、主要な関係者、権限、境界を記載します。",
+      "body": "## このPageの目的\n\n目的、成果、主要な関係者、権限、境界を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "project-summary": {
+      "title": "プロジェクト概要",
+      "defaultFileName": "プロジェクト概要.yaml",
+      "description": "何を、誰のために、どう進めるかを短くまとめます。",
+      "body": "## このPageの目的\n\n何を、誰のために、どう進めるかを短くまとめます。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "glossary": {
+      "title": "用語集",
+      "defaultFileName": "用語集.yaml",
+      "description": "プロジェクト内で意味を固定したい用語を記載します。",
+      "body": "## このPageの目的\n\nプロジェクト内で意味を固定したい用語を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "pm-plan": {
+      "title": "プロジェクトマネジメント計画",
+      "defaultFileName": "プロジェクトマネジメント計画.yaml",
+      "description": "計画全体の方針、統制、報告の枠組みを記載します。",
+      "body": "## このPageの目的\n\n計画全体の方針、統制、報告の枠組みを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "scope-management": {
+      "title": "スコープ管理方針",
+      "defaultFileName": "スコープ管理方針.yaml",
+      "description": "スコープの定義、確認、変更の扱い方を記載します。",
+      "body": "## このPageの目的\n\nスコープの定義、確認、変更の扱い方を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "wbs": {
+      "title": "WBS",
+      "defaultFileName": "WBS.yaml",
+      "description": "成果物を作業単位へ分解した構造を記載します。",
+      "body": "## このPageの目的\n\n成果物を作業単位へ分解した構造を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "schedule": {
+      "title": "スケジュール",
+      "defaultFileName": "スケジュール.yaml",
+      "description": "主要な節目、期間、依存関係を記載します。",
+      "body": "## このPageの目的\n\n主要な節目、期間、依存関係を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "planning-milestones": {
+      "title": "マイルストーン",
+      "defaultFileName": "マイルストーン.yaml",
+      "description": "計画上の節目と判断ポイントを記載します。",
+      "body": "## このPageの目的\n\n計画上の節目と判断ポイントを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "cost-plan": {
+      "title": "コスト計画",
+      "defaultFileName": "コスト計画.yaml",
+      "description": "費用の見積、内訳、管理方法を記載します。",
+      "body": "## このPageの目的\n\n費用の見積、内訳、管理方法を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "quality-management-plan": {
+      "title": "品質管理計画",
+      "defaultFileName": "品質管理計画.yaml",
+      "description": "品質目標と、その達成を管理する方法を記載します。",
+      "body": "## このPageの目的\n\n品質目標と、その達成を管理する方法を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "communication-plan": {
+      "title": "コミュニケーション計画",
+      "defaultFileName": "コミュニケーション計画.yaml",
+      "description": "誰へ、何を、どの頻度で伝えるかを記載します。",
+      "body": "## このPageの目的\n\n誰へ、何を、どの頻度で伝えるかを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "resource-plan": {
+      "title": "リソース計画",
+      "defaultFileName": "リソース計画.yaml",
+      "description": "必要な人員、スキル、設備と確保方法を記載します。",
+      "body": "## このPageの目的\n\n必要な人員、スキル、設備と確保方法を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "procurement-plan": {
+      "title": "調達計画",
+      "defaultFileName": "調達計画.yaml",
+      "description": "外部調達の対象、方式、契約上の前提を記載します。",
+      "body": "## このPageの目的\n\n外部調達の対象、方式、契約上の前提を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "stakeholders": {
+      "title": "ステークホルダー一覧",
+      "defaultFileName": "ステークホルダー一覧.yaml",
+      "description": "関係者、関心、影響、関与方法を記載します。",
+      "body": "## このPageの目的\n\n関係者、関心、影響、関与方法を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "org-chart": {
+      "title": "体制図",
+      "defaultFileName": "体制図.yaml",
+      "description": "チーム構成と報告関係を記載します。",
+      "body": "## このPageの目的\n\nチーム構成と報告関係を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "roles-responsibilities": {
+      "title": "役割・責任",
+      "defaultFileName": "役割・責任.yaml",
+      "description": "各役割の責任範囲と担当を記載します。",
+      "body": "## このPageの目的\n\n各役割の責任範囲と担当を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "communication-policy": {
+      "title": "コミュニケーション方針",
+      "defaultFileName": "コミュニケーション方針.yaml",
+      "description": "会議、記録、連絡手段の基本方針を記載します。",
+      "body": "## このPageの目的\n\n会議、記録、連絡手段の基本方針を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "approvers": {
+      "title": "承認者・意思決定者",
+      "defaultFileName": "承認者・意思決定者.yaml",
+      "description": "何を誰が承認・決定するかを記載します。",
+      "body": "## このPageの目的\n\n何を誰が承認・決定するかを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "risk-register": {
+      "title": "リスク一覧",
+      "defaultFileName": "リスク一覧.yaml",
+      "description": "主要なリスク、影響、対応、状態を記載します。",
+      "body": "## このPageの目的\n\n主要なリスク、影響、対応、状態を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "issue-register": {
+      "title": "課題一覧",
+      "defaultFileName": "課題一覧.yaml",
+      "description": "顕在化した課題、担当、期限、状態を記載します。",
+      "body": "## このPageの目的\n\n顕在化した課題、担当、期限、状態を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "change-request": {
+      "title": "変更要求",
+      "defaultFileName": "変更要求.yaml",
+      "description": "変更の要求内容、影響、判断結果を記載します。",
+      "body": "## このPageの目的\n\n変更の要求内容、影響、判断結果を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "change-log": {
+      "title": "変更履歴",
+      "defaultFileName": "変更履歴.yaml",
+      "description": "承認された変更の履歴を記載します。",
+      "body": "## このPageの目的\n\n承認された変更の履歴を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "project-decision-log": {
+      "title": "プロジェクト判断記録",
+      "defaultFileName": "プロジェクト判断記録.yaml",
+      "description": "プロジェクト運営上の判断、理由、影響を記載します。",
+      "body": "## このPageの目的\n\nプロジェクト運営上の判断、理由、影響を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "roadmap": {
+      "title": "ロードマップ",
+      "defaultFileName": "ロードマップ.yaml",
+      "description": "提供段階と各段階の成果を記載します。",
+      "body": "## このPageの目的\n\n提供段階と各段階の成果を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "progress-milestones": {
+      "title": "マイルストーン",
+      "defaultFileName": "マイルストーン.yaml",
+      "description": "到達済みと今後の節目を記載します。",
+      "body": "## このPageの目的\n\n到達済みと今後の節目を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "backlog": {
+      "title": "バックログ",
+      "defaultFileName": "バックログ.yaml",
+      "description": "未着手の作業項目と優先順位を記載します。",
+      "body": "## このPageの目的\n\n未着手の作業項目と優先順位を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "current-position": {
+      "title": "進捗記録",
+      "defaultFileName": "進捗記録.yaml",
+      "description": "現在の状態と次に行う作業を記載します。",
+      "body": "## このPageの目的\n\n現在の状態と次に行う作業を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "status-report": {
+      "title": "ステータスレポート",
+      "defaultFileName": "ステータスレポート.yaml",
+      "description": "定期報告する進捗、課題、判断依頼を記載します。",
+      "body": "## このPageの目的\n\n定期報告する進捗、課題、判断依頼を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "user-problem": {
+      "title": "背景・課題",
+      "defaultFileName": "背景・課題.yaml",
+      "description": "対象利用者、状況、現在の代替手段、困りごとを記載します。",
+      "body": "## このPageの目的\n\n対象利用者、状況、現在の代替手段、困りごとを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "business-requirements": {
+      "title": "ビジネス要求",
+      "defaultFileName": "ビジネス要求.yaml",
+      "description": "事業として達成したいことを記載します。",
+      "body": "## このPageの目的\n\n事業として達成したいことを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "expected-benefits": {
+      "title": "期待効果",
+      "defaultFileName": "期待効果.yaml",
+      "description": "実現によって期待する効果と前提を記載します。",
+      "body": "## このPageの目的\n\n実現によって期待する効果と前提を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "success-metrics": {
+      "title": "成功指標",
+      "defaultFileName": "成功指標.yaml",
+      "description": "成功を判断する指標と目標値を記載します。",
+      "body": "## このPageの目的\n\n成功を判断する指標と目標値を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "personas": {
+      "title": "利用者・ペルソナ",
+      "defaultFileName": "利用者・ペルソナ.yaml",
+      "description": "主要な利用者像と利用状況を記載します。",
+      "body": "## このPageの目的\n\n主要な利用者像と利用状況を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "usage-scenarios": {
+      "title": "利用シナリオ",
+      "defaultFileName": "利用シナリオ.yaml",
+      "description": "代表的な利用の流れを記載します。",
+      "body": "## このPageの目的\n\n代表的な利用の流れを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "use-cases": {
+      "title": "ユースケース",
+      "defaultFileName": "ユースケース.yaml",
+      "description": "アクター、事前条件、主系列、代替系列を記載します。",
+      "body": "## このPageの目的\n\nアクター、事前条件、主系列、代替系列を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "user-stories": {
+      "title": "ユーザーストーリー",
+      "defaultFileName": "ユーザーストーリー.yaml",
+      "description": "利用者視点の要求と受入条件を記載します。",
+      "body": "## このPageの目的\n\n利用者視点の要求と受入条件を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "stakeholder-requirements": {
+      "title": "ステークホルダー要求",
+      "defaultFileName": "ステークホルダー要求.yaml",
+      "description": "各関係者が求めることと優先度を記載します。",
+      "body": "## このPageの目的\n\n各関係者が求めることと優先度を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "requirements": {
+      "title": "機能要件",
+      "defaultFileName": "機能要件.yaml",
+      "description": "システムが提供する機能と受入条件を記載します。",
+      "body": "## このPageの目的\n\nシステムが提供する機能と受入条件を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "non-functional-requirements": {
+      "title": "非機能要件",
+      "defaultFileName": "非機能要件.yaml",
+      "description": "性能、可用性、運用性等の品質要求を記載します。",
+      "body": "## このPageの目的\n\n性能、可用性、運用性等の品質要求を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "interface-requirements": {
+      "title": "インターフェース要件",
+      "defaultFileName": "インターフェース要件.yaml",
+      "description": "外部システムとの接続条件を記載します。",
+      "body": "## このPageの目的\n\n外部システムとの接続条件を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "data-requirements": {
+      "title": "データ要件",
+      "defaultFileName": "データ要件.yaml",
+      "description": "扱うデータ、保持期間、整合性の要求を記載します。",
+      "body": "## このPageの目的\n\n扱うデータ、保持期間、整合性の要求を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "security-requirements": {
+      "title": "セキュリティ要件",
+      "defaultFileName": "セキュリティ要件.yaml",
+      "description": "認証、認可、データ保護、監査の要求を記載します。",
+      "body": "## このPageの目的\n\n認証、認可、データ保護、監査の要求を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "constraints": {
+      "title": "制約",
+      "defaultFileName": "制約.yaml",
+      "description": "技術、期間、費用、法令等の制約を記載します。",
+      "body": "## このPageの目的\n\n技術、期間、費用、法令等の制約を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "scope": {
+      "title": "対象範囲",
+      "defaultFileName": "対象範囲.yaml",
+      "description": "今回の対象に含めることを記載します。",
+      "body": "## このPageの目的\n\n今回の対象に含めることを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "out-of-scope": {
+      "title": "対象外",
+      "defaultFileName": "対象外.yaml",
+      "description": "今回の対象に含めないことを記載します。",
+      "body": "## このPageの目的\n\n今回の対象に含めないことを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "boundary-conditions": {
+      "title": "境界条件",
+      "defaultFileName": "境界条件.yaml",
+      "description": "対象と対象外の境界で判断が必要な条件を記載します。",
+      "body": "## このPageの目的\n\n対象と対象外の境界で判断が必要な条件を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "requirements-traceability": {
+      "title": "要求トレーサビリティ",
+      "defaultFileName": "要求トレーサビリティ.yaml",
+      "description": "要求の出所と反映先の対応を記載します。",
+      "body": "## このPageの目的\n\n要求の出所と反映先の対応を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "requirements-design-links": {
+      "title": "要求と設計の関連",
+      "defaultFileName": "要求と設計の関連.yaml",
+      "description": "要求と設計成果物の対応を記載します。",
+      "body": "## このPageの目的\n\n要求と設計成果物の対応を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "requirements-test-links": {
+      "title": "要求とテストの関連",
+      "defaultFileName": "要求とテストの関連.yaml",
+      "description": "要求とテストの対応を記載します。",
+      "body": "## このPageの目的\n\n要求とテストの対応を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-introduction": {
+      "title": "はじめにと目標",
+      "defaultFileName": "01_はじめにと目標.yaml",
+      "description": "解決したいことと最重要の品質目標を記載します。",
+      "body": "## このPageの目的\n\n解決したいことと最重要の品質目標を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-constraints": {
+      "title": "制約",
+      "defaultFileName": "02_制約.yaml",
+      "description": "設計上動かせない前提を記載します。",
+      "body": "## このPageの目的\n\n設計上動かせない前提を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-context": {
+      "title": "コンテキストとスコープ",
+      "defaultFileName": "03_コンテキストとスコープ.yaml",
+      "description": "対象システムと外部環境の境界を記載します。",
+      "body": "## このPageの目的\n\n対象システムと外部環境の境界を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-strategy": {
+      "title": "ソリューション戦略",
+      "defaultFileName": "04_ソリューション戦略.yaml",
+      "description": "主要な設計方針と技術上の方向を記載します。",
+      "body": "## このPageの目的\n\n主要な設計方針と技術上の方向を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-building-blocks": {
+      "title": "ビルディングブロック",
+      "defaultFileName": "05_ビルディングブロック.yaml",
+      "description": "主要な構成要素と責務を記載します。",
+      "body": "## このPageの目的\n\n主要な構成要素と責務を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-runtime": {
+      "title": "ランタイム",
+      "defaultFileName": "06_ランタイム.yaml",
+      "description": "重要な処理の流れと相互作用を記載します。",
+      "body": "## このPageの目的\n\n重要な処理の流れと相互作用を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-deployment": {
+      "title": "配置",
+      "defaultFileName": "07_配置.yaml",
+      "description": "実行環境と配置構成を記載します。",
+      "body": "## このPageの目的\n\n実行環境と配置構成を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-crosscutting": {
+      "title": "横断的概念",
+      "defaultFileName": "08_横断的概念.yaml",
+      "description": "複数箇所へ共通して適用する方針を記載します。",
+      "body": "## このPageの目的\n\n複数箇所へ共通して適用する方針を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-decisions": {
+      "title": "アーキテクチャ上の決定",
+      "defaultFileName": "09_アーキテクチャ上の決定.yaml",
+      "description": "構造に影響する決定の要約を記載します。",
+      "body": "## このPageの目的\n\n構造に影響する決定の要約を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-quality": {
+      "title": "品質要求",
+      "defaultFileName": "10_品質要求.yaml",
+      "description": "アーキテクチャが満たすべき品質シナリオを記載します。",
+      "body": "## このPageの目的\n\nアーキテクチャが満たすべき品質シナリオを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-risks": {
+      "title": "リスクと技術的負債",
+      "defaultFileName": "11_リスクと技術的負債.yaml",
+      "description": "技術上のリスクと既知の負債を記載します。",
+      "body": "## このPageの目的\n\n技術上のリスクと既知の負債を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "arc42-glossary": {
+      "title": "用語集",
+      "defaultFileName": "12_用語集.yaml",
+      "description": "アーキテクチャ文書で使う用語を記載します。",
+      "body": "## このPageの目的\n\nアーキテクチャ文書で使う用語を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "decision-log": {
+      "title": "ADR一覧",
+      "defaultFileName": "ADR一覧.yaml",
+      "description": "アーキテクチャ上の決定、選択肢、理由、影響を記載します。",
+      "body": "## このPageの目的\n\nアーキテクチャ上の決定、選択肢、理由、影響を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "c4-context": {
+      "title": "システムコンテキスト",
+      "defaultFileName": "システムコンテキスト.yaml",
+      "description": "対象システムと外部の利用者・システムの関係を記載します。",
+      "body": "## このPageの目的\n\n対象システムと外部の利用者・システムの関係を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "c4-container": {
+      "title": "コンテナ",
+      "defaultFileName": "コンテナ.yaml",
+      "description": "実行単位とその責務、通信を記載します。",
+      "body": "## このPageの目的\n\n実行単位とその責務、通信を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "c4-component": {
+      "title": "コンポーネント",
+      "defaultFileName": "コンポーネント.yaml",
+      "description": "コンテナ内部の主要コンポーネントを記載します。",
+      "body": "## このPageの目的\n\nコンテナ内部の主要コンポーネントを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "c4-code": {
+      "title": "コードレベル",
+      "defaultFileName": "コードレベル.yaml",
+      "description": "必要な箇所だけコードレベルの構造を記載します。",
+      "body": "## このPageの目的\n\n必要な箇所だけコードレベルの構造を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "design-ui-overview": {
+      "title": "画面設計",
+      "defaultFileName": "画面設計.yaml",
+      "description": "画面構成、遷移、状態を記載します。",
+      "body": "## このPageの目的\n\n画面構成、遷移、状態を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "design-api-overview": {
+      "title": "API設計",
+      "defaultFileName": "API設計.yaml",
+      "description": "エンドポイント、入出力、エラーを記載します。",
+      "body": "## このPageの目的\n\nエンドポイント、入出力、エラーを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "design-data-overview": {
+      "title": "データ設計",
+      "defaultFileName": "データ設計.yaml",
+      "description": "データ構造、関係、保持方針を記載します。",
+      "body": "## このPageの目的\n\nデータ構造、関係、保持方針を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "design-component-overview": {
+      "title": "コンポーネント設計",
+      "defaultFileName": "コンポーネント設計.yaml",
+      "description": "コンポーネントの責務と依存を記載します。",
+      "body": "## このPageの目的\n\nコンポーネントの責務と依存を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "design-process-overview": {
+      "title": "処理設計",
+      "defaultFileName": "処理設計.yaml",
+      "description": "主要な処理手順と例外を記載します。",
+      "body": "## このPageの目的\n\n主要な処理手順と例外を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "design-external-overview": {
+      "title": "外部インターフェース設計",
+      "defaultFileName": "外部インターフェース設計.yaml",
+      "description": "外部連携の方式、契約、障害時の扱いを記載します。",
+      "body": "## このPageの目的\n\n外部連携の方式、契約、障害時の扱いを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "development-policy": {
+      "title": "開発方針",
+      "defaultFileName": "開発方針.yaml",
+      "description": "開発の進め方と守る基準を記載します。",
+      "body": "## このPageの目的\n\n開発の進め方と守る基準を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "coding-standards": {
+      "title": "コーディング規約",
+      "defaultFileName": "コーディング規約.yaml",
+      "description": "コードの記法と禁止事項を記載します。",
+      "body": "## このPageの目的\n\nコードの記法と禁止事項を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "git-workflow": {
+      "title": "Git運用",
+      "defaultFileName": "Git運用.yaml",
+      "description": "commit、review、mergeの運用を記載します。",
+      "body": "## このPageの目的\n\ncommit、review、mergeの運用を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "branching-strategy": {
+      "title": "ブランチ戦略",
+      "defaultFileName": "ブランチ戦略.yaml",
+      "description": "ブランチの種類と寿命を記載します。",
+      "body": "## このPageの目的\n\nブランチの種類と寿命を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "configuration-management": {
+      "title": "構成管理方針",
+      "defaultFileName": "構成管理方針.yaml",
+      "description": "版数、成果物、環境の管理方法を記載します。",
+      "body": "## このPageの目的\n\n版数、成果物、環境の管理方法を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "environments": {
+      "title": "環境構成",
+      "defaultFileName": "環境構成.yaml",
+      "description": "開発、検証、本番の構成差分を記載します。",
+      "body": "## このPageの目的\n\n開発、検証、本番の構成差分を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "build": {
+      "title": "ビルド",
+      "defaultFileName": "ビルド.yaml",
+      "description": "ビルド手順と再現条件を記載します。",
+      "body": "## このPageの目的\n\nビルド手順と再現条件を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "deployment": {
+      "title": "デプロイ",
+      "defaultFileName": "デプロイ.yaml",
+      "description": "配置手順と確認事項を記載します。",
+      "body": "## このPageの目的\n\n配置手順と確認事項を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "quality-policy-overview": {
+      "title": "品質方針",
+      "defaultFileName": "品質方針.yaml",
+      "description": "品質目標と、その確認方法の全体方針を記載します。",
+      "body": "## このPageの目的\n\n品質目標と、その確認方法の全体方針を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "test-plan": {
+      "title": "テスト計画",
+      "defaultFileName": "テスト計画.yaml",
+      "description": "対象、環境、実施順序、完了条件を記載します。",
+      "body": "## このPageの目的\n\n対象、環境、実施順序、完了条件を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "test-specification": {
+      "title": "テスト仕様",
+      "defaultFileName": "テスト仕様.yaml",
+      "description": "テスト観点、条件、期待結果を記載します。",
+      "body": "## このPageの目的\n\nテスト観点、条件、期待結果を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "test-result": {
+      "title": "テスト結果",
+      "defaultFileName": "テスト結果.yaml",
+      "description": "実施結果と判定を記載します。",
+      "body": "## このPageの目的\n\n実施結果と判定を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "defect-register": {
+      "title": "不具合",
+      "defaultFileName": "不具合.yaml",
+      "description": "検出した不具合、影響、対応状況を記載します。",
+      "body": "## このPageの目的\n\n検出した不具合、影響、対応状況を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "verification-record": {
+      "title": "検証",
+      "defaultFileName": "検証.yaml",
+      "description": "要件どおり作られたことの確認結果を記載します。",
+      "body": "## このPageの目的\n\n要件どおり作られたことの確認結果を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "validation-acceptance": {
+      "title": "妥当性確認・受入",
+      "defaultFileName": "妥当性確認・受入.yaml",
+      "description": "利用目的を満たすことの確認と受入結果を記載します。",
+      "body": "## このPageの目的\n\n利用目的を満たすことの確認と受入結果を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "release-plan": {
+      "title": "リリース計画",
+      "defaultFileName": "リリース計画.yaml",
+      "description": "対象、提供内容、品質ゲート、告知を記載します。",
+      "body": "## このPageの目的\n\n対象、提供内容、品質ゲート、告知を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "release-decision": {
+      "title": "リリース判定",
+      "defaultFileName": "リリース判定.yaml",
+      "description": "リリース可否の判断基準と結果を記載します。",
+      "body": "## このPageの目的\n\nリリース可否の判断基準と結果を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "migration-plan": {
+      "title": "移行計画",
+      "defaultFileName": "移行計画.yaml",
+      "description": "移行対象、方式、検証、切り戻しを記載します。",
+      "body": "## このPageの目的\n\n移行対象、方式、検証、切り戻しを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "migration-procedure": {
+      "title": "移行手順",
+      "defaultFileName": "移行手順.yaml",
+      "description": "実施当日の手順と確認点を記載します。",
+      "body": "## このPageの目的\n\n実施当日の手順と確認点を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "rollback": {
+      "title": "ロールバック",
+      "defaultFileName": "ロールバック.yaml",
+      "description": "戻す条件、手順、影響を記載します。",
+      "body": "## このPageの目的\n\n戻す条件、手順、影響を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "release-notes": {
+      "title": "リリースノート",
+      "defaultFileName": "リリースノート.yaml",
+      "description": "利用者へ伝える変更点を記載します。",
+      "body": "## このPageの目的\n\n利用者へ伝える変更点を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "operations-guide": {
+      "title": "運用設計",
+      "defaultFileName": "運用設計.yaml",
+      "description": "運用の全体像と責任分担を記載します。",
+      "body": "## このPageの目的\n\n運用の全体像と責任分担を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "operations-procedure": {
+      "title": "運用手順",
+      "defaultFileName": "運用手順.yaml",
+      "description": "定常作業の手順を記載します。",
+      "body": "## このPageの目的\n\n定常作業の手順を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "monitoring": {
+      "title": "監視",
+      "defaultFileName": "監視.yaml",
+      "description": "監視対象、閾値、通知先を記載します。",
+      "body": "## このPageの目的\n\n監視対象、閾値、通知先を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "backup-recovery": {
+      "title": "バックアップ・復旧",
+      "defaultFileName": "バックアップ・復旧.yaml",
+      "description": "取得方法、保持、復旧手順を記載します。",
+      "body": "## このPageの目的\n\n取得方法、保持、復旧手順を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "incident-response": {
+      "title": "障害対応",
+      "defaultFileName": "障害対応.yaml",
+      "description": "検知、連絡、暫定対応、恒久対応を記載します。",
+      "body": "## このPageの目的\n\n検知、連絡、暫定対応、恒久対応を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "maintenance-policy": {
+      "title": "保守方針",
+      "defaultFileName": "保守方針.yaml",
+      "description": "改修の受付、優先度、実施方針を記載します。",
+      "body": "## このPageの目的\n\n改修の受付、優先度、実施方針を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "security-operations": {
+      "title": "セキュリティ運用",
+      "defaultFileName": "セキュリティ運用.yaml",
+      "description": "脆弱性管理、権限、監査の運用を記載します。",
+      "body": "## このPageの目的\n\n脆弱性管理、権限、監査の運用を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "closure-criteria": {
+      "title": "完了判定",
+      "defaultFileName": "完了判定.yaml",
+      "description": "完了と判断する条件と結果を記載します。",
+      "body": "## このPageの目的\n\n完了と判断する条件と結果を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "deliverables": {
+      "title": "成果物一覧",
+      "defaultFileName": "成果物一覧.yaml",
+      "description": "引き渡す成果物と所在を記載します。",
+      "body": "## このPageの目的\n\n引き渡す成果物と所在を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "handover": {
+      "title": "引継ぎ",
+      "defaultFileName": "引継ぎ.yaml",
+      "description": "運用責任、連絡先、注意点を記載します。",
+      "body": "## このPageの目的\n\n運用責任、連絡先、注意点を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "open-items": {
+      "title": "未完了事項",
+      "defaultFileName": "未完了事項.yaml",
+      "description": "残った作業と扱いを記載します。",
+      "body": "## このPageの目的\n\n残った作業と扱いを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "retrospective": {
+      "title": "振り返り",
+      "defaultFileName": "振り返り.yaml",
+      "description": "結果、学び、次に変えることを記載します。",
+      "body": "## このPageの目的\n\n結果、学び、次に変えることを記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "lessons-learned": {
+      "title": "教訓",
+      "defaultFileName": "教訓.yaml",
+      "description": "他プロジェクトへ引き継ぐ知見を記載します。",
+      "body": "## このPageの目的\n\n他プロジェクトへ引き継ぐ知見を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    },
+    "closure-report": {
+      "title": "プロジェクト完了報告",
+      "defaultFileName": "プロジェクト完了報告.yaml",
+      "description": "目的の達成状況と最終結果を記載します。",
+      "body": "## このPageの目的\n\n目的の達成状況と最終結果を記載します。\n\n## 記入を始める\n\n- ここで決めること:\n- 現時点で分かっていること:\n- 未確定で確認が必要なこと:\n"
+    }
+  }
+}

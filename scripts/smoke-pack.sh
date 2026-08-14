@@ -12,7 +12,7 @@ cd "$VELLYM_SMOKE_ROOT/consumer"
 npm init -y >/dev/null
 npm install "$VELLYM_SMOKE_ROOT/$PACK_FILE" >/dev/null
 ./node_modules/.bin/vellym init "$VELLYM_SMOKE_ROOT/example" \
-  --yes --language ja --content-root content --profile software-basic
+  --size small-team --method hybrid --language ja --content-root content
 ./node_modules/.bin/vellym validate --config "$VELLYM_SMOKE_ROOT/example/vellym.config.yaml"
 ./node_modules/.bin/vellym build --config "$VELLYM_SMOKE_ROOT/example/vellym.config.yaml"
 # buildの出力ディレクトリは日時付きのため、生成物の存在だけを確認する。

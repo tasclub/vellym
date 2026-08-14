@@ -24,8 +24,7 @@ import {
   pageSummaries,
   applyProjectSetup,
   planProjectSetup,
-  setupManifest,
-  recommendSetupTemplates,
+  setupCatalog,
   parsePagePatch,
   parseFolderPatch,
   saveFolder,
@@ -1041,19 +1040,26 @@ plugins: []
       expect(
         (await fetch(`${server.url}/api/v1/repository`)).status
       ).toBe(409);
-      const profiles = await fetch(
-        `${server.url}/api/v1/setup/profiles`
+      const catalog = await fetch(
+        `${server.url}/api/v1/setup/catalog`
       );
-      expect(profiles.status).toBe(200);
-      expect(await profiles.json()).toMatchObject({
+      expect(catalog.status).toBe(200);
+      expect(await catalog.json()).toMatchObject({
         data: {
-          profiles: expect.arrayContaining([
-            expect.objectContaining({ id: "software-basic" })
+          packId: "vellym-core-project-structure",
+          packVersion: "2.0.0",
+          folders: expect.arrayContaining([
+            expect.objectContaining({ id: "area-architecture" })
+          ]),
+          pages: expect.arrayContaining([
+            expect.objectContaining({ id: "arc42-context", parentFolderId: "arc-arc42" })
           ])
         }
       });
+      // The pre-hierarchy path stays available as an alias.
+      expect((await fetch(`${server.url}/api/v1/setup/profiles`)).status).toBe(200);
       const input = {
-        profiles: ["minimal"],
+        mode: "templates",
         selectedTemplateIds: ["welcome", "project-guide"],
         conflictResolutions: {},
         pageFileNames: { "project-guide": "start.yaml" }
@@ -1116,7 +1122,7 @@ plugins: []
         }
       });
       expect(
-        (await fetch(`${server.url}/api/v1/setup/profiles`)).status
+        (await fetch(`${server.url}/api/v1/setup/catalog`)).status
       ).toBe(409);
     } finally {
       await server.close();
@@ -1156,28 +1162,6 @@ plugins: []
 });
 
 describe("setup plan and apply", () => {
-  it("builds light, standard, and strict recommendations from shared rules", () => {
-    const light = recommendSetupTemplates({
-      size: "small-team",
-      method: "hybrid",
-      level: "light"
-    }).templateIds;
-    const standard = recommendSetupTemplates({
-      size: "small-team",
-      method: "hybrid",
-      level: "standard"
-    }).templateIds;
-    const strict = recommendSetupTemplates({
-      size: "small-team",
-      method: "hybrid",
-      level: "strict"
-    }).templateIds;
-    expect(light.every((id) => standard.includes(id))).toBe(true);
-    expect(standard.every((id) => strict.includes(id))).toBe(true);
-    expect(light).toContain("test-strategy");
-    expect(strict).toEqual(expect.arrayContaining(["operations-guide", "handover"]));
-  });
-
   it("creates the standard information-area layout and provenance", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-setup-standard-"));
     const plan = await planProjectSetup(root, {
@@ -1189,13 +1173,31 @@ describe("setup plan and apply", () => {
     });
     await applyProjectSetup(plan);
     const requirement = await readFile(
-      path.join(root, "docs/02_要求・要件/要求.yaml"),
+      path.join(root, "docs/02_要求・要件/03_システム要件/機能要件.yaml"),
       "utf8"
     );
-    expect(requirement).toContain("vellym.tasclub.com/setup-pack-id");
-    expect(requirement).toContain("vellym-core-project-structure");
+    // 生成物へprovenance annotationsは書かない。生成後は利用者が自由に書き換えるため、
+    // 生成元を記録しても実態と乖離する。
+    expect(requirement).toContain("kind: Page");
+    expect(requirement).not.toContain("vellym.tasclub.com/setup-");
+    expect(requirement).not.toContain("vellym.tasclub.com/template-");
+
+    // Each level of the hierarchy gets its own _index.yaml listing only its
+    // direct children.
+    const area = await readFile(path.join(root, "docs/02_要求・要件/_index.yaml"), "utf8");
+    expect(area).toContain("- 03_システム要件");
+    expect(area).not.toContain("機能要件.yaml");
+    const subfolder = await readFile(
+      path.join(root, "docs/02_要求・要件/03_システム要件/_index.yaml"),
+      "utf8"
+    );
+    expect(subfolder).toContain("- 機能要件.yaml");
+    const rootIndex = await readFile(path.join(root, "docs/_index.yaml"), "utf8");
+    expect(rootIndex).toContain("- 02_要求・要件");
+    expect(rootIndex).not.toContain("03_システム要件");
+
     const guide = await readFile(path.join(root, "docs/index.yaml"), "utf8");
-    expect(guide).toMatch(/\[\[page-[a-f0-9]{24} \| 要求\]\]/);
+    expect(guide).toMatch(/\[\[page-[a-f0-9]{24} \| 機能要件\]\]/);
     expect(guide).toContain("Template Pack");
   });
 
@@ -1248,29 +1250,24 @@ describe("setup plan and apply", () => {
     ).rejects.toMatchObject({ code: "SETUP_CONTENT_ROOT" });
   });
 
-  it("offers optional guides without expanding the default minimal setup", async () => {
-    const manifest = setupManifest();
-    const minimal = manifest.profiles.find((profile) => profile.id === "minimal")!;
-    expect(minimal.templateIds).toEqual([
-      "welcome",
-      "project-guide",
-      "external-ai-document-guide",
-      "yaml-editing-guide"
-    ]);
+  it("starts from an empty selection and never auto-selects optional guides", async () => {
+    const catalog = setupCatalog("ja");
+    expect(catalog.packVersion).toBe("2.0.0");
     expect(
-      manifest.templates
-        .filter((template) => minimal.templateIds.includes(template.id))
-        .filter((template) => template.defaultSelected === false)
-        .map((template) => template.id)
-    ).toEqual([
-      "project-guide",
-      "external-ai-document-guide",
-      "yaml-editing-guide"
-    ]);
+      catalog.pages.filter((page) => page.requiredness === "optional").map((page) => page.id)
+    ).toEqual(
+      expect.arrayContaining([
+        "welcome",
+        "external-ai-document-guide",
+        "yaml-editing-guide"
+      ])
+    );
 
     const root = await mkdtemp(path.join(tmpdir(), "vellym-setup-default-"));
     const plan = await planProjectSetup(root);
-    expect(plan.selectedTemplateIds).toEqual(["welcome"]);
+    expect(plan.selectedTemplateIds).toEqual([]);
+    expect(plan.selectedFolderIds).toEqual([]);
+    expect(plan.files.every((file) => file.kind !== "page")).toBe(true);
   });
 
   it("creates selected guide Pages without a guide folder", async () => {
@@ -1299,7 +1296,7 @@ describe("setup plan and apply", () => {
     );
     await expect(access(path.join(root, "docs/guides"))).rejects.toThrow();
     const folder = await readFile(path.join(root, "docs/_index.yaml"), "utf8");
-    expect(folder).toContain("- ようこそ.yaml");
+    expect(folder).toContain("- welcome.yaml");
     expect(folder).toContain("- index.yaml");
     expect(folder).toContain("- ai-guide.yaml");
     expect(folder).toContain("- yaml-guide.yaml");
@@ -1385,6 +1382,7 @@ describe("setup plan and apply", () => {
       })
     ).rejects.toMatchObject({ code: "SETUP_FILE_NAME" });
     const general = await planProjectSetup(root, {
+      selectedTemplateIds: ["welcome"],
       pageFileNames: { welcome: "welcome.yaml" }
     });
     expect(general.files).toContainEqual(
@@ -1394,8 +1392,7 @@ describe("setup plan and apply", () => {
 
   it("plans without writing and applies the exact plan", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-setup-"));
-    const plan = await planProjectSetup(root);
-    expect(plan.profiles).toEqual(["minimal"]);
+    const plan = await planProjectSetup(root, { selectedTemplateIds: ["welcome"] });
     expect(plan.files.every((file) => file.status === "create")).toBe(true);
     await expect(access(path.join(root, "vellym.config.yaml"))).rejects.toThrow();
     await applyProjectSetup(plan);
@@ -1418,11 +1415,12 @@ describe("setup plan and apply", () => {
 
   it("skips or renames existing template files without overwriting them", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-setup-existing-"));
-    const existing = path.join(root, "docs/ようこそ.yaml");
+    const existing = path.join(root, "docs/welcome.yaml");
     await mkdir(path.dirname(existing), { recursive: true });
     await writeFile(existing, "existing", "utf8");
 
     const skipped = await planProjectSetup(root, {
+      selectedTemplateIds: ["welcome"],
       conflictResolutions: { welcome: "skip" }
     });
     expect(skipped.files).toContainEqual(
@@ -1436,16 +1434,17 @@ describe("setup plan and apply", () => {
     );
     const alternateExisting = path.join(
       alternateRoot,
-      "docs/ようこそ.yaml"
+      "docs/welcome.yaml"
     );
     await mkdir(path.dirname(alternateExisting), { recursive: true });
     await writeFile(alternateExisting, "existing", "utf8");
     const alternate = await planProjectSetup(alternateRoot, {
+      selectedTemplateIds: ["welcome"],
       conflictResolutions: { welcome: "alternate" }
     });
     expect(alternate.files).toContainEqual(
       expect.objectContaining({
-        relativePath: "docs/ようこそ-2.yaml",
+        relativePath: "docs/welcome-2.yaml",
         status: "create"
       })
     );
@@ -1453,7 +1452,7 @@ describe("setup plan and apply", () => {
     expect(await readFile(alternateExisting, "utf8")).toBe("existing");
     expect(
       await readFile(
-        path.join(alternateRoot, "docs/ようこそ-2.yaml"),
+        path.join(alternateRoot, "docs/welcome-2.yaml"),
         "utf8"
       )
     ).toContain("Vellymへようこそ");
@@ -1478,6 +1477,7 @@ spec:
       "utf8"
     );
     const planned = await planProjectSetup(root, {
+      selectedTemplateIds: ["welcome"],
       conflictResolutions: { welcome: "alternate" }
     });
     expect(planned.files).toContainEqual(
@@ -1489,7 +1489,7 @@ spec:
     );
     await applyProjectSetup(planned);
     expect(await readFile(existing, "utf8")).toContain("Existing welcome");
-    expect(await readFile(path.join(root, "docs/ようこそ.yaml"), "utf8"))
+    expect(await readFile(path.join(root, "docs/welcome.yaml"), "utf8"))
       .toContain("name: page-");
   });
 });

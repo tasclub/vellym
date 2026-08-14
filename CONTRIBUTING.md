@@ -20,6 +20,44 @@ npm test
 
 Run `npm run pack:smoke` for packaging changes and `npm run verify:core` for browser, accessibility, and 100-page verification. Pull requests must describe YAML read/write and compatibility impact.
 
+## Changing the UI
+
+A green `npm run typecheck` and `npm test` do not mean a screen is finished.
+Open the affected screen in a browser before proposing the change, and check the
+list below. Each item has caused a real regression.
+
+**Global CSS wins by default.** `packages/ui-react/src/styles.css` contains
+ancestor-plus-element selectors such as `.setup-shell button`. Their specificity
+(0,1,1) beats a component's single class (0,1,0), so a new bare icon button
+silently inherits a border and `min-height`. When a component needs to opt out,
+raise its specificity and say why in a comment.
+
+**A selected row must not split in two.** If a full-width background marks
+selection, anything that belongs to that row — name fields, conflict actions —
+has to sit inside the same visual block, not below it on the page background.
+
+**Indent through nesting, not per-row padding.** Put the step on
+`ul[role="group"]`; a row should never compute its own depth for layout. Keep
+`aria-level` for semantics.
+
+**Watch the per-item line count.** Stacking title, description, reference, and
+reason vertically is unreadable at 100+ rows. Collapse secondary text onto one
+line and drop anything with no information in it. Give long lists an
+expand-all/collapse-all control.
+
+**Grid the label/input pairs.** Inline labels and inputs collide, and Japanese
+labels get truncated. Use a fixed label column and a flexible input column.
+
+**Clearing a checkbox must not remove the row.** If the list is derived from the
+selection, an unselected item disappears with no way to restore it. Hold the
+visible set separately from the selected set and let it grow only, marking
+cleared rows instead of hiding them.
+
+Accessibility is not optional here: `role="tree"`/`treeitem`/`group`,
+`aria-level`, `aria-expanded`, `aria-checked` (`mixed` for partial), roving
+tabindex, and arrow/Home/End/Space/Enter handling are all verified by
+`tests/setup-tree.test.ts` and `npm run verify:core`.
+
 ## Evolving the document format
 
 Vellym ships **one** Page schema and one Folder schema, not one per `apiVersion`.

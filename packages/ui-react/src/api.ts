@@ -47,57 +47,59 @@ export interface RepositoryData {
   folders: FolderSummary[];
 }
 
-export type SetupProfileId =
-  | "minimal"
-  | "software-basic"
-  | "arc42"
-  | "project-management"
-  | "product-planning";
 export type SetupMode = "recommended" | "templates" | "empty";
 export type ProjectSize = "personal" | "small-team" | "medium-large";
 export type DevelopmentMethod = "agile" | "hybrid" | "waterfall";
 export type DocumentationLevel = "light" | "standard" | "strict";
 export type SetupOperation = "initialize" | "add";
+export type SetupReferenceModel =
+  | "iso-12207"
+  | "pmbok"
+  | "iso-29148"
+  | "arc42"
+  | "adr"
+  | "c4-model"
+  | "security";
 
-export interface SetupProfile {
-  id: SetupProfileId;
-  title: string;
-  templateIds: string[];
-}
-
-export interface SetupTemplate {
+export interface SetupCatalogFolder {
   id: string;
-  relativePath: string;
-  pageId: string;
+  parentId?: string;
+  areaId: string;
+  order: number;
+  referenceModels: SetupReferenceModel[];
   title: string;
+  defaultName: string;
   description: string;
-  defaultSelected?: boolean;
-  defaultFileName?: string;
-  editableFileName?: boolean;
-  areaId?: string;
-  minimumLevel?: DocumentationLevel;
-  requiredness?: string;
-  templateFamilyId?: string;
-  titleEn?: string;
-  descriptionEn?: string;
-  sizes?: ProjectSize[];
-  methods?: DevelopmentMethod[];
-  dependencies?: string[];
 }
 
-export interface SetupManifest {
+export interface SetupCatalogPage {
+  id: string;
+  parentFolderId?: string;
+  order: number;
+  areaId?: string;
+  requiredness: "core" | "recommended" | "conditional" | "optional";
+  minimumLevel: DocumentationLevel;
+  sizes: ProjectSize[];
+  methods: DevelopmentMethod[];
+  dependencies?: string[];
+  related?: string[];
+  templateFamilyId?: string;
+  referenceModels: SetupReferenceModel[];
+  version: string;
+  title: string;
+  defaultFileName: string;
+  description: string;
+}
+
+export interface SetupCatalog {
   packId: string;
   packVersion: string;
   schemaVersion: string;
-  profiles: SetupProfile[];
-  templates: SetupTemplate[];
-  areas: Array<{
-    id: string;
-    order: number;
-    title: { ja: string; en: string };
-    folderName: { ja: string; en: string };
-    description: { ja: string; en: string };
-  }>;
+  locale: "ja" | "en";
+  areas: Array<{ id: string; order: number; title: string }>;
+  folders: SetupCatalogFolder[];
+  pages: SetupCatalogPage[];
+  referenceModels: SetupReferenceModel[];
   sizes: ProjectSize[];
   methods: DevelopmentMethod[];
   levels: DocumentationLevel[];
@@ -109,8 +111,8 @@ export interface SetupInput {
   size?: ProjectSize;
   method?: DevelopmentMethod;
   level?: DocumentationLevel;
-  profiles?: SetupProfileId[];
   selectedTemplateIds?: string[];
+  selectedFolderIds?: string[];
   conflictResolutions: Record<string, "skip" | "alternate">;
   contentRoot: string;
   language: "ja" | "en";
@@ -126,8 +128,8 @@ export interface SetupPlan {
   size?: ProjectSize;
   method?: DevelopmentMethod;
   level?: DocumentationLevel;
-  profiles: SetupProfileId[];
   selectedTemplateIds: string[];
+  selectedFolderIds: string[];
   conflictResolutions: Record<string, "skip" | "alternate">;
   projectRoot: string;
   contentRoot: string;
@@ -137,16 +139,20 @@ export interface SetupPlan {
   pageTitles: Record<string, string>;
   plannedPageIds: Record<string, string>;
   recommendationReasons: Record<string, string>;
+  recommendationReasonKinds: Record<string, "criteria" | "dependency" | "ancestor" | "explicit">;
   files: Array<{
     relativePath: string;
     kind?: "page" | "folder" | "config";
+    nodeId?: string;
     templateId?: string;
+    folderId?: string;
+    parentFolderId?: string;
     areaId?: string;
     pageId?: string;
     slug?: string;
     title: string;
-    status: "create" | "conflict" | "skip";
-    conflictReason?: "path" | "page-id" | "template-existing";
+    status: "create" | "reuse" | "skip" | "conflict";
+    conflictReason?: "path" | "page-id" | "template-existing" | "ancestor";
   }>;
   planHash: string;
 }
@@ -338,10 +344,11 @@ export function fetchBootstrap(
   return request(`/api/v1/bootstrap${query}`, { signal });
 }
 
-export function fetchSetupManifest(
+export function fetchSetupCatalog(
+  language: "ja" | "en",
   signal?: AbortSignal
-): Promise<Envelope<SetupManifest>> {
-  return request("/api/v1/setup/profiles", { signal });
+): Promise<Envelope<SetupCatalog>> {
+  return request(`/api/v1/setup/catalog?language=${language}`, { signal });
 }
 
 export function previewSetup(

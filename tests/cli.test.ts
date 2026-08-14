@@ -89,11 +89,33 @@ describe("published CLI shape", () => {
       ]);
       expect(repository.status).toBe(0);
       expect(JSON.parse(repository.stdout).data.pages.length).toBeGreaterThan(20);
-      const vision = await readFile(
-        path.join(root, "docs", language === "ja" ? "00_プロジェクト概要/プロダクトビジョン.yaml" : "00_project-overview/product-vision.yaml"),
+      const charter = await readFile(
+        path.join(
+          root,
+          "docs",
+          language === "ja"
+            ? "00_プロジェクト概要/プロジェクト憲章.yaml"
+            : "00_project-overview/project-charter.yaml"
+        ),
         "utf8"
       );
-      expect(vision).toContain(language === "ja" ? "## ビジョン" : "## Vision");
+      expect(charter).toContain(
+        language === "ja" ? "## このPageの目的" : "## Purpose of this page"
+      );
+      // The strict CLI run produces the same multi-level hierarchy as the browser.
+      const nested = await readFile(
+        path.join(
+          root,
+          "docs",
+          language === "ja"
+            ? "03_アーキテクチャ/01_arc42/_index.yaml"
+            : "03_architecture/01_arc42/_index.yaml"
+        ),
+        "utf8"
+      );
+      // 生成物へprovenance annotationsは書かない。構造そのものを検証する。
+      expect(nested).toContain("kind: Folder");
+      expect(nested).not.toContain("annotations:");
     }
   });
 
