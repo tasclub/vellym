@@ -20,6 +20,27 @@
       },
       "additionalProperties": true
     },
+    "i18n": {
+      "type": "object",
+      "properties": {
+        "defaultLocale": { "type": "string", "minLength": 2 },
+        "displayNames": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": true
+    },
+    "static": {
+      "type": "object",
+      "properties": {
+        "publicBaseUrl": {
+          "type": "string",
+          "pattern": "^https://[^?#]+/$"
+        }
+      },
+      "additionalProperties": true
+    },
     "plugins": {
       "type": "array",
       "items": { "type": "string" }

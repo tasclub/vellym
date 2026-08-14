@@ -30,8 +30,7 @@ const installTarget = distTag === "latest" ? "vellym" : `vellym@${distTag}`;
 const documents = [
   "../README.md",
   "../packages/vellym/README.md",
-  "../how-to-use/ja/content/getting-started.yaml",
-  "../how-to-use/en/content/getting-started.yaml"
+  "../how-to-use/content/getting-started.yaml"
 ];
 for (const relativePath of documents) {
   const source = await readFile(new URL(relativePath, import.meta.url), "utf8");
@@ -56,8 +55,7 @@ if (!engineMatch) {
 const requiredNode = `${engineMatch[1]}.${engineMatch[2]}`;
 const environmentDocuments = [
   "../README.md",
-  "../how-to-use/ja/content/getting-started.yaml",
-  "../how-to-use/en/content/getting-started.yaml"
+  "../how-to-use/content/getting-started.yaml"
 ];
 for (const relativePath of environmentDocuments) {
   const source = await readFile(new URL(relativePath, import.meta.url), "utf8");

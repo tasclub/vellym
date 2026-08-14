@@ -88,4 +88,24 @@ describe("document navigation", () => {
       "decision"
     ]);
   });
+
+  it("builds a 30,000-page tree without quadratic summary lookups", () => {
+    const large = Array.from({ length: 30_000 }, (_, index): PageSummary => ({
+      name: `page-${index}`,
+      title: `Page ${index}`,
+      relativePath: `items/${String(index).padStart(5, "0")}.yaml`,
+      readOnly: false
+    }));
+    const started = performance.now();
+    const navigation = buildDocumentNavigation(large, new Map(), [{
+      path: "items",
+      name: "items",
+      title: "Items",
+      order: [],
+      readOnly: false,
+      readOnlyReasons: []
+    }]);
+    expect(navigation.pages).toHaveLength(30_000);
+    expect(performance.now() - started).toBeLessThan(2_000);
+  });
 });

@@ -342,6 +342,32 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 }
 .document-header-main { min-width: 0; }
 .document-header-actions { flex-shrink: 0; padding-top: 6px; }
+.document-actions { display: flex; align-items: center; gap: 10px; }
+.language-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: min(44vw, 32rem);
+}
+.language-switcher a {
+  padding: 6px 9px;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  color: #344054;
+  font-size: .82rem;
+  line-height: 1;
+  text-decoration: none;
+}
+.language-switcher a[aria-current="page"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #f5f8ff;
+  font-weight: 700;
+}
+.language-switcher a[data-translation="missing"]:not([aria-current="page"]) {
+  border-style: dashed;
+}
+.language-switcher a:focus-visible { outline: 3px solid #84adff; outline-offset: 2px; }
 .document-header h1 {
   margin: 5px 0 8px;
   font-family: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif;

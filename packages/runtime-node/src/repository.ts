@@ -8,21 +8,52 @@ import {
   type Document
 } from "yaml";
 import {
-  SUPPORTED_API_VERSIONS,
-  isVellymCandidate,
   knownRichTextBlocks,
-  searchPages,
+  knownRichTextBlocksFrom,
+  projectFolder,
+  projectPage,
+  publishedPageLocales,
+  validateFolder,
   validatePage,
   type Diagnostic,
   type FolderSummary,
+  type FolderEditView,
+  type PageEditView,
+  type PageView,
   type PageSummary
 } from "@vellym-internal/core";
 import { RuntimeError } from "./errors.js";
 import { contentHash } from "./path-utils.js";
+import { folderLocaleHashes, pageLocaleHashes } from "./locale-hash.js";
 import type {
   LoadedPage,
   RepositorySnapshot
 } from "./types.js";
+import {
+  deriveRepositoryEntryIndex,
+  extractPageEntryWithPage,
+  searchRepositoryEntries,
+  type PageEntry
+} from "./repository-entry.js";
+
+export async function loadCanonicalPage(
+  contentRoot: string,
+  loaded: LoadedPage
+): Promise<PageView["page"]> {
+  const sourcePath = path.join(contentRoot, loaded.relativePath);
+  const source = await readFile(sourcePath, "utf8");
+  const extracted = extractPageEntryWithPage({
+    sourcePath,
+    relativePath: loaded.relativePath,
+    source,
+    mtimeMs: 0,
+    size: Buffer.byteLength(source)
+  });
+  if (extracted.kind !== "entry") {
+    throw new RuntimeError("Pageを読み込めません", 422, "PAGE_READ");
+  }
+  return extracted.page;
+}
 
 const ignoredDirectories = new Set([
   ".git",
@@ -74,8 +105,12 @@ async function loadFolderSummaries(
   contentRoot: string,
   directories: string[],
   diagnostics: Diagnostic[]
-): Promise<FolderSummary[]> {
+): Promise<{
+  summaries: FolderSummary[];
+  resources: RepositorySnapshot["folderResources"];
+}> {
   const summaries: FolderSummary[] = [];
+  const resources: RepositorySnapshot["folderResources"] = new Map();
   for (const directory of directories) {
     const relative = path.relative(contentRoot, directory).replaceAll("\\", "/");
     const name = relative ? path.basename(directory) : "";
@@ -86,9 +121,12 @@ async function loadFolderSummaries(
     let description: string | undefined;
     let order: string[] = [];
     let readOnly = false;
+    let folderHash: string | undefined;
+    let folderResource: import("@vellym-internal/core").Folder | undefined;
     const readOnlyReasons: string[] = [];
     try {
       const source = await readFile(indexPath, "utf8");
+      folderHash = contentHash(source);
       const documents = parseAllDocuments(source, { keepSourceTokens: true });
       const first = documents[0];
       if (!first || first.errors.length || documents.length !== 1) {
@@ -96,24 +134,14 @@ async function loadFolderSummaries(
           first?.errors[0]?.message ?? "単一YAML documentではありません"
         );
       }
-      const value = first.toJS({ maxAliasCount: 100 }) as Record<string, unknown>;
-      const metadata =
-        value.metadata && typeof value.metadata === "object"
-          ? value.metadata as Record<string, unknown>
-          : {};
-      const spec =
-        value.spec && typeof value.spec === "object"
-          ? value.spec as Record<string, unknown>
-          : {};
-      if (
-        !SUPPORTED_API_VERSIONS.some((version) => version === value.apiVersion) ||
-        value.kind !== "Folder" ||
-        typeof metadata.title !== "string" ||
-        !metadata.title.trim()
-      ) {
-        throw new Error("Folder resourceの必須項目が不正です");
-      }
-      title = metadata.title;
+      const value = first.toJS({ maxAliasCount: 100 });
+      const validated = validateFolder(value, relativeIndex);
+      diagnostics.push(...validated.diagnostics);
+      if (!validated.folder) throw new Error("Folder resourceの必須項目が不正です");
+      const folder = validated.folder;
+      folderResource = folder;
+      const spec = folder.spec;
+      title = folder.metadata.title;
       if (spec.description !== undefined) {
         if (typeof spec.description !== "string") {
           throw new Error("spec.descriptionは文字列で指定してください");
@@ -160,17 +188,27 @@ async function loadFolderSummaries(
         );
       }
     }
-    summaries.push({
+    const summary: FolderSummary = {
       path: relative,
       name,
       title,
       ...(description === undefined ? {} : { description }),
       order,
       readOnly,
-      readOnlyReasons
-    });
+      readOnlyReasons,
+      ...(folderHash ? { hash: folderHash } : {})
+    };
+    summaries.push(summary);
+    if (folderResource) {
+      resources.set(relative, {
+        resource: folderResource,
+        sourcePath: indexPath,
+        summary,
+        hash: folderHash!
+      });
+    }
   }
-  return summaries;
+  return { summaries, resources };
 }
 
 function unsafeYamlReasons(document: Document.Parsed, documentCount: number): string[] {
@@ -202,19 +240,53 @@ async function assertContentRoot(contentRoot: string): Promise<void> {
   }
 }
 
-export async function loadRepository(contentRoot: string): Promise<RepositorySnapshot> {
+async function statRepositoryFiles(
+  files: string[]
+): Promise<Map<string, { mtimeMs: number; size: number }>> {
+  const result = new Map<string, { mtimeMs: number; size: number }>();
+  const batchSize = 256;
+  for (let offset = 0; offset < files.length; offset += batchSize) {
+    const batch = files.slice(offset, offset + batchSize);
+    const values = await Promise.all(batch.map(async (file) => {
+      const info = await stat(file);
+      return [file, { mtimeMs: info.mtimeMs, size: info.size }] as const;
+    }));
+    for (const [file, info] of values) result.set(file, info);
+  }
+  return result;
+}
+
+export async function loadRepository(
+  contentRoot: string,
+  previous?: RepositorySnapshot
+): Promise<RepositorySnapshot> {
   await assertContentRoot(contentRoot);
   const { files, directories } = await findRepositoryEntries(contentRoot);
-  const pages: LoadedPage[] = [];
+  const fileStats = await statRepositoryFiles(files);
+  const entries: PageEntry[] = [];
+  const previousEntries = new Map(
+    (previous?.entryIndex.pages ?? []).map((entry) => [entry.relativePath, entry])
+  );
   const diagnostics: Diagnostic[] = [];
-  const folders = await loadFolderSummaries(
+  const loadedFolders = await loadFolderSummaries(
     contentRoot,
     directories,
     diagnostics
   );
+  const folders = loadedFolders.summaries;
 
   for (const sourcePath of files) {
-    const relativePath = path.relative(contentRoot, sourcePath);
+    const relativePath = path.relative(contentRoot, sourcePath).replaceAll("\\", "/");
+    const info = fileStats.get(sourcePath)!;
+    const previousEntry = previousEntries.get(relativePath);
+    if (
+      previousEntry &&
+      previousEntry.mtimeMs === info.mtimeMs &&
+      previousEntry.size === info.size
+    ) {
+      entries.push(previousEntry);
+      continue;
+    }
     let source: string;
     try {
       source = await readFile(sourcePath, "utf8");
@@ -227,99 +299,19 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
       });
       continue;
     }
-    const documents = parseAllDocuments(source, { keepSourceTokens: true });
-    const first = documents[0];
-    if (!first) continue;
-    if (first.errors.length) {
-      diagnostics.push(
-        ...first.errors.map((error) => ({
-          file: relativePath,
-          severity: "error" as const,
-          code: "YAML_PARSE",
-          message: error.message
-        }))
-      );
-      continue;
-    }
-    let value: unknown;
-    try {
-      value = first.toJS({ maxAliasCount: 100 });
-    } catch (error) {
-      diagnostics.push({
-        file: relativePath,
-        severity: "error",
-        code: "YAML_CONVERSION",
-        message: error instanceof Error ? error.message : String(error)
-      });
-      continue;
-    }
-    if (!isVellymCandidate(value)) continue;
-    const validated = validatePage(value, relativePath);
-    diagnostics.push(...validated.diagnostics);
-    if (!validated.page) continue;
-    const known = knownRichTextBlocks(validated.page, relativePath);
-    diagnostics.push(...known.diagnostics);
-    const reasons = unsafeYamlReasons(first, documents.length);
-    pages.push({
+    const extracted = extractPageEntryWithPage({
       sourcePath,
-      view: {
-        page: validated.page,
-        knownBlocks: known.blocks,
-        relativePath,
-        hash: contentHash(source),
-        readOnly: reasons.length > 0,
-        readOnlyReasons: reasons
-      }
+      relativePath,
+      source,
+      mtimeMs: info.mtimeMs,
+      size: info.size
     });
+    diagnostics.push(...extracted.diagnostics);
+    if (extracted.kind === "entry") entries.push(extracted.entry);
   }
 
-  const groups = new Map<string, LoadedPage[]>();
-  for (const loaded of pages) {
-    const current = groups.get(loaded.view.page.metadata.name) ?? [];
-    current.push(loaded);
-    groups.set(loaded.view.page.metadata.name, current);
-  }
-  const uniquePages: LoadedPage[] = [];
-  for (const [name, group] of groups) {
-    if (group.length > 1) {
-      for (const loaded of group) {
-        loaded.view.readOnly = true;
-        loaded.view.readOnlyReasons.push(`Page ID ${name} が重複しています`);
-        diagnostics.push({
-          file: loaded.view.relativePath,
-          path: "/metadata/name",
-          severity: "error",
-          code: "DUPLICATE_PAGE_ID",
-          message: `Page ID ${name} が重複しています`
-        });
-      }
-    }
-    uniquePages.push(group[0]!);
-  }
-  const slugGroups = new Map<string, LoadedPage[]>();
-  for (const loaded of uniquePages) {
-    const slug = (
-      loaded.view.page.metadata.slug ?? loaded.view.page.metadata.name
-    ).normalize("NFC").toLocaleLowerCase();
-    const current = slugGroups.get(slug) ?? [];
-    current.push(loaded);
-    slugGroups.set(slug, current);
-  }
-  for (const [slug, group] of slugGroups) {
-    if (group.length < 2) continue;
-    for (const loaded of group) {
-      loaded.view.readOnly = true;
-      loaded.view.readOnlyReasons.push(`URL名 ${slug} が重複しています`);
-      diagnostics.push({
-        file: loaded.view.relativePath,
-        path: "/metadata/slug",
-        severity: "error",
-        code: "DUPLICATE_PAGE_SLUG",
-        message: `URL名 ${slug} が重複しています`
-      });
-    }
-  }
-  uniquePages.sort((a, b) => a.view.relativePath.localeCompare(b.view.relativePath));
+  const entryIndex = deriveRepositoryEntryIndex(entries);
+  diagnostics.push(...entryIndex.diagnostics);
   for (const folder of folders) {
     if (!folder.order.length) continue;
     const childNames = new Set<string>();
@@ -330,8 +322,8 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
         childNames.add(path.posix.basename(childFolder.path));
       }
     }
-    for (const page of uniquePages) {
-      const normalized = page.view.relativePath.replaceAll("\\", "/");
+    for (const page of entryIndex.pages) {
+      const normalized = page.relativePath;
       const parent = path.posix.dirname(normalized);
       if ((parent === "." ? "" : parent) === folder.path) {
         childNames.add(path.posix.basename(normalized));
@@ -349,31 +341,262 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
     }
   }
   return {
-    pages: uniquePages,
-    byName: new Map(uniquePages.map((page) => [page.view.page.metadata.name, page])),
-    bySlug: new Map(
-      uniquePages.map((page) => [
-        (page.view.page.metadata.slug ?? page.view.page.metadata.name)
-          .normalize("NFC")
-          .toLocaleLowerCase(),
-        page
-      ])
-    ),
+    contentRoot,
+    entryIndex,
+    pages: entryIndex.pages,
+    byName: entryIndex.byName,
+    bySlug: entryIndex.bySlug,
     folders,
+    folderResources: loadedFolders.resources,
     diagnostics
   };
 }
 
 export function pageSummaries(snapshot: RepositorySnapshot): PageSummary[] {
-  return snapshot.pages.map(({ view }) => ({
-    name: view.page.metadata.name,
-    slug: view.page.metadata.slug ?? view.page.metadata.name,
-    title: view.page.metadata.title,
-    relativePath: view.relativePath,
-    readOnly: view.readOnly
+  return snapshot.pages.map((entry) => ({
+    name: entry.name,
+    slug: entry.slug,
+    title: entry.title,
+    relativePath: entry.relativePath,
+    readOnly: entry.readOnly
   }));
 }
 
 export function searchRepository(snapshot: RepositorySnapshot, query: string) {
-  return searchPages(snapshot.pages.map(({ view }) => view), query);
+  return searchRepositoryEntries(snapshot.entryIndex, query);
+}
+
+export function localizedPageSummaries(
+  snapshot: RepositorySnapshot,
+  locale: string,
+  defaultLocale: string
+): PageSummary[] {
+  const cacheKey = `${locale}\0${defaultLocale}`;
+  const cached = snapshot.entryIndex.localizedSummaryCache.get(cacheKey);
+  if (cached) return cached;
+  const summaries = snapshot.pages.map((entry) => {
+    const translation = locale === defaultLocale ? undefined : entry.translations?.get(locale);
+    const record = translation?.visibility === "published" ? translation : entry.base;
+    return {
+      name: entry.name,
+      slug: entry.slug,
+      title: record.title,
+      relativePath: entry.relativePath,
+      readOnly: entry.readOnly,
+      locale: record.locale ?? entry.configuredBaseLocale ?? defaultLocale,
+      baseLocale: entry.configuredBaseLocale ?? defaultLocale
+    };
+  });
+  snapshot.entryIndex.localizedSummaryCache.set(cacheKey, summaries);
+  return summaries;
+}
+
+export function localizedFolderSummaries(
+  snapshot: RepositorySnapshot,
+  locale: string,
+  defaultLocale: string
+): FolderSummary[] {
+  const visiblePages = localizedPageSummaries(snapshot, locale, defaultLocale);
+  const visibleFolderPaths = new Set<string>([""]);
+  for (const page of visiblePages) {
+    const parts = page.relativePath.replaceAll("\\", "/").split("/").slice(0, -1);
+    for (let index = 1; index <= parts.length; index += 1) {
+      visibleFolderPaths.add(parts.slice(0, index).join("/"));
+    }
+  }
+  const requestedIsDefault = locale === defaultLocale;
+  return snapshot.folders
+    .filter((summary) => requestedIsDefault || visibleFolderPaths.has(summary.path))
+    .map((summary) => {
+    const loaded = snapshot.folderResources.get(summary.path);
+    if (!loaded) return summary;
+    const projection = projectFolder(
+      loaded.resource,
+      locale,
+      defaultLocale,
+      summary.path ? `${summary.path}/_index.yaml` : "_index.yaml"
+    );
+    if (!projection) return summary;
+    return {
+      ...summary,
+      title: projection.folder.metadata.title,
+      locale: projection.locale,
+      baseLocale: projection.baseLocale,
+      sourceLocale: projection.sourceLocale,
+      localeHashes: folderLocaleHashes(loaded.resource, defaultLocale),
+      ...(projection.folder.spec.description === undefined
+        ? { description: undefined }
+        : { description: projection.folder.spec.description })
+    };
+    });
+}
+
+export async function localizedPage(
+  snapshot: RepositorySnapshot,
+  pageId: string,
+  locale: string,
+  defaultLocale: string
+): Promise<PageView | undefined> {
+  const loaded = snapshot.byName.get(pageId);
+  if (!loaded) return undefined;
+  const canonicalPage = await loadCanonicalPage(snapshot.contentRoot, loaded);
+  const baseLocale = resolvePageBaseLocale(canonicalPage, defaultLocale);
+  if (!baseLocale) return undefined;
+  const requestedProjection = projectPage(
+    canonicalPage,
+    locale,
+    defaultLocale,
+    loaded.relativePath
+  );
+  const projection = requestedProjection ?? projectPage(
+    canonicalPage,
+    baseLocale,
+    defaultLocale,
+    loaded.relativePath
+  );
+  const validation = validatePage(canonicalPage, loaded.relativePath);
+  const availableLocales = publishedPageLocales(
+    canonicalPage,
+    defaultLocale,
+    loaded.relativePath
+  );
+  if (!projection) return undefined;
+  return {
+    page: projection.page,
+    knownBlocks: projection.knownBlocks,
+    relativePath: loaded.relativePath,
+    hash: loaded.hash,
+    readOnly: loaded.readOnly,
+    readOnlyReasons: loaded.readOnlyReasons ?? [],
+    locale: projection.locale,
+    requestedLocale: locale,
+    baseLocale,
+    availableLocales,
+    editableLocales: [
+      baseLocale,
+      ...validation.translations.map(({ locale: item }) => item),
+      ...validation.invalidTranslations.flatMap(({ canonicalLocale }) =>
+        canonicalLocale ? [canonicalLocale] : []
+      )
+    ].filter((item, index, all) => all.indexOf(item) === index),
+    isBaseLocale: projection.isBaseLocale,
+    invalidTranslations: validation.invalidTranslations,
+    localeHashes: pageLocaleHashes(canonicalPage, defaultLocale)
+  };
+}
+
+export async function editablePage(
+  snapshot: RepositorySnapshot,
+  pageId: string,
+  defaultLocale: string
+): Promise<PageEditView | undefined> {
+  const loaded = snapshot.byName.get(pageId) ?? snapshot.bySlug.get(pageId);
+  if (!loaded) return undefined;
+  const canonicalPage = await loadCanonicalPage(snapshot.contentRoot, loaded);
+  const validation = validatePage(canonicalPage, loaded.relativePath);
+  const baseLocale = resolvePageBaseLocale(canonicalPage, defaultLocale);
+  if (!baseLocale) return undefined;
+  const hashes = pageLocaleHashes(canonicalPage, defaultLocale);
+  return {
+    pageId: canonicalPage.metadata.name,
+    slug: canonicalPage.metadata.slug ?? canonicalPage.metadata.name,
+    relativePath: loaded.relativePath,
+    hash: loaded.hash,
+    baseLocale,
+    locales: [
+      {
+        locale: baseLocale,
+        isBaseLocale: true,
+        visibility: "published" as const,
+        title: canonicalPage.metadata.title,
+        blocks: knownRichTextBlocks(
+          canonicalPage,
+          loaded.relativePath
+        ).blocks,
+        baselineHash: hashes[baseLocale]!
+      },
+      ...validation.translations.map(({ locale, value, rawKey }) => ({
+        locale,
+        isBaseLocale: false,
+        visibility: value.visibility ?? "published" as const,
+        title: value.title,
+        blocks: knownRichTextBlocksFrom(
+          value.blocks,
+          loaded.relativePath,
+          `/spec/translations/${rawKey}/blocks`
+        ).blocks,
+        baselineHash: hashes[locale]!
+      }))
+    ],
+    invalidTranslations: validation.invalidTranslations,
+    readOnly: loaded.readOnly,
+    readOnlyReasons: loaded.readOnlyReasons ?? []
+  };
+}
+
+export function editableFolder(
+  snapshot: RepositorySnapshot,
+  folderPath: string,
+  defaultLocale: string
+): FolderEditView | undefined {
+  const summary = snapshot.folders.find(({ path: item }) => item === folderPath);
+  if (!summary) return undefined;
+  const loaded = snapshot.folderResources.get(folderPath);
+  const folder = loaded?.resource ?? {
+    apiVersion: "vellym.tasclub.com/v1alpha1",
+    kind: "Folder" as const,
+    metadata: { title: summary.title },
+    spec: summary.description === undefined ? {} : { description: summary.description }
+  };
+  const validation = validateFolder(folder, folderPath ? `${folderPath}/_index.yaml` : "_index.yaml");
+  const baseLocale = resolveDefaultFolderLocale(folder, defaultLocale);
+  if (!baseLocale) return undefined;
+  const hashes = folderLocaleHashes(folder, defaultLocale);
+  return {
+    folderPath,
+    hash: loaded?.hash ?? null,
+    baseLocale,
+    locales: [
+      {
+        locale: baseLocale,
+        isBaseLocale: true,
+        visibility: "published",
+        title: folder.metadata.title,
+        ...(folder.spec.description === undefined ? {} : { description: folder.spec.description }),
+        baselineHash: hashes[baseLocale]!
+      },
+      ...validation.translations.map(({ locale, value }) => ({
+        locale,
+        isBaseLocale: false,
+        visibility: value.visibility ?? "published" as const,
+        title: value.title,
+        ...(value.description === undefined ? {} : { description: value.description }),
+        baselineHash: hashes[locale]!
+      }))
+    ],
+    invalidTranslations: validation.invalidTranslations,
+    readOnly: summary.readOnly,
+    readOnlyReasons: summary.readOnlyReasons
+  };
+}
+
+function resolveDefaultFolderLocale(
+  folder: import("@vellym-internal/core").Folder,
+  defaultLocale: string
+): string | undefined {
+  return projectFolder(folder, folder.spec.locale ?? defaultLocale, defaultLocale)?.baseLocale;
+}
+
+function resolvePageBaseLocale(page: PageView["page"], defaultLocale: string) {
+  const projection = projectPage(page, page.spec.locale ?? defaultLocale, defaultLocale);
+  return projection?.baseLocale;
+}
+
+export function localizedSearchRepository(
+  snapshot: RepositorySnapshot,
+  query: string,
+  locale: string,
+  defaultLocale: string
+) {
+  return searchRepositoryEntries(snapshot.entryIndex, query, { locale, defaultLocale });
 }

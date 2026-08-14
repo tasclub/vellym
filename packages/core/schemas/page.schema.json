@@ -71,6 +71,9 @@
           "items": {
             "type": "object"
           }
+        },
+        "translations": {
+          "type": "object"
         }
       },
       "additionalProperties": true

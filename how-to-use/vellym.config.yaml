@@ -1,0 +1,13 @@
+schemaVersion: "1.0"
+contentRoot: content
+outputDir: dist
+ui:
+  language: ja
+i18n:
+  defaultLocale: ja
+  displayNames:
+    ja: 日本語
+    en: English
+static:
+  publicBaseUrl: https://vellym.tasclub.com/
+plugins: []

@@ -79,9 +79,7 @@ describe("structure plan and apply", () => {
     expect(repository.pages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          view: expect.objectContaining({
-            relativePath: "新しいフォルダ/新しいページ.yaml"
-          })
+          relativePath: "新しいフォルダ/新しいページ.yaml"
         })
       ])
     );
@@ -274,7 +272,7 @@ describe("structure plan and apply", () => {
     });
     await applyStructureChange(root, plan);
     const repository = await loadRepository(root);
-    expect(repository.byName.get("existing-page")?.view.relativePath)
+    expect(repository.byName.get("existing-page")?.relativePath)
       .toBe("existing/read-me.yaml");
   });
 

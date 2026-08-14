@@ -1,0 +1,247 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: cli-reference
+  title: CLIリファレンス
+spec:
+  documentType: guide
+  locale: ja
+  blocks:
+    - id: cli-reference
+      type: rich-text
+      format: commonmark
+      content: |
+        ## 概要
+
+        現在のCLIは、`init`・`dev`・`validate`・`build`の4コマンドを提供する。
+        以下は生成済みCLIを直接呼ぶ例で示す。
+
+        ```bash
+        node packages/vellym/dist/cli.mjs <command> [options]
+        ```
+
+        配布物では`vellym <command> [options]`として実行できる。
+
+        - `vellym help` / `vellym --help`：使い方を表示する。
+        - `vellym <command> --help`：各コマンドのヘルプを表示する（`init --help`は
+          利用可能なprofile／template IDも併記する）。
+        - `vellym --version`：バージョンを表示する。
+        - `--language ja|en`：CLI表示の言語を指定する（未指定時は設定の`ui.language`、
+          それも無ければ日本語）。
+
+        ## init — 初期化
+
+        ```bash
+        vellym init [directory] [options]
+        ```
+
+        設定ファイルと初期文書を作成する。`directory`を省略するとカレントディレクトリを対象とする。
+
+        | オプション | 説明 |
+        | --- | --- |
+        | `--profile <ids>` | 初期profileをカンマ区切りで指定（例: `software-basic,arc42`）。未指定時は`minimal`。 |
+        | `--template <ids>` | profile内から作成するPageをカンマ区切りで明示。未指定時は各profileの既定Pageのみ作成。 |
+        | `--language ja\|en` | UIと初期文書の言語。 |
+        | `--content-root <path>` | 正本を置くディレクトリ（project rootからの相対path）。 |
+        | `--plan` | ファイルを変更せず、作成予定と競合だけを表示する読取専用プレビュー。 |
+        | `--json` | 結果をJSONで出力する（`--plan`と併用で計画をJSON化）。 |
+        | `--yes` | 対話確認を省略する。非対話（非TTY）で実行する場合に使う。 |
+
+        **profile一覧**
+
+        | ID | 内容 |
+        | --- | --- |
+        | `minimal` | 最小構成（ようこそ・案内・AI向けガイド・YAML編集ガイド）。 |
+        | `software-basic` | ソフトウェア開発の基本（憲章・要求・設計判断・ロードマップ・リスク・現在地など）。 |
+        | `arc42` | アーキテクチャ（コンテキスト・戦略・ビルディングブロック・ランタイムビュー）。 |
+        | `project-management` | プロジェクト管理（ステークホルダー・スコープ・スケジュール）。 |
+        | `product-planning` | プロダクト企画（ビジョン・ユーザー課題・仮説・要求・ロードマップ・リリース計画）。 |
+
+        **対話実行と非対話実行**
+
+        端末（TTY）で`--yes`なしに実行すると、言語・content root・profile・フォルダ名・
+        作成する文書を対話で選ぶ。非対話（非TTY）で実行する場合は、`--yes`（または`--plan`）に
+        加えて`--language`・`--content-root`・`--profile`が必要である。不足時は必要なフラグを
+        名指しするエラーになる。
+
+        **安全な初期化**
+
+        生成候補のいずれかが既に存在する場合、CLIは初期化全体を中止する。既存ファイル・
+        既存ディレクトリ・無関係なファイルを上書き・変更・削除せず、他の候補も部分的に作成しない。
+
+        ## dev — 開発サーバー
+
+        ```bash
+        vellym dev [options]
+        ```
+
+        ローカルでサーバーを起動し、ブラウザ上の閲覧・編集・検索・構造編集を提供する。
+
+        | オプション | 説明 |
+        | --- | --- |
+        | `--host 127.0.0.1\|0.0.0.0` | バインド先。既定は`127.0.0.1`。コンテナ内からホストへ繋ぐ場合のみ`0.0.0.0`。 |
+        | `--port <number>` | 待受ポート。既定は`4173`（1〜65535）。 |
+        | `--config <path>` | 設定ファイルのパス。既定は`vellym.config.yaml`。 |
+
+        設定ファイルが無いディレクトリで起動すると、ブラウザの初期セットアップを表示する。
+
+        ## validate — 検証
+
+        ```bash
+        vellym validate [--json] [--config <path>]
+        ```
+
+        正本を読み込み、ページ数と診断（エラー・警告）を表示する。エラーが1件でもあれば
+        終了コードは`1`になる。`--json`で機械可読な出力にできる。
+
+        ## build — 静的サイト生成
+
+        ```bash
+        vellym build [--json] [--config <path>]
+        ```
+
+        正本から閲覧専用の静的サイトを書き出す。エラーがある場合は生成を中止する。
+        既定言語はルートへ、公開済みtranslationはlocale別pathへ一回のbuildで生成する。
+        出力先・配信手順・注意点は[静的配信と自己ホスト](#page=self-hosting)を参照。
+
+        ## migrate — Page形式の移行
+
+        ```bash
+        vellym migrate --to v1 --plan [--config <path>] [--json]
+        vellym migrate --to v1 [--config <path>] [--json]
+        ```
+
+        `v1alpha1`のPageとFolderを明示的に`v1`へ移行する。最初のコマンドで対象と診断を確認し、
+        Gitへcommitしてから2番目のコマンドで適用する。コメント、未知キー、未知blockを保持し、
+        preview後に対象が変わった場合は書き込みを中止する。自動migrationは行わない。
+
+        ## 関連
+
+        - 設定ファイルの各項目 → [設定ファイル](#page=configuration)
+        - 画面の操作 → [ブラウザ画面の使い方](#page=browser-guide)
+        - 現段階の範囲 → [現段階の範囲と制約](#page=limitations)
+  translations:
+    en:
+      visibility: published
+      title: CLI Reference
+      blocks:
+        - id: cli-reference
+          type: rich-text
+          format: commonmark
+          content: |
+            ## Overview
+
+            The CLI provides four commands: `init`, `dev`, `validate`, and `build`.
+            The examples below invoke the built CLI directly.
+
+            ```bash
+            node packages/vellym/dist/cli.mjs <command> [options]
+            ```
+
+            In a distributed build you run it as `vellym <command> [options]`.
+
+            - `vellym help` / `vellym --help`: show usage.
+            - `vellym <command> --help`: show help for a command (`init --help` also lists
+              the available profile and template IDs).
+            - `vellym --version`: show the version.
+            - `--language ja|en`: set the CLI display language (falls back to the config's
+              `ui.language`, then Japanese).
+
+            ## init — initialize
+
+            ```bash
+            vellym init [directory] [options]
+            ```
+
+            Creates the config file and initial documents. If `directory` is omitted, the
+            current directory is used.
+
+            | Option | Description |
+            | --- | --- |
+            | `--profile <ids>` | Initial profiles, comma-separated (e.g. `software-basic,arc42`). Defaults to `minimal`. |
+            | `--template <ids>` | Explicit list of Pages to create from the profiles. If omitted, only each profile's default Pages are created. |
+            | `--language ja\|en` | Language of the UI and initial documents. |
+            | `--content-root <path>` | Directory that holds the source (relative to project root). |
+            | `--plan` | Read-only preview: shows what would be created and any conflicts without changing files. |
+            | `--json` | Emit results as JSON (with `--plan`, emits the plan as JSON). |
+            | `--yes` | Skip interactive confirmation. Use for non-interactive (non-TTY) runs. |
+
+            **Profiles**
+
+            | ID | Contents |
+            | --- | --- |
+            | `minimal` | Minimal set (welcome, guide, AI-usage guide, YAML-editing guide). |
+            | `software-basic` | Software development basics (charter, requirements, decisions, roadmap, risk, current position, etc.). |
+            | `arc42` | Architecture (context, strategy, building blocks, runtime view). |
+            | `project-management` | Project management (stakeholders, scope, schedule). |
+            | `product-planning` | Product planning (vision, user problem, hypotheses, requirements, roadmap, release plan). |
+
+            **Interactive vs. non-interactive**
+
+            In a terminal (TTY) without `--yes`, you choose language, content root, profiles,
+            folder names, and documents interactively. For non-interactive (non-TTY) runs you
+            need `--yes` (or `--plan`) plus `--language`, `--content-root`, and `--profile`.
+            Missing flags are reported by name.
+
+            **Safe initialization**
+
+            If any generation candidate already exists, the CLI aborts the whole
+            initialization. It does not overwrite, change, or delete existing files,
+            directories, or unrelated files, and it does not partially create the other
+            candidates.
+
+            ## dev — dev server
+
+            ```bash
+            vellym dev [options]
+            ```
+
+            Runs a local server that provides in-browser reading, editing, search, and
+            structure editing.
+
+            | Option | Description |
+            | --- | --- |
+            | `--host 127.0.0.1\|0.0.0.0` | Bind address. Defaults to `127.0.0.1`. Use `0.0.0.0` only to reach the host from inside a container. |
+            | `--port <number>` | Listen port. Defaults to `4173` (1–65535). |
+            | `--config <path>` | Config file path. Defaults to `vellym.config.yaml`. |
+
+            Started in a directory with no config file, it shows the in-browser setup.
+
+            ## validate — validate
+
+            ```bash
+            vellym validate [--json] [--config <path>]
+            ```
+
+            Loads the source and reports the page count and diagnostics (errors / warnings).
+            If there is at least one error the exit code is `1`. Use `--json` for
+            machine-readable output.
+
+            ## build — static site
+
+            ```bash
+            vellym build [--json] [--config <path>]
+            ```
+
+            Exports a read-only static site from the source. If there are errors, generation
+            is aborted. One build emits the default locale at the root and published
+            translations under locale-specific paths. See [Static Publishing and Self-Hosting](#page=self-hosting)
+            for output location, serving, and caveats.
+
+            ## migrate — Page format migration
+
+            ```bash
+            vellym migrate --to v1 --plan [--config <path>] [--json]
+            vellym migrate --to v1 [--config <path>] [--json]
+            ```
+
+            Explicitly migrates `v1alpha1` Page and Folder resources to `v1`. Preview the
+            targets and diagnostics first, commit the project to Git, and then apply. The
+            migration preserves comments, unknown keys, and unknown blocks and aborts if a
+            target changes after preview. Vellym never migrates files automatically.
+
+            ## Related
+
+            - Config file fields → [Configuration File](#page=configuration)
+            - Browser UI → [Using the Browser UI](#page=browser-guide)
+            - Current scope → [Current Scope and Limitations](#page=limitations)

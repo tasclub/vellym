@@ -1,0 +1,21 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Folder
+metadata:
+  title: Vellym 利用ガイド
+spec:
+  locale: ja
+  order:
+    - getting-started.yaml
+    - cli-reference.yaml
+    - compatibility.yaml
+    - configuration.yaml
+    - concepts.yaml
+    - self-hosting.yaml
+    - index.yaml
+    - authoring.yaml
+    - browser-guide.yaml
+    - limitations.yaml
+  translations:
+    en:
+      visibility: published
+      title: Vellym User Guide

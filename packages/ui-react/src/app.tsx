@@ -19,6 +19,7 @@ import {
   ApiError,
   fetchBootstrap,
   fetchPage,
+  fetchPageEdit,
   fetchPages,
   patchPage,
   applyStructure,
@@ -49,13 +50,32 @@ import { UnsavedChangesDialog } from "./unsaved-changes-dialog.js";
 import { WorkspaceShell } from "./workspace-shell.js";
 import { setUiLanguage } from "./i18n.js";
 import { errorMessage } from "./error-message.js";
+import { LanguageSwitcher } from "./language-switcher.js";
+import { PageLanguageControls } from "./page-language-controls.js";
+import {
+  addPageLocale,
+  createPageEditSession,
+  deleteInvalidPageTranslation,
+  pageEditExport,
+  pageEditPatch,
+  pageEditSessionDirty,
+  removePageLocale,
+  repairInvalidPageTranslation,
+  type PageEditSession
+} from "./page-edit-session.js";
+import {
+  documentPagePath,
+  resolveDocumentLocation,
+  staticAppBasePath
+} from "./routing.js";
 
-function locationFromHash(): { page?: string; heading?: string } {
-  const values = new URLSearchParams(window.location.hash.slice(1));
-  return {
-    page: values.get("page") ?? undefined,
-    heading: values.get("heading") ?? undefined
-  };
+function currentDocumentLocation() {
+  return resolveDocumentLocation({
+    pathname: window.location.pathname,
+    hash: window.location.hash,
+    basePath: staticAppBasePath(),
+    defaultLocale: window.__VELLYM_STATIC__?.defaultLocale
+  });
 }
 
 type PendingLeave =
@@ -64,13 +84,6 @@ type PendingLeave =
   | { kind: "settings" }
   | { kind: "cancel" }
   | { kind: "reload" };
-
-function pageHash(page: string, heading?: string): string {
-  return `#${new URLSearchParams({
-    page,
-    ...(heading ? { heading } : {})
-  }).toString()}`;
-}
 
 function parentPath(relativePath: string): string {
   const parts = relativePath.replaceAll("\\", "/").split("/");
@@ -94,6 +107,10 @@ export function App() {
   const [selectedFolder, setSelectedFolder] = useState<string>();
   const [area, setArea] = useState<"documents" | "settings">("documents");
   const [view, setView] = useState<PageView>();
+  const [editSession, setEditSession] = useState<PageEditSession>();
+  const [requestedLocale, setRequestedLocale] = useState<string | undefined>(
+    () => currentDocumentLocation().locale
+  );
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [blocks, setBlocks] = useState<RichTextBlock[]>([]);
@@ -121,7 +138,7 @@ export function App() {
     page: string;
     heading?: string;
   } | undefined>(() => {
-    const location = locationFromHash();
+    const location = currentDocumentLocation();
     return location.page
       ? { page: location.page, heading: location.heading }
       : undefined;
@@ -131,7 +148,7 @@ export function App() {
   const viewRef = useRef(view);
   draftRef.current = { title, slug, blocks };
   viewRef.current = view;
-  const hasUnsavedChanges = Boolean(
+  const legacyUnsavedChanges = Boolean(
     view &&
     (title !== view.page.metadata.title ||
       slug !== (view.page.metadata.slug ?? view.page.metadata.name) ||
@@ -143,11 +160,16 @@ export function App() {
           block.content !== original.content;
       }))
   );
+  const hasUnsavedChanges = editSession
+    ? pageEditSessionDirty(editSession)
+    : legacyUnsavedChanges;
 
   async function loadBootstrap(signal?: AbortSignal) {
     try {
-      const result = await fetchBootstrap(signal);
+      const routeLocale = currentDocumentLocation().locale;
+      const result = await fetchBootstrap(signal, routeLocale);
       setBootstrap(result.data);
+      setRequestedLocale(result.data.project.requestedLocale);
       setBootstrapDiagnostics(result.diagnostics);
       setBootstrapError("");
     } catch (error) {
@@ -158,20 +180,27 @@ export function App() {
 
   async function loadList(signal?: AbortSignal) {
     try {
-      const result = await fetchPages(signal);
+      const locale = requestedLocale ?? bootstrap?.project.requestedLocale;
+      const result = await fetchPages(signal, locale);
       setPages(result.data.pages);
       setFolders(result.data.folders);
       setDiagnostics(result.diagnostics);
-      const location = locationFromHash();
+      const location = currentDocumentLocation();
       const requestedPage = result.data.pages.find(
         (page) => page.slug === location.page || page.name === location.page
       );
       const welcomePage = result.data.pages.find((page) => page.name === "welcome");
       const initialPage = requestedPage ?? welcomePage ?? result.data.pages[0];
-      const initial = initialPage?.name;
-      if (!requestedPage && !selected && initialPage) {
-        const hash = new URLSearchParams({ page: initialPage.slug ?? initialPage.name });
-        window.history.replaceState(null, "", `#${hash.toString()}`);
+      const initial = requestedPage?.name ?? location.page ?? initialPage?.name;
+      if (!location.page && !selected && initialPage) {
+        window.history.replaceState(
+          null,
+          "",
+          documentPagePath(
+            locale ?? result.data.defaultLocale,
+            initialPage.slug ?? initialPage.name
+          )
+        );
       }
       if (initial && location.page) {
         setPendingLocation({ page: initial, heading: location.heading });
@@ -188,6 +217,7 @@ export function App() {
 
   function applyView(next: PageView) {
     setView(next);
+    setSelected(next.page.metadata.name);
     setTitle(next.page.metadata.title);
     setSlug(next.page.metadata.slug ?? next.page.metadata.name);
     setBlocks(next.knownBlocks.map((block) => ({ ...block })));
@@ -198,6 +228,7 @@ export function App() {
     setCopyMessage("");
     setConflictView(undefined);
     setEditing(false);
+    setEditSession(undefined);
   }
 
   async function loadPage(name: string, discard = false, signal?: AbortSignal) {
@@ -206,7 +237,11 @@ export function App() {
       return;
     }
     try {
-      const next = (await fetchPage(name, signal)).data;
+      const next = (await fetchPage(
+        name,
+        signal,
+        requestedLocale ?? bootstrap?.project.requestedLocale ?? "ja"
+      )).data;
       if (
         viewRef.current?.hash === next.hash &&
         viewRef.current.relativePath === next.relativePath
@@ -223,6 +258,13 @@ export function App() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const route = currentDocumentLocation();
+    if (!route.legacy && route.locale && route.page) {
+      const canonical = documentPagePath(route.locale, route.page, route.heading);
+      if (`${window.location.pathname}${window.location.hash}` !== canonical) {
+        window.history.replaceState(null, "", canonical);
+      }
+    }
     void loadBootstrap(controller.signal);
     return () => controller.abort();
   }, []);
@@ -232,7 +274,7 @@ export function App() {
     const controller = new AbortController();
     void loadList(controller.signal);
     return () => controller.abort();
-  }, [bootstrap?.state]);
+  }, [bootstrap?.state, requestedLocale]);
 
   useEffect(() => {
     if (bootstrap?.state === "ready") setUiLanguage(bootstrap.project.language);
@@ -244,31 +286,44 @@ export function App() {
     const controller = new AbortController();
     void loadPage(selected, true, controller.signal);
     return () => controller.abort();
-  }, [selected]);
+  }, [selected, requestedLocale]);
 
   useEffect(() => {
     function restoreLocation() {
-      const location = locationFromHash();
+      const location = currentDocumentLocation();
+      const nextLocale = location.locale ?? bootstrap?.project.defaultLocale;
       const targetPage = pages.find(
         (page) => page.slug === location.page || page.name === location.page
       );
+      if (!location.page) return;
+      const targetName = targetPage?.name ?? location.page;
       if (
-        !location.page ||
-        !targetPage
-      ) return;
-      if (hasUnsavedChanges && selected && targetPage.name !== selected) {
-        window.history.replaceState(null, "", pageHash(
-          pages.find((page) => page.name === selected)?.slug ?? selected
-        ));
+        hasUnsavedChanges &&
+        selected &&
+        (targetName !== selected || nextLocale !== requestedLocale)
+      ) {
+        const currentSlug =
+          pages.find((page) => page.name === selected)?.slug ?? selected;
+        window.history.replaceState(
+          null,
+          "",
+          documentPagePath(
+            requestedLocale ?? bootstrap?.project.defaultLocale ?? "ja",
+            currentSlug
+          )
+        );
         setPendingLeave({
           kind: "navigate",
-          page: targetPage.name,
+          page: targetName,
           heading: location.heading
         });
         return;
       }
-      setPendingLocation({ page: targetPage.name, heading: location.heading });
-      setSelected(targetPage.name);
+      if (nextLocale && nextLocale !== requestedLocale) {
+        setRequestedLocale(nextLocale);
+      }
+      setPendingLocation({ page: targetName, heading: location.heading });
+      setSelected(targetName);
     }
     // 本文中の内部リンク `[..](#page=slug)` はクリック時にlocation.hashを
     // 書き換えるだけで、履歴操作のpopstateは発火しない。hashchangeも購読して、
@@ -279,7 +334,13 @@ export function App() {
       window.removeEventListener("popstate", restoreLocation);
       window.removeEventListener("hashchange", restoreLocation);
     };
-  }, [hasUnsavedChanges, pages, selected]);
+  }, [
+    bootstrap?.project.defaultLocale,
+    hasUnsavedChanges,
+    pages,
+    requestedLocale,
+    selected
+  ]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -388,9 +449,9 @@ export function App() {
   const editAssessment = useMemo(
     () =>
       view
-        ? assessPageEditing(view)
+        ? assessPageEditing(editing && draft ? draft : view)
         : { supported: false, reasons: [], blocks: [] },
-    [view]
+    [draft, editing, view]
   );
   const navigation = useMemo(
     () => buildDocumentNavigation(pages, new Map(), folders),
@@ -436,6 +497,11 @@ export function App() {
   }, [area, selectedFolderNode, view]);
 
   useEffect(() => {
+    document.documentElement.lang = bootstrap?.project.uiLocale ?? "ja";
+    document.documentElement.dir = "ltr";
+  }, [bootstrap?.project.uiLocale]);
+
+  useEffect(() => {
     if (!view || pendingLocation?.page !== view.page.metadata.name) return;
     const headingId = pendingLocation.heading;
     setPendingLocation(undefined);
@@ -456,7 +522,15 @@ export function App() {
 
   function commitNavigation(name: string, heading?: string) {
     const route = pages.find((page) => page.name === name)?.slug ?? name;
-    window.history.pushState(null, "", pageHash(route, heading));
+    window.history.pushState(
+      null,
+      "",
+      documentPagePath(
+        requestedLocale ?? bootstrap?.project.defaultLocale ?? "ja",
+        route,
+        heading
+      )
+    );
     setPendingLocation({ page: name, heading });
     setSelected(name);
     setSelectedFolder(undefined);
@@ -523,7 +597,8 @@ export function App() {
       window.history.replaceState(
         null,
         "",
-        pageHash(
+        documentPagePath(
+          requestedLocale ?? bootstrap?.project.defaultLocale ?? "ja",
           result.pages.find((page) => page.name === fallback)?.slug ?? fallback
         )
       );
@@ -688,12 +763,94 @@ export function App() {
     setCopyMessage("");
   }
 
+  function activateLocale(session: PageEditSession, locale: string) {
+    const draft = session.locales.find(
+      (item) => item.locale === locale && !item.removed
+    );
+    if (!draft) return;
+    setEditSession({ ...session, activeLocale: locale });
+    setTitle(draft.title);
+    setBlocks(draft.blocks.map((block) => ({ ...block })));
+    setSlug(session.slug);
+    markDirty();
+  }
+
+  async function startMultilingualEdit() {
+    const pageId = view?.page.metadata.name;
+    if (!pageId) return;
+    setSaveError("");
+    try {
+      const edit = (await fetchPageEdit(pageId)).data;
+      if (edit.readOnly) {
+        setSaveError(edit.readOnlyReasons.join("、"));
+        return;
+      }
+      const session = createPageEditSession(edit, activeLocale);
+      const active = session.locales.find(
+        ({ locale }) => locale === session.activeLocale
+      )!;
+      setEditSession(session);
+      setTitle(active.title);
+      setSlug(session.slug);
+      setBlocks(active.blocks.map((block) => ({ ...block })));
+      setEditing(true);
+      setSaveState("saved");
+    } catch (error) {
+      setSaveError(errorMessage(error, t));
+    }
+  }
+
+  function updateActiveLocale(
+    change: (draft: PageEditSession["locales"][number]) =>
+      PageEditSession["locales"][number]
+  ) {
+    setEditSession((current) => current ? {
+      ...current,
+      locales: current.locales.map((draft) =>
+        draft.locale === current.activeLocale ? change(draft) : draft
+      )
+    } : current);
+    markDirty();
+  }
+
   async function save(): Promise<boolean> {
     if (!view || view.readOnly) return false;
     setSaveState("saving");
     setSaveError("");
     setCopyMessage("");
     setConflictView(undefined);
+    if (editSession) {
+      const submittedSession = editSession;
+      try {
+        await patchPage(editSession.pageId, pageEditPatch(editSession));
+        const locale = requestedLocale ?? bootstrap?.project.defaultLocale ?? editSession.baseLocale;
+        const refreshed = (await fetchPage(editSession.pageId, undefined, locale)).data;
+        applyView(refreshed);
+        await loadList();
+        const savedSlug = refreshed.page.metadata.slug ?? refreshed.page.metadata.name;
+        window.history.replaceState(
+          null,
+          "",
+          documentPagePath(locale, savedSlug, currentDocumentLocation().heading)
+        );
+        setSavedAt(Date.now());
+        setSaveState("success");
+        return true;
+      } catch (error) {
+        // submittedSessionは失敗時の全言語export対象としてeditSessionを保持するため、
+        // ここでは破棄しない。
+        void submittedSession;
+        if (error instanceof ApiError && error.status === 409) {
+          setSaveState("conflict");
+          setExternalChange(true);
+          setSaveError(error.message);
+          return false;
+        }
+        setSaveState("failure");
+        setSaveError(errorMessage(error, t));
+        return false;
+      }
+    }
     const submitted = {
       title,
       slug,
@@ -730,11 +887,15 @@ export function App() {
             : page
         )
       );
-      const currentLocation = locationFromHash();
+      const currentLocation = currentDocumentLocation();
       window.history.replaceState(
         null,
         "",
-        pageHash(savedSlug, currentLocation.heading)
+        documentPagePath(
+          requestedLocale ?? bootstrap?.project.defaultLocale ?? "ja",
+          savedSlug,
+          currentLocation.heading
+        )
       );
       setExternalChange(false);
       setMessage("");
@@ -775,7 +936,9 @@ export function App() {
 
   async function copyDraft() {
     try {
-      await navigator.clipboard.writeText(draftCopyText(title, blocks));
+      await navigator.clipboard.writeText(
+        editSession ? pageEditExport(editSession) : draftCopyText(title, blocks)
+      );
       setCopyMessage(t("app.draftCopied"));
     } catch {
       setCopyMessage("");
@@ -859,6 +1022,59 @@ export function App() {
       : pendingLeave?.kind === "reload"
         ? t("app.leaveReload")
         : undefined;
+  const activeDocument = view;
+  const activeLocale =
+    requestedLocale ?? bootstrap.project.requestedLocale;
+  const activeSlug =
+    view?.page.metadata.slug ??
+    view?.page.metadata.name ??
+    currentDocumentLocation().page ??
+    selected;
+  const languageSwitcher = activeDocument && activeSlug ? (
+    <LanguageSwitcher
+      page={activeDocument}
+      currentLocale={activeLocale}
+      uiLocale={bootstrap.project.uiLocale}
+      slug={activeSlug}
+      heading={currentDocumentLocation().heading}
+    />
+  ) : undefined;
+  const editLanguageControls = editSession ? (
+    <PageLanguageControls
+      session={editSession}
+      uiLocale={bootstrap.project.uiLocale}
+      disabled={saveState === "saving"}
+      onSelect={(locale) => activateLocale(editSession, locale)}
+      onAdd={(locale, initialize) => {
+        const next = addPageLocale(editSession, locale, initialize);
+        const added = next.locales.find((item) => item.locale === next.activeLocale)!;
+        setEditSession(next);
+        setTitle(added.title);
+        setBlocks(added.blocks.map((block) => ({ ...block })));
+        markDirty();
+      }}
+      onRemove={(locale) => {
+        const next = removePageLocale(editSession, locale);
+        const active = next.locales.find((item) => item.locale === next.activeLocale)!;
+        setEditSession(next);
+        setTitle(active.title);
+        setBlocks(active.blocks.map((block) => ({ ...block })));
+        markDirty();
+      }}
+      onRepairInvalid={(rawKey) => {
+        const next = repairInvalidPageTranslation(editSession, rawKey);
+        const active = next.locales.find((item) => item.locale === next.activeLocale)!;
+        setEditSession(next);
+        setTitle(active.title);
+        setBlocks(active.blocks.map((block) => ({ ...block })));
+        markDirty();
+      }}
+      onDeleteInvalid={(rawKey) => {
+        setEditSession(deleteInvalidPageTranslation(editSession, rawKey));
+        markDirty();
+      }}
+    />
+  ) : undefined;
 
   return (
     <>
@@ -877,6 +1093,8 @@ export function App() {
         canSearch={bootstrap.capabilities.search}
         canManage={bootstrap.capabilities.structure}
         canConfigure={bootstrap.capabilities.structure}
+        uiLocale={bootstrap.project.uiLocale}
+        currentLocale={activeLocale}
         onSelect={(name) => navigate(name)}
         onSelectFolder={(folderPath) => {
           if (hasUnsavedChanges) {
@@ -906,6 +1124,12 @@ export function App() {
           result: StructureApplyResult
         ) => {
           acceptStructureResult(plan, result);
+        }}
+        onFolderApplied={(folder) => {
+          setFolders((current) => current.map((item) =>
+            item.path === folder.path ? { ...item, ...folder } : item
+          ));
+          void loadList();
         }}
       >
         {area === "settings" ? (
@@ -948,7 +1172,10 @@ export function App() {
           blocks={blocks}
           pages={pages}
           editing={editing}
-          canEdit={editAssessment.supported && bootstrap.capabilities.editing}
+          canEdit={
+            editAssessment.supported &&
+            bootstrap.capabilities.editing
+          }
           editReasons={editAssessment.reasons}
           blockAssessments={editAssessment.blocks}
           saveState={saveState}
@@ -966,7 +1193,7 @@ export function App() {
           watchMessage={watchMessage}
           externalChange={externalChange}
           onStartEdit={() => {
-            if (editAssessment.supported) setEditing(true);
+            if (editAssessment.supported) void startMultilingualEdit();
           }}
           onCancel={() => {
             if (hasUnsavedChanges) {
@@ -977,10 +1204,12 @@ export function App() {
           }}
           onTitleChange={(value) => {
             setTitle(value);
+            updateActiveLocale((draft) => ({ ...draft, title: value }));
             markDirty();
           }}
           onSlugChange={(value) => {
             setSlug(value);
+            setEditSession((current) => current ? { ...current, slug: value } : current);
             markDirty();
           }}
           onBlockChange={(index, content) => {
@@ -989,6 +1218,12 @@ export function App() {
             const next = [...blocks];
             next[index] = { ...block, content };
             setBlocks(next);
+            updateActiveLocale((draft) => ({
+              ...draft,
+              blocks: draft.blocks.map((item, itemIndex) =>
+                itemIndex === index ? { ...item, content } : item
+              )
+            }));
             markDirty();
           }}
           onSave={() => void save()}
@@ -1014,6 +1249,43 @@ export function App() {
             }
           }}
           onRenameFile={renamePageFile}
+          languageSwitcher={languageSwitcher}
+          editLanguageControls={editLanguageControls}
+          editLocale={editSession?.activeLocale}
+          localeDrafts={editSession?.locales
+            .filter(({ removed }) => !removed)
+            .map(({ locale, title, blocks }) => ({ locale, title, blocks }))}
+          onLocaleTitleChange={(locale, value) => {
+            setEditSession((current) => current ? {
+              ...current,
+              locales: current.locales.map((draft) =>
+                draft.locale === locale ? { ...draft, title: value } : draft
+              )
+            } : current);
+            if (editSession?.activeLocale === locale) setTitle(value);
+            markDirty();
+          }}
+          onLocaleBlockChange={(locale, index, content) => {
+            setEditSession((current) => current ? {
+              ...current,
+              locales: current.locales.map((draft) =>
+                draft.locale === locale
+                  ? {
+                      ...draft,
+                      blocks: draft.blocks.map((block, blockIndex) =>
+                        blockIndex === index ? { ...block, content } : block
+                      )
+                    }
+                  : draft
+              )
+            } : current);
+            if (editSession?.activeLocale === locale) {
+              setBlocks((current) => current.map((block, blockIndex) =>
+                blockIndex === index ? { ...block, content } : block
+              ));
+            }
+            markDirty();
+          }}
         />
         )}
       </WorkspaceShell>

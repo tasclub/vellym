@@ -9,6 +9,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { headingId, type PageView } from "@vellym-internal/core";
 import { Icon } from "./icon.js";
+import {
+  documentPagePath,
+  localeDirection,
+  resolveDocumentLocation,
+  staticAppBasePath
+} from "./routing.js";
 
 export function DocumentView({
   view,
@@ -54,14 +60,32 @@ export function DocumentView({
     event.preventDefault();
     target.scrollIntoView({ block: "start" });
     target.focus({ preventScroll: true });
-    const params = new URLSearchParams(window.location.hash.slice(1));
-    params.set("heading", targetId);
-    window.history.replaceState(null, "", `#${params.toString()}`);
+    const route = resolveDocumentLocation({
+      pathname: window.location.pathname,
+      hash: window.location.hash,
+      basePath: staticAppBasePath(),
+      defaultLocale: window.__VELLYM_STATIC__?.defaultLocale
+    });
+    if (!route.legacy && route.locale && route.page) {
+      window.history.replaceState(
+        null,
+        "",
+        documentPagePath(route.locale, route.page, targetId)
+      );
+    } else {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      params.set("heading", targetId);
+      window.history.replaceState(null, "", `#${params.toString()}`);
+    }
   };
   const unknownBlockCount =
     view.page.spec.blocks.length - view.knownBlocks.length;
   return (
-    <article className="document">
+    <article
+      className="document"
+      lang={view.locale ?? view.baseLocale}
+      dir={localeDirection(view.locale ?? view.baseLocale ?? "en")}
+    >
       <header className="document-header">
         <div className="document-header-main">
           <p className="eyebrow">{view.page.spec.documentType ?? "document"}</p>

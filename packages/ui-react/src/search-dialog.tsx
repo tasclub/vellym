@@ -19,6 +19,7 @@ export function SearchDialog(props: {
   isOpen: boolean;
   onOpenChange(open: boolean): void;
   onSelect(pageId: string, headingId?: string): void;
+  locale: string;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -42,7 +43,7 @@ export function SearchDialog(props: {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       setState("searching");
-      void fetchSearch(query, controller.signal)
+      void fetchSearch(query, controller.signal, props.locale)
         .then((response) => {
           setResults(response.data.results);
           setTotal(response.data.total);
@@ -61,10 +62,10 @@ export function SearchDialog(props: {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [props.isOpen, query]);
+  }, [props.isOpen, props.locale, query]);
 
   function openResult(key: Key) {
-    const result = results.find((item) => item.pageId === key);
+    const result = results.find((item) => item.resultId === key);
     if (!result) return;
     props.onSelect(result.pageId, result.heading?.id);
     props.onOpenChange(false);
@@ -128,7 +129,7 @@ export function SearchDialog(props: {
             >
               {(result) => (
                 <ListBoxItem
-                  id={result.pageId}
+                  id={result.resultId}
                   textValue={`${result.title} ${result.snippet}`}
                   className={styles.result}
                 >

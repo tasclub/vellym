@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vellym.tasclub.com/schemas/folder-translation.schema.json",
+  "title": "Vellym Folder translation",
+  "type": "object",
+  "required": ["title"],
+  "properties": {
+    "visibility": { "enum": ["draft", "published"] },
+    "title": { "type": "string" },
+    "description": { "type": "string" }
+  },
+  "additionalProperties": true
+}

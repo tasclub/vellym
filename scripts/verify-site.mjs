@@ -36,7 +36,12 @@ for (const asset of await readdir(path.join(root, "assets"))) {
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    let filename = path.resolve(root, `.${decodeURIComponent(url.pathname)}`);
+    const decoded = decodeURIComponent(url.pathname);
+    // 同じ成果物を任意subdirectoryへ配置した場合を、/manual prefixを剥がして再現する。
+    const servedPath = decoded === "/manual" || decoded.startsWith("/manual/")
+      ? decoded.slice("/manual".length) || "/"
+      : decoded;
+    let filename = path.resolve(root, `.${servedPath}`);
     if (filename !== root && !filename.startsWith(`${root}${path.sep}`)) {
       response.writeHead(403).end();
       return;
@@ -58,7 +63,9 @@ const browser = await chromium.launch({ headless: true });
 try {
   for (const scenario of [
     { path: "/", language: "ja", heading: "Vellymとは", width: 1440 },
-    { path: "/en/", language: "en", heading: "What is Vellym", width: 390 }
+    { path: "/en/", language: "en", heading: "What is Vellym", width: 390 },
+    { path: "/manual/pages/overview/", language: "ja", heading: "Vellymとは", width: 390 },
+    { path: "/manual/en/pages/overview/", language: "en", heading: "What is Vellym", width: 1440 }
   ]) {
     const context = await browser.newContext({
       locale: scenario.language === "ja" ? "ja-JP" : "en-US",

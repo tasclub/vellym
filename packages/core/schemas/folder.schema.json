@@ -35,6 +35,9 @@
     "spec": {
       "type": "object",
       "properties": {
+        "locale": {
+          "type": "string"
+        },
         "description": {
           "type": "string"
         },
@@ -45,6 +48,9 @@
             "minLength": 1
           },
           "uniqueItems": true
+        },
+        "translations": {
+          "type": "object"
         }
       },
       "additionalProperties": true

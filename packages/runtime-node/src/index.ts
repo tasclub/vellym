@@ -1,5 +1,7 @@
 export * from "./config.js";
 export * from "./errors.js";
+export * from "./folder-store.js";
+export * from "./locale-hash.js";
 export * from "./migration.js";
 export * from "./page-store.js";
 export * from "./repository.js";

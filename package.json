@@ -14,11 +14,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && vitest run",
     "coverage": "npm run build && vitest run --coverage",
-    "validate": "npm run build && node packages/vellym/dist/cli.mjs validate --config how-to-use/ja/vellym.config.yaml",
+    "validate": "npm run build && node packages/vellym/dist/cli.mjs validate --config how-to-use/vellym.config.yaml",
     "pack:check": "npm run build && npm pack --workspace vellym --dry-run --json",
     "pack:smoke": "npm run build && sh scripts/smoke-pack.sh",
     "smoke:100": "npm run build && node scripts/smoke-100-pages.mjs",
     "verify:core": "npm run build && node scripts/verify-core.mjs",
+    "verify:scale": "npm run build && node scripts/bench-fixture.mjs --out /tmp/vellym-ci-scale-3000 --pages 3000 && node scripts/bench-scale.mjs --config /tmp/vellym-ci-scale-3000/vellym.config.yaml --port 4277 --label ci-3000 --assert",
     "site:build": "npm run build && node scripts/build-site.mjs",
     "site:verify": "npm run site:build && node scripts/verify-site.mjs",
     "release:check": "node scripts/verify-release.mjs"

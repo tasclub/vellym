@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   BlockEditAssessment,
   PageSummary,
@@ -247,8 +247,18 @@ export function EditorWorkspace(props: {
   onKeepDraft(): void;
   onReload(): void;
   onRenameFile(fileName: string): Promise<void>;
+  languageSwitcher?: ReactNode;
+  editLanguageControls?: ReactNode;
+  editLocale?: string;
+  localeDrafts?: Array<{
+    locale: string;
+    title: string;
+    blocks: RichTextBlock[];
+  }>;
+  onLocaleTitleChange?(locale: string, value: string): void;
+  onLocaleBlockChange?(locale: string, index: number, value: string): void;
 }) {
-  const adapters = useRef(new Map<number, VellymEditorAdapter>());
+  const adapters = useRef(new Map<string, VellymEditorAdapter>());
   const activeAdapter = useRef<VellymEditorAdapter | undefined>(undefined);
   const [editorState, setEditorState] = useState<EditorStateSnapshot>({
     canUndo: false,
@@ -278,6 +288,17 @@ export function EditorWorkspace(props: {
     setFileError("");
   }, [props.view?.relativePath]);
 
+  useEffect(() => {
+    if (!props.editLocale) return;
+    activeAdapter.current = [...adapters.current.entries()]
+      .find(([key]) => key.startsWith(`${props.editLocale}:`))?.[1];
+    setEditorState(activeAdapter.current?.state() ?? {
+      canUndo: false,
+      canRedo: false,
+      activeCommands: []
+    });
+  }, [props.editLocale]);
+
   if (!props.view || !props.draft) {
     return (
       <section className="workspace">
@@ -285,6 +306,7 @@ export function EditorWorkspace(props: {
       </section>
     );
   }
+  const currentView = props.view;
 
   const run = (command: EditorCommand) => {
     const adapter =
@@ -323,7 +345,10 @@ export function EditorWorkspace(props: {
           <DocumentView
             view={props.view}
             headerActions={
-              props.canEdit ? (
+              props.languageSwitcher || props.canEdit ? (
+                <div className="document-actions">
+                  {props.languageSwitcher}
+                  {props.canEdit && (
                 <button
                   type="button"
                   className="edit-page-button"
@@ -331,6 +356,8 @@ export function EditorWorkspace(props: {
                 >
                   {t("editor.edit")}
                 </button>
+                  )}
+                </div>
               ) : undefined
             }
           />
@@ -342,6 +369,7 @@ export function EditorWorkspace(props: {
   return (
     <section className="workspace edit-workspace">
       <div className="edit-desktop">
+        {props.editLanguageControls}
         <div className="edit-toolbar" role="toolbar" aria-label={t("editor.toolbarLabel")}>
           <div className="history-actions" role="group" aria-label={t("editor.historyGroup")}>
             <button
@@ -530,85 +558,81 @@ export function EditorWorkspace(props: {
             </div>
           </div>
         )}
-        <div className="page-editor-surface">
-          <label className="title-editor">
-            <span className="visually-hidden">{t("editor.pageTitle")}</span>
-            <input
-              value={props.title}
-              onChange={(event) => props.onTitleChange(event.target.value)}
-            />
-          </label>
-          {(props.blockAssessments.some((block) => !block.supported) ||
-            props.view.page.spec.blocks.length > props.blocks.length) && (
-            <div className="notice" role="note">
-              {t("editor.preservedBlocks")}
-            </div>
-          )}
-          {props.blocks.map((block, index) => {
-            const assessment = props.blockAssessments.find(
-              (item) => item.id === block.id
-            );
-            if (assessment && !assessment.supported) {
-              // 安全に編集できない内容を持つブロックは読み取り専用にし、保存時に
-              // ソースをそのまま保持する。
-              return (
-                <section
-                  key={block.id}
-                  className="locked-block"
-                  aria-label={t("editor.bodyLabel", { index: index + 1 })}
-                >
-                  <p className="locked-block-reason notice" role="note">
-                    {t("editor.blockReadOnly", {
-                      reasons: assessment.reasons.join("、")
-                    })}
-                  </p>
-                  <div className="document-paper">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {block.content}
-                    </ReactMarkdown>
-                  </div>
-                </section>
-              );
-            }
-            return (
-            <MilkdownBlockEditor
-              key={block.id}
-              label={t("editor.bodyLabel", { index: index + 1 })}
-              value={block.content}
-              onChange={(content) => props.onBlockChange(index, content)}
-              onFocus={(adapter) => {
-                activeAdapter.current = adapter;
-                setEditorState(adapter.state());
-              }}
-              onReady={(adapter) => {
-                if (adapter) {
-                  adapters.current.set(index, adapter);
-                  activeAdapter.current ??= adapter;
-                  if (activeAdapter.current === adapter) {
-                    setEditorState(adapter.state());
-                  }
-                } else {
-                  const removed = adapters.current.get(index);
-                  adapters.current.delete(index);
-                  if (activeAdapter.current === removed) {
-                    activeAdapter.current = adapters.current.values().next().value;
-                    setEditorState(
-                      activeAdapter.current?.state() ?? {
-                        canUndo: false,
-                        canRedo: false,
-                        activeCommands: []
-                      }
-                    );
-                  }
+        {(props.localeDrafts ?? [{
+          locale: props.editLocale ?? "base",
+          title: props.title,
+          blocks: props.blocks
+        }]).map((localeDraft) => {
+          const isActive = localeDraft.locale === (props.editLocale ?? localeDraft.locale);
+          return (
+            <div
+              className="page-editor-surface"
+              id={isActive ? "locale-editor-panel" : undefined}
+              role="tabpanel"
+              hidden={!isActive}
+              key={localeDraft.locale}
+            >
+              <label className="title-editor">
+                <span className="visually-hidden">{t("editor.pageTitle")}</span>
+                <input
+                  value={localeDraft.title}
+                  onChange={(event) => props.onLocaleTitleChange
+                    ? props.onLocaleTitleChange(localeDraft.locale, event.target.value)
+                    : props.onTitleChange(event.target.value)}
+                />
+              </label>
+              {isActive && (props.blockAssessments.some((block) => !block.supported) ||
+                currentView.page.spec.blocks.length > localeDraft.blocks.length) && (
+                <div className="notice" role="note">{t("editor.preservedBlocks")}</div>
+              )}
+              {localeDraft.blocks.map((block, index) => {
+                const assessment = isActive
+                  ? props.blockAssessments.find((item) => item.id === block.id)
+                  : undefined;
+                if (assessment && !assessment.supported) {
+                  return (
+                    <section key={block.id} className="locked-block">
+                      <p className="locked-block-reason notice" role="note">
+                        {t("editor.blockReadOnly", { reasons: assessment.reasons.join("、") })}
+                      </p>
+                      <div className="document-paper">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content}</ReactMarkdown>
+                      </div>
+                    </section>
+                  );
                 }
-              }}
-              onStateChange={(adapter, state) => {
-                if (activeAdapter.current === adapter) setEditorState(state);
-              }}
-            />
-            );
-          })}
-        </div>
+                const adapterKey = `${localeDraft.locale}:${index}`;
+                return (
+                  <MilkdownBlockEditor
+                    key={block.id}
+                    label={t("editor.bodyLabel", { index: index + 1 })}
+                    value={block.content}
+                    onChange={(content) => props.onLocaleBlockChange
+                      ? props.onLocaleBlockChange(localeDraft.locale, index, content)
+                      : props.onBlockChange(index, content)}
+                    onFocus={(adapter) => {
+                      activeAdapter.current = adapter;
+                      setEditorState(adapter.state());
+                    }}
+                    onReady={(adapter) => {
+                      if (adapter) {
+                        adapters.current.set(adapterKey, adapter);
+                        if (isActive && !activeAdapter.current) activeAdapter.current = adapter;
+                      } else {
+                        const removed = adapters.current.get(adapterKey);
+                        adapters.current.delete(adapterKey);
+                        if (activeAdapter.current === removed) activeAdapter.current = undefined;
+                      }
+                    }}
+                    onStateChange={(adapter, state) => {
+                      if (activeAdapter.current === adapter) setEditorState(state);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
       <div className="edit-mobile-fallback">
         <p className="notice">{t("editor.mobileUnavailable")}</p>

@@ -5,11 +5,20 @@ import type { TFunction } from "i18next";
 import { Button, Dialog, Modal, ModalOverlay } from "react-aria-components";
 import {
   applyStructure,
+  fetchFolderEdit,
+  patchFolder,
   previewStructure,
   type StructureApplyResult,
   type StructureInput,
   type StructurePlan
 } from "./api.js";
+import { FolderLanguageControls } from "./folder-language-controls.js";
+import {
+  createFolderEditSession,
+  folderEditPatch,
+  folderEditSessionDirty,
+  type FolderEditSession
+} from "./folder-edit-session.js";
 import styles from "./structure-dialog.module.css";
 import { errorMessage } from "./error-message.js";
 
@@ -40,8 +49,10 @@ export function StructureActionDialog(props: {
   action?: StructureAction;
   pages: PageSummary[];
   folders: FolderSummary[];
+  uiLocale?: string;
   onOpenChange(open: boolean): void;
   onApplied(plan: StructurePlan, result: StructureApplyResult): void;
+  onFolderApplied?(folder: FolderSummary): void;
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState("");
@@ -53,6 +64,7 @@ export function StructureActionDialog(props: {
   // RELUX-03: 作成は「確認→作成」の2段階にする。preview があるときだけ
   // ファイルを作る（確定するまで作らない）。入力が変わったら破棄する。
   const [preview, setPreview] = useState<StructurePlan>();
+  const [folderSession, setFolderSession] = useState<FolderEditSession>();
   const action = props.action;
   const selectedPage = action && "pageId" in action
     ? props.pages.find((page) => page.name === action.pageId)
@@ -94,6 +106,7 @@ export function StructureActionDialog(props: {
     );
     setParentPath("parentPath" in action ? action.parentPath : "");
     setPreview(undefined);
+    setFolderSession(undefined);
     // RELUX-06: 移動先の既定を「未選択」にして選択を必須にする（現在地の隣の
     // フォルダへ黙って移す事故を防ぐ）。現在地は下の説明で示す。
     if (action.type === "move-folder" || action.type === "move-page") {
@@ -102,6 +115,25 @@ export function StructureActionDialog(props: {
       setDestinationPath("");
     }
   }, [action, props.folders, props.pages]);
+
+  useEffect(() => {
+    if (action?.type !== "update-folder") return;
+    let active = true;
+    setBusy(true);
+    void fetchFolderEdit(action.folderPath)
+      .then(({ data }) => {
+        if (!active) return;
+        setFolderSession(createFolderEditSession(data));
+        setError(data.readOnly ? data.readOnlyReasons.join("、") : "");
+      })
+      .catch((caught) => {
+        if (active) setError(errorMessage(caught, t));
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => { active = false; };
+  }, [action]);
 
   // RELUX-03: 作成の入力が変わったら確認済みプレビューを破棄する。
   useEffect(() => {
@@ -152,6 +184,12 @@ export function StructureActionDialog(props: {
     setBusy(true);
     setError("");
     try {
+      if (action.type === "update-folder" && folderSession) {
+        const saved = (await patchFolder(folderEditPatch(folderSession))).data;
+        props.onFolderApplied?.(saved);
+        props.onOpenChange(false);
+        return;
+      }
       const plan = (await previewStructure(input())).data;
       if (!plan.executable) {
         setError(plan.conflict ?? t("structure.applyFailed"));
@@ -280,23 +318,14 @@ export function StructureActionDialog(props: {
               </>
             )}
             {action?.type === "update-folder" && (
-              <>
-                <label className={styles.field}>
-                  <span>{t("structure.displayName")}</span>
-                  <input
-                    autoFocus
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>{t("structure.descriptionOptional")}</span>
-                  <textarea
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                  />
-                </label>
-              </>
+              folderSession ? (
+                <FolderLanguageControls
+                  session={folderSession}
+                  uiLocale={props.uiLocale ?? "ja"}
+                  disabled={busy}
+                  onChange={setFolderSession}
+                />
+              ) : <p role="status">{t("editor.loading")}</p>
             )}
             {isMove && action && (
               <label className={styles.field}>
@@ -398,7 +427,11 @@ export function StructureActionDialog(props: {
                   className={isArchive ? styles.danger : styles.primary}
                   isDisabled={
                     busy ||
-                    (action?.type === "update-folder" && !title.trim()) ||
+                    (action?.type === "update-folder" && (
+                      !folderSession ||
+                      !folderEditSessionDirty(folderSession) ||
+                      folderSession.locales.some((item) => !item.removed && !item.title.trim())
+                    )) ||
                     (isMove && destinationPath === UNSELECTED_DESTINATION)
                   }
                   onPress={() => void apply()}

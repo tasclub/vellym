@@ -512,9 +512,7 @@ export async function planStructureChange(
     while (
       snapshot.bySlug.has(slug.toLocaleLowerCase()) ||
       [...snapshot.pages].some(
-        (page) =>
-          (page.view.page.metadata.slug ?? page.view.page.metadata.name)
-            .toLocaleLowerCase() === slug.toLocaleLowerCase()
+        (page) => page.slug.toLocaleLowerCase() === slug.toLocaleLowerCase()
       )
     ) {
       slug = `${safeSlug(input.title)}-${slugSuffix++}`;
@@ -563,22 +561,23 @@ export async function planStructureChange(
   } else if (input.type === "rename-page-file") {
     const loaded = snapshot.byName.get(input.pageId);
     if (!loaded) throw new RuntimeError("Pageが見つかりません", 404, "NOT_FOUND");
-    const directory = path.dirname(loaded.sourcePath);
+    const sourcePath = path.join(contentRoot, loaded.relativePath);
+    const directory = path.dirname(sourcePath);
     const requested = input.fileName.replace(/\.ya?ml$/i, "");
     const basename = safeName(requested, input.pageId);
     if (basename.toLocaleLowerCase() === "_index") {
       conflict = "_index.yamlはFolder metadataの予約名です";
     }
     const target = path.join(directory, `${basename}.yaml`);
-    title = `ページ「${loaded.view.page.metadata.title}」のファイル名を変更`;
-    if (loaded.sourcePath === target) {
+    title = `ページ「${loaded.title}」のファイル名を変更`;
+    if (sourcePath === target) {
       conflict = "現在と同じファイル名です";
     } else if (await hasCaseInsensitiveEntry(directory, path.basename(target))) {
       conflict = "同名のファイルがあります";
     }
     changes.push({
       operation: "move",
-      source: loaded.view.relativePath,
+      source: loaded.relativePath,
       destination: publicPath(contentRoot, target)
     });
     affectedPages = 1;
@@ -589,16 +588,17 @@ export async function planStructureChange(
       contentRoot,
       input.destinationPath
     );
-    const target = path.join(destination, path.basename(loaded.sourcePath));
+    const sourcePath = path.join(contentRoot, loaded.relativePath);
+    const target = path.join(destination, path.basename(sourcePath));
     if (input.destinationOrder) {
       const entries = await directEntryNames(destination);
       assertExactOrder(input.destinationOrder, [
-        ...entries.filter((entry) => entry !== path.basename(loaded.sourcePath)),
-        path.basename(loaded.sourcePath)
+        ...entries.filter((entry) => entry !== path.basename(sourcePath)),
+        path.basename(sourcePath)
       ]);
     }
-    title = `ページ「${loaded.view.page.metadata.title}」を移動`;
-    if (loaded.sourcePath === target) conflict = "既に選択したフォルダにあります";
+    title = `ページ「${loaded.title}」を移動`;
+    if (sourcePath === target) conflict = "既に選択したフォルダにあります";
     else if (
       await hasCaseInsensitiveEntry(destination, path.basename(target))
     ) {
@@ -606,7 +606,7 @@ export async function planStructureChange(
     }
     changes.push({
       operation: "move",
-      source: loaded.view.relativePath,
+      source: loaded.relativePath,
       destination: publicPath(contentRoot, target)
     });
     affectedPages = 1;
@@ -643,7 +643,7 @@ export async function planStructureChange(
       conflict = "移動先に同名フォルダがあります";
     }
     affectedPages = snapshot.pages.filter((page) =>
-      page.view.relativePath.startsWith(`${input.folderPath}/`)
+      page.relativePath.startsWith(`${input.folderPath}/`)
     ).length;
     if ((await readdir(source)).length > 0) {
       warnings.push("空でないフォルダです。配下の内容も一緒に移動します");
@@ -725,17 +725,17 @@ export async function planStructureChange(
       throw new RuntimeError("Pageが見つかりません", 404, "NOT_FOUND");
     }
     const source = isPage
-      ? loaded!.sourcePath
+      ? path.join(contentRoot, loaded!.relativePath)
       : await assertSafeDirectory(contentRoot, input.folderPath);
     const relativeSource = publicPath(contentRoot, source);
     const target = await unusedArchivePath(contentRoot, relativeSource);
     title = isPage
-      ? `ページ「${loaded!.view.page.metadata.title}」をアーカイブ`
+      ? `ページ「${loaded!.title}」をアーカイブ`
       : `フォルダ「${path.basename(source)}」をアーカイブ`;
     affectedPages = isPage
       ? 1
       : snapshot.pages.filter((page) =>
-          page.view.relativePath.startsWith(`${input.folderPath}/`)
+          page.relativePath.startsWith(`${input.folderPath}/`)
         ).length;
     if (!isPage && affectedPages > 0) {
       warnings.push(`配下の${affectedPages}ページもアーカイブします`);

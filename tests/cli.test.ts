@@ -60,6 +60,11 @@ function buildDir(config: string): string {
   return JSON.parse(result.stdout).data.outputDir as string;
 }
 
+async function staticDataDir(output: string, locale?: string): Promise<string> {
+  const build = JSON.parse(await readFile(path.join(output, "vellym-build.json"), "utf8"));
+  return path.join(output, "data", build.buildId, (locale ?? build.defaultLocale).toLowerCase());
+}
+
 describe("published CLI shape", () => {
   it("builds an executable CLI entry point", async () => {
     expect((await stat(cli)).mode & 0o111).not.toBe(0);
@@ -141,25 +146,24 @@ spec:
     const index = await readFile(path.join(output, "index.html"), "utf8");
     expect(index).toContain("Vellym");
     expect(index).toContain("__VELLYM_STATIC__");
-    const bootstrap = JSON.parse(
-      await readFile(path.join(output, "data/bootstrap.json"), "utf8")
-    );
+    const dataDir = await staticDataDir(output);
+    const bootstrap = JSON.parse(await readFile(path.join(dataDir, "bootstrap.json"), "utf8"));
     expect(bootstrap.data.state).toBe("ready");
     expect(bootstrap.data.capabilities.editing).toBe(false);
     expect(bootstrap.data.capabilities.live).toBe(false);
     const repository = JSON.parse(
-      await readFile(path.join(output, "data/repository.json"), "utf8")
+      await readFile(path.join(dataDir, "repository.json"), "utf8")
     );
     const names = repository.data.pages.map((page: { name: string }) => page.name);
     expect(names).not.toContain("hidden");
     for (const name of names) {
       const page = JSON.parse(
-        await readFile(path.join(output, `data/pages/${name}.json`), "utf8")
+        await readFile(path.join(dataDir, `pages/${name}.json`), "utf8")
       );
       expect(page.data.page.metadata.name).toBe(name);
     }
     await expect(
-      access(path.join(output, "data/pages/hidden.json"))
+      access(path.join(dataDir, "pages/hidden.json"))
     ).rejects.toThrow();
   });
 
@@ -271,7 +275,7 @@ spec:
     ]).status).toBe(0);
     const output = buildDir(path.join(root, "vellym.config.yaml"));
     const index = await readFile(path.join(output, "index.html"), "utf8");
-    expect(index).toContain('<html lang="en">');
+    expect(index).toContain('<html lang="en" dir="ltr">');
   });
 
   it("bakes read-only data for every page and marks the static SPA", async () => {
@@ -301,23 +305,111 @@ spec:
     const index = await readFile(path.join(output, "index.html"), "utf8");
     expect(index).toContain("__VELLYM_STATIC__");
     const repository = JSON.parse(
-      await readFile(path.join(output, "data/repository.json"), "utf8")
+      await readFile(path.join(await staticDataDir(output), "repository.json"), "utf8")
     );
     const pages = repository.data.pages as Array<{ name: string; title: string }>;
     expect(pages.map((page) => page.title)).toContain("二番目");
     for (const page of pages) {
       const detail = JSON.parse(
-        await readFile(path.join(output, `data/pages/${page.name}.json`), "utf8")
+        await readFile(path.join(await staticDataDir(output), `pages/${page.name}.json`), "utf8")
       );
       expect(detail.data.page.metadata.name).toBe(page.name);
     }
     const second = pages.find((page) => page.title === "二番目")!;
     const secondDetail = JSON.parse(
-      await readFile(path.join(output, `data/pages/${second.name}.json`), "utf8")
+      await readFile(path.join(await staticDataDir(output), `pages/${second.name}.json`), "utf8")
     );
     expect(JSON.stringify(secondDetail.data)).toContain("見出し");
-    // 静的版はper-page HTMLを生成せず、単一SPA＋焼き込みデータで提供する。
-    await expect(access(path.join(output, "pages"))).rejects.toThrow();
+    expect(await readFile(
+      path.join(output, "pages", second.name, "index.html"),
+      "utf8"
+    )).toContain("__VELLYM_STATIC__");
+  });
+
+  it("builds only published locale projections with deep portable entry points", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-static-i18n-"));
+    const content = path.join(root, "docs");
+    await mkdir(content, { recursive: true });
+    await writeFile(path.join(root, "vellym.config.yaml"), `schemaVersion: "1.0"
+contentRoot: docs
+outputDir: dist/vellym
+ui:
+  language: ja
+i18n:
+  defaultLocale: ja
+static:
+  publicBaseUrl: https://docs.example.com/product/
+plugins: []
+`, "utf8");
+    await writeFile(path.join(content, "guide.yaml"), `apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: guide
+  title: ガイド
+  slug: getting-started
+spec:
+  locale: ja
+  blocks:
+    - id: body
+      type: rich-text
+      format: commonmark
+      content: 日本語本文
+  translations:
+    en:
+      title: Guide
+      blocks:
+        - id: body
+          type: rich-text
+          format: commonmark
+          content: English body
+    fr:
+      visibility: draft
+      title: Brouillon
+      blocks: []
+`, "utf8");
+    await writeFile(path.join(content, "ja-only.yaml"), `apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: ja-only
+  title: 日本語のみ
+spec:
+  locale: ja
+  blocks: []
+`, "utf8");
+
+    const output = buildDir(path.join(root, "vellym.config.yaml"));
+    const build = JSON.parse(await readFile(path.join(output, "vellym-build.json"), "utf8"));
+    expect(build.locales).toEqual(["ja", "en"]);
+    await expect(access(path.join(output, "fr"))).rejects.toThrow();
+
+    const enData = await staticDataDir(output, "en");
+    const enRepository = JSON.parse(await readFile(path.join(enData, "repository.json"), "utf8"));
+    expect(enRepository.buildId).toBe(build.buildId);
+    expect(enRepository.data.pages).toEqual([
+      expect.objectContaining({ name: "guide", slug: "getting-started", title: "Guide" }),
+      expect.objectContaining({ name: "ja-only", title: "日本語のみ", locale: "ja" })
+    ]);
+    expect(JSON.parse(await readFile(path.join(enData, "pages/ja-only.json"), "utf8")))
+      .toMatchObject({ data: { locale: "ja", requestedLocale: "en" } });
+
+    const defaultPage = await readFile(
+      path.join(output, "pages/getting-started/index.html"),
+      "utf8"
+    );
+    const englishPage = await readFile(
+      path.join(output, "en/pages/getting-started/index.html"),
+      "utf8"
+    );
+    expect(defaultPage).toContain('lang="ja" dir="ltr"');
+    expect(defaultPage).toContain('src="../../assets/');
+    expect(englishPage).toContain('lang="en" dir="ltr"');
+    expect(englishPage).toContain('src="../../../assets/');
+    expect(englishPage).toContain(`"buildId":"${build.buildId}"`);
+    expect(englishPage).toContain('rel="canonical" href="https://docs.example.com/product/en/pages/getting-started/"');
+    expect(englishPage).toContain('hreflang="ja" href="https://docs.example.com/product/pages/getting-started/"');
+    expect(englishPage).toContain('hreflang="en" href="https://docs.example.com/product/en/pages/getting-started/"');
+    expect(await readFile(path.join(output, "en/pages/ja-only/index.html"), "utf8"))
+      .toContain("__VELLYM_STATIC__");
   });
 
   it("leaves existing versions untouched when validation fails", async () => {
