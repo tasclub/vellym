@@ -5,10 +5,10 @@
   "description": "Structure of a built-in setup pack manifest. Localized text lives in <locale>.json files keyed by the same node IDs.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["packId", "schemaVersion", "packVersion", "areas", "folders", "pages"],
+  "required": ["packId", "packSchemaVersion", "packVersion", "areas", "folders", "pages"],
   "properties": {
     "packId": { "type": "string", "minLength": 1 },
-    "schemaVersion": { "const": "2.0" },
+    "packSchemaVersion": { "const": "2.0" },
     "packVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
     "areas": {
       "type": "array",

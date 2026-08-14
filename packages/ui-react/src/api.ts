@@ -9,7 +9,8 @@ import type {
 } from "@vellym-internal/core";
 
 export interface Envelope<T> {
-  schemaVersion: string;
+  /** HTTP応答と静的データの封筒形式の版。 */
+  apiSchemaVersion: string;
   buildId?: string;
   data: T;
   diagnostics: Diagnostic[];
@@ -94,7 +95,7 @@ export interface SetupCatalogPage {
 export interface SetupCatalog {
   packId: string;
   packVersion: string;
-  schemaVersion: string;
+  packSchemaVersion: string;
   locale: "ja" | "en";
   areas: Array<{ id: string; order: number; title: string }>;
   folders: SetupCatalogFolder[];

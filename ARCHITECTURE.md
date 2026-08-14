@@ -117,6 +117,32 @@ comes from being local:
 If you add an endpoint, it inherits the header and origin handling from the shared
 helpers — but the path boundary check is per-operation and must be written explicitly.
 
+## Version identifiers
+
+Several independent contracts carry their own version. They are **not** meant to move
+together, so each one is named for what it versions. Never reuse a bare `schemaVersion`
+for a new contract.
+
+| Identifier | Where | Versions what | Who writes it |
+| --- | --- | --- | --- |
+| package `version` | `packages/vellym/package.json` | The released product (semver) | Maintainers |
+| `apiVersion` | Page / Folder YAML | The canonical document format | Users' files |
+| `schemaVersion` | `vellym.config.yaml` | The config file format | Users' files |
+| `apiSchemaVersion` | HTTP responses and baked static data | The response envelope shape | Server / static builder |
+| `buildSchemaVersion` | `vellym-build.json` | The static build manifest | Static builder |
+| `packSchemaVersion` | setup pack manifest | The setup pack definition format | Setup packs |
+| `packVersion` | setup pack manifest | The pack's own content | Setup packs |
+
+Two rules follow from this table.
+
+`apiVersion` is raised **only when existing files stop being readable**. Relaxations —
+removing a required field, making one optional — do not break existing files and do not
+justify a new version. Raising it forces every user through a migration for no benefit.
+
+`apiSchemaVersion` must be identical in the dynamic API and the static build. The same
+SPA reads both, so the two envelopes are one contract. It is defined once in
+`packages/core/src/types.ts` and imported; do not inline the literal.
+
 ## Errors
 
 `RuntimeError` carries a message, an HTTP status, and a **stable `code`**. The code is

@@ -1,6 +1,6 @@
 {
   "name": "vellym",
-  "version": "0.2.0-beta.1",
+  "version": "0.3.0-beta.1",
   "description": "Git-native YAML documentation viewer and editor",
   "keywords": [
     "documentation",

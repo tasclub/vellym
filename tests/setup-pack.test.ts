@@ -51,7 +51,7 @@ describe("built-in setup pack v2", () => {
   it("keeps the pack id and raises the hierarchy contract to 2.0.0", () => {
     expect(SETUP_PACK.id).toBe("vellym-core-project-structure");
     expect(SETUP_PACK.version).toBe("2.0.0");
-    expect(SETUP_PACK.schemaVersion).toBe("2.0");
+    expect(SETUP_PACK.packSchemaVersion).toBe("2.0");
   });
 
   it("loads and validates the built-in pack", () => {
@@ -161,9 +161,9 @@ describe("built-in setup pack v2", () => {
     expect(new Set(order).size).toBe(order.length);
   });
 
-  it("rejects an unknown schema version", () => {
+  it("rejects an unknown pack schema version", () => {
     expectRejected((manifest) => {
-      manifest.schemaVersion = "3.0";
+      manifest.packSchemaVersion = "3.0";
     });
   });
 

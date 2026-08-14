@@ -3,6 +3,7 @@ import { createServer, type ServerResponse } from "node:http";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
 import {
+  API_SCHEMA_VERSION,
   normalizeLocale,
   projectLocales,
   resolveDefaultLocale,
@@ -76,7 +77,7 @@ function json(response: ServerResponse, status: number, value: unknown): void {
 }
 
 function envelope(data: unknown, diagnostics: Diagnostic[] = []): unknown {
-  return { schemaVersion: "1.0", data, diagnostics };
+  return { apiSchemaVersion: API_SCHEMA_VERSION, data, diagnostics };
 }
 
 function localeRequest(

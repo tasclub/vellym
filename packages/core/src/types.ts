@@ -1,3 +1,10 @@
+/**
+ * HTTP応答と静的データの封筒（apiSchemaVersion/data/diagnostics）の形式の版。
+ * 動的APIとstatic builderで必ず同じ値を使う。
+ * 正本YAMLの`apiVersion`、`vellym.config.yaml`の`schemaVersion`とは別物である。
+ */
+export const API_SCHEMA_VERSION = "1.0" as const;
+
 export const API_VERSION = "vellym.tasclub.com/v1alpha1" as const;
 export const STABLE_API_VERSION = "vellym.tasclub.com/v1" as const;
 export const SUPPORTED_API_VERSIONS = [API_VERSION, STABLE_API_VERSION] as const;
