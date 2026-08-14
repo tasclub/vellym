@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fromMarkdown } from "mdast-util-from-markdown";
+import type { PhrasingContent, Root } from "mdast";
 import {
   extractWikiLinks,
   formatWikiLink,
@@ -411,6 +412,16 @@ spec:
   });
 });
 
+// tsconfigのnoUncheckedIndexedAccessにより`children[0]`は`RootContent | undefined`
+// になる。段落であることを実行時に確かめてから中身を取り出す。
+function paragraphNodes(tree: Root): PhrasingContent[] {
+  const first = tree.children[0];
+  if (first?.type !== "paragraph") {
+    throw new Error(`expected a paragraph, got ${first?.type ?? "nothing"}`);
+  }
+  return first.children;
+}
+
 describe("wiki link rendering", () => {
   it("replaces resolved links with link nodes and unresolved ones with spans", () => {
     const tree = fromMarkdown("前 [[known|表示名]] 中 [[unknown]] 後");
@@ -424,19 +435,19 @@ describe("wiki link rendering", () => {
           }
         : { status: "missing-page" }
     );
-    const paragraph = tree.children[0] as { children: Array<Record<string, unknown>> };
-    expect(paragraph.children.map((node) => node.type)).toEqual([
+    const nodes = paragraphNodes(tree);
+    expect(nodes.map((node) => node.type)).toEqual([
       "text",
       "link",
       "text",
       "emphasis",
       "text"
     ]);
-    expect(paragraph.children[1]).toMatchObject({
+    expect(nodes[1]).toMatchObject({
       url: "/ja/pages/known/",
       children: [{ type: "text", value: "表示名" }]
     });
-    expect(paragraph.children[3]).toMatchObject({
+    expect(nodes[3]).toMatchObject({
       children: [{ type: "text", value: "unknown" }]
     });
   });
@@ -449,8 +460,8 @@ describe("wiki link rendering", () => {
       title: "現在のタイトル",
       pageId: "known-id"
     }));
-    const paragraph = tree.children[0] as { children: Array<Record<string, unknown>> };
-    expect(paragraph.children[0]).toMatchObject({
+    const nodes = paragraphNodes(tree);
+    expect(nodes[0]).toMatchObject({
       children: [{ type: "text", value: "現在のタイトル" }]
     });
   });
@@ -458,8 +469,8 @@ describe("wiki link rendering", () => {
   it("leaves code and existing links untouched", () => {
     const tree = fromMarkdown("`[[a]]` と [b](https://example.com/)");
     transformWikiLinks(tree, () => ({ status: "resolved", href: "/x/", pageId: "x" }));
-    const paragraph = tree.children[0] as { children: Array<Record<string, unknown>> };
-    expect(paragraph.children.map((node) => node.type)).toEqual([
+    const nodes = paragraphNodes(tree);
+    expect(nodes.map((node) => node.type)).toEqual([
       "inlineCode",
       "text",
       "link"
