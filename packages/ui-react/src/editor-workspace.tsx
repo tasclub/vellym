@@ -257,6 +257,7 @@ export function EditorWorkspace(props: {
   }>;
   onLocaleTitleChange?(locale: string, value: string): void;
   onLocaleBlockChange?(locale: string, index: number, value: string): void;
+  onNavigatePage?(pageId: string, heading?: string): void;
 }) {
   const adapters = useRef(new Map<string, VellymEditorAdapter>());
   const activeAdapter = useRef<VellymEditorAdapter | undefined>(undefined);
@@ -344,6 +345,7 @@ export function EditorWorkspace(props: {
         <div className="document-paper">
           <DocumentView
             view={props.view}
+            onNavigatePage={props.onNavigatePage}
             headerActions={
               props.languageSwitcher || props.canEdit ? (
                 <div className="document-actions">
@@ -637,7 +639,7 @@ export function EditorWorkspace(props: {
       <div className="edit-mobile-fallback">
         <p className="notice">{t("editor.mobileUnavailable")}</p>
         <div className="document-paper">
-          <DocumentView view={props.view} />
+          <DocumentView view={props.view} onNavigatePage={props.onNavigatePage} />
         </div>
       </div>
       <LinkDialog
@@ -647,6 +649,10 @@ export function EditorWorkspace(props: {
         pages={props.pages}
         onSubmit={(href) => {
           linkAdapter.current?.setLink(href);
+          closeLinkDialog();
+        }}
+        onInsertPageLink={(markdown) => {
+          linkAdapter.current?.insertText(markdown);
           closeLinkDialog();
         }}
         onRemove={() => {

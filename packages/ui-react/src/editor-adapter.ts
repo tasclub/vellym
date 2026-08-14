@@ -46,6 +46,11 @@ export interface VellymEditorAdapter {
   linkContext(): LinkContext;
   setLink(href: string): boolean;
   unsetLink(): boolean;
+  /**
+   * 内部Pageリンク`[[...]]`はCommonMarkのlinkではなく素のテキストなので、
+   * link markではなくテキストとして挿入する。
+   */
+  insertText(text: string): boolean;
   destroy(): Promise<void>;
 }
 
@@ -262,6 +267,14 @@ export async function createEditorAdapter(
       const changed = preset.toggleLinkCommand.run();
       notifyState();
       return changed;
+    },
+    insertText: (text) => {
+      const view = readyEditor.action((ctx) => ctx.get(editorViewCtx));
+      const { from, to } = view.state.selection;
+      view.dispatch(view.state.tr.insertText(text, from, to));
+      view.focus();
+      notifyState();
+      return true;
     },
     canUndo: () => editorState.canUndo,
     canRedo: () => editorState.canRedo,

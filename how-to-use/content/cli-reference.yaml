@@ -102,7 +102,7 @@ spec:
 
         正本から閲覧専用の静的サイトを書き出す。エラーがある場合は生成を中止する。
         既定言語はルートへ、公開済みtranslationはlocale別pathへ一回のbuildで生成する。
-        出力先・配信手順・注意点は[静的配信と自己ホスト](#page=self-hosting)を参照。
+        出力先・配信手順・注意点は[[self-hosting|静的配信と自己ホスト]]を参照。
 
         ## migrate — Page形式の移行
 
@@ -117,9 +117,9 @@ spec:
 
         ## 関連
 
-        - 設定ファイルの各項目 → [設定ファイル](#page=configuration)
-        - 画面の操作 → [ブラウザ画面の使い方](#page=browser-guide)
-        - 現段階の範囲 → [現段階の範囲と制約](#page=limitations)
+        - 設定ファイルの各項目 → [[configuration|設定ファイル]]
+        - 画面の操作 → [[browser-guide|ブラウザ画面の使い方]]
+        - 現段階の範囲 → [[limitations|現段階の範囲と制約]]
   translations:
     en:
       visibility: published
@@ -225,7 +225,7 @@ spec:
 
             Exports a read-only static site from the source. If there are errors, generation
             is aborted. One build emits the default locale at the root and published
-            translations under locale-specific paths. See [Static Publishing and Self-Hosting](#page=self-hosting)
+            translations under locale-specific paths. See [[self-hosting|Static Publishing and Self-Hosting]]
             for output location, serving, and caveats.
 
             ## migrate — Page format migration
@@ -242,6 +242,6 @@ spec:
 
             ## Related
 
-            - Config file fields → [Configuration File](#page=configuration)
-            - Browser UI → [Using the Browser UI](#page=browser-guide)
-            - Current scope → [Current Scope and Limitations](#page=limitations)
+            - Config file fields → [[configuration|Configuration File]]
+            - Browser UI → [[browser-guide|Using the Browser UI]]
+            - Current scope → [[limitations|Current Scope and Limitations]]

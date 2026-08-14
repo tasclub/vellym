@@ -14,7 +14,7 @@ spec:
         ## 対象
 
         このページは、正本YAMLを直接書く・編集する執筆者向けである。ブラウザ上での
-        操作は[ブラウザ画面の使い方](#page=browser-guide)を参照。
+        操作は[[browser-guide|ブラウザ画面の使い方]]を参照。
 
         ## Pageの最小構造
 
@@ -43,7 +43,7 @@ spec:
 
         | キー | 必須 | 説明 |
         | --- | --- | --- |
-        | `name` | はい | Page識別子。小文字英数字とハイフンのkebab-case（例: `getting-started`）。`slug`未設定時は内部リンク`#page=<name>`の参照先になる。 |
+        | `name` | はい | Page識別子。小文字英数字とハイフンのkebab-case（例: `getting-started`）。内部リンク`[[getting-started]]`の第一の参照先になる。 |
         | `title` | はい | 表示タイトル（1文字以上）。 |
         | `slug` | いいえ | URL用の識別子。文字・数字とハイフンから成る。 |
         | `labels` | いいえ | 文字列の対応表（キー: 値）。分類・絞り込み用のメタ情報。 |
@@ -109,9 +109,11 @@ spec:
 
         ## 内部リンク
 
-        本文中で他のPageへリンクするには、標準のMarkdownリンクで参照先を
-        `#page=<slug>`にする。`slug`は参照先の`metadata.slug`で、未設定時は
-        `metadata.name`が使われる（例: `[CLIリファレンス](#page=cli-reference)`）。
+        本文中で他のPageへリンクするには、wiki link記法`[[参照先]]`を使う
+        （例: `[[cli-reference|CLIリファレンス]]`）。参照先は`metadata.name`→
+        `metadata.slug`→titleの順に照合される。`|`の後ろは表示名で、省略すると
+        参照先の現在のtitleが表示される。`[[参照先#見出し]]`で見出しも指定できる。
+        外部リンクは通常のMarkdownリンク`[ラベル](https://example.com/)`のまま書く。
 
         ## フォルダと表示順（_index.yaml）
 
@@ -137,12 +139,12 @@ spec:
 
         - `metadata.name`とブロック`id`はkebab-case（小文字英数字とハイフン）にする。
         - 一つのファイルに一つのPageを書く。
-        - 書いたら`vellym validate`でスキーマ・参照を検証する（[CLIリファレンス](#page=cli-reference)）。
+        - 書いたら`vellym validate`でスキーマ・参照を検証する（[[cli-reference|CLIリファレンス]]）。
 
         ## 関連
 
-        - 用語 → [用語と基本概念](#page=concepts)
-        - 画面での編集 → [ブラウザ画面の使い方](#page=browser-guide)
+        - 用語 → [[concepts|用語と基本概念]]
+        - 画面での編集 → [[browser-guide|ブラウザ画面の使い方]]
   translations:
     en:
       visibility: published
@@ -155,7 +157,7 @@ spec:
             ## Audience
 
             This page is for authors writing or editing the source YAML directly. For working
-            in the browser, see [Using the Browser UI](#page=browser-guide).
+            in the browser, see [[browser-guide|Using the Browser UI]].
 
             ## Minimal Page structure
 
@@ -184,7 +186,7 @@ spec:
 
             | Key | Required | Description |
             | --- | --- | --- |
-            | `name` | yes | Page identifier. Lowercase alphanumeric kebab-case (e.g. `getting-started`). Target of `#page=<name>` internal links when `slug` is unset. |
+            | `name` | yes | Page identifier. Lowercase alphanumeric kebab-case (e.g. `getting-started`). The primary target of `[[getting-started]]` internal links. |
             | `title` | yes | Display title (at least one character). |
             | `slug` | no | URL identifier made of letters, digits, and hyphens. |
             | `labels` | no | String map (key: value) for classification/filtering metadata. |
@@ -226,9 +228,12 @@ spec:
 
             ## Internal links
 
-            To link to another Page, use a standard Markdown link whose target is
-            `#page=<slug>`. The `slug` is the target's `metadata.slug`, falling back to
-            `metadata.name` when unset (e.g. `[CLI Reference](#page=cli-reference)`).
+            To link to another Page, use the wiki link syntax `[[target]]`
+            (e.g. `[[cli-reference|CLI Reference]]`). Targets are matched against
+            `metadata.name`, then `metadata.slug`, then Page titles. Text after `|` is the
+            label; omit it to show the target's current title. Use `[[target#heading]]` to
+            point at a heading. External links stay as ordinary Markdown links:
+            `[label](https://example.com/)`.
 
             ## Folders and display order (_index.yaml)
 
@@ -253,9 +258,9 @@ spec:
             - Make `metadata.name` and block `id` kebab-case (lowercase alphanumeric and hyphens).
             - Put one Page per file.
             - After writing, run `vellym validate` to check schema and references
-              ([CLI Reference](#page=cli-reference)).
+              ([[cli-reference|CLI Reference]]).
 
             ## Related
 
-            - Terminology → [Terminology and Concepts](#page=concepts)
-            - Editing in the browser → [Using the Browser UI](#page=browser-guide)
+            - Terminology → [[concepts|Terminology and Concepts]]
+            - Editing in the browser → [[browser-guide|Using the Browser UI]]

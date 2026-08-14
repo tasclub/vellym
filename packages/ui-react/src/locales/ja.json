@@ -208,6 +208,8 @@
   "link.invalid": "有効なURL（http(s)://、mailto:、/や#で始まる内部リンクなど）を入力してください。",
   "link.pageLabel": "ページから選ぶ",
   "link.pagePlaceholder": "（ページを選択）",
+  "link.pageTextLabel": "表示名",
+  "link.pageTextPlaceholder": "（空欄なら参照先の現在のタイトルを表示）",
   "link.remove": "リンクを解除",
   "link.update": "更新",
   "link.urlLabel": "リンク先URL",

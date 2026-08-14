@@ -208,6 +208,8 @@
   "link.invalid": "Enter a valid URL (http(s)://, mailto:, or an internal link starting with / or #).",
   "link.pageLabel": "Pick a page",
   "link.pagePlaceholder": "Select a page…",
+  "link.pageTextLabel": "Link text",
+  "link.pageTextPlaceholder": "Leave empty to show the target's current title",
   "link.remove": "Remove link",
   "link.update": "Update",
   "link.urlLabel": "Link URL",

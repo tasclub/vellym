@@ -29,14 +29,14 @@ spec:
         - **Folder**: ディレクトリを表す。`_index.yaml`（`kind: Folder`）で、その
           ディレクトリ内のページ・サブフォルダの**表示順**を定義する。
 
-        Pageの具体的な書き方は[文書の書き方（YAML）](#page=authoring)を参照。
+        Pageの具体的な書き方は[[authoring|文書の書き方（YAML）]]を参照。
 
         ## contentRoot
 
         **contentRoot**は、正本YAMLを置くルートディレクトリである。
         設定ファイル`vellym.config.yaml`の`contentRoot`で指定する。Vellymは
         このディレクトリ配下のYAMLを読み込んで文書ツリーを構成する。詳細は
-        [設定ファイル](#page=configuration)を参照。
+        [[configuration|設定ファイル]]を参照。
 
         ## 動的版（dev）と静的版（build）
 
@@ -47,7 +47,7 @@ spec:
         - **静的版（`vellym build`）**: 正本から**閲覧専用**の静的サイトを書き出す。
           編集・保存・検索・構成管理・設定は含まれない。ホスティングや資料配布に使う。
 
-        コマンドの詳細は[CLIリファレンス](#page=cli-reference)、静的配信は[静的配信と自己ホスト](#page=self-hosting)を参照。
+        コマンドの詳細は[[cli-reference|CLIリファレンス]]、静的配信は[[self-hosting|静的配信と自己ホスト]]を参照。
 
         ## ロケール（locale）
 
@@ -63,15 +63,16 @@ spec:
 
         ## 内部リンク
 
-        本文中で他のPageへリンクするには、標準のMarkdownリンクで参照先を
-        `#page=<slug>`と指定する。`slug`は参照先Pageの`metadata.slug`で、未設定時は
-        `metadata.name`が使われる。例えばこのページからCLIリファレンスへは
-        `[CLIリファレンス](#page=cli-reference)`と書く。
+        本文中で他のPageへリンクするには、wiki link記法`[[参照先]]`を使う。参照先は
+        `metadata.name`、`metadata.slug`、Pageのtitleのいずれかで指定できる。
+        例えばこのページからCLIリファレンスへは`[[cli-reference|CLIリファレンス]]`と書く。
+        `|`の後ろは表示名で、省略すると参照先の現在のtitleが表示される。
+        外部リンクは通常のMarkdownリンク`[ラベル](https://example.com/)`のまま書く。
 
         ## 関連
 
-        - はじめて動かす → [はじめかた](#page=getting-started)
-        - 全体像 → [Vellymとは](#page=overview)
+        - はじめて動かす → [[getting-started|はじめかた]]
+        - 全体像 → [[welcome|Vellymとは]]
   translations:
     en:
       visibility: published
@@ -99,13 +100,13 @@ spec:
             - **Folder**: represents a directory. Its `_index.yaml` (`kind: Folder`) defines
               the **display order** of pages and subfolders in that directory.
 
-            See [Authoring Documents (YAML)](#page=authoring) for how to write a Page.
+            See [[authoring|Authoring Documents (YAML)]] for how to write a Page.
 
             ## contentRoot
 
             **contentRoot** is the root directory that holds the source YAML. It is set via
             `contentRoot` in `vellym.config.yaml`. Vellym reads the YAML under this
-            directory to build the document tree. See [Configuration File](#page=configuration).
+            directory to build the document tree. See [[configuration|Configuration File]].
 
             ## Dynamic (dev) vs. static (build)
 
@@ -117,7 +118,7 @@ spec:
               source. It contains no editing, saving, search, structure management, or
               settings. Use it for hosting or distributing materials.
 
-            See [CLI Reference](#page=cli-reference) for commands and [Static Publishing and Self-Hosting](#page=self-hosting) for static publishing.
+            See [[cli-reference|CLI Reference]] for commands and [[self-hosting|Static Publishing and Self-Hosting]] for static publishing.
 
             ## Locale
 
@@ -136,12 +137,13 @@ spec:
 
             ## Internal links
 
-            To link to another Page, use a standard Markdown link whose target is
-            `#page=<slug>`. The `slug` is the target Page's `metadata.slug`, falling back to
-            `metadata.name` when unset. For example, this page links to the CLI reference as
-            `[CLI Reference](#page=cli-reference)`.
+            To link to another Page, use the wiki link syntax `[[target]]`. The target can be
+            a `metadata.name`, a `metadata.slug`, or a Page title. For example, this page links
+            to the CLI reference as `[[cli-reference|CLI Reference]]`. Text after `|` is the
+            link label; omit it to show the target's current title.
+            External links stay as ordinary Markdown links: `[label](https://example.com/)`.
 
             ## Related
 
-            - Run it for the first time → [Getting Started](#page=getting-started)
-            - Big picture → [What is Vellym](#page=overview)
+            - Run it for the first time → [[getting-started|Getting Started]]
+            - Big picture → [[welcome|What is Vellym]]

@@ -18,16 +18,16 @@ spec:
 
         ## 現段階で利用できること
 
-        - CLIの4コマンド: `init`・`dev`・`validate`・`build`（[CLIリファレンス](#page=cli-reference)）
-        - ブラウザの初期セットアップ（[ブラウザ画面の使い方](#page=browser-guide)）
+        - CLIの4コマンド: `init`・`dev`・`validate`・`build`（[[cli-reference|CLIリファレンス]]）
+        - ブラウザの初期セットアップ（[[browser-guide|ブラウザ画面の使い方]]）
         - ブラウザ上の閲覧・アウトライン・ツリー・パンくず
         - ブラウザ上の編集と保存（ローカルYAMLへ書き戻し）
         - 全文検索（動的版）
         - 新規作成・名称変更・移動・アーカイブ・並べ替え（構造編集）
         - 一つのPage／Folder YAMLでの複数言語管理、UIからの言語追加・編集・公開・削除
         - locale別URL、Page単位の言語切り替え、既定言語fallback、locale別閲覧・検索
-        - 閲覧専用の静的サイト生成と配信（[静的配信と自己ホスト](#page=self-hosting)）
-        - 本文ブロックは`rich-text`（CommonMark）（[文書の書き方（YAML）](#page=authoring)）
+        - 閲覧専用の静的サイト生成と配信（[[self-hosting|静的配信と自己ホスト]]）
+        - 本文ブロックは`rich-text`（CommonMark）（[[authoring|文書の書き方（YAML）]]）
 
         ## 現段階では利用できないこと（今後の範囲）
 
@@ -48,7 +48,7 @@ spec:
 
         ## 既知の注意点
 
-        - 静的サイトは`file://`では表示できない。必ずHTTPで配信する（[静的配信と自己ホスト](#page=self-hosting)）。
+        - 静的サイトは`file://`では表示できない。必ずHTTPで配信する（[[self-hosting|静的配信と自己ホスト]]）。
         - `dev`は既定で`127.0.0.1`にバインドする。Vellymに認証はないため、
           `--host 0.0.0.0`で起動したサーバーへ到達できる相手は、文書の閲覧・編集・構成変更ができる。
           信頼できるネットワークだけで使用する。
@@ -61,8 +61,8 @@ spec:
 
         ## 関連
 
-        - 全体像 → [Vellymとは](#page=overview)
-        - コマンド → [CLIリファレンス](#page=cli-reference)
+        - 全体像 → [[welcome|Vellymとは]]
+        - コマンド → [[cli-reference|CLIリファレンス]]
   translations:
     en:
       visibility: published
@@ -79,8 +79,8 @@ spec:
 
             ## Available now
 
-            - The four CLI commands: `init`, `dev`, `validate`, `build` ([CLI Reference](#page=cli-reference))
-            - In-browser initial setup ([Using the Browser UI](#page=browser-guide))
+            - The four CLI commands: `init`, `dev`, `validate`, `build` ([[cli-reference|CLI Reference]])
+            - In-browser initial setup ([[browser-guide|Using the Browser UI]])
             - In-browser reading, outline, tree, breadcrumbs
             - In-browser editing and saving (write-back to local YAML)
             - Full-text search (dynamic mode)
@@ -88,8 +88,8 @@ spec:
             - Multiple languages in one Page / Folder YAML, including adding, editing,
               publishing, and removing locales from the UI
             - Locale URLs, per-Page language switching, default-language fallback, and locale-specific reading and search
-            - Read-only static site generation and serving ([Static Publishing and Self-Hosting](#page=self-hosting))
-            - The `rich-text` (CommonMark) body block ([Authoring Documents (YAML)](#page=authoring))
+            - Read-only static site generation and serving ([[self-hosting|Static Publishing and Self-Hosting]])
+            - The `rich-text` (CommonMark) body block ([[authoring|Authoring Documents (YAML)]])
 
             ## Not available yet (future scope)
 
@@ -114,7 +114,7 @@ spec:
             ## Known caveats
 
             - A static site cannot be served over `file://`; always serve it over HTTP
-              ([Static Publishing and Self-Hosting](#page=self-hosting)).
+              ([[self-hosting|Static Publishing and Self-Hosting]]).
             - `dev` binds to `127.0.0.1` by default. Vellym has no authentication, so anyone who
               can reach a `--host 0.0.0.0` server can read, edit, and restructure your documents.
               Use it only on a trusted network.
@@ -130,5 +130,5 @@ spec:
 
             ## Related
 
-            - Big picture → [What is Vellym](#page=overview)
-            - Commands → [CLI Reference](#page=cli-reference)
+            - Big picture → [[welcome|What is Vellym]]
+            - Commands → [[cli-reference|CLI Reference]]

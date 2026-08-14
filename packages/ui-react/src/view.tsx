@@ -2,12 +2,21 @@ import {
   Children,
   createElement,
   isValidElement,
+  useMemo,
   type MouseEvent,
   type ReactNode
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { headingId, type PageView } from "@vellym-internal/core";
+import type { Root } from "mdast";
+import {
+  headingId,
+  transformWikiLinks,
+  type PageReferenceView,
+  type PageView,
+  type WikiLinkParts,
+  type WikiLinkResolution
+} from "@vellym-internal/core";
 import { Icon } from "./icon.js";
 import {
   documentPagePath,
@@ -16,13 +25,42 @@ import {
   staticAppBasePath
 } from "./routing.js";
 
+function referenceLookupKey(parts: Pick<WikiLinkParts, "target" | "heading">): string {
+  return `${parts.target}\u0000${parts.heading ?? ""}`;
+}
+
 export function DocumentView({
   view,
-  headerActions
+  headerActions,
+  onNavigatePage
 }: {
   view: PageView;
   headerActions?: ReactNode;
+  onNavigatePage?(pageId: string, heading?: string): void;
 }) {
+  const locale = view.locale ?? view.baseLocale;
+  // 本文の`[[...]]`は、サーバ／静的builderが解決した結果（view.relations.outgoing）
+  // を使って描画する。readerが独自に解決規則を持たないようにする。
+  const remarkWikiLinks = useMemo(() => {
+    const resolutions = new Map<string, PageReferenceView>();
+    for (const reference of view.relations?.outgoing ?? []) {
+      resolutions.set(referenceLookupKey(reference), reference);
+    }
+    const resolve = (parts: WikiLinkParts): WikiLinkResolution => {
+      const reference = resolutions.get(referenceLookupKey(parts));
+      if (!reference || reference.status !== "resolved" || !reference.pageId || !locale) {
+        return { status: reference?.status ?? "missing-page" };
+      }
+      return {
+        status: "resolved",
+        href: documentPagePath(locale, reference.slug ?? reference.pageId, reference.headingId),
+        ...(reference.title === undefined ? {} : { title: reference.title }),
+        pageId: reference.pageId,
+        ...(reference.headingId === undefined ? {} : { headingId: reference.headingId })
+      };
+    };
+    return () => (tree: Root) => transformWikiLinks(tree, resolve);
+  }, [locale, view.relations]);
   const headingOccurrences = new Map<string, number>();
   const textContent = (node: ReactNode): string =>
     Children.toArray(node)
@@ -80,11 +118,15 @@ export function DocumentView({
   };
   const unknownBlockCount =
     view.page.spec.blocks.length - view.knownBlocks.length;
+  const incoming = (view.relations?.incoming ?? []).filter(
+    (reference) => reference.pageId !== undefined
+  );
+  const diagnostics = view.relations?.diagnostics ?? [];
   return (
     <article
       className="document"
-      lang={view.locale ?? view.baseLocale}
-      dir={localeDirection(view.locale ?? view.baseLocale ?? "en")}
+      lang={locale}
+      dir={localeDirection(locale ?? "en")}
     >
       <header className="document-header">
         <div className="document-header-main">
@@ -98,7 +140,7 @@ export function DocumentView({
       {view.knownBlocks.map((block) => (
         <section className="rich-text" key={block.id} data-block-id={block.id}>
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkWikiLinks]}
             components={{
               h1: heading(1),
               h2: heading(2),
@@ -106,9 +148,28 @@ export function DocumentView({
               h4: heading(4),
               h5: heading(5),
               h6: heading(6),
-              a: ({ children, href }) => {
-                // 内部リンク(#page=…)はアプリ内遷移、外部リンクは新規タブで開き、
-                // 区別できるよう印を付ける。
+              a: ({ children, href, ...rest }) => {
+                // `[[...]]`由来の内部Pageリンクはremark pluginがdata属性を付ける。
+                // それ以外は素のCommonMarkリンク＝同一Page内の見出しアンカー
+                // （`#…`）か外部リンクであり、外部は新規タブで開いて印を付ける。
+                const attributes = rest as Record<string, string | undefined>;
+                const pageId = attributes["data-page-id"];
+                if (pageId) {
+                  const heading = attributes["data-heading-id"];
+                  return (
+                    <a
+                      href={href}
+                      className="internal-link"
+                      onClick={(event) => {
+                        if (!onNavigatePage) return;
+                        event.preventDefault();
+                        onNavigatePage(pageId, heading);
+                      }}
+                    >
+                      {children}
+                    </a>
+                  );
+                }
                 const external = !!href && !href.startsWith("#");
                 return (
                   <a
@@ -143,6 +204,36 @@ export function DocumentView({
       {unknownBlockCount > 0 && (
         <aside className="unsupported-content">
           この文書には、この版で表示できない内容があります。
+        </aside>
+      )}
+      {incoming.length > 0 && (
+        <aside className="page-backlinks">
+          <h2>このPageを参照しているPage</h2>
+          <ul>
+            {incoming.map((reference) => (
+              <li key={reference.pageId}>
+                <button
+                  type="button"
+                  className="backlink"
+                  onClick={() => onNavigatePage?.(reference.pageId!)}
+                >
+                  {reference.title ?? reference.pageId}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+      {diagnostics.length > 0 && (
+        <aside className="page-reference-diagnostics">
+          <h2>リンクの問題</h2>
+          <ul>
+            {diagnostics.map((diagnostic) => (
+              <li key={`${diagnostic.blockId}:${diagnostic.target}:${diagnostic.code}`}>
+                {diagnostic.message}
+              </li>
+            ))}
+          </ul>
         </aside>
       )}
     </article>

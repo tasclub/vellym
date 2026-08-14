@@ -428,9 +428,46 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
   vertical-align: top;
 }
 .milkdown .ProseMirror th { background: var(--sunken); font-weight: 700; }
-/* Distinguish internal (#page=) links from external links in the reader. */
+/* Distinguish internal ([[...]]) links from external links in the reader. */
 .rich-text a.internal-link { text-decoration-style: solid; }
 .rich-text .external-link-icon { margin-left: 3px; font-size: .8em; opacity: .7; }
+/* Unresolved [[...]] stays readable but is visibly not a link. */
+.rich-text .broken-link {
+  color: var(--muted);
+  font-style: normal;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+.page-backlinks,
+.page-reference-diagnostics {
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.page-backlinks h2,
+.page-reference-diagnostics h2 {
+  margin: 0 0 8px;
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.page-backlinks ul,
+.page-reference-diagnostics ul { margin: 0; padding-left: 1.2em; }
+.page-backlinks li,
+.page-reference-diagnostics li { margin: 3px 0; }
+.page-backlinks .backlink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.page-reference-diagnostics { color: var(--secondary); font-size: .92rem; }
 /* @milkdown/components ships no CSS; give its link tooltip a usable card. */
 .milkdown-link-preview,
 .milkdown-link-edit {

@@ -57,9 +57,16 @@ spec:
       configuredBaseLocale: "ja",
       labels: { area: "core" },
       availableLocales: ["en"],
-      outgoingPageIds: ["linked-page"],
       mtimeMs: 123
     });
+    expect(result.entry.outgoingReferences).toEqual([
+      {
+        sourcePageId: "search-page",
+        sourceLocale: "",
+        sourceBlockId: "body",
+        target: "linked-page"
+      }
+    ]);
     expect(result.entry.base.normalizedText).toBe("方針\n[[linked-page]]へ進む。");
     expect(result.entry.base.headingData).toEqual([0, "方針", "方針"]);
     expect(result.entry.translations?.get("en")?.normalizedTitle).toBe("search design");
@@ -96,13 +103,18 @@ ignored: true
 });
 
 describe("repository entry cross-file derivation", () => {
-  function entry(name: string, slug: string, relativePath: string): PageEntry {
+  function entry(
+    name: string,
+    slug: string,
+    relativePath: string,
+    body = "[[target-page]]"
+  ): PageEntry {
     const result = extract(`apiVersion: vellym.tasclub.com/v1alpha1
 kind: Page
 metadata: { name: ${name}, title: ${name}, slug: ${slug} }
 spec:
   blocks:
-    - { id: body, type: rich-text, format: commonmark, content: "[[target-page]]" }
+    - { id: body, type: rich-text, format: commonmark, content: ${JSON.stringify(body)} }
 `);
     if (result.kind !== "entry") throw new Error("fixture extraction failed");
     return { ...result.entry, relativePath };
@@ -112,13 +124,19 @@ spec:
     const index = deriveRepositoryEntryIndex([
       entry("first-page", "shared", "b.yaml"),
       entry("second-page", "shared", "a.yaml"),
-      entry("first-page", "other", "c.yaml")
+      entry("first-page", "other", "c.yaml"),
+      entry("target-page", "target-page", "d.yaml", "no links here")
     ]);
-    expect(index.pages.map(({ relativePath }) => relativePath)).toEqual(["a.yaml", "b.yaml"]);
+    expect(index.pages.map(({ relativePath }) => relativePath))
+      .toEqual(["a.yaml", "b.yaml", "d.yaml"]);
     expect(index.diagnostics.filter(({ code }) => code === "DUPLICATE_PAGE_ID")).toHaveLength(2);
     expect(index.diagnostics.filter(({ code }) => code === "DUPLICATE_PAGE_SLUG")).toHaveLength(2);
     expect(index.byName.get("first-page")?.readOnly).toBe(true);
-    expect(index.backlinks.get("target-page")).toEqual(["first-page", "second-page"]);
+    // pagesはrelativePath順（a.yaml=second-page, b.yaml=first-page）で走査するため、
+    // 逆参照もその順で安定する。
+    expect(
+      index.backlinksByTarget.get("target-page")?.map(({ sourcePageId }) => sourcePageId)
+    ).toEqual(["second-page", "first-page"]);
   });
 
   it("removes cross-file read-only state when a duplicate is resolved", () => {
