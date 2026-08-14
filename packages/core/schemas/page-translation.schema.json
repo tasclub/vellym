@@ -3,7 +3,7 @@
   "$id": "https://vellym.tasclub.com/schemas/page-translation.schema.json",
   "title": "Vellym Page translation",
   "type": "object",
-  "required": ["title", "blocks"],
+  "required": ["title"],
   "properties": {
     "visibility": { "enum": ["draft", "published"] },
     "title": { "type": "string" },

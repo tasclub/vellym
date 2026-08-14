@@ -68,7 +68,7 @@ describe("rich-text editing support", () => {
 
   it("keeps a page editable when an unknown block sits alongside a known one", () => {
     const sample = view("本文");
-    sample.page.spec.blocks.push({ id: "diagram", type: "diagram" });
+    sample.page.spec.blocks!.push({ id: "diagram", type: "diagram" });
 
     const result = assessPageEditing(sample);
     // The known rich-text block stays editable; the unknown block is preserved

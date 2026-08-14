@@ -10,7 +10,6 @@ export interface UnknownBlock {
 export interface RichTextBlock extends UnknownBlock {
   id: string;
   type: "rich-text";
-  format: "commonmark";
   content: string;
 }
 
@@ -19,7 +18,7 @@ export type TranslationVisibility = "draft" | "published";
 export interface PageTranslation {
   visibility?: TranslationVisibility;
   title: string;
-  blocks: UnknownBlock[];
+  blocks?: UnknownBlock[];
   [key: string]: unknown;
 }
 
@@ -30,7 +29,31 @@ export interface FolderTranslation {
   [key: string]: unknown;
 }
 
-export interface Page {
+/**
+ * すべてのkindが満たす共通契約。Coreはこの範囲だけを解釈し、種別固有の`spec`は
+ * 解釈せず原文のまま保持する。Coreが知らないkindのファイルはこの型として扱う。
+ */
+export interface VellymResource {
+  apiVersion: ApiVersion;
+  kind: string;
+  metadata: {
+    name: string;
+    title: string;
+    slug?: string;
+    labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+    [key: string]: unknown;
+  };
+  spec: {
+    locale?: string;
+    blocks?: UnknownBlock[];
+    translations?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface Page extends VellymResource {
   apiVersion: ApiVersion;
   kind: "Page";
   metadata: {
@@ -42,9 +65,9 @@ export interface Page {
     [key: string]: unknown;
   };
   spec: {
-    documentType?: string;
     locale?: string;
-    blocks: UnknownBlock[];
+    /** 本文を持たないkindを許すため任意。省略は空配列と同じ扱いとする。 */
+    blocks?: UnknownBlock[];
     translations?: Record<string, unknown>;
     [key: string]: unknown;
   };

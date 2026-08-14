@@ -19,7 +19,7 @@ export function pageLocaleHashes(
   if (baseLocale) {
     result[baseLocale] = hash({
       title: page.metadata.title,
-      blocks: page.spec.blocks
+      blocks: page.spec.blocks ?? []
     });
   }
   for (const [rawKey, value] of Object.entries(page.spec.translations ?? {})) {

@@ -84,7 +84,7 @@ describe("page schema", () => {
       ...page,
       spec: {
         blocks: [
-          ...page.spec.blocks,
+          ...(page.spec.blocks ?? []),
           { type: "vendor.example/widget", payload: { anything: true } }
         ]
       }
@@ -95,7 +95,7 @@ describe("page schema", () => {
   it("diagnoses duplicate known block IDs without rejecting the page", () => {
     const duplicate: Page = {
       ...page,
-      spec: { blocks: [...page.spec.blocks, { ...page.spec.blocks[0] }] }
+      spec: { blocks: [...(page.spec.blocks ?? []), { ...page.spec.blocks![0] }] }
     };
     expect(knownRichTextBlocks(duplicate, "page.yaml").diagnostics[0]?.code).toBe(
       "DUPLICATE_BLOCK_ID"

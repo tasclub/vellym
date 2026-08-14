@@ -117,7 +117,7 @@ export function DocumentView({
     }
   };
   const unknownBlockCount =
-    view.page.spec.blocks.length - view.knownBlocks.length;
+    (view.page.spec.blocks?.length ?? 0) - view.knownBlocks.length;
   const incoming = (view.relations?.incoming ?? []).filter(
     (reference) => reference.pageId !== undefined
   );
@@ -130,7 +130,6 @@ export function DocumentView({
     >
       <header className="document-header">
         <div className="document-header-main">
-          <p className="eyebrow">{view.page.spec.documentType ?? "document"}</p>
           <h1>{view.page.metadata.title}</h1>
         </div>
         {headerActions && (

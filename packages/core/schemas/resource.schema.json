@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vellym.tasclub.com/schemas/page.schema.json",
-  "title": "Vellym Page",
+  "$id": "https://vellym.tasclub.com/schemas/resource.schema.json",
+  "title": "Vellym resource (common contract)",
   "type": "object",
   "required": [
     "apiVersion",
@@ -17,7 +17,8 @@
       ]
     },
     "kind": {
-      "const": "Page"
+      "type": "string",
+      "minLength": 1
     },
     "metadata": {
       "type": "object",

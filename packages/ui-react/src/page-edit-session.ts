@@ -184,7 +184,7 @@ export function repairInvalidPageTranslation(
     .filter((block): block is RichTextBlock => {
       if (!block || typeof block !== "object" || Array.isArray(block)) return false;
       const item = block as Record<string, unknown>;
-      return item.type === "rich-text" && item.format === "commonmark" &&
+      return item.type === "rich-text" &&
         typeof item.id === "string" && typeof item.content === "string";
     })
     .map((block) => ({ ...block }));

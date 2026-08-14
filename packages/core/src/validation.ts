@@ -7,6 +7,7 @@ import configSchema from "../schemas/config.schema.json" with { type: "json" };
 import folderSchema from "../schemas/folder.schema.json" with { type: "json" };
 import pageTranslationSchema from "../schemas/page-translation.schema.json" with { type: "json" };
 import folderTranslationSchema from "../schemas/folder-translation.schema.json" with { type: "json" };
+import resourceSchema from "../schemas/resource.schema.json" with { type: "json" };
 import {
   SUPPORTED_API_VERSIONS,
   type Diagnostic,
@@ -17,7 +18,8 @@ import {
   type Page,
   type PageTranslation,
   type RichTextBlock,
-  type ValidTranslation
+  type ValidTranslation,
+  type VellymResource
 } from "./types.js";
 import { normalizeLocale } from "./i18n.js";
 
@@ -27,6 +29,7 @@ const Ajv2020 = Ajv2020Module.default as unknown as new (options?: Options) => {
 
 interface Validators {
   page: ValidateFunction<Page>;
+  resource: ValidateFunction<VellymResource>;
   folder: ValidateFunction<Folder>;
   pageTranslation: ValidateFunction<PageTranslation>;
   folderTranslation: ValidateFunction<FolderTranslation>;
@@ -46,6 +49,7 @@ function getValidators(): Validators {
   addFormats(ajv);
   validators = {
     page: ajv.compile<Page>(pageSchema),
+    resource: ajv.compile<VellymResource>(resourceSchema),
     folder: ajv.compile<Folder>(folderSchema),
     pageTranslation: ajv.compile<PageTranslation>(pageTranslationSchema),
     folderTranslation: ajv.compile<FolderTranslation>(folderTranslationSchema),
@@ -111,6 +115,25 @@ export function isVellymCandidate(value: unknown): boolean {
   );
 }
 
+/** Coreが組み込みで解釈するkind。これ以外はプラグインが提供する。 */
+export const BUILT_IN_KINDS = ["Page", "Folder"] as const;
+
+export function resourceKind(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const kind = (value as Record<string, unknown>).kind;
+  return typeof kind === "string" && kind ? kind : undefined;
+}
+
+/**
+ * Coreが種別固有スキーマを持たないkindか。プラグインが登録していないkindの
+ * ファイルは、Pageスキーマで検証せず、共通契約の範囲だけを解釈する。
+ * 解釈できないことをerrorにせず、無視して壊れないようにするための判定。
+ */
+export function isUnknownKind(value: unknown): boolean {
+  const kind = resourceKind(value);
+  return kind !== undefined && !(BUILT_IN_KINDS as readonly string[]).includes(kind);
+}
+
 // Pageのschemaは版ごとに分けない。追加（新しいblock種別、optionalな項目）は
 // どの版でも同じschemaを通り、版を上げるのは破壊的変更のときだけとする。
 // 実際に構造が異なる版を導入したときに初めてschemaを分割する。
@@ -145,6 +168,43 @@ export function validatePage(
     diagnostics
   );
   return { page: value, translations, invalidTranslations, diagnostics };
+}
+
+/**
+ * Coreが種別固有スキーマを持たないkindを、共通契約だけで検証する。
+ * 種別固有の`spec`は検証しない。解釈できないことをerrorにしない。
+ */
+export function validateResource(
+  value: unknown,
+  file: string
+): {
+  resource?: VellymResource;
+  translations: ValidTranslation<PageTranslation>[];
+  invalidTranslations: InvalidTranslation[];
+  diagnostics: Diagnostic[];
+} {
+  const validator = getValidators().resource;
+  if (!validator(value)) {
+    return {
+      translations: [],
+      invalidTranslations: [],
+      diagnostics: diagnosticsFromAjv(validator.errors, file, "RESOURCE_SCHEMA")
+    };
+  }
+  const diagnostics: Diagnostic[] = [];
+  const translations: ValidTranslation<PageTranslation>[] = [];
+  const invalidTranslations: InvalidTranslation[] = [];
+  validateResourceLocale(value.spec.locale, file, "/spec/locale", diagnostics);
+  validateTranslations(
+    value.spec.translations,
+    value.spec.locale,
+    file,
+    "page",
+    translations,
+    invalidTranslations,
+    diagnostics
+  );
+  return { resource: value, translations, invalidTranslations, diagnostics };
 }
 
 export function validateFolder(
@@ -327,7 +387,7 @@ function validateTranslations<T extends PageTranslation | FolderTranslation>(
       }
       if (kind === "page" && visibility === "published") {
         const blockResult = knownRichTextBlocksFrom(
-          (translation as PageTranslation).blocks,
+          (translation as PageTranslation).blocks ?? [],
           file,
           `${path}/blocks`
         );
@@ -390,7 +450,7 @@ export function knownRichTextBlocks(
   page: Page,
   file: string
 ): { blocks: RichTextBlock[]; diagnostics: Diagnostic[] } {
-  return knownRichTextBlocksFrom(page.spec.blocks, file, "/spec/blocks");
+  return knownRichTextBlocksFrom(page.spec.blocks ?? [], file, "/spec/blocks");
 }
 
 export function knownRichTextBlocksFrom(

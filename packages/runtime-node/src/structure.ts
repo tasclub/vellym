@@ -778,7 +778,6 @@ function pageSource(pageId: string, slug: string, title: string): string {
           {
             id: "body",
             type: "rich-text",
-            format: "commonmark",
             content: ""
           }
         ]
