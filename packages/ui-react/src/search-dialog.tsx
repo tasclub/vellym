@@ -65,7 +65,7 @@ export function SearchDialog(props: {
   }, [props.isOpen, props.locale, query]);
 
   function openResult(key: Key) {
-    const result = results.find((item) => item.pageId === key);
+    const result = results.find((item) => item.resultId === key);
     if (!result) return;
     props.onSelect(result.pageId, result.heading?.id);
     props.onOpenChange(false);
@@ -129,7 +129,7 @@ export function SearchDialog(props: {
             >
               {(result) => (
                 <ListBoxItem
-                  id={result.pageId}
+                  id={result.resultId}
                   textValue={`${result.title} ${result.snippet}`}
                   className={styles.result}
                 >

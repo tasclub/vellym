@@ -12,6 +12,7 @@ import { mkdtemp } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
   loadRepository,
+  loadCanonicalPage,
   localizedFolderSummaries,
   localizedPage,
   localizedPageSummaries,
@@ -164,11 +165,11 @@ describe("page repository and save", () => {
     const repository = await loadRepository(root);
     const loaded = repository.byName.get("test-page")!;
     await savePage(root, loaded, {
-      baseHash: loaded.view.hash,
+      baseHash: loaded.hash,
       title: "After",
       richTextBlocks: [{ id: "body", content: "After body" }]
     });
-    const output = await readFile(loaded.sourcePath, "utf8");
+    const output = await readFile(path.join(root, loaded.relativePath), "utf8");
     expect(output).toContain("# page comment");
     expect(output).toContain("vendorValue: keep-me");
     expect(output).toContain("vendor.example/widget");
@@ -181,7 +182,7 @@ describe("page repository and save", () => {
     const root = await fixture();
     const loaded = (await loadRepository(root)).byName.get("test-page")!;
     await savePage(root, loaded, {
-      baseHash: loaded.view.hash,
+      baseHash: loaded.hash,
       localeChanges: [{
         locale: "en",
         operation: "create",
@@ -193,8 +194,9 @@ describe("page repository and save", () => {
 
     let repository = await loadRepository(root);
     let page = repository.byName.get("test-page")!;
-    expect(page.view.page.spec.locale).toBe("ja");
-    expect(page.view.page.spec.translations?.en).toMatchObject({
+    let canonicalPage = await loadCanonicalPage(root, page);
+    expect(canonicalPage.spec.locale).toBe("ja");
+    expect(canonicalPage.spec.translations?.en).toMatchObject({
       visibility: "draft",
       title: "English title",
       blocks: [
@@ -202,9 +204,9 @@ describe("page repository and save", () => {
         expect.objectContaining({ type: "vendor.example/widget" })
       ]
     });
-    expect((await readFile(page.sourcePath, "utf8")).match(/# vendor block comment/g))
+    expect((await readFile(path.join(root, page.relativePath), "utf8")).match(/# vendor block comment/g))
       .toHaveLength(2);
-    expect(localizedPage(repository, "test-page", "en", "ja")).toMatchObject({
+    expect(await localizedPage(repository, "test-page", "en", "ja")).toMatchObject({
       locale: "ja",
       requestedLocale: "en",
       availableLocales: ["ja"],
@@ -212,7 +214,7 @@ describe("page repository and save", () => {
     });
 
     await expect(savePage(root, page, {
-      baseHash: page.view.hash,
+      baseHash: page.hash,
       localeChanges: [{
         locale: "en",
         operation: "update",
@@ -225,11 +227,11 @@ describe("page repository and save", () => {
     });
 
     await savePage(root, page, {
-      baseHash: page.view.hash,
+      baseHash: page.hash,
       localeChanges: [{
         locale: "en",
         operation: "update",
-        baselineHash: pageLocaleHashes(page.view.page, "ja").en,
+        baselineHash: pageLocaleHashes(canonicalPage, "ja").en,
         visibility: "published",
         title: "Published English",
         richTextBlocks: [{ id: "body", content: "Published body" }]
@@ -237,26 +239,27 @@ describe("page repository and save", () => {
     }, "ja");
     repository = await loadRepository(root);
     page = repository.byName.get("test-page")!;
-    expect(localizedPage(repository, "test-page", "en", "ja")).toMatchObject({
+    expect(await localizedPage(repository, "test-page", "en", "ja")).toMatchObject({
       locale: "en",
       page: { metadata: { title: "Published English" } }
     });
 
     await savePage(root, page, {
-      baseHash: page.view.hash,
+      baseHash: page.hash,
       removeLocales: ["en"]
     }, "ja");
     repository = await loadRepository(root);
-    expect(repository.byName.get("test-page")!.view.page.spec.translations?.en)
+    canonicalPage = await loadCanonicalPage(root, repository.byName.get("test-page")!);
+    expect(canonicalPage.spec.translations?.en)
       .toBeUndefined();
   });
 
   it("keeps the original file when a multilingual save fails validation", async () => {
     const root = await fixture();
     const loaded = (await loadRepository(root)).byName.get("test-page")!;
-    const before = await readFile(loaded.sourcePath, "utf8");
+    const before = await readFile(path.join(root, loaded.relativePath), "utf8");
     await expect(savePage(root, loaded, {
-      baseHash: loaded.view.hash,
+      baseHash: loaded.hash,
       localeChanges: [
         {
           locale: "en",
@@ -271,7 +274,7 @@ describe("page repository and save", () => {
         }
       ]
     }, "ja")).rejects.toMatchObject({ code: "SAVE_VALIDATION" });
-    expect(await readFile(loaded.sourcePath, "utf8")).toBe(before);
+    expect(await readFile(path.join(root, loaded.relativePath), "utf8")).toBe(before);
   });
 
   it("repairs an invalid translation and creates another draft in one save", async () => {
@@ -292,7 +295,7 @@ describe("page repository and save", () => {
     );
     const loaded = (await loadRepository(root)).byName.get("test-page")!;
     await savePage(root, loaded, {
-      baseHash: loaded.view.hash,
+      baseHash: loaded.hash,
       localeChanges: [
         {
           locale: "en",
@@ -306,7 +309,10 @@ describe("page repository and save", () => {
         }
       ]
     }, "ja");
-    const page = (await loadRepository(root)).byName.get("test-page")!.view.page;
+    const page = await loadCanonicalPage(
+      root,
+      (await loadRepository(root)).byName.get("test-page")!
+    );
     expect(page.spec.translations?.en).toMatchObject({ title: "Repaired English" });
     expect(page.spec.translations?.fr).toMatchObject({ visibility: "draft" });
   });
@@ -321,7 +327,7 @@ describe("page repository and save", () => {
     );
     const loaded = (await loadRepository(root)).byName.get("test-page")!;
     await savePage(root, loaded, {
-      baseHash: loaded.view.hash,
+      baseHash: loaded.hash,
       removeTranslationKeys: ["bad key!"]
     }, "ja");
     expect(await readFile(file, "utf8")).not.toContain("bad key!");
@@ -330,9 +336,9 @@ describe("page repository and save", () => {
   it("reports all targeted locales when the Page hash conflicts", async () => {
     const root = await fixture();
     const loaded = (await loadRepository(root)).byName.get("test-page")!;
-    await writeFile(loaded.sourcePath, `${source()}\n# external\n`, "utf8");
+    await writeFile(path.join(root, loaded.relativePath), `${source()}\n# external\n`, "utf8");
     await expect(savePage(root, loaded, {
-      baseHash: loaded.view.hash,
+      baseHash: loaded.hash,
       localeChanges: [{
         locale: "en",
         operation: "create",
@@ -350,11 +356,15 @@ describe("page repository and save", () => {
     const root = await fixture();
     const repository = await loadRepository(root);
     const loaded = repository.byName.get("test-page")!;
-    await writeFile(loaded.sourcePath, source().replace("Before", "External"), "utf8");
+    await writeFile(
+      path.join(root, loaded.relativePath),
+      source().replace("Before", "External"),
+      "utf8"
+    );
     await expect(
-      savePage(root, loaded, { baseHash: loaded.view.hash, title: "After" })
+      savePage(root, loaded, { baseHash: loaded.hash, title: "After" })
     ).rejects.toMatchObject({ status: 409, code: "HASH_CONFLICT" });
-    expect(await readFile(loaded.sourcePath, "utf8")).toContain("External");
+    expect(await readFile(path.join(root, loaded.relativePath), "utf8")).toContain("External");
   });
 
   it("marks multi-document YAML read-only", async () => {
@@ -365,7 +375,7 @@ describe("page repository and save", () => {
       "utf8"
     );
     const loaded = (await loadRepository(root)).byName.get("test-page")!;
-    expect(loaded.view.readOnly).toBe(true);
+    expect(loaded.readOnly).toBe(true);
   });
 
   it("does not impose a fixed page-count limit", async () => {
@@ -380,7 +390,7 @@ describe("page repository and save", () => {
     expect(repository.pages).toHaveLength(101);
     expect(repository.byName.has("page-100")).toBe(true);
     expect(pageSummaries(repository)).toHaveLength(101);
-    expect(searchRepository(repository, "Before").total).toBe(101);
+    expect(searchRepository(repository, "Before").total).toBe(202);
     expect(repository.diagnostics).toHaveLength(0);
   });
 
@@ -440,14 +450,14 @@ spec:
       results: [expect.objectContaining({ pageId: "ja-only", title: "日本語のみ" })]
     });
     expect(localizedSearchRepository(repository, "日本語だけ", "fr", "ja").total).toBe(1);
-    expect(localizedPage(repository, "multilingual", "en", "ja")).toMatchObject({
+    expect(await localizedPage(repository, "multilingual", "en", "ja")).toMatchObject({
       locale: "en",
       requestedLocale: "en",
       baseLocale: "ja",
       availableLocales: ["ja", "en"],
       page: { metadata: { title: "English title" } }
     });
-    expect(localizedPage(repository, "multilingual", "fr", "ja")).toMatchObject({
+    expect(await localizedPage(repository, "multilingual", "fr", "ja")).toMatchObject({
       locale: "ja",
       requestedLocale: "fr",
       baseLocale: "ja",
@@ -666,8 +676,11 @@ plugins: []
       expect(await search.json()).toMatchObject({
         data: {
           query: "Before",
-          total: 1,
-          results: [{ pageId: "test-page", title: "Before" }]
+          total: 2,
+          results: [
+            { pageId: "test-page", title: "Before" },
+            { pageId: "test-page", title: "Before" }
+          ]
         }
       });
       expect(
@@ -1181,7 +1194,7 @@ describe("setup plan and apply", () => {
     const repository = await loadRepository(path.join(root, "docs"));
     expect(repository.pages).toHaveLength(4);
     expect(
-      repository.pages.map((page) => page.view.page.metadata.title)
+      repository.pages.map((page) => page.title)
     ).toEqual(
       expect.arrayContaining([
         "YAML直接編集ガイド",
@@ -1406,9 +1419,9 @@ describe("slug migration", () => {
     ]);
     await applySlugMigration(root, plan);
     const repository = await loadRepository(root);
-    expect(repository.byName.get("first-page")?.view.page.metadata.slug)
+    expect(repository.byName.get("first-page")?.slug)
       .toBe("same-title");
-    expect(repository.byName.get("second-page")?.view.page.metadata.slug)
+    expect(repository.byName.get("second-page")?.slug)
       .toBe("same-title-2");
   });
 });

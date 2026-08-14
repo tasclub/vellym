@@ -98,11 +98,17 @@ function availableProjectLocales(
   snapshot: RepositorySnapshot,
   defaultLocale: string
 ): string[] {
-  return projectLocales(
-    snapshot.pages.map(({ view }) => view.page),
-    [...snapshot.folderResources.values()].map(({ resource }) => resource),
-    defaultLocale
-  );
+  return [...new Set([
+    ...projectLocales(
+      [],
+      [...snapshot.folderResources.values()].map(({ resource }) => resource),
+      defaultLocale
+    ),
+    ...snapshot.pages.flatMap((entry) => [
+      ...(entry.configuredBaseLocale ? [entry.configuredBaseLocale] : []),
+      ...(entry.availableLocales ?? [])
+    ])
+  ])];
 }
 
 async function readJson(request: AsyncIterable<Uint8Array>): Promise<unknown> {
@@ -419,7 +425,8 @@ export async function startDevServer(options: {
     watcherState = "connecting";
     const activeWatcher = watch(loadedConfig.contentRoot, {
       ignoreInitial: true,
-      followSymlinks: false
+      followSymlinks: false,
+      ignored: /(^|[/\\])\.[^/\\]*\.vellym-[^/\\]*\.tmp$/
     });
     watcher = activeWatcher;
     activeWatcher.once("ready", () => {
@@ -433,7 +440,7 @@ export async function startDevServer(options: {
       timer = setTimeout(async () => {
         if (!loadedConfig || !snapshot) return;
         try {
-          snapshot = await loadRepository(loadedConfig.contentRoot);
+          snapshot = await loadRepository(loadedConfig.contentRoot, snapshot);
         } catch (error) {
           snapshot = reloadFailureSnapshot(snapshot, error);
         }
@@ -821,7 +828,7 @@ export async function startDevServer(options: {
           ready.loadedConfig.contentRoot,
           plan as SlugMigrationPlan
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot);
+        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
         publishChange("repository-change");
         json(response, 200, envelope(result));
         return;
@@ -889,7 +896,7 @@ export async function startDevServer(options: {
           ready.loadedConfig.contentRoot,
           expected
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot);
+        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
         publishChange("repository-change");
         json(
           response,
@@ -924,7 +931,7 @@ export async function startDevServer(options: {
           ready.loadedConfig.contentRoot,
           plan as StructureUndoPlan
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot);
+        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
         publishChange("repository-change");
         json(
           response,
@@ -976,7 +983,7 @@ export async function startDevServer(options: {
           patch,
           resolveDefaultLocale(ready.loadedConfig.config)
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot);
+        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
         publishChange("repository-change");
         json(response, 200, envelope(saved, snapshot.diagnostics));
         return;
@@ -1000,7 +1007,7 @@ export async function startDevServer(options: {
       }
       if (pageEditMatch && request.method === "GET") {
         const ready = requireReady();
-        const editable = editablePage(
+        const editable = await editablePage(
           ready.snapshot,
           pageEditMatch[1]!,
           resolveDefaultLocale(ready.loadedConfig.config)
@@ -1020,12 +1027,8 @@ export async function startDevServer(options: {
         const requestedPage = pageMatch[1]!;
         const pageId = ready.snapshot.byName.has(requestedPage)
           ? requestedPage
-          : ready.snapshot.pages.find(
-              ({ view }) =>
-                (view.page.metadata.slug ?? view.page.metadata.name) ===
-                requestedPage
-            )?.view.page.metadata.name;
-        const localized = localizedPage(
+          : ready.snapshot.pages.find((entry) => entry.slug === requestedPage)?.name;
+        const localized = await localizedPage(
           ready.snapshot,
           pageId ?? requestedPage,
           localeState.requestedLocale,
@@ -1056,9 +1059,10 @@ export async function startDevServer(options: {
           ready.loadedConfig.contentRoot,
           loaded,
           patch,
-          resolveDefaultLocale(ready.loadedConfig.config)
+          resolveDefaultLocale(ready.loadedConfig.config),
+          ready.snapshot
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot);
+        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
         json(response, 200, envelope(saved, snapshot.diagnostics));
         return;
       }

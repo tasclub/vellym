@@ -177,11 +177,12 @@ export function buildDocumentNavigation(
   sortChildren(root, "");
 
   const orderedSummaries: PageSummary[] = [];
+  const summariesByName = new Map(summaries.map((page) => [page.name, page]));
   const collectPages = (nodes: DocumentNavigationNode[]) => {
     for (const node of nodes) {
       if (node.kind === "folder") collectPages(node.children);
       else {
-        const summary = summaries.find((page) => page.name === node.name);
+        const summary = summariesByName.get(node.name);
         if (summary) orderedSummaries.push(summary);
       }
     }

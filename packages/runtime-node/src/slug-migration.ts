@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { RuntimeError } from "./errors.js";
 import { savePage } from "./page-store.js";
 import { loadRepository } from "./repository.js";
@@ -24,14 +25,14 @@ export async function planSlugMigration(
   const repository = await loadRepository(contentRoot);
   const used = new Set(
     repository.pages
-      .map((page) => page.view.page.metadata.slug)
+      .map((page) => page.slug === page.name ? undefined : page.slug)
       .filter((slug): slug is string => Boolean(slug))
       .map((slug) => slug.toLocaleLowerCase())
   );
   const pages = repository.pages
-    .filter((page) => !page.view.page.metadata.slug)
+    .filter((page) => page.slug === page.name)
     .map((page) => {
-      const base = slugFromTitle(page.view.page.metadata.title);
+      const base = slugFromTitle(page.title);
       let slug = base;
       let suffix = 2;
       while (used.has(slug.toLocaleLowerCase())) {
@@ -39,8 +40,8 @@ export async function planSlugMigration(
       }
       used.add(slug.toLocaleLowerCase());
       return {
-        pageId: page.view.page.metadata.name,
-        title: page.view.page.metadata.title,
+        pageId: page.name,
+        title: page.title,
         slug
       };
     });
@@ -50,8 +51,8 @@ export async function planSlugMigration(
       .update(JSON.stringify({
         pages,
         hashes: repository.pages.map((page) => [
-          page.view.page.metadata.name,
-          page.view.hash
+          page.name,
+          page.hash
         ])
       }))
       .digest("hex")
@@ -76,11 +77,12 @@ export async function applySlugMigration(
     for (const item of current.pages) {
       const page = repository.byName.get(item.pageId);
       if (!page) throw new RuntimeError("Pageが見つかりません", 404, "NOT_FOUND");
-      originals.set(page.sourcePath, await readFile(page.sourcePath, "utf8"));
+      const sourcePath = path.join(contentRoot, page.relativePath);
+      originals.set(sourcePath, await readFile(sourcePath, "utf8"));
       await savePage(contentRoot, page, {
-        baseHash: page.view.hash,
+        baseHash: page.hash,
         slug: item.slug
-      });
+      }, undefined, repository);
     }
   } catch (error) {
     for (const [sourcePath, source] of originals) {

@@ -21,7 +21,6 @@ import {
 import { RuntimeError } from "./errors.js";
 import { contentHash, isInside } from "./path-utils.js";
 import { folderLocaleHashes } from "./locale-hash.js";
-import { loadRepository } from "./repository.js";
 import type { FolderLocaleChange, FolderPatch } from "./types.js";
 
 function object(value: unknown): Record<string, unknown> {
@@ -368,14 +367,18 @@ export async function saveFolder(
     await rm(temporary, { force: true });
     throw error;
   }
-  const refreshed = await loadRepository(contentRoot);
-  const summary = refreshed.folders.find(({ path: item }) => item === patch.folderPath);
-  if (!summary) throw new RuntimeError("保存後のFolderを再読込できません", 500, "RELOAD_FAILED");
-  const loaded = refreshed.folderResources.get(patch.folderPath);
-  return loaded
-    ? {
-        ...summary,
-        localeHashes: folderLocaleHashes(loaded.resource, defaultLocale)
-      }
-    : summary;
+  const savedFolder = validated.folder;
+  return {
+    path: patch.folderPath,
+    name: patch.folderPath ? path.posix.basename(patch.folderPath) : "",
+    title: savedFolder.metadata.title,
+    ...(savedFolder.spec.description === undefined
+      ? {}
+      : { description: savedFolder.spec.description }),
+    order: savedFolder.spec.order ?? [],
+    readOnly: false,
+    readOnlyReasons: [],
+    hash: contentHash(output),
+    localeHashes: folderLocaleHashes(savedFolder, defaultLocale)
+  };
 }

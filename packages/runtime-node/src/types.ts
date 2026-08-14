@@ -5,6 +5,7 @@ import type {
   FolderSummary,
   PageView
 } from "@vellym-internal/core";
+import type { PageEntry, RepositoryEntryIndex } from "./repository-entry.js";
 
 export interface LoadedConfig {
   config: VellymConfig;
@@ -14,10 +15,7 @@ export interface LoadedConfig {
   outputDir: string;
 }
 
-export interface LoadedPage {
-  view: PageView;
-  sourcePath: string;
-}
+export type LoadedPage = PageEntry;
 
 export interface LoadedFolder {
   resource: Folder;
@@ -47,6 +45,8 @@ export interface FolderPatch {
 }
 
 export interface RepositorySnapshot {
+  contentRoot: string;
+  entryIndex: RepositoryEntryIndex;
   pages: LoadedPage[];
   byName: Map<string, LoadedPage>;
   bySlug: Map<string, LoadedPage>;

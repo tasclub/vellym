@@ -11,6 +11,7 @@ import {
 import path from "node:path";
 import { isNode, isPair, parseDocument, type Document } from "yaml";
 import {
+  knownRichTextBlocks,
   normalizeLocale,
   persistedBaseLocaleForTranslations,
   validatePage,
@@ -450,17 +451,18 @@ export async function savePage(
   contentRoot: string,
   loaded: LoadedPage,
   patch: PagePatch,
-  defaultLocale = loaded.view.page.spec.locale ?? "ja"
+  defaultLocale = loaded.configuredBaseLocale ?? "ja",
+  repository?: import("./types.js").RepositorySnapshot
 ): Promise<PageView> {
-  if (loaded.view.readOnly) {
+  if (loaded.readOnly) {
     throw new RuntimeError(
-      loaded.view.readOnlyReasons.join("、") || "読み取り専用です",
+      loaded.readOnlyReasons?.join("、") || "読み取り専用です",
       422,
       "READ_ONLY"
     );
   }
   const rootReal = await realpath(contentRoot);
-  const sourceReal = await realpath(loaded.sourcePath);
+  const sourceReal = await realpath(path.join(contentRoot, loaded.relativePath));
   if (!isInside(rootReal, sourceReal)) {
     throw new RuntimeError("contentRoot外への保存は許可されていません", 422, "PATH_BOUNDARY");
   }
@@ -506,12 +508,12 @@ export async function savePage(
       );
     }
   }
-  const beforeErrors = validationErrors(original, loaded.view.relativePath);
+  const beforeErrors = validationErrors(original, loaded.relativePath);
   if (patch.title !== undefined) document.setIn(["metadata", "title"], patch.title);
   if (patch.slug !== undefined) {
-    const snapshot = await loadRepository(contentRoot);
+    const snapshot = repository ?? await loadRepository(contentRoot);
     const duplicate = snapshot.bySlug.get(patch.slug.normalize("NFC").toLocaleLowerCase());
-    if (duplicate && duplicate.view.page.metadata.name !== loaded.view.page.metadata.name) {
+    if (duplicate && duplicate.name !== loaded.name) {
       throw new RuntimeError("同じURL名のPageがあります", 409, "DUPLICATE_PAGE_SLUG");
     }
     document.setIn(["metadata", "slug"], patch.slug);
@@ -524,10 +526,10 @@ export async function savePage(
   const output = document.toString({ lineWidth: 0 });
   const checkedDocument = parseDocument(output);
   const checkedValue = checkedDocument.toJS();
-  if (checkedDocument.errors.length || !validatePage(checkedValue, loaded.view.relativePath).page) {
+  if (checkedDocument.errors.length || !validatePage(checkedValue, loaded.relativePath).page) {
     throw new RuntimeError("保存後のPage検証に失敗しました", 422, "SAVE_VALIDATION");
   }
-  assertNoNewValidationErrors(beforeErrors, checkedValue, loaded.view.relativePath);
+  assertNoNewValidationErrors(beforeErrors, checkedValue, loaded.relativePath);
 
   const temporary = path.join(
     path.dirname(sourceReal),
@@ -538,20 +540,27 @@ export async function savePage(
     await chmod(temporary, info.mode);
     const rereadDocument = parseDocument(await readFile(temporary, "utf8"));
     const rereadValue = rereadDocument.toJS();
-    if (rereadDocument.errors.length || !validatePage(rereadValue, loaded.view.relativePath).page) {
+    if (rereadDocument.errors.length || !validatePage(rereadValue, loaded.relativePath).page) {
       throw new RuntimeError("一時ファイルの再検証に失敗しました", 422, "TEMP_VALIDATION");
     }
-    assertNoNewValidationErrors(beforeErrors, rereadValue, loaded.view.relativePath);
+    assertNoNewValidationErrors(beforeErrors, rereadValue, loaded.relativePath);
     await rename(temporary, sourceReal);
   } catch (error) {
     await rm(temporary, { force: true });
     throw error;
   }
-  const refreshed = await loadRepository(contentRoot);
-  const page = refreshed.byName.get(loaded.view.page.metadata.name);
-  if (!page) throw new RuntimeError("保存後のPageを再読込できません", 500, "RELOAD_FAILED");
+  const validatedOutput = validatePage(checkedValue, loaded.relativePath);
+  if (!validatedOutput.page) {
+    throw new RuntimeError("保存後のPageを再読込できません", 500, "RELOAD_FAILED");
+  }
+  const known = knownRichTextBlocks(validatedOutput.page, loaded.relativePath);
   return {
-    ...page.view,
-    localeHashes: pageLocaleHashes(page.view.page, defaultLocale)
+    page: validatedOutput.page,
+    knownBlocks: known.blocks,
+    relativePath: loaded.relativePath,
+    hash: contentHash(output),
+    readOnly: false,
+    readOnlyReasons: [],
+    localeHashes: pageLocaleHashes(validatedOutput.page, defaultLocale)
   };
 }

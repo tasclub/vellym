@@ -8,13 +8,11 @@ import {
   type Document
 } from "yaml";
 import {
-  isVellymCandidate,
   knownRichTextBlocks,
   knownRichTextBlocksFrom,
   projectFolder,
   projectPage,
   publishedPageLocales,
-  searchPages,
   validateFolder,
   validatePage,
   type Diagnostic,
@@ -31,6 +29,31 @@ import type {
   LoadedPage,
   RepositorySnapshot
 } from "./types.js";
+import {
+  deriveRepositoryEntryIndex,
+  extractPageEntryWithPage,
+  searchRepositoryEntries,
+  type PageEntry
+} from "./repository-entry.js";
+
+export async function loadCanonicalPage(
+  contentRoot: string,
+  loaded: LoadedPage
+): Promise<PageView["page"]> {
+  const sourcePath = path.join(contentRoot, loaded.relativePath);
+  const source = await readFile(sourcePath, "utf8");
+  const extracted = extractPageEntryWithPage({
+    sourcePath,
+    relativePath: loaded.relativePath,
+    source,
+    mtimeMs: 0,
+    size: Buffer.byteLength(source)
+  });
+  if (extracted.kind !== "entry") {
+    throw new RuntimeError("Pageを読み込めません", 422, "PAGE_READ");
+  }
+  return extracted.page;
+}
 
 const ignoredDirectories = new Set([
   ".git",
@@ -217,10 +240,33 @@ async function assertContentRoot(contentRoot: string): Promise<void> {
   }
 }
 
-export async function loadRepository(contentRoot: string): Promise<RepositorySnapshot> {
+async function statRepositoryFiles(
+  files: string[]
+): Promise<Map<string, { mtimeMs: number; size: number }>> {
+  const result = new Map<string, { mtimeMs: number; size: number }>();
+  const batchSize = 256;
+  for (let offset = 0; offset < files.length; offset += batchSize) {
+    const batch = files.slice(offset, offset + batchSize);
+    const values = await Promise.all(batch.map(async (file) => {
+      const info = await stat(file);
+      return [file, { mtimeMs: info.mtimeMs, size: info.size }] as const;
+    }));
+    for (const [file, info] of values) result.set(file, info);
+  }
+  return result;
+}
+
+export async function loadRepository(
+  contentRoot: string,
+  previous?: RepositorySnapshot
+): Promise<RepositorySnapshot> {
   await assertContentRoot(contentRoot);
   const { files, directories } = await findRepositoryEntries(contentRoot);
-  const pages: LoadedPage[] = [];
+  const fileStats = await statRepositoryFiles(files);
+  const entries: PageEntry[] = [];
+  const previousEntries = new Map(
+    (previous?.entryIndex.pages ?? []).map((entry) => [entry.relativePath, entry])
+  );
   const diagnostics: Diagnostic[] = [];
   const loadedFolders = await loadFolderSummaries(
     contentRoot,
@@ -230,7 +276,17 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
   const folders = loadedFolders.summaries;
 
   for (const sourcePath of files) {
-    const relativePath = path.relative(contentRoot, sourcePath);
+    const relativePath = path.relative(contentRoot, sourcePath).replaceAll("\\", "/");
+    const info = fileStats.get(sourcePath)!;
+    const previousEntry = previousEntries.get(relativePath);
+    if (
+      previousEntry &&
+      previousEntry.mtimeMs === info.mtimeMs &&
+      previousEntry.size === info.size
+    ) {
+      entries.push(previousEntry);
+      continue;
+    }
     let source: string;
     try {
       source = await readFile(sourcePath, "utf8");
@@ -243,99 +299,19 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
       });
       continue;
     }
-    const documents = parseAllDocuments(source, { keepSourceTokens: true });
-    const first = documents[0];
-    if (!first) continue;
-    if (first.errors.length) {
-      diagnostics.push(
-        ...first.errors.map((error) => ({
-          file: relativePath,
-          severity: "error" as const,
-          code: "YAML_PARSE",
-          message: error.message
-        }))
-      );
-      continue;
-    }
-    let value: unknown;
-    try {
-      value = first.toJS({ maxAliasCount: 100 });
-    } catch (error) {
-      diagnostics.push({
-        file: relativePath,
-        severity: "error",
-        code: "YAML_CONVERSION",
-        message: error instanceof Error ? error.message : String(error)
-      });
-      continue;
-    }
-    if (!isVellymCandidate(value)) continue;
-    const validated = validatePage(value, relativePath);
-    diagnostics.push(...validated.diagnostics);
-    if (!validated.page) continue;
-    const known = knownRichTextBlocks(validated.page, relativePath);
-    diagnostics.push(...known.diagnostics);
-    const reasons = unsafeYamlReasons(first, documents.length);
-    pages.push({
+    const extracted = extractPageEntryWithPage({
       sourcePath,
-      view: {
-        page: validated.page,
-        knownBlocks: known.blocks,
-        relativePath,
-        hash: contentHash(source),
-        readOnly: reasons.length > 0,
-        readOnlyReasons: reasons
-      }
+      relativePath,
+      source,
+      mtimeMs: info.mtimeMs,
+      size: info.size
     });
+    diagnostics.push(...extracted.diagnostics);
+    if (extracted.kind === "entry") entries.push(extracted.entry);
   }
 
-  const groups = new Map<string, LoadedPage[]>();
-  for (const loaded of pages) {
-    const current = groups.get(loaded.view.page.metadata.name) ?? [];
-    current.push(loaded);
-    groups.set(loaded.view.page.metadata.name, current);
-  }
-  const uniquePages: LoadedPage[] = [];
-  for (const [name, group] of groups) {
-    if (group.length > 1) {
-      for (const loaded of group) {
-        loaded.view.readOnly = true;
-        loaded.view.readOnlyReasons.push(`Page ID ${name} が重複しています`);
-        diagnostics.push({
-          file: loaded.view.relativePath,
-          path: "/metadata/name",
-          severity: "error",
-          code: "DUPLICATE_PAGE_ID",
-          message: `Page ID ${name} が重複しています`
-        });
-      }
-    }
-    uniquePages.push(group[0]!);
-  }
-  const slugGroups = new Map<string, LoadedPage[]>();
-  for (const loaded of uniquePages) {
-    const slug = (
-      loaded.view.page.metadata.slug ?? loaded.view.page.metadata.name
-    ).normalize("NFC").toLocaleLowerCase();
-    const current = slugGroups.get(slug) ?? [];
-    current.push(loaded);
-    slugGroups.set(slug, current);
-  }
-  for (const [slug, group] of slugGroups) {
-    if (group.length < 2) continue;
-    for (const loaded of group) {
-      loaded.view.readOnly = true;
-      loaded.view.readOnlyReasons.push(`URL名 ${slug} が重複しています`);
-      diagnostics.push({
-        file: loaded.view.relativePath,
-        path: "/metadata/slug",
-        severity: "error",
-        code: "DUPLICATE_PAGE_SLUG",
-        message: `URL名 ${slug} が重複しています`
-      });
-    }
-  }
-  uniquePages.sort((a, b) => a.view.relativePath.localeCompare(b.view.relativePath));
+  const entryIndex = deriveRepositoryEntryIndex(entries);
+  diagnostics.push(...entryIndex.diagnostics);
   for (const folder of folders) {
     if (!folder.order.length) continue;
     const childNames = new Set<string>();
@@ -346,8 +322,8 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
         childNames.add(path.posix.basename(childFolder.path));
       }
     }
-    for (const page of uniquePages) {
-      const normalized = page.view.relativePath.replaceAll("\\", "/");
+    for (const page of entryIndex.pages) {
+      const normalized = page.relativePath;
       const parent = path.posix.dirname(normalized);
       if ((parent === "." ? "" : parent) === folder.path) {
         childNames.add(path.posix.basename(normalized));
@@ -365,16 +341,11 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
     }
   }
   return {
-    pages: uniquePages,
-    byName: new Map(uniquePages.map((page) => [page.view.page.metadata.name, page])),
-    bySlug: new Map(
-      uniquePages.map((page) => [
-        (page.view.page.metadata.slug ?? page.view.page.metadata.name)
-          .normalize("NFC")
-          .toLocaleLowerCase(),
-        page
-      ])
-    ),
+    contentRoot,
+    entryIndex,
+    pages: entryIndex.pages,
+    byName: entryIndex.byName,
+    bySlug: entryIndex.bySlug,
     folders,
     folderResources: loadedFolders.resources,
     diagnostics
@@ -382,17 +353,17 @@ export async function loadRepository(contentRoot: string): Promise<RepositorySna
 }
 
 export function pageSummaries(snapshot: RepositorySnapshot): PageSummary[] {
-  return snapshot.pages.map(({ view }) => ({
-    name: view.page.metadata.name,
-    slug: view.page.metadata.slug ?? view.page.metadata.name,
-    title: view.page.metadata.title,
-    relativePath: view.relativePath,
-    readOnly: view.readOnly
+  return snapshot.pages.map((entry) => ({
+    name: entry.name,
+    slug: entry.slug,
+    title: entry.title,
+    relativePath: entry.relativePath,
+    readOnly: entry.readOnly
   }));
 }
 
 export function searchRepository(snapshot: RepositorySnapshot, query: string) {
-  return searchPages(snapshot.pages.map(({ view }) => view), query);
+  return searchRepositoryEntries(snapshot.entryIndex, query);
 }
 
 export function localizedPageSummaries(
@@ -400,30 +371,24 @@ export function localizedPageSummaries(
   locale: string,
   defaultLocale: string
 ): PageSummary[] {
-  return snapshot.pages.flatMap(({ view }) => {
-    const requested = projectPage(
-      view.page,
-      locale,
-      defaultLocale,
-      view.relativePath
-    );
-    const projection = requested ?? projectPage(
-      view.page,
-      resolvePageBaseLocale(view.page, defaultLocale) ?? defaultLocale,
-      defaultLocale,
-      view.relativePath
-    );
-    if (!projection) return [];
-    return [{
-      name: projection.page.metadata.name,
-      slug: projection.page.metadata.slug ?? projection.page.metadata.name,
-      title: projection.page.metadata.title,
-      relativePath: view.relativePath,
-      readOnly: view.readOnly,
-      locale: projection.locale,
-      baseLocale: projection.baseLocale
-    }];
+  const cacheKey = `${locale}\0${defaultLocale}`;
+  const cached = snapshot.entryIndex.localizedSummaryCache.get(cacheKey);
+  if (cached) return cached;
+  const summaries = snapshot.pages.map((entry) => {
+    const translation = locale === defaultLocale ? undefined : entry.translations?.get(locale);
+    const record = translation?.visibility === "published" ? translation : entry.base;
+    return {
+      name: entry.name,
+      slug: entry.slug,
+      title: record.title,
+      relativePath: entry.relativePath,
+      readOnly: entry.readOnly,
+      locale: record.locale ?? entry.configuredBaseLocale ?? defaultLocale,
+      baseLocale: entry.configuredBaseLocale ?? defaultLocale
+    };
   });
+  snapshot.entryIndex.localizedSummaryCache.set(cacheKey, summaries);
+  return summaries;
 }
 
 export function localizedFolderSummaries(
@@ -466,39 +431,43 @@ export function localizedFolderSummaries(
     });
 }
 
-export function localizedPage(
+export async function localizedPage(
   snapshot: RepositorySnapshot,
   pageId: string,
   locale: string,
   defaultLocale: string
-): PageView | undefined {
+): Promise<PageView | undefined> {
   const loaded = snapshot.byName.get(pageId);
   if (!loaded) return undefined;
-  const baseLocale = resolvePageBaseLocale(loaded.view.page, defaultLocale);
+  const canonicalPage = await loadCanonicalPage(snapshot.contentRoot, loaded);
+  const baseLocale = resolvePageBaseLocale(canonicalPage, defaultLocale);
   if (!baseLocale) return undefined;
   const requestedProjection = projectPage(
-    loaded.view.page,
+    canonicalPage,
     locale,
     defaultLocale,
-    loaded.view.relativePath
+    loaded.relativePath
   );
   const projection = requestedProjection ?? projectPage(
-    loaded.view.page,
+    canonicalPage,
     baseLocale,
     defaultLocale,
-    loaded.view.relativePath
+    loaded.relativePath
   );
-  const validation = validatePage(loaded.view.page, loaded.view.relativePath);
+  const validation = validatePage(canonicalPage, loaded.relativePath);
   const availableLocales = publishedPageLocales(
-    loaded.view.page,
+    canonicalPage,
     defaultLocale,
-    loaded.view.relativePath
+    loaded.relativePath
   );
   if (!projection) return undefined;
   return {
-    ...loaded.view,
     page: projection.page,
     knownBlocks: projection.knownBlocks,
+    relativePath: loaded.relativePath,
+    hash: loaded.hash,
+    readOnly: loaded.readOnly,
+    readOnlyReasons: loaded.readOnlyReasons ?? [],
     locale: projection.locale,
     requestedLocale: locale,
     baseLocale,
@@ -512,36 +481,37 @@ export function localizedPage(
     ].filter((item, index, all) => all.indexOf(item) === index),
     isBaseLocale: projection.isBaseLocale,
     invalidTranslations: validation.invalidTranslations,
-    localeHashes: pageLocaleHashes(loaded.view.page, defaultLocale)
+    localeHashes: pageLocaleHashes(canonicalPage, defaultLocale)
   };
 }
 
-export function editablePage(
+export async function editablePage(
   snapshot: RepositorySnapshot,
   pageId: string,
   defaultLocale: string
-): PageEditView | undefined {
+): Promise<PageEditView | undefined> {
   const loaded = snapshot.byName.get(pageId) ?? snapshot.bySlug.get(pageId);
   if (!loaded) return undefined;
-  const validation = validatePage(loaded.view.page, loaded.view.relativePath);
-  const baseLocale = resolvePageBaseLocale(loaded.view.page, defaultLocale);
+  const canonicalPage = await loadCanonicalPage(snapshot.contentRoot, loaded);
+  const validation = validatePage(canonicalPage, loaded.relativePath);
+  const baseLocale = resolvePageBaseLocale(canonicalPage, defaultLocale);
   if (!baseLocale) return undefined;
-  const hashes = pageLocaleHashes(loaded.view.page, defaultLocale);
+  const hashes = pageLocaleHashes(canonicalPage, defaultLocale);
   return {
-    pageId: loaded.view.page.metadata.name,
-    slug: loaded.view.page.metadata.slug ?? loaded.view.page.metadata.name,
-    relativePath: loaded.view.relativePath,
-    hash: loaded.view.hash,
+    pageId: canonicalPage.metadata.name,
+    slug: canonicalPage.metadata.slug ?? canonicalPage.metadata.name,
+    relativePath: loaded.relativePath,
+    hash: loaded.hash,
     baseLocale,
     locales: [
       {
         locale: baseLocale,
         isBaseLocale: true,
         visibility: "published" as const,
-        title: loaded.view.page.metadata.title,
+        title: canonicalPage.metadata.title,
         blocks: knownRichTextBlocks(
-          loaded.view.page,
-          loaded.view.relativePath
+          canonicalPage,
+          loaded.relativePath
         ).blocks,
         baselineHash: hashes[baseLocale]!
       },
@@ -552,15 +522,15 @@ export function editablePage(
         title: value.title,
         blocks: knownRichTextBlocksFrom(
           value.blocks,
-          loaded.view.relativePath,
+          loaded.relativePath,
           `/spec/translations/${rawKey}/blocks`
         ).blocks,
         baselineHash: hashes[locale]!
       }))
     ],
     invalidTranslations: validation.invalidTranslations,
-    readOnly: loaded.view.readOnly,
-    readOnlyReasons: loaded.view.readOnlyReasons
+    readOnly: loaded.readOnly,
+    readOnlyReasons: loaded.readOnlyReasons ?? []
   };
 }
 
@@ -628,14 +598,5 @@ export function localizedSearchRepository(
   locale: string,
   defaultLocale: string
 ) {
-  const views = snapshot.pages.flatMap(({ view }) => {
-    const localized = localizedPage(
-      snapshot,
-      view.page.metadata.name,
-      locale,
-      defaultLocale
-    );
-    return localized && !("state" in localized) ? [localized] : [];
-  });
-  return searchPages(views, query);
+  return searchRepositoryEntries(snapshot.entryIndex, query, { locale, defaultLocale });
 }

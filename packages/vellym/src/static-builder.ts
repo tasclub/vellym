@@ -174,9 +174,10 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
   const loaded = await loadConfig(configPath);
   const repository = await loadRepository(loaded.contentRoot);
   const defaultLocale = resolveDefaultLocale(loaded.config);
-  const discoveredLocales = [...new Set(repository.pages.flatMap(({ view }) =>
-    publishedPageLocales(view.page, defaultLocale, view.relativePath)
-  ))];
+  const discoveredLocales = [...new Set(repository.pages.flatMap((entry) => [
+    ...(entry.configuredBaseLocale ? [entry.configuredBaseLocale] : []),
+    ...(entry.availableLocales ?? [])
+  ]))];
   const locales = [
     defaultLocale,
     ...discoveredLocales
@@ -199,7 +200,7 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
   const contentHash = createHash("sha256")
     .update(
       repository.pages
-        .map(({ view }) => `${view.relativePath}:${view.hash}`)
+        .map((entry) => `${entry.relativePath}:${entry.hash}`)
         .sort()
         .join("\n")
     )
@@ -256,7 +257,7 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       )}\n`, "utf8");
 
       for (const summary of summaries) {
-        const projected = localizedPage(repository, summary.name, locale, defaultLocale);
+        const projected = await localizedPage(repository, summary.name, locale, defaultLocale);
         if (!projected || "state" in projected) continue;
         await writeFile(
           path.join(dataDir, "pages", `${summary.name}.json`),

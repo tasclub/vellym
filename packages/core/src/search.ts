@@ -4,6 +4,7 @@ import type { PageView } from "./types.js";
 import { headingId } from "./navigation.js";
 
 export interface SearchResult {
+  resultId: string;
   pageId: string;
   title: string;
   breadcrumbs: string[];
@@ -84,6 +85,7 @@ export function searchPages(
     }
     if (!best) return;
     matches.push({
+      resultId: `${view.page.metadata.name}:0`,
       pageId: view.page.metadata.name,
       title,
       breadcrumbs: breadcrumbs(view.relativePath),
