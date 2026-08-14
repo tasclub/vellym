@@ -261,7 +261,7 @@ function applyRichTextChanges(
   changes: Array<{ id: string; content: string }>
 ): void {
   const blocks = blocksPath.length === 2
-    ? page.spec.blocks
+    ? page.spec.blocks ?? []
     : (() => {
         const rawKey = String(blocksPath[2]);
         const translation = page.spec.translations?.[rawKey];
@@ -283,7 +283,7 @@ function applyRichTextChanges(
       );
     }
     const target = indexes[0]!;
-    if (target.block.format !== "commonmark") {
+    if (target.block.type !== "rich-text") {
       throw new RuntimeError("編集可能なrich-textではありません", 400, "INVALID_BLOCK");
     }
     document.setIn([...blocksPath, target.index, "content"], change.content);

@@ -1,0 +1,2870 @@
+{
+  "packId": "vellym-core-project-structure",
+  "schemaVersion": "2.0",
+  "packVersion": "2.0.0",
+  "areas": [
+    {
+      "id": "project-overview",
+      "order": 0
+    },
+    {
+      "id": "project-management",
+      "order": 1
+    },
+    {
+      "id": "requirements",
+      "order": 2
+    },
+    {
+      "id": "architecture",
+      "order": 3
+    },
+    {
+      "id": "design",
+      "order": 4
+    },
+    {
+      "id": "implementation",
+      "order": 5
+    },
+    {
+      "id": "quality",
+      "order": 6
+    },
+    {
+      "id": "release",
+      "order": 7
+    },
+    {
+      "id": "operations",
+      "order": 8
+    },
+    {
+      "id": "closure",
+      "order": 9
+    }
+  ],
+  "folders": [
+    {
+      "id": "area-project-overview",
+      "areaId": "project-overview",
+      "order": 0,
+      "referenceModels": [
+        "iso-12207",
+        "pmbok"
+      ]
+    },
+    {
+      "id": "area-project-management",
+      "areaId": "project-management",
+      "order": 1,
+      "referenceModels": [
+        "iso-12207",
+        "pmbok"
+      ]
+    },
+    {
+      "id": "area-requirements",
+      "areaId": "requirements",
+      "order": 2,
+      "referenceModels": [
+        "iso-12207",
+        "iso-29148"
+      ]
+    },
+    {
+      "id": "area-architecture",
+      "areaId": "architecture",
+      "order": 3,
+      "referenceModels": [
+        "iso-12207",
+        "arc42",
+        "adr",
+        "c4-model"
+      ]
+    },
+    {
+      "id": "area-design",
+      "areaId": "design",
+      "order": 4,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "area-implementation",
+      "areaId": "implementation",
+      "order": 5,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "area-quality",
+      "areaId": "quality",
+      "order": 6,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "area-release",
+      "areaId": "release",
+      "order": 7,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "area-operations",
+      "areaId": "operations",
+      "order": 8,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "area-closure",
+      "areaId": "closure",
+      "order": 9,
+      "referenceModels": [
+        "iso-12207",
+        "pmbok"
+      ]
+    },
+    {
+      "id": "pm-planning",
+      "parentId": "area-project-management",
+      "areaId": "project-management",
+      "order": 0,
+      "referenceModels": [
+        "pmbok"
+      ]
+    },
+    {
+      "id": "pm-stakeholders",
+      "parentId": "area-project-management",
+      "areaId": "project-management",
+      "order": 1,
+      "referenceModels": [
+        "pmbok"
+      ]
+    },
+    {
+      "id": "pm-risks",
+      "parentId": "area-project-management",
+      "areaId": "project-management",
+      "order": 2,
+      "referenceModels": [
+        "pmbok"
+      ]
+    },
+    {
+      "id": "pm-changes",
+      "parentId": "area-project-management",
+      "areaId": "project-management",
+      "order": 3,
+      "referenceModels": [
+        "pmbok"
+      ]
+    },
+    {
+      "id": "pm-progress",
+      "parentId": "area-project-management",
+      "areaId": "project-management",
+      "order": 4,
+      "referenceModels": [
+        "pmbok"
+      ]
+    },
+    {
+      "id": "req-business",
+      "parentId": "area-requirements",
+      "areaId": "requirements",
+      "order": 0,
+      "referenceModels": [
+        "iso-29148"
+      ]
+    },
+    {
+      "id": "req-stakeholder",
+      "parentId": "area-requirements",
+      "areaId": "requirements",
+      "order": 1,
+      "referenceModels": [
+        "iso-29148"
+      ]
+    },
+    {
+      "id": "req-system",
+      "parentId": "area-requirements",
+      "areaId": "requirements",
+      "order": 2,
+      "referenceModels": [
+        "iso-29148",
+        "security"
+      ]
+    },
+    {
+      "id": "req-scope",
+      "parentId": "area-requirements",
+      "areaId": "requirements",
+      "order": 3,
+      "referenceModels": [
+        "iso-29148",
+        "pmbok"
+      ]
+    },
+    {
+      "id": "req-traceability",
+      "parentId": "area-requirements",
+      "areaId": "requirements",
+      "order": 4,
+      "referenceModels": [
+        "iso-29148"
+      ]
+    },
+    {
+      "id": "arc-arc42",
+      "parentId": "area-architecture",
+      "areaId": "architecture",
+      "order": 0,
+      "referenceModels": [
+        "arc42"
+      ]
+    },
+    {
+      "id": "arc-adr",
+      "parentId": "area-architecture",
+      "areaId": "architecture",
+      "order": 1,
+      "referenceModels": [
+        "adr"
+      ]
+    },
+    {
+      "id": "arc-models",
+      "parentId": "area-architecture",
+      "areaId": "architecture",
+      "order": 2,
+      "referenceModels": [
+        "c4-model"
+      ]
+    },
+    {
+      "id": "design-ui",
+      "parentId": "area-design",
+      "areaId": "design",
+      "order": 0,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "design-api",
+      "parentId": "area-design",
+      "areaId": "design",
+      "order": 1,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "design-data",
+      "parentId": "area-design",
+      "areaId": "design",
+      "order": 2,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "design-component",
+      "parentId": "area-design",
+      "areaId": "design",
+      "order": 3,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "design-process",
+      "parentId": "area-design",
+      "areaId": "design",
+      "order": 4,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "design-external",
+      "parentId": "area-design",
+      "areaId": "design",
+      "order": 5,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "quality-policy",
+      "parentId": "area-quality",
+      "areaId": "quality",
+      "order": 0,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "quality-test-plan",
+      "parentId": "area-quality",
+      "areaId": "quality",
+      "order": 1,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "quality-test-spec",
+      "parentId": "area-quality",
+      "areaId": "quality",
+      "order": 2,
+      "referenceModels": [
+        "iso-12207",
+        "security"
+      ]
+    },
+    {
+      "id": "quality-test-result",
+      "parentId": "area-quality",
+      "areaId": "quality",
+      "order": 3,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "quality-defects",
+      "parentId": "area-quality",
+      "areaId": "quality",
+      "order": 4,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "quality-verification",
+      "parentId": "area-quality",
+      "areaId": "quality",
+      "order": 5,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    },
+    {
+      "id": "quality-validation",
+      "parentId": "area-quality",
+      "areaId": "quality",
+      "order": 6,
+      "referenceModels": [
+        "iso-12207"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "id": "project-guide",
+      "order": 0,
+      "documentType": "repository-guide",
+      "requiredness": "core",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "welcome",
+      "order": 1,
+      "documentType": "guide",
+      "requiredness": "optional",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [],
+      "version": "1.0.0"
+    },
+    {
+      "id": "external-ai-document-guide",
+      "order": 2,
+      "documentType": "guide",
+      "requiredness": "optional",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [],
+      "version": "1.0.0"
+    },
+    {
+      "id": "yaml-editing-guide",
+      "order": 3,
+      "documentType": "guide",
+      "requiredness": "optional",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [],
+      "version": "1.0.0"
+    },
+    {
+      "id": "project-charter",
+      "parentFolderId": "area-project-overview",
+      "order": 0,
+      "documentType": "project-charter",
+      "requiredness": "core",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "project-summary",
+      "parentFolderId": "area-project-overview",
+      "order": 1,
+      "documentType": "project-overview",
+      "requiredness": "core",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "glossary",
+      "parentFolderId": "area-project-overview",
+      "order": 2,
+      "documentType": "glossary",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok",
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "pm-plan",
+      "parentFolderId": "pm-planning",
+      "order": 0,
+      "documentType": "project-management-plan",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "scope-management",
+      "parentFolderId": "pm-planning",
+      "order": 1,
+      "documentType": "scope-management",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "wbs",
+      "parentFolderId": "pm-planning",
+      "order": 2,
+      "documentType": "wbs",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "schedule",
+      "parentFolderId": "pm-planning",
+      "order": 3,
+      "documentType": "schedule",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "planning-milestones",
+      "parentFolderId": "pm-planning",
+      "order": 4,
+      "documentType": "milestones",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "cost-plan",
+      "parentFolderId": "pm-planning",
+      "order": 5,
+      "documentType": "cost-plan",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "quality-management-plan",
+      "parentFolderId": "pm-planning",
+      "order": 6,
+      "documentType": "quality-management-plan",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "communication-plan",
+      "parentFolderId": "pm-planning",
+      "order": 7,
+      "documentType": "communication-plan",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "resource-plan",
+      "parentFolderId": "pm-planning",
+      "order": 8,
+      "documentType": "resource-plan",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "procurement-plan",
+      "parentFolderId": "pm-planning",
+      "order": 9,
+      "documentType": "procurement-plan",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "stakeholders",
+      "parentFolderId": "pm-stakeholders",
+      "order": 0,
+      "documentType": "stakeholder-register",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0",
+      "templateFamilyId": "stakeholder-register"
+    },
+    {
+      "id": "org-chart",
+      "parentFolderId": "pm-stakeholders",
+      "order": 1,
+      "documentType": "organization",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "roles-responsibilities",
+      "parentFolderId": "pm-stakeholders",
+      "order": 2,
+      "documentType": "roles",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "communication-policy",
+      "parentFolderId": "pm-stakeholders",
+      "order": 3,
+      "documentType": "communication-policy",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "approvers",
+      "parentFolderId": "pm-stakeholders",
+      "order": 4,
+      "documentType": "approvers",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "risk-register",
+      "parentFolderId": "pm-risks",
+      "order": 0,
+      "documentType": "risk-register",
+      "requiredness": "core",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0",
+      "templateFamilyId": "risk-register"
+    },
+    {
+      "id": "issue-register",
+      "parentFolderId": "pm-risks",
+      "order": 1,
+      "documentType": "issue-register",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0",
+      "templateFamilyId": "issue-register"
+    },
+    {
+      "id": "change-request",
+      "parentFolderId": "pm-changes",
+      "order": 0,
+      "documentType": "change-request",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0",
+      "templateFamilyId": "change-request"
+    },
+    {
+      "id": "change-log",
+      "parentFolderId": "pm-changes",
+      "order": 1,
+      "documentType": "change-log",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "change-request"
+      ]
+    },
+    {
+      "id": "project-decision-log",
+      "parentFolderId": "pm-changes",
+      "order": 2,
+      "documentType": "project-decision",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0",
+      "templateFamilyId": "decision-log"
+    },
+    {
+      "id": "roadmap",
+      "parentFolderId": "pm-progress",
+      "order": 0,
+      "documentType": "roadmap",
+      "requiredness": "core",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "progress-milestones",
+      "parentFolderId": "pm-progress",
+      "order": 1,
+      "documentType": "milestones",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "backlog",
+      "parentFolderId": "pm-progress",
+      "order": 2,
+      "documentType": "backlog",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid"
+      ],
+      "referenceModels": [],
+      "version": "1.0.0",
+      "templateFamilyId": "backlog"
+    },
+    {
+      "id": "current-position",
+      "parentFolderId": "pm-progress",
+      "order": 3,
+      "documentType": "project-status",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "status-report",
+      "parentFolderId": "pm-progress",
+      "order": 4,
+      "documentType": "status-report",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "user-problem",
+      "parentFolderId": "req-business",
+      "order": 0,
+      "documentType": "user-problem",
+      "requiredness": "core",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "business-requirements",
+      "parentFolderId": "req-business",
+      "order": 1,
+      "documentType": "business-requirement",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "expected-benefits",
+      "parentFolderId": "req-business",
+      "order": 2,
+      "documentType": "expected-benefits",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "success-metrics",
+      "parentFolderId": "req-business",
+      "order": 3,
+      "documentType": "success-metrics",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "personas",
+      "parentFolderId": "req-stakeholder",
+      "order": 0,
+      "documentType": "persona",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "usage-scenarios",
+      "parentFolderId": "req-stakeholder",
+      "order": 1,
+      "documentType": "usage-scenario",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "use-cases",
+      "parentFolderId": "req-stakeholder",
+      "order": 2,
+      "documentType": "use-case",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "user-stories",
+      "parentFolderId": "req-stakeholder",
+      "order": 3,
+      "documentType": "user-story",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0",
+      "templateFamilyId": "user-story"
+    },
+    {
+      "id": "stakeholder-requirements",
+      "parentFolderId": "req-stakeholder",
+      "order": 4,
+      "documentType": "stakeholder-requirement",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "requirements",
+      "parentFolderId": "req-system",
+      "order": 0,
+      "documentType": "requirement",
+      "requiredness": "core",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "non-functional-requirements",
+      "parentFolderId": "req-system",
+      "order": 1,
+      "documentType": "non-functional-requirement",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "interface-requirements",
+      "parentFolderId": "req-system",
+      "order": 2,
+      "documentType": "interface-requirement",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "data-requirements",
+      "parentFolderId": "req-system",
+      "order": 3,
+      "documentType": "data-requirement",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "security-requirements",
+      "parentFolderId": "req-system",
+      "order": 4,
+      "documentType": "security-requirement",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148",
+        "security"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "constraints",
+      "parentFolderId": "req-system",
+      "order": 5,
+      "documentType": "constraint",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148",
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "scope",
+      "parentFolderId": "req-scope",
+      "order": 0,
+      "documentType": "scope",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok",
+        "iso-29148"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "out-of-scope",
+      "parentFolderId": "req-scope",
+      "order": 1,
+      "documentType": "scope",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok",
+        "iso-29148"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "scope"
+      ]
+    },
+    {
+      "id": "boundary-conditions",
+      "parentFolderId": "req-scope",
+      "order": 2,
+      "documentType": "scope",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok",
+        "iso-29148"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "scope"
+      ]
+    },
+    {
+      "id": "requirements-traceability",
+      "parentFolderId": "req-traceability",
+      "order": 0,
+      "documentType": "traceability",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "requirements-design-links",
+      "parentFolderId": "req-traceability",
+      "order": 1,
+      "documentType": "traceability",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements-traceability"
+      ]
+    },
+    {
+      "id": "requirements-test-links",
+      "parentFolderId": "req-traceability",
+      "order": 2,
+      "documentType": "traceability",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-29148"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements-traceability"
+      ]
+    },
+    {
+      "id": "arc42-introduction",
+      "parentFolderId": "arc-arc42",
+      "order": 0,
+      "documentType": "architecture",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-constraints",
+      "parentFolderId": "arc-arc42",
+      "order": 1,
+      "documentType": "architecture",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-context",
+      "parentFolderId": "arc-arc42",
+      "order": 2,
+      "documentType": "architecture",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-strategy",
+      "parentFolderId": "arc-arc42",
+      "order": 3,
+      "documentType": "architecture",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-building-blocks",
+      "parentFolderId": "arc-arc42",
+      "order": 4,
+      "documentType": "architecture",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-runtime",
+      "parentFolderId": "arc-arc42",
+      "order": 5,
+      "documentType": "architecture",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-deployment",
+      "parentFolderId": "arc-arc42",
+      "order": 6,
+      "documentType": "architecture",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-crosscutting",
+      "parentFolderId": "arc-arc42",
+      "order": 7,
+      "documentType": "architecture",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-decisions",
+      "parentFolderId": "arc-arc42",
+      "order": 8,
+      "documentType": "architecture",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-quality",
+      "parentFolderId": "arc-arc42",
+      "order": 9,
+      "documentType": "architecture",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-risks",
+      "parentFolderId": "arc-arc42",
+      "order": 10,
+      "documentType": "architecture",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "arc42-glossary",
+      "parentFolderId": "arc-arc42",
+      "order": 11,
+      "documentType": "architecture",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "arc42"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "decision-log",
+      "parentFolderId": "arc-adr",
+      "order": 0,
+      "documentType": "architecture-decision",
+      "requiredness": "core",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "adr"
+      ],
+      "version": "1.0.0",
+      "templateFamilyId": "decision-log"
+    },
+    {
+      "id": "c4-context",
+      "parentFolderId": "arc-models",
+      "order": 0,
+      "documentType": "architecture-model",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "c4-model"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "c4-container",
+      "parentFolderId": "arc-models",
+      "order": 1,
+      "documentType": "architecture-model",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "c4-model"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "c4-context"
+      ]
+    },
+    {
+      "id": "c4-component",
+      "parentFolderId": "arc-models",
+      "order": 2,
+      "documentType": "architecture-model",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "c4-model"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "c4-container"
+      ]
+    },
+    {
+      "id": "c4-code",
+      "parentFolderId": "arc-models",
+      "order": 3,
+      "documentType": "architecture-model",
+      "requiredness": "optional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "c4-model"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "c4-component"
+      ]
+    },
+    {
+      "id": "design-ui-overview",
+      "parentFolderId": "design-ui",
+      "order": 0,
+      "documentType": "design",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "design-api-overview",
+      "parentFolderId": "design-api",
+      "order": 0,
+      "documentType": "design",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "design-data-overview",
+      "parentFolderId": "design-data",
+      "order": 0,
+      "documentType": "design",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "design-component-overview",
+      "parentFolderId": "design-component",
+      "order": 0,
+      "documentType": "design",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "design-process-overview",
+      "parentFolderId": "design-process",
+      "order": 0,
+      "documentType": "design",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "design-external-overview",
+      "parentFolderId": "design-external",
+      "order": 0,
+      "documentType": "design",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "development-policy",
+      "parentFolderId": "area-implementation",
+      "order": 0,
+      "documentType": "development-policy",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207",
+        "security"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "coding-standards",
+      "parentFolderId": "area-implementation",
+      "order": 1,
+      "documentType": "coding-standards",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "git-workflow",
+      "parentFolderId": "area-implementation",
+      "order": 2,
+      "documentType": "git-workflow",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207",
+        "security"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "branching-strategy",
+      "parentFolderId": "area-implementation",
+      "order": 3,
+      "documentType": "branching-strategy",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "configuration-management",
+      "parentFolderId": "area-implementation",
+      "order": 4,
+      "documentType": "configuration-management",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "environments",
+      "parentFolderId": "area-implementation",
+      "order": 5,
+      "documentType": "environments",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "build",
+      "parentFolderId": "area-implementation",
+      "order": 6,
+      "documentType": "build",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "deployment",
+      "parentFolderId": "area-implementation",
+      "order": 7,
+      "documentType": "deployment",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "quality-policy-overview",
+      "parentFolderId": "quality-policy",
+      "order": 0,
+      "documentType": "quality-policy",
+      "requiredness": "core",
+      "minimumLevel": "light",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "test-plan",
+      "parentFolderId": "quality-test-plan",
+      "order": 0,
+      "documentType": "test-plan",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "quality-policy-overview"
+      ]
+    },
+    {
+      "id": "test-specification",
+      "parentFolderId": "quality-test-spec",
+      "order": 0,
+      "documentType": "test-specification",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "test-plan"
+      ]
+    },
+    {
+      "id": "test-result",
+      "parentFolderId": "quality-test-result",
+      "order": 0,
+      "documentType": "test-result",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "test-specification"
+      ]
+    },
+    {
+      "id": "defect-register",
+      "parentFolderId": "quality-defects",
+      "order": 0,
+      "documentType": "defect-register",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "verification-record",
+      "parentFolderId": "quality-verification",
+      "order": 0,
+      "documentType": "verification",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "validation-acceptance",
+      "parentFolderId": "quality-validation",
+      "order": 0,
+      "documentType": "validation",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "user-problem"
+      ]
+    },
+    {
+      "id": "release-plan",
+      "parentFolderId": "area-release",
+      "order": 0,
+      "documentType": "release-plan",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "release-decision",
+      "parentFolderId": "area-release",
+      "order": 1,
+      "documentType": "release-decision",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "release-plan"
+      ]
+    },
+    {
+      "id": "migration-plan",
+      "parentFolderId": "area-release",
+      "order": 2,
+      "documentType": "migration-plan",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "release-plan"
+      ]
+    },
+    {
+      "id": "migration-procedure",
+      "parentFolderId": "area-release",
+      "order": 3,
+      "documentType": "migration-procedure",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "migration-plan"
+      ]
+    },
+    {
+      "id": "rollback",
+      "parentFolderId": "area-release",
+      "order": 4,
+      "documentType": "rollback",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "release-plan"
+      ]
+    },
+    {
+      "id": "release-notes",
+      "parentFolderId": "area-release",
+      "order": 5,
+      "documentType": "release-notes",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "release-plan"
+      ]
+    },
+    {
+      "id": "operations-guide",
+      "parentFolderId": "area-operations",
+      "order": 0,
+      "documentType": "operations-guide",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "operations-procedure",
+      "parentFolderId": "area-operations",
+      "order": 1,
+      "documentType": "operations-procedure",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "monitoring",
+      "parentFolderId": "area-operations",
+      "order": 2,
+      "documentType": "monitoring",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "backup-recovery",
+      "parentFolderId": "area-operations",
+      "order": 3,
+      "documentType": "backup-recovery",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "incident-response",
+      "parentFolderId": "area-operations",
+      "order": 4,
+      "documentType": "incident-response",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "maintenance-policy",
+      "parentFolderId": "area-operations",
+      "order": 5,
+      "documentType": "maintenance-policy",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "security-operations",
+      "parentFolderId": "area-operations",
+      "order": 6,
+      "documentType": "security-operations",
+      "requiredness": "conditional",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "iso-12207",
+        "security"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "closure-criteria",
+      "parentFolderId": "area-closure",
+      "order": 0,
+      "documentType": "closure-criteria",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "deliverables",
+      "parentFolderId": "area-closure",
+      "order": 1,
+      "documentType": "deliverables",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "handover",
+      "parentFolderId": "area-closure",
+      "order": 2,
+      "documentType": "handover",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "operations-guide"
+      ]
+    },
+    {
+      "id": "open-items",
+      "parentFolderId": "area-closure",
+      "order": 3,
+      "documentType": "open-items",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "retrospective",
+      "parentFolderId": "area-closure",
+      "order": 4,
+      "documentType": "retrospective",
+      "requiredness": "recommended",
+      "minimumLevel": "standard",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "id": "lessons-learned",
+      "parentFolderId": "area-closure",
+      "order": 5,
+      "documentType": "lessons-learned",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "retrospective"
+      ]
+    },
+    {
+      "id": "closure-report",
+      "parentFolderId": "area-closure",
+      "order": 6,
+      "documentType": "closure-report",
+      "requiredness": "conditional",
+      "minimumLevel": "strict",
+      "sizes": [
+        "personal",
+        "small-team",
+        "medium-large"
+      ],
+      "methods": [
+        "agile",
+        "hybrid",
+        "waterfall"
+      ],
+      "referenceModels": [
+        "pmbok"
+      ],
+      "version": "1.0.0",
+      "dependencies": [
+        "closure-criteria"
+      ]
+    }
+  ]
+}

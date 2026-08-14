@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vellym.tasclub.com/schemas/setup-pack-2.0.json",
+  "title": "Vellym setup pack manifest",
+  "description": "Structure of a built-in setup pack manifest. Localized text lives in <locale>.json files keyed by the same node IDs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["packId", "schemaVersion", "packVersion", "areas", "folders", "pages"],
+  "properties": {
+    "packId": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "const": "2.0" },
+    "packVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "areas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "order"],
+        "properties": {
+          "id": { "$ref": "#/$defs/nodeId" },
+          "order": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "folders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "areaId", "order", "referenceModels"],
+        "properties": {
+          "id": { "$ref": "#/$defs/nodeId" },
+          "parentId": { "$ref": "#/$defs/nodeId" },
+          "areaId": { "$ref": "#/$defs/nodeId" },
+          "order": { "type": "integer", "minimum": 0 },
+          "referenceModels": { "$ref": "#/$defs/referenceModels" }
+        }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "order",
+          "documentType",
+          "requiredness",
+          "minimumLevel",
+          "sizes",
+          "methods",
+          "referenceModels",
+          "version"
+        ],
+        "properties": {
+          "id": { "$ref": "#/$defs/nodeId" },
+          "parentFolderId": { "$ref": "#/$defs/nodeId" },
+          "order": { "type": "integer", "minimum": 0 },
+          "documentType": { "type": "string", "minLength": 1 },
+          "requiredness": { "enum": ["core", "recommended", "conditional", "optional"] },
+          "minimumLevel": { "enum": ["light", "standard", "strict"] },
+          "sizes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["personal", "small-team", "medium-large"] }
+          },
+          "methods": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["agile", "hybrid", "waterfall"] }
+          },
+          "dependencies": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/nodeId" }
+          },
+          "related": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/nodeId" }
+          },
+          "templateFamilyId": { "$ref": "#/$defs/nodeId" },
+          "referenceModels": { "$ref": "#/$defs/referenceModels" },
+          "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nodeId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "referenceModels": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["iso-12207", "pmbok", "iso-29148", "arc42", "adr", "c4-model", "security"]
+      }
+    }
+  }
+}

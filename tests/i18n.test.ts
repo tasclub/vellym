@@ -191,7 +191,7 @@ describe("locale projection", () => {
       isBaseLocale: false,
       page: { metadata: { title: "Guide" } }
     });
-    expect(projected?.page.spec.blocks[0]).toMatchObject({ content: "## English" });
+    expect(projected?.page.spec.blocks?.[0]).toMatchObject({ content: "## English" });
     expect(projected?.page.spec.translations).toBeUndefined();
     expect(projected?.knownBlocks[0]?.content).toBe("## English");
   });

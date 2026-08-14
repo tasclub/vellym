@@ -584,7 +584,7 @@ export function EditorWorkspace(props: {
                 />
               </label>
               {isActive && (props.blockAssessments.some((block) => !block.supported) ||
-                currentView.page.spec.blocks.length > localeDraft.blocks.length) && (
+                (currentView.page.spec.blocks?.length ?? 0) > localeDraft.blocks.length) && (
                 <div className="notice" role="note">{t("editor.preservedBlocks")}</div>
               )}
               {localeDraft.blocks.map((block, index) => {

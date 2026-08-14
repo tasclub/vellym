@@ -32,9 +32,8 @@ import {
 import {
   applyProjectSetup,
   planProjectSetup,
-  setupManifest,
+  setupCatalog,
   type SetupPlan,
-  type SetupProfileId,
   type SetupLanguage,
   type SetupOperation
 } from "./setup.js";
@@ -256,22 +255,14 @@ function reloadFailureSnapshot(
   };
 }
 
-const profileIds = new Set<SetupProfileId>([
-  "minimal",
-  "software-basic",
-  "arc42",
-  "project-management",
-  "product-planning"
-]);
-
 interface SetupHttpInput {
   operation?: SetupOperation;
   mode?: SetupMode;
   size?: ProjectSize;
   method?: DevelopmentMethod;
   level?: DocumentationLevel;
-  profiles: SetupProfileId[];
   selectedTemplateIds?: string[];
+  selectedFolderIds?: string[];
   conflictResolutions: Record<string, "skip" | "alternate">;
   contentRoot: string;
   language: SetupLanguage;
@@ -304,20 +295,6 @@ function setupInput(value: unknown): SetupHttpInput {
   ) {
     throw new RuntimeError("おすすめ構成の入力が不正です", 400, "SETUP_RECOMMENDATION");
   }
-  const profiles = input.profiles ?? ["software-basic"];
-  if (
-    !Array.isArray(profiles) ||
-    !profiles.length ||
-    profiles.some(
-      (item) => typeof item !== "string" || !profileIds.has(item as SetupProfileId)
-    )
-  ) {
-    throw new RuntimeError(
-      "profileが不正です",
-      400,
-      "SETUP_PROFILE"
-    );
-  }
   const selectedTemplateIds = input.selectedTemplateIds;
   if (
     selectedTemplateIds !== undefined &&
@@ -328,6 +305,18 @@ function setupInput(value: unknown): SetupHttpInput {
       "選択文書が不正です",
       400,
       "SETUP_TEMPLATE"
+    );
+  }
+  const selectedFolderIds = input.selectedFolderIds;
+  if (
+    selectedFolderIds !== undefined &&
+    (!Array.isArray(selectedFolderIds) ||
+      selectedFolderIds.some((item) => typeof item !== "string"))
+  ) {
+    throw new RuntimeError(
+      "選択Folderが不正です",
+      400,
+      "SETUP_FOLDER"
     );
   }
   const rawResolutions = input.conflictResolutions ?? {};
@@ -388,8 +377,8 @@ function setupInput(value: unknown): SetupHttpInput {
     ...(size === undefined ? {} : { size: size as ProjectSize }),
     ...(method === undefined ? {} : { method: method as DevelopmentMethod }),
     ...(level === undefined ? {} : { level: level as DocumentationLevel }),
-    profiles: profiles as SetupProfileId[],
     selectedTemplateIds: selectedTemplateIds as string[] | undefined,
+    selectedFolderIds: selectedFolderIds as string[] | undefined,
     conflictResolutions,
     contentRoot,
     language,
@@ -640,11 +629,15 @@ export async function startDevServer(options: {
         return;
       }
       if (
-        url.pathname === "/api/v1/setup/profiles" &&
+        // `/setup/profiles` stays as an alias so a browser tab loaded before the
+        // hierarchy change keeps working until it reloads.
+        (url.pathname === "/api/v1/setup/catalog" ||
+          url.pathname === "/api/v1/setup/profiles") &&
         request.method === "GET"
       ) {
         if (state !== "setup" && state !== "ready") requireSetup();
-        json(response, 200, envelope(setupManifest()));
+        const language = url.searchParams.get("language") === "en" ? "en" : "ja";
+        json(response, 200, envelope(setupCatalog(language)));
         return;
       }
       if (

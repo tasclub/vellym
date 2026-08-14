@@ -354,6 +354,33 @@ export async function loadRepository(
   };
 }
 
+export interface UnknownKindGroup {
+  kind: string;
+  count: number;
+  resources: Array<{ name: string; title: string; relativePath: string }>;
+}
+
+/**
+ * 解釈できるプラグインが無いkindを、kindごとにまとめて返す。文書ツリーには出さず、
+ * 「その時点のプラグイン構成で解釈できないもの」として利用者へ示すために使う。
+ * 整理は利用者の作業であり、Vellymは自動で移動・削除・変換を行わない。
+ */
+export function unknownKindGroups(snapshot: RepositorySnapshot): UnknownKindGroup[] {
+  const groups = new Map<string, UnknownKindGroup>();
+  for (const entry of snapshot.pages) {
+    if (entry.kind === "Page") continue;
+    const group = groups.get(entry.kind) ?? { kind: entry.kind, count: 0, resources: [] };
+    group.count += 1;
+    group.resources.push({
+      name: entry.name,
+      title: entry.title,
+      relativePath: entry.relativePath
+    });
+    groups.set(entry.kind, group);
+  }
+  return [...groups.values()].sort((left, right) => left.kind.localeCompare(right.kind));
+}
+
 export function pageSummaries(snapshot: RepositorySnapshot): PageSummary[] {
   return snapshot.pages.map((entry) => ({
     name: entry.name,
@@ -376,7 +403,9 @@ export function localizedPageSummaries(
   const cacheKey = `${locale}\0${defaultLocale}`;
   const cached = snapshot.entryIndex.localizedSummaryCache.get(cacheKey);
   if (cached) return cached;
-  const summaries = snapshot.pages.map((entry) => {
+  // 文書ツリーと一覧はkind: Pageだけを載せる。解釈できないkindは「未知の内容」として
+  // 別に集約する。検索と内部リンクからは引き続き到達できる。
+  const summaries = snapshot.pages.filter(({ kind }) => kind === "Page").map((entry) => {
     const translation = locale === defaultLocale ? undefined : entry.translations?.get(locale);
     const record = translation?.visibility === "published" ? translation : entry.base;
     return {
@@ -528,7 +557,7 @@ export async function editablePage(
         visibility: value.visibility ?? "published" as const,
         title: value.title,
         blocks: knownRichTextBlocksFrom(
-          value.blocks,
+          value.blocks ?? [],
           loaded.relativePath,
           `/spec/translations/${rawKey}/blocks`
         ).blocks,

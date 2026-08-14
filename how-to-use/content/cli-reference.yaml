@@ -121,8 +121,7 @@ spec:
             In a distributed build you run it as `vellym <command> [options]`.
 
             - `vellym help` / `vellym --help`: show usage.
-            - `vellym <command> --help`: show help for a command (`init --help` also lists
-              the available profile and template IDs).
+            - `vellym <command> --help`: show help for a command.
             - `vellym --version`: show the version.
             - `--language ja|en`: set the CLI display language (falls back to the config's
               `ui.language`, then Japanese).

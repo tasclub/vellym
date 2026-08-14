@@ -10,6 +10,7 @@ packages/*/dist/
 packages/vellym/THIRD-PARTY-NOTICES.md
 .DS_Store
 testdocs
+test-docs/
 docs/
 
 # Machine-local deployment scripts and settings

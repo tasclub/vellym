@@ -42,7 +42,7 @@ export function projectPage(
   if (requested.canonical === baseLocale) {
     const projected: Page = {
       ...page,
-      spec: { ...withoutTranslations(page.spec), blocks: page.spec.blocks }
+      spec: { ...withoutTranslations(page.spec), blocks: page.spec.blocks ?? [] }
     };
     return {
       page: projected,
@@ -65,7 +65,7 @@ export function projectPage(
   const projected: Page = {
     ...page,
     metadata: { ...page.metadata, title: match.value.title },
-    spec: { ...withoutTranslations(page.spec), blocks: match.value.blocks }
+    spec: { ...withoutTranslations(page.spec), blocks: match.value.blocks ?? [] }
   };
   return {
     page: projected,
@@ -74,7 +74,7 @@ export function projectPage(
     isBaseLocale: false,
     visibility: "published",
     knownBlocks: knownRichTextBlocksFrom(
-      match.value.blocks,
+      match.value.blocks ?? [],
       file,
       `/spec/translations/${match.rawKey}/blocks`
     ).blocks

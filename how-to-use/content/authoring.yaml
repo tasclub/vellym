@@ -39,6 +39,20 @@ spec:
                 本文をMarkdown（CommonMark）で書く。
         ```
 
+        ## トップレベル
+
+        | キー | 必須 | 説明 |
+        | --- | --- | --- |
+        | `apiVersion` | はい | 形式のバージョン。新規作成は`vellym.tasclub.com/v1`を使う。 |
+        | `kind` | はい | リソース種別。Vellymが解釈できるのは`Page`と`Folder`だけ。 |
+        | `metadata` | はい | 識別と表示のための情報。 |
+        | `spec` | はい | 内容。 |
+
+        `kind`はVellymが「これをどう扱うか」を決める判別子である。`Page`は文書として
+        表示・編集できる。プラグインが対応していない`kind`を書いた場合はエラーにならず、
+        タイトルと本文だけを読み取り、文書ツリーには表示せず「解釈できない内容」として
+        まとめて示す。
+
         ## metadata
 
         | キー | 必須 | 説明 |
@@ -46,15 +60,14 @@ spec:
         | `name` | はい | Page識別子。小文字英数字とハイフンのkebab-case（例: `getting-started`）。内部リンク`[[getting-started]]`の第一の参照先になる。 |
         | `title` | はい | 表示タイトル（1文字以上）。 |
         | `slug` | いいえ | URL用の識別子。文字・数字とハイフンから成る。 |
-        | `labels` | いいえ | 文字列の対応表（キー: 値）。分類・絞り込み用のメタ情報。 |
-        | `annotations` | いいえ | 文字列の対応表。補足メタ情報。 |
+        | `labels` | いいえ | 文字列の対応表（キー: 値）。**人が付ける分類軸**で、一覧の絞り込みや並べ替えに使う。キー名は自由。 |
+        | `annotations` | いいえ | 文字列の対応表。**ツールが書き込む補足情報**の置き場。画面には表示しない。キーは`example.com/key`のように名前空間を付ける。 |
 
         ## spec
 
         | キー | 必須 | 説明 |
         | --- | --- | --- |
-        | `blocks` | はい | 本文ブロックの配列。 |
-        | `documentType` | いいえ | 文書種別（例: `guide`、`requirement`など）。 |
+        | `blocks` | いいえ | 本文ブロックの配列。省略すると本文なしとして扱う。 |
         | `locale` | いいえ | 正本の言語。省略時は設定の既定言語。初回translation保存時には明示値として固定される。 |
         | `translations` | いいえ | localeをキーにした翻訳の対応表。Page ID、slug、分類metadataは正本と共有する。 |
 
@@ -103,9 +116,8 @@ spec:
         | キー | 必須 | 値 |
         | --- | --- | --- |
         | `id` | はい | ブロック識別子。kebab-case。同一Page内で一意にする。 |
-        | `type` | はい | `rich-text` 固定。 |
-        | `format` | はい | `commonmark` 固定。 |
-        | `content` | はい | 本文。YAMLのブロックスカラー（`|`）で複数行を書く。 |
+        | `type` | はい | ブロック種別。現在Vellymが表示できるのは`rich-text`だけ。 |
+        | `content` | はい | 本文。CommonMarkで書く。YAMLのブロックスカラー（`|`）で複数行を書く。 |
 
         ## 内部リンク
 
@@ -134,6 +146,23 @@ spec:
         `spec.order`には、そのフォルダ内のファイル名・サブフォルダ名を並べる。
         Folderの表示名と説明も、Pageと同様に`spec.translations.<locale>`へ
         `title`、任意の`description`、任意の`visibility`を記載できる。Folder構造と順序は全言語で共有する。
+
+        ## 独自のキーを足すとき
+
+        Vellymは知らないキーを**消さずにそのまま保持し、表示では無視する**。そのため
+        メモやツール用の情報を書き加えてもファイルは壊れない。
+
+        ただし、Vellymが解釈するのは上の表にあるキーだけである。独自のキーを足しても、
+        一覧の絞り込みや表示には反映されない。分類したい場合は`labels`を使う。
+        ツールが機械的に読む情報は`annotations`へ、名前空間付きのキーで置く。
+
+        ```yaml
+        metadata:
+          labels:
+            phase: phase-1        # 分類・絞り込み
+          annotations:
+            example.com/ticket-id: "1234"   # ツールが読む情報
+        ```
 
         ## 命名と検証
 
@@ -182,6 +211,20 @@ spec:
                     Write the body in Markdown (CommonMark).
             ```
 
+            ## Top level
+
+            | Key | Required | Description |
+            | --- | --- | --- |
+            | `apiVersion` | yes | Format version. Use `vellym.tasclub.com/v1` for new files. |
+            | `kind` | yes | Resource kind. Vellym itself understands only `Page` and `Folder`. |
+            | `metadata` | yes | Identity and display information. |
+            | `spec` | yes | Content. |
+
+            `kind` tells Vellym how to handle the file. A `Page` is displayed and edited as a
+            document. A `kind` that no plugin handles is not an error: Vellym reads only the
+            title and body, keeps it out of the document tree, and lists it together as
+            content it cannot interpret.
+
             ## metadata
 
             | Key | Required | Description |
@@ -189,15 +232,14 @@ spec:
             | `name` | yes | Page identifier. Lowercase alphanumeric kebab-case (e.g. `getting-started`). The primary target of `[[getting-started]]` internal links. |
             | `title` | yes | Display title (at least one character). |
             | `slug` | no | URL identifier made of letters, digits, and hyphens. |
-            | `labels` | no | String map (key: value) for classification/filtering metadata. |
-            | `annotations` | no | String map for supplementary metadata. |
+            | `labels` | no | String map (key: value). **A classification axis you set**, used to filter and sort listings. Key names are up to you. |
+            | `annotations` | no | String map. **A place for tools to record supplementary information**. Never shown in the UI. Namespace keys like `example.com/key`. |
 
             ## spec
 
             | Key | Required | Description |
             | --- | --- | --- |
-            | `blocks` | yes | Array of body blocks. |
-            | `documentType` | no | Document type (e.g. `guide`, `requirement`). |
+            | `blocks` | no | Array of body blocks. Omit it for a resource with no body. |
             | `locale` | no | Language of the canonical Page. Defaults to the configured locale. |
             | `translations` | no | Map keyed by locale. Page ID, slug, and classification metadata remain shared. |
 
@@ -222,9 +264,8 @@ spec:
             | Key | Required | Value |
             | --- | --- | --- |
             | `id` | yes | Block identifier, kebab-case. Unique within the Page. |
-            | `type` | yes | Fixed `rich-text`. |
-            | `format` | yes | Fixed `commonmark`. |
-            | `content` | yes | Body text. Use a YAML block scalar (`|`) for multiple lines. |
+            | `type` | yes | Block kind. `rich-text` is the only kind Vellym can display today. |
+            | `content` | yes | Body text in CommonMark. Use a YAML block scalar (`|`) for multiple lines. |
 
             ## Internal links
 
@@ -252,6 +293,23 @@ spec:
             ```
 
             List the file and subfolder names of that folder in `spec.order`.
+
+            ## Adding your own keys
+
+            Vellym **preserves keys it does not know and ignores them when rendering**, so
+            adding notes or tool-specific information will not break the file.
+
+            That said, Vellym only interprets the keys listed above. A key you invent will not
+            appear in filtering or display. Use `labels` when you want to classify something,
+            and `annotations` with a namespaced key for information a tool reads.
+
+            ```yaml
+            metadata:
+              labels:
+                phase: phase-1        # classification and filtering
+              annotations:
+                example.com/ticket-id: "1234"   # read by a tool
+            ```
 
             ## Naming and validation
 

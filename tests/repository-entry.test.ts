@@ -53,7 +53,7 @@ spec:
     expect(result.entry).toMatchObject({
       name: "search-page",
       slug: "search-design",
-      documentType: "architecture-decision",
+      kind: "Page",
       configuredBaseLocale: "ja",
       labels: { area: "core" },
       availableLocales: ["en"],

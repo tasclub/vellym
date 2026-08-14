@@ -759,6 +759,167 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
   max-width: 360px;
 }
 
+.setup-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.setup-filters label {
+  display: grid;
+  gap: 4px;
+}
+.setup-filters label > span {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.setup-filters input,
+.setup-filters select {
+  min-width: 160px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  font: inherit;
+}
+
+.setup-tree,
+.setup-tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.setup-tree { margin-top: 12px; border-top: 1px solid var(--border); }
+/* Indentation compounds through the nested groups, so a row never needs to
+   know its own depth. */
+.setup-tree ul[role="group"] { padding-inline-start: 1.5rem; }
+
+.setup-tree-item {
+  display: grid;
+  grid-template-columns: 18px 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.setup-tree-item:hover { background: var(--sunken); }
+.setup-tree-item:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.setup-shell .setup-tree-twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--secondary);
+  cursor: pointer;
+}
+.setup-shell .setup-tree-twisty:hover { color: var(--ink); }
+.setup-tree-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  flex: none;
+}
+/* A read-only tree has no checkbox, so the label takes that column back. */
+.setup-tree-item.readonly { grid-template-columns: 18px minmax(0, 1fr); }
+
+.setup-tree-label { display: block; min-width: 0; }
+.setup-tree-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.setup-tree-item.folder .setup-tree-title strong { font-weight: 700; }
+.setup-tree-item.page .setup-tree-title strong { font-weight: 400; }
+.setup-tree-description,
+.setup-tree-meta {
+  display: block;
+  color: var(--secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.setup-tree-description { margin-top: 1px; }
+.setup-tree-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.setup-tree-item.omitted .setup-tree-title strong {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.setup-tree-omitted {
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* The name fields belong to the row above, so they sit in the label column. */
+.setup-tree-detail {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 8px 60px;
+  padding: 10px 12px;
+  border-inline-start: 2px solid var(--border-strong);
+  background: var(--sunken);
+}
+.setup-tree-detail .structure-file-name {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  max-width: 34rem;
+  margin: 0;
+}
+.setup-tree-detail .structure-file-name > span {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.setup-tree-detail input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--raised);
+}
+.setup-tree-empty {
+  margin-top: 16px;
+  color: var(--muted);
+}
+.setup-tree-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+.setup-tree-count { margin: 0; font-weight: 700; }
+.setup-tree-toolbar-actions { display: flex; gap: 8px; }
+.setup-shell .setup-tree-toolbar-actions button {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 0.875rem;
+}
+.setup-tree-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
 .structure-undo {
   position: fixed;
   z-index: 500;

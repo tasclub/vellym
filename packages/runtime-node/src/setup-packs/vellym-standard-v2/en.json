@@ -1,0 +1,887 @@
+{
+  "locale": "en",
+  "packTitle": "Vellym standard structure",
+  "packDescription": "A standard structure catalog of folders and pages, informed by ISO/IEC/IEEE 12207 and related references.",
+  "areas": {
+    "project-overview": {
+      "title": "Project overview"
+    },
+    "project-management": {
+      "title": "Project management"
+    },
+    "requirements": {
+      "title": "Requirements"
+    },
+    "architecture": {
+      "title": "Architecture"
+    },
+    "design": {
+      "title": "Design"
+    },
+    "implementation": {
+      "title": "Implementation and configuration"
+    },
+    "quality": {
+      "title": "Quality and test"
+    },
+    "release": {
+      "title": "Release and migration"
+    },
+    "operations": {
+      "title": "Operations and maintenance"
+    },
+    "closure": {
+      "title": "Project closure"
+    }
+  },
+  "folders": {
+    "area-project-overview": {
+      "title": "Project overview",
+      "defaultName": "00_project-overview",
+      "description": "Entry point for purpose and context"
+    },
+    "area-project-management": {
+      "title": "Project management",
+      "defaultName": "01_project-management",
+      "description": "Plans, organization, risks, changes, and progress"
+    },
+    "area-requirements": {
+      "title": "Requirements",
+      "defaultName": "02_requirements",
+      "description": "Context, requirements, scope, and traceability"
+    },
+    "area-architecture": {
+      "title": "Architecture",
+      "defaultName": "03_architecture",
+      "description": "Structure, decisions, and models"
+    },
+    "area-design": {
+      "title": "Design",
+      "defaultName": "04_design",
+      "description": "UI, API, data, and component design"
+    },
+    "area-implementation": {
+      "title": "Implementation",
+      "defaultName": "05_implementation",
+      "description": "Development policy, configuration, build, and deployment"
+    },
+    "area-quality": {
+      "title": "Quality",
+      "defaultName": "06_quality",
+      "description": "Quality policy, test, verification, and acceptance"
+    },
+    "area-release": {
+      "title": "Release",
+      "defaultName": "07_release",
+      "description": "Release, migration, and rollback"
+    },
+    "area-operations": {
+      "title": "Operations",
+      "defaultName": "08_operations",
+      "description": "Monitoring, recovery, incidents, and maintenance"
+    },
+    "area-closure": {
+      "title": "Closure",
+      "defaultName": "09_closure",
+      "description": "Handover, retrospective, and lessons learned"
+    },
+    "pm-planning": {
+      "title": "Planning",
+      "defaultName": "01_planning",
+      "description": "Plans and management approaches"
+    },
+    "pm-stakeholders": {
+      "title": "Stakeholders and organization",
+      "defaultName": "02_stakeholders",
+      "description": "Stakeholders, organization, responsibilities, and approvals"
+    },
+    "pm-risks": {
+      "title": "Risks and issues",
+      "defaultName": "03_risks-and-issues",
+      "description": "Risk and issue management"
+    },
+    "pm-changes": {
+      "title": "Changes and decisions",
+      "defaultName": "04_changes-and-decisions",
+      "description": "Change requests, change history, and decision records"
+    },
+    "pm-progress": {
+      "title": "Progress",
+      "defaultName": "05_progress",
+      "description": "Roadmap, milestones, and progress"
+    },
+    "req-business": {
+      "title": "Business requirements",
+      "defaultName": "01_business-requirements",
+      "description": "Background, business requirements, and benefits"
+    },
+    "req-stakeholder": {
+      "title": "Stakeholder requirements",
+      "defaultName": "02_stakeholder-requirements",
+      "description": "Users, scenarios, and stakeholder requirements"
+    },
+    "req-system": {
+      "title": "System requirements",
+      "defaultName": "03_system-requirements",
+      "description": "Functional, non-functional, interface, data, and constraints"
+    },
+    "req-scope": {
+      "title": "Scope",
+      "defaultName": "04_scope",
+      "description": "Scope and boundaries"
+    },
+    "req-traceability": {
+      "title": "Traceability",
+      "defaultName": "05_traceability",
+      "description": "Links from requirements to design and test"
+    },
+    "arc-arc42": {
+      "title": "arc42",
+      "defaultName": "01_arc42",
+      "description": "Structure documentation inspired by arc42"
+    },
+    "arc-adr": {
+      "title": "ADR",
+      "defaultName": "02_adr",
+      "description": "Architecture decision records"
+    },
+    "arc-models": {
+      "title": "Models and diagrams",
+      "defaultName": "03_models-and-diagrams",
+      "description": "Structural models such as C4"
+    },
+    "design-ui": {
+      "title": "UI",
+      "defaultName": "01_ui",
+      "description": "Record screen structure, transitions, and states."
+    },
+    "design-api": {
+      "title": "API",
+      "defaultName": "02_api",
+      "description": "Record endpoints, payloads, and errors."
+    },
+    "design-data": {
+      "title": "Data",
+      "defaultName": "03_data",
+      "description": "Record data structures, relationships, and retention."
+    },
+    "design-component": {
+      "title": "Component",
+      "defaultName": "04_component",
+      "description": "Record component responsibilities and dependencies."
+    },
+    "design-process": {
+      "title": "Process",
+      "defaultName": "05_process",
+      "description": "Record major processing steps and exceptions."
+    },
+    "design-external": {
+      "title": "External interface",
+      "defaultName": "06_external-interface",
+      "description": "Record integration methods, contracts, and failure handling."
+    },
+    "quality-policy": {
+      "title": "Quality policy",
+      "defaultName": "01_quality-policy",
+      "description": "Record quality objectives and the overall approach to confirming them."
+    },
+    "quality-test-plan": {
+      "title": "Test plan",
+      "defaultName": "02_test-plan",
+      "description": "Record scope, environments, sequence, and completion criteria."
+    },
+    "quality-test-spec": {
+      "title": "Test specification",
+      "defaultName": "03_test-specification",
+      "description": "Record test viewpoints, conditions, and expected results."
+    },
+    "quality-test-result": {
+      "title": "Test result",
+      "defaultName": "04_test-result",
+      "description": "Record execution results and the verdict."
+    },
+    "quality-defects": {
+      "title": "Defects",
+      "defaultName": "05_defects",
+      "description": "Record detected defects, impact, and resolution status."
+    },
+    "quality-verification": {
+      "title": "Verification",
+      "defaultName": "06_verification",
+      "description": "Record confirmation that the system was built to the requirements."
+    },
+    "quality-validation": {
+      "title": "Validation and acceptance",
+      "defaultName": "07_validation-and-acceptance",
+      "description": "Record confirmation that the system meets its intended use, and the acceptance result."
+    }
+  },
+  "pages": {
+    "project-guide": {
+      "title": "Project document guide",
+      "defaultFileName": "index.yaml",
+      "description": "Explain the initial structure, where information lives, and the reading order for people and external AI agents.",
+      "body": "## Purpose of this page\n\nExplain the initial structure, where information lives, and the reading order for people and external AI agents.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "welcome": {
+      "title": "Welcome to Vellym",
+      "defaultFileName": "welcome.yaml",
+      "description": "Introduce basic Vellym operations and the storage format.",
+      "body": "## Purpose of this page\n\nIntroduce basic Vellym operations and the storage format.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "external-ai-document-guide": {
+      "title": "Document guide for external AI agents",
+      "defaultFileName": "ai-guide.yaml",
+      "description": "Explain how an external AI agent selects and reads only the necessary Page YAML files.",
+      "body": "## Purpose of this page\n\nExplain how an external AI agent selects and reads only the necessary Page YAML files.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "yaml-editing-guide": {
+      "title": "Direct YAML editing guide",
+      "defaultFileName": "yaml-guide.yaml",
+      "description": "Explain the minimum Page YAML structure and how to edit and validate it safely.",
+      "body": "## Purpose of this page\n\nExplain the minimum Page YAML structure and how to edit and validate it safely.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "project-charter": {
+      "title": "Project charter",
+      "defaultFileName": "project-charter.yaml",
+      "description": "Record the purpose, outcomes, key stakeholders, authority, and boundaries.",
+      "body": "## Purpose of this page\n\nRecord the purpose, outcomes, key stakeholders, authority, and boundaries.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "project-summary": {
+      "title": "Project overview",
+      "defaultFileName": "project-overview.yaml",
+      "description": "Summarize what is built, for whom, and how it proceeds.",
+      "body": "## Purpose of this page\n\nSummarize what is built, for whom, and how it proceeds.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "glossary": {
+      "title": "Glossary",
+      "defaultFileName": "glossary.yaml",
+      "description": "Record terms whose meaning must stay fixed across the project.",
+      "body": "## Purpose of this page\n\nRecord terms whose meaning must stay fixed across the project.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "pm-plan": {
+      "title": "Project management plan",
+      "defaultFileName": "project-management-plan.yaml",
+      "description": "Record the overall planning approach, controls, and reporting framework.",
+      "body": "## Purpose of this page\n\nRecord the overall planning approach, controls, and reporting framework.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "scope-management": {
+      "title": "Scope management approach",
+      "defaultFileName": "scope-management-approach.yaml",
+      "description": "Record how scope is defined, confirmed, and changed.",
+      "body": "## Purpose of this page\n\nRecord how scope is defined, confirmed, and changed.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "wbs": {
+      "title": "Work breakdown structure",
+      "defaultFileName": "wbs.yaml",
+      "description": "Record the breakdown of deliverables into work packages.",
+      "body": "## Purpose of this page\n\nRecord the breakdown of deliverables into work packages.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "schedule": {
+      "title": "Schedule",
+      "defaultFileName": "schedule.yaml",
+      "description": "Record milestones, durations, and dependencies.",
+      "body": "## Purpose of this page\n\nRecord milestones, durations, and dependencies.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "planning-milestones": {
+      "title": "Planning milestones",
+      "defaultFileName": "planning-milestones.yaml",
+      "description": "Record planned milestones and decision points.",
+      "body": "## Purpose of this page\n\nRecord planned milestones and decision points.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "cost-plan": {
+      "title": "Cost plan",
+      "defaultFileName": "cost-plan.yaml",
+      "description": "Record cost estimates, breakdown, and control.",
+      "body": "## Purpose of this page\n\nRecord cost estimates, breakdown, and control.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "quality-management-plan": {
+      "title": "Quality management plan",
+      "defaultFileName": "quality-management-plan.yaml",
+      "description": "Record quality objectives and how they are managed.",
+      "body": "## Purpose of this page\n\nRecord quality objectives and how they are managed.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "communication-plan": {
+      "title": "Communication plan",
+      "defaultFileName": "communication-plan.yaml",
+      "description": "Record who receives what information and how often.",
+      "body": "## Purpose of this page\n\nRecord who receives what information and how often.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "resource-plan": {
+      "title": "Resource plan",
+      "defaultFileName": "resource-plan.yaml",
+      "description": "Record required people, skills, facilities, and how they are secured.",
+      "body": "## Purpose of this page\n\nRecord required people, skills, facilities, and how they are secured.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "procurement-plan": {
+      "title": "Procurement plan",
+      "defaultFileName": "procurement-plan.yaml",
+      "description": "Record procurement targets, approach, and contractual assumptions.",
+      "body": "## Purpose of this page\n\nRecord procurement targets, approach, and contractual assumptions.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "stakeholders": {
+      "title": "Stakeholder register",
+      "defaultFileName": "stakeholder-register.yaml",
+      "description": "Record stakeholders, concerns, influence, and engagement.",
+      "body": "## Purpose of this page\n\nRecord stakeholders, concerns, influence, and engagement.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "org-chart": {
+      "title": "Organization chart",
+      "defaultFileName": "organization-chart.yaml",
+      "description": "Record team structure and reporting lines.",
+      "body": "## Purpose of this page\n\nRecord team structure and reporting lines.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "roles-responsibilities": {
+      "title": "Roles and responsibilities",
+      "defaultFileName": "roles-and-responsibilities.yaml",
+      "description": "Record the responsibility of each role and who holds it.",
+      "body": "## Purpose of this page\n\nRecord the responsibility of each role and who holds it.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "communication-policy": {
+      "title": "Communication policy",
+      "defaultFileName": "communication-policy.yaml",
+      "description": "Record the basic policy for meetings, records, and channels.",
+      "body": "## Purpose of this page\n\nRecord the basic policy for meetings, records, and channels.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "approvers": {
+      "title": "Approvers and decision makers",
+      "defaultFileName": "approvers-and-decision-makers.yaml",
+      "description": "Record what is approved or decided and by whom.",
+      "body": "## Purpose of this page\n\nRecord what is approved or decided and by whom.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "risk-register": {
+      "title": "Risk register",
+      "defaultFileName": "risk-register.yaml",
+      "description": "Record major risks, impact, response, and status.",
+      "body": "## Purpose of this page\n\nRecord major risks, impact, response, and status.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "issue-register": {
+      "title": "Issue register",
+      "defaultFileName": "issue-register.yaml",
+      "description": "Record open issues, owners, due dates, and status.",
+      "body": "## Purpose of this page\n\nRecord open issues, owners, due dates, and status.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "change-request": {
+      "title": "Change requests",
+      "defaultFileName": "change-requests.yaml",
+      "description": "Record requested changes, impact, and decisions.",
+      "body": "## Purpose of this page\n\nRecord requested changes, impact, and decisions.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "change-log": {
+      "title": "Change log",
+      "defaultFileName": "change-log.yaml",
+      "description": "Record the history of approved changes.",
+      "body": "## Purpose of this page\n\nRecord the history of approved changes.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "project-decision-log": {
+      "title": "Project decision log",
+      "defaultFileName": "project-decision-log.yaml",
+      "description": "Record project-level decisions, rationale, and consequences.",
+      "body": "## Purpose of this page\n\nRecord project-level decisions, rationale, and consequences.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "roadmap": {
+      "title": "Roadmap",
+      "defaultFileName": "roadmap.yaml",
+      "description": "Record delivery stages and the outcome of each stage.",
+      "body": "## Purpose of this page\n\nRecord delivery stages and the outcome of each stage.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "progress-milestones": {
+      "title": "Milestones",
+      "defaultFileName": "milestones.yaml",
+      "description": "Record reached and upcoming milestones.",
+      "body": "## Purpose of this page\n\nRecord reached and upcoming milestones.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "backlog": {
+      "title": "Backlog",
+      "defaultFileName": "backlog.yaml",
+      "description": "Record pending work items and their priority.",
+      "body": "## Purpose of this page\n\nRecord pending work items and their priority.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "current-position": {
+      "title": "Progress log",
+      "defaultFileName": "progress-log.yaml",
+      "description": "Record the current state and the next work.",
+      "body": "## Purpose of this page\n\nRecord the current state and the next work.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "status-report": {
+      "title": "Status report",
+      "defaultFileName": "status-report.yaml",
+      "description": "Record periodic progress, issues, and decisions requested.",
+      "body": "## Purpose of this page\n\nRecord periodic progress, issues, and decisions requested.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "user-problem": {
+      "title": "Background and problems",
+      "defaultFileName": "background-and-problems.yaml",
+      "description": "Record the target users, context, current alternatives, and pain.",
+      "body": "## Purpose of this page\n\nRecord the target users, context, current alternatives, and pain.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "business-requirements": {
+      "title": "Business requirements",
+      "defaultFileName": "business-requirements.yaml",
+      "description": "Record what the business needs to achieve.",
+      "body": "## Purpose of this page\n\nRecord what the business needs to achieve.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "expected-benefits": {
+      "title": "Expected benefits",
+      "defaultFileName": "expected-benefits.yaml",
+      "description": "Record the expected benefits and their assumptions.",
+      "body": "## Purpose of this page\n\nRecord the expected benefits and their assumptions.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "success-metrics": {
+      "title": "Success metrics",
+      "defaultFileName": "success-metrics.yaml",
+      "description": "Record the metrics and targets that define success.",
+      "body": "## Purpose of this page\n\nRecord the metrics and targets that define success.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "personas": {
+      "title": "Users and personas",
+      "defaultFileName": "users-and-personas.yaml",
+      "description": "Record the main user types and their context.",
+      "body": "## Purpose of this page\n\nRecord the main user types and their context.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "usage-scenarios": {
+      "title": "Usage scenarios",
+      "defaultFileName": "usage-scenarios.yaml",
+      "description": "Record representative usage flows.",
+      "body": "## Purpose of this page\n\nRecord representative usage flows.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "use-cases": {
+      "title": "Use cases",
+      "defaultFileName": "use-cases.yaml",
+      "description": "Record actors, preconditions, main flow, and alternate flows.",
+      "body": "## Purpose of this page\n\nRecord actors, preconditions, main flow, and alternate flows.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "user-stories": {
+      "title": "User stories",
+      "defaultFileName": "user-stories.yaml",
+      "description": "Record requirements and acceptance criteria from the user's view.",
+      "body": "## Purpose of this page\n\nRecord requirements and acceptance criteria from the user's view.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "stakeholder-requirements": {
+      "title": "Stakeholder requirements",
+      "defaultFileName": "stakeholder-requirements.yaml",
+      "description": "Record what each stakeholder needs and its priority.",
+      "body": "## Purpose of this page\n\nRecord what each stakeholder needs and its priority.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "requirements": {
+      "title": "Functional requirements",
+      "defaultFileName": "functional-requirements.yaml",
+      "description": "Record the functions the system provides and their acceptance criteria.",
+      "body": "## Purpose of this page\n\nRecord the functions the system provides and their acceptance criteria.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "non-functional-requirements": {
+      "title": "Non-functional requirements",
+      "defaultFileName": "non-functional-requirements.yaml",
+      "description": "Record performance, availability, operability, and other quality requirements.",
+      "body": "## Purpose of this page\n\nRecord performance, availability, operability, and other quality requirements.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "interface-requirements": {
+      "title": "Interface requirements",
+      "defaultFileName": "interface-requirements.yaml",
+      "description": "Record connection requirements with external systems.",
+      "body": "## Purpose of this page\n\nRecord connection requirements with external systems.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "data-requirements": {
+      "title": "Data requirements",
+      "defaultFileName": "data-requirements.yaml",
+      "description": "Record the data handled, retention, and integrity requirements.",
+      "body": "## Purpose of this page\n\nRecord the data handled, retention, and integrity requirements.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "security-requirements": {
+      "title": "Security requirements",
+      "defaultFileName": "security-requirements.yaml",
+      "description": "Record authentication, authorization, data protection, and audit requirements.",
+      "body": "## Purpose of this page\n\nRecord authentication, authorization, data protection, and audit requirements.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "constraints": {
+      "title": "Constraints",
+      "defaultFileName": "constraints.yaml",
+      "description": "Record technical, schedule, cost, and regulatory constraints.",
+      "body": "## Purpose of this page\n\nRecord technical, schedule, cost, and regulatory constraints.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "scope": {
+      "title": "In scope",
+      "defaultFileName": "in-scope.yaml",
+      "description": "Record what is included in this effort.",
+      "body": "## Purpose of this page\n\nRecord what is included in this effort.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "out-of-scope": {
+      "title": "Out of scope",
+      "defaultFileName": "out-of-scope.yaml",
+      "description": "Record what is excluded from this effort.",
+      "body": "## Purpose of this page\n\nRecord what is excluded from this effort.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "boundary-conditions": {
+      "title": "Boundary conditions",
+      "defaultFileName": "boundary-conditions.yaml",
+      "description": "Record conditions that need judgement at the scope boundary.",
+      "body": "## Purpose of this page\n\nRecord conditions that need judgement at the scope boundary.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "requirements-traceability": {
+      "title": "Requirements traceability",
+      "defaultFileName": "requirements-traceability.yaml",
+      "description": "Record where each requirement comes from and where it is reflected.",
+      "body": "## Purpose of this page\n\nRecord where each requirement comes from and where it is reflected.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "requirements-design-links": {
+      "title": "Requirements to design links",
+      "defaultFileName": "requirements-to-design-links.yaml",
+      "description": "Record the mapping between requirements and design artifacts.",
+      "body": "## Purpose of this page\n\nRecord the mapping between requirements and design artifacts.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "requirements-test-links": {
+      "title": "Requirements to test links",
+      "defaultFileName": "requirements-to-test-links.yaml",
+      "description": "Record the mapping between requirements and tests.",
+      "body": "## Purpose of this page\n\nRecord the mapping between requirements and tests.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-introduction": {
+      "title": "Introduction and goals",
+      "defaultFileName": "01_introduction-and-goals.yaml",
+      "description": "Record what is being solved and the most important quality goals.",
+      "body": "## Purpose of this page\n\nRecord what is being solved and the most important quality goals.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-constraints": {
+      "title": "Constraints",
+      "defaultFileName": "02_constraints.yaml",
+      "description": "Record fixed constraints on the design.",
+      "body": "## Purpose of this page\n\nRecord fixed constraints on the design.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-context": {
+      "title": "Context and scope",
+      "defaultFileName": "03_context-and-scope.yaml",
+      "description": "Record the system boundary and its external environment.",
+      "body": "## Purpose of this page\n\nRecord the system boundary and its external environment.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-strategy": {
+      "title": "Solution strategy",
+      "defaultFileName": "04_solution-strategy.yaml",
+      "description": "Record the major design approach and technology direction.",
+      "body": "## Purpose of this page\n\nRecord the major design approach and technology direction.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-building-blocks": {
+      "title": "Building blocks",
+      "defaultFileName": "05_building-blocks.yaml",
+      "description": "Record the main components and their responsibilities.",
+      "body": "## Purpose of this page\n\nRecord the main components and their responsibilities.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-runtime": {
+      "title": "Runtime view",
+      "defaultFileName": "06_runtime-view.yaml",
+      "description": "Record important flows and interactions.",
+      "body": "## Purpose of this page\n\nRecord important flows and interactions.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-deployment": {
+      "title": "Deployment view",
+      "defaultFileName": "07_deployment-view.yaml",
+      "description": "Record the runtime environments and deployment topology.",
+      "body": "## Purpose of this page\n\nRecord the runtime environments and deployment topology.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-crosscutting": {
+      "title": "Crosscutting concepts",
+      "defaultFileName": "08_crosscutting-concepts.yaml",
+      "description": "Record concepts applied across multiple parts of the system.",
+      "body": "## Purpose of this page\n\nRecord concepts applied across multiple parts of the system.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-decisions": {
+      "title": "Architecture decisions",
+      "defaultFileName": "09_architecture-decisions.yaml",
+      "description": "Summarize decisions that affect the structure.",
+      "body": "## Purpose of this page\n\nSummarize decisions that affect the structure.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-quality": {
+      "title": "Quality requirements",
+      "defaultFileName": "10_quality-requirements.yaml",
+      "description": "Record the quality scenarios the architecture must satisfy.",
+      "body": "## Purpose of this page\n\nRecord the quality scenarios the architecture must satisfy.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-risks": {
+      "title": "Risks and technical debt",
+      "defaultFileName": "11_risks-and-technical-debt.yaml",
+      "description": "Record technical risks and known debt.",
+      "body": "## Purpose of this page\n\nRecord technical risks and known debt.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "arc42-glossary": {
+      "title": "Glossary",
+      "defaultFileName": "12_glossary.yaml",
+      "description": "Record terms used in the architecture documentation.",
+      "body": "## Purpose of this page\n\nRecord terms used in the architecture documentation.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "decision-log": {
+      "title": "ADR index",
+      "defaultFileName": "adr-index.yaml",
+      "description": "Record architecture decisions, options considered, rationale, and consequences.",
+      "body": "## Purpose of this page\n\nRecord architecture decisions, options considered, rationale, and consequences.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "c4-context": {
+      "title": "System context",
+      "defaultFileName": "system-context.yaml",
+      "description": "Record the system and its relationships with external users and systems.",
+      "body": "## Purpose of this page\n\nRecord the system and its relationships with external users and systems.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "c4-container": {
+      "title": "Container",
+      "defaultFileName": "container.yaml",
+      "description": "Record deployable units, their responsibilities, and communication.",
+      "body": "## Purpose of this page\n\nRecord deployable units, their responsibilities, and communication.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "c4-component": {
+      "title": "Component",
+      "defaultFileName": "component.yaml",
+      "description": "Record the main components inside a container.",
+      "body": "## Purpose of this page\n\nRecord the main components inside a container.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "c4-code": {
+      "title": "Code",
+      "defaultFileName": "code.yaml",
+      "description": "Record code-level structure only where it is needed.",
+      "body": "## Purpose of this page\n\nRecord code-level structure only where it is needed.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "design-ui-overview": {
+      "title": "UI design",
+      "defaultFileName": "ui-design.yaml",
+      "description": "Record screen structure, transitions, and states.",
+      "body": "## Purpose of this page\n\nRecord screen structure, transitions, and states.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "design-api-overview": {
+      "title": "API design",
+      "defaultFileName": "api-design.yaml",
+      "description": "Record endpoints, payloads, and errors.",
+      "body": "## Purpose of this page\n\nRecord endpoints, payloads, and errors.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "design-data-overview": {
+      "title": "Data design",
+      "defaultFileName": "data-design.yaml",
+      "description": "Record data structures, relationships, and retention.",
+      "body": "## Purpose of this page\n\nRecord data structures, relationships, and retention.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "design-component-overview": {
+      "title": "Component design",
+      "defaultFileName": "component-design.yaml",
+      "description": "Record component responsibilities and dependencies.",
+      "body": "## Purpose of this page\n\nRecord component responsibilities and dependencies.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "design-process-overview": {
+      "title": "Process design",
+      "defaultFileName": "process-design.yaml",
+      "description": "Record major processing steps and exceptions.",
+      "body": "## Purpose of this page\n\nRecord major processing steps and exceptions.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "design-external-overview": {
+      "title": "External interface design",
+      "defaultFileName": "external-interface-design.yaml",
+      "description": "Record integration methods, contracts, and failure handling.",
+      "body": "## Purpose of this page\n\nRecord integration methods, contracts, and failure handling.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "development-policy": {
+      "title": "Development policy",
+      "defaultFileName": "development-policy.yaml",
+      "description": "Record how development proceeds and which standards apply.",
+      "body": "## Purpose of this page\n\nRecord how development proceeds and which standards apply.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "coding-standards": {
+      "title": "Coding standards",
+      "defaultFileName": "coding-standards.yaml",
+      "description": "Record code conventions and prohibited patterns.",
+      "body": "## Purpose of this page\n\nRecord code conventions and prohibited patterns.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "git-workflow": {
+      "title": "Git workflow",
+      "defaultFileName": "git-workflow.yaml",
+      "description": "Record commit, review, and merge practices.",
+      "body": "## Purpose of this page\n\nRecord commit, review, and merge practices.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "branching-strategy": {
+      "title": "Branching strategy",
+      "defaultFileName": "branching-strategy.yaml",
+      "description": "Record branch types and their lifetime.",
+      "body": "## Purpose of this page\n\nRecord branch types and their lifetime.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "configuration-management": {
+      "title": "Configuration management",
+      "defaultFileName": "configuration-management.yaml",
+      "description": "Record how versions, artifacts, and environments are managed.",
+      "body": "## Purpose of this page\n\nRecord how versions, artifacts, and environments are managed.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "environments": {
+      "title": "Environments",
+      "defaultFileName": "environments.yaml",
+      "description": "Record differences across development, staging, and production.",
+      "body": "## Purpose of this page\n\nRecord differences across development, staging, and production.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "build": {
+      "title": "Build",
+      "defaultFileName": "build.yaml",
+      "description": "Record build steps and reproducibility conditions.",
+      "body": "## Purpose of this page\n\nRecord build steps and reproducibility conditions.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "deployment": {
+      "title": "Deployment",
+      "defaultFileName": "deployment.yaml",
+      "description": "Record deployment steps and verification points.",
+      "body": "## Purpose of this page\n\nRecord deployment steps and verification points.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "quality-policy-overview": {
+      "title": "Quality policy",
+      "defaultFileName": "quality-policy.yaml",
+      "description": "Record quality objectives and the overall approach to confirming them.",
+      "body": "## Purpose of this page\n\nRecord quality objectives and the overall approach to confirming them.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "test-plan": {
+      "title": "Test plan",
+      "defaultFileName": "test-plan.yaml",
+      "description": "Record scope, environments, sequence, and completion criteria.",
+      "body": "## Purpose of this page\n\nRecord scope, environments, sequence, and completion criteria.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "test-specification": {
+      "title": "Test specification",
+      "defaultFileName": "test-specification.yaml",
+      "description": "Record test viewpoints, conditions, and expected results.",
+      "body": "## Purpose of this page\n\nRecord test viewpoints, conditions, and expected results.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "test-result": {
+      "title": "Test result",
+      "defaultFileName": "test-result.yaml",
+      "description": "Record execution results and the verdict.",
+      "body": "## Purpose of this page\n\nRecord execution results and the verdict.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "defect-register": {
+      "title": "Defects",
+      "defaultFileName": "defects.yaml",
+      "description": "Record detected defects, impact, and resolution status.",
+      "body": "## Purpose of this page\n\nRecord detected defects, impact, and resolution status.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "verification-record": {
+      "title": "Verification",
+      "defaultFileName": "verification.yaml",
+      "description": "Record confirmation that the system was built to the requirements.",
+      "body": "## Purpose of this page\n\nRecord confirmation that the system was built to the requirements.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "validation-acceptance": {
+      "title": "Validation and acceptance",
+      "defaultFileName": "validation-and-acceptance.yaml",
+      "description": "Record confirmation that the system meets its intended use, and the acceptance result.",
+      "body": "## Purpose of this page\n\nRecord confirmation that the system meets its intended use, and the acceptance result.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "release-plan": {
+      "title": "Release plan",
+      "defaultFileName": "release-plan.yaml",
+      "description": "Record audience, deliverables, quality gates, and announcements.",
+      "body": "## Purpose of this page\n\nRecord audience, deliverables, quality gates, and announcements.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "release-decision": {
+      "title": "Release decision",
+      "defaultFileName": "release-decision.yaml",
+      "description": "Record the release criteria and the decision.",
+      "body": "## Purpose of this page\n\nRecord the release criteria and the decision.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "migration-plan": {
+      "title": "Migration plan",
+      "defaultFileName": "migration-plan.yaml",
+      "description": "Record migration scope, approach, verification, and fallback.",
+      "body": "## Purpose of this page\n\nRecord migration scope, approach, verification, and fallback.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "migration-procedure": {
+      "title": "Migration procedure",
+      "defaultFileName": "migration-procedure.yaml",
+      "description": "Record the step-by-step procedure and checkpoints.",
+      "body": "## Purpose of this page\n\nRecord the step-by-step procedure and checkpoints.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "rollback": {
+      "title": "Rollback",
+      "defaultFileName": "rollback.yaml",
+      "description": "Record rollback conditions, steps, and impact.",
+      "body": "## Purpose of this page\n\nRecord rollback conditions, steps, and impact.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "release-notes": {
+      "title": "Release notes",
+      "defaultFileName": "release-notes.yaml",
+      "description": "Record the changes communicated to users.",
+      "body": "## Purpose of this page\n\nRecord the changes communicated to users.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "operations-guide": {
+      "title": "Operations design",
+      "defaultFileName": "operations-design.yaml",
+      "description": "Record the operations model and responsibilities.",
+      "body": "## Purpose of this page\n\nRecord the operations model and responsibilities.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "operations-procedure": {
+      "title": "Operations procedures",
+      "defaultFileName": "operations-procedures.yaml",
+      "description": "Record routine operational procedures.",
+      "body": "## Purpose of this page\n\nRecord routine operational procedures.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "monitoring": {
+      "title": "Monitoring",
+      "defaultFileName": "monitoring.yaml",
+      "description": "Record monitored targets, thresholds, and alert routing.",
+      "body": "## Purpose of this page\n\nRecord monitored targets, thresholds, and alert routing.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "backup-recovery": {
+      "title": "Backup and recovery",
+      "defaultFileName": "backup-and-recovery.yaml",
+      "description": "Record backup method, retention, and recovery steps.",
+      "body": "## Purpose of this page\n\nRecord backup method, retention, and recovery steps.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "incident-response": {
+      "title": "Incident response",
+      "defaultFileName": "incident-response.yaml",
+      "description": "Record detection, escalation, workaround, and permanent fix.",
+      "body": "## Purpose of this page\n\nRecord detection, escalation, workaround, and permanent fix.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "maintenance-policy": {
+      "title": "Maintenance policy",
+      "defaultFileName": "maintenance-policy.yaml",
+      "description": "Record how maintenance requests are accepted, prioritized, and delivered.",
+      "body": "## Purpose of this page\n\nRecord how maintenance requests are accepted, prioritized, and delivered.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "security-operations": {
+      "title": "Security operations",
+      "defaultFileName": "security-operations.yaml",
+      "description": "Record vulnerability management, access control, and auditing.",
+      "body": "## Purpose of this page\n\nRecord vulnerability management, access control, and auditing.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "closure-criteria": {
+      "title": "Closure criteria",
+      "defaultFileName": "closure-criteria.yaml",
+      "description": "Record the criteria for completion and the outcome.",
+      "body": "## Purpose of this page\n\nRecord the criteria for completion and the outcome.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "deliverables": {
+      "title": "Deliverables",
+      "defaultFileName": "deliverables.yaml",
+      "description": "Record the delivered artifacts and where they live.",
+      "body": "## Purpose of this page\n\nRecord the delivered artifacts and where they live.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "handover": {
+      "title": "Handover",
+      "defaultFileName": "handover.yaml",
+      "description": "Record operational ownership, contacts, and caveats.",
+      "body": "## Purpose of this page\n\nRecord operational ownership, contacts, and caveats.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "open-items": {
+      "title": "Open items",
+      "defaultFileName": "open-items.yaml",
+      "description": "Record remaining work and how it is handled.",
+      "body": "## Purpose of this page\n\nRecord remaining work and how it is handled.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "retrospective": {
+      "title": "Retrospective",
+      "defaultFileName": "retrospective.yaml",
+      "description": "Record outcomes, lessons, and changes for the next cycle.",
+      "body": "## Purpose of this page\n\nRecord outcomes, lessons, and changes for the next cycle.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "lessons-learned": {
+      "title": "Lessons learned",
+      "defaultFileName": "lessons-learned.yaml",
+      "description": "Record knowledge worth carrying to other projects.",
+      "body": "## Purpose of this page\n\nRecord knowledge worth carrying to other projects.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    },
+    "closure-report": {
+      "title": "Project closure report",
+      "defaultFileName": "project-closure-report.yaml",
+      "description": "Record how far the objectives were met and the final result.",
+      "body": "## Purpose of this page\n\nRecord how far the objectives were met and the final result.\n\n## Start here\n\n- What this page decides:\n- What is known so far:\n- What still needs confirmation:\n"
+    }
+  }
+}

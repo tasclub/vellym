@@ -21,14 +21,15 @@ spec:
 
         ## 最短の流れ
 
-        1. **プロジェクトを初期化する**（対話形式）
+        1. **プロジェクトを初期化する**
 
            ```bash
-           npx vellym@beta init
+           npx vellym@beta init myproject --size small-team --method hybrid --language ja
            ```
 
-           言語、content root、初期profile、作成する文書を対話で選ぶと、`vellym.config.yaml`
-           と初期文書のYAMLが作成される。非対話で実行する場合の指定は[[cli-reference|CLIリファレンス]]を参照。
+           規模と開発方式に応じた厳格構成のFolderとPage YAML、`vellym.config.yaml`が作成される。
+           個別に選びながら始めたい場合は、初期化せずに`vellym dev`を起動し、ブラウザの3段階
+           セットアップから開始する。指定できるオプションは[[cli-reference|CLIリファレンス]]を参照。
 
         2. **開発サーバーを起動する**
 
@@ -99,15 +100,16 @@ spec:
 
             ## Shortest path
 
-            1. **Initialize a project** (interactive)
+            1. **Initialize a project**
 
                ```bash
-               npx vellym@beta init
+               npx vellym@beta init myproject --size small-team --method hybrid --language ja
                ```
 
-               Choose language, content root, initial profile, and which documents to create.
-               This writes `vellym.config.yaml` and the initial document YAML. For
-               non-interactive use, see [[cli-reference|CLI Reference]].
+               Writes `vellym.config.yaml` plus the strict folder and page hierarchy for the
+               given size and method. To choose folders and pages individually instead, skip
+               `init` and run `vellym dev` to use the three-step browser setup. See
+               [[cli-reference|CLI Reference]] for the available options.
 
             2. **Start the dev server**
 

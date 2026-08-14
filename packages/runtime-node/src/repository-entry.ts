@@ -8,6 +8,7 @@ import {
 import {
   extractWikiLinks,
   headingId,
+  isUnknownKind,
   isVellymCandidate,
   knownRichTextBlocks,
   knownRichTextBlocksFrom,
@@ -16,6 +17,7 @@ import {
   referenceKey,
   resolvePageReference,
   validatePage,
+  validateResource,
   type Diagnostic,
   type InternalPageReference,
   type Page,
@@ -49,6 +51,8 @@ export interface PageLocaleEntry {
 }
 
 export interface PageEntry {
+  /** リソース種別。Coreが解釈できないkindは文書ツリーへ出さない。 */
+  kind: string;
   relativePath: string;
   hash: string;
   mtimeMs: number;
@@ -56,7 +60,6 @@ export interface PageEntry {
   name: string;
   slug: string;
   title: string;
-  documentType?: string;
   configuredBaseLocale?: string;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
@@ -270,10 +273,28 @@ export function extractPageEntryWithPage(input: {
   }
   if (!isVellymCandidate(value)) return { kind: "ignored", diagnostics };
 
-  const validation = validatePage(value, input.relativePath);
+  // Coreが種別固有スキーマを持たないkindは、Pageスキーマで検証しない。共通契約の
+  // 範囲だけを解釈し、種別固有のspecは解釈せず原文のまま保持する。解釈できない
+  // ことをerrorにせず、repositoryの読み込みもbuildも失敗させない。
+  const unknownKind = isUnknownKind(value);
+  const validation = unknownKind
+    ? validateResource(value, input.relativePath)
+    : validatePage(value, input.relativePath);
   diagnostics.push(...validation.diagnostics);
-  if (!validation.page) return { kind: "invalid", diagnostics };
-  const page = validation.page;
+  const validated = unknownKind
+    ? (validation as ReturnType<typeof validateResource>).resource
+    : (validation as ReturnType<typeof validatePage>).page;
+  if (!validated) return { kind: "invalid", diagnostics };
+  if (unknownKind) {
+    diagnostics.push({
+      file: input.relativePath,
+      path: "/kind",
+      severity: "warning",
+      code: "UNKNOWN_RESOURCE_KIND",
+      message: `kind ${validated.kind} を解釈できるプラグインがありません。本文だけを読み取ります`
+    });
+  }
+  const page = validated as Page;
   const known = knownRichTextBlocks(page, input.relativePath);
   diagnostics.push(...known.diagnostics);
   const reasons = unsafeYamlReasons(first, documents.length);
@@ -289,7 +310,7 @@ export function extractPageEntryWithPage(input: {
   const translations = new Map<string, PageLocaleEntry>();
   for (const translation of validation.translations) {
     const blocks = knownRichTextBlocksFrom(
-      translation.value.blocks,
+      translation.value.blocks ?? [],
       input.relativePath,
       `/spec/translations/${translation.rawKey}/blocks`
     );
@@ -319,6 +340,7 @@ export function extractPageEntryWithPage(input: {
     page,
     knownBlocks: known.blocks,
     entry: {
+      kind: ownedString(validated.kind),
       relativePath: input.relativePath.replaceAll("\\", "/"),
       hash: contentHash(input.source),
       mtimeMs: input.mtimeMs,
@@ -326,9 +348,6 @@ export function extractPageEntryWithPage(input: {
       name,
       slug,
       title: base.title,
-      ...(page.spec.documentType === undefined
-        ? {}
-        : { documentType: ownedString(page.spec.documentType) }),
       ...(baseLocale === undefined ? {} : { configuredBaseLocale: baseLocale }),
       ...(page.metadata.labels === undefined ? {} : { labels: ownedRecord(page.metadata.labels) }),
       ...(page.metadata.annotations === undefined
