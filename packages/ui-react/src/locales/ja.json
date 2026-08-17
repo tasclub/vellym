@@ -268,7 +268,6 @@
   "plugin.bulkResult": "{{ok}}件を変更しました。{{failed}}件は変更できませんでした",
   "plugin.bulkValue": "変更後の値",
   "plugin.clearSelection": "選択を解除",
-  "plugin.create": "チケットを作成",
   "plugin.emptySelect": "未選択",
   "plugin.filterAny": "すべて",
   "plugin.filterClear": "絞り込みを解除",

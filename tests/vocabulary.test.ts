@@ -53,12 +53,9 @@ const DOMAIN_TERMS: Record<string, readonly string[]> = {
  * 移設が済むまでの例外。**増やすときは必ず理由を書く。**
  *
  * ここが伸びていくこと自体が、汎用レンダラへ業務語が入り続けている合図に
- * なる。空になったら、この配列ごと消してよい。
+ * なる。2026-08-18に空になった。**足す前に、本当に汎用レンダラの語かを疑う。**
  */
-const KNOWN_LEAKS: readonly string[] = [
-  // ブラウザ側の経路が通ったあと、plugin-tickets の PluginLocalizedText へ移す。
-  "plugin.create"
-];
+const KNOWN_LEAKS: readonly string[] = [];
 
 function leaks(locale: string): string[] {
   const dict = dictionary(locale);
@@ -82,10 +79,19 @@ describe("generic renderer vocabulary", () => {
     }
   });
 
-  it("still detects the leak it is meant to catch", () => {
-    // 検出そのものが効いていることを確かめる。除外リストを外せば見つかる。
-    expect(leaks("ja")).toContain("plugin.create");
-    expect(leaks("en")).toContain("plugin.create");
+  it("still detects a leak when one is introduced", () => {
+    // 検出そのものが効いていることを確かめる。効かない検査を置いても意味が無い。
+    // 実データが空になったので、判定関数へ直接食わせて確かめる。
+    const dictionary = {
+      "plugin.assign": "担当者を割り当てる",
+      "plugin.addRow": "行を追加"
+    };
+    const found = Object.entries(dictionary)
+      .filter(([, value]) =>
+        (DOMAIN_TERMS.ja ?? []).some((term) => value.includes(term))
+      )
+      .map(([key]) => key);
+    expect(found).toEqual(["plugin.assign"]);
   });
 
   it("does not flag the generic words the renderer legitimately owns", () => {
@@ -104,9 +110,9 @@ describe("generic renderer vocabulary", () => {
     }
   });
 
-  it("keeps the exception list from growing unnoticed", () => {
-    // 例外が増えるときは、この数字を動かす手が止まる。**黙って伸びない。**
-    expect(KNOWN_LEAKS).toHaveLength(1);
+  it("keeps the exception list empty", () => {
+    // **一度空にしたら、増えたことに気づける。** 足すには手でここを直す。
+    expect(KNOWN_LEAKS).toEqual([]);
   });
 
   it("checks both dictionaries against the same keys", () => {

@@ -268,7 +268,6 @@
   "plugin.bulkResult": "Changed {{ok}}. {{failed}} could not be changed.",
   "plugin.bulkValue": "New value",
   "plugin.clearSelection": "Clear selection",
-  "plugin.create": "New ticket",
   "plugin.emptySelect": "Not set",
   "plugin.filterAny": "Any",
   "plugin.filterClear": "Clear filters",
