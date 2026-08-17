@@ -9,7 +9,7 @@ import {
   pageEditSessionDirty,
   removePageLocale,
   repairInvalidPageTranslation
-} from "../packages/ui-react/src/page-edit-session.js";
+} from "../packages/ui-react/src/editor/page-edit-session.js";
 
 const editView: PageEditView = {
   pageId: "guide",

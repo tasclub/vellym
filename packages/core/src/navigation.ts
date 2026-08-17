@@ -29,11 +29,14 @@ export interface DocumentNavigationFolder {
 }
 
 export interface DocumentNavigationPageNode {
+  /** 木の中での位置づけ。中身の種別は`resourceKind`が持つ */
   kind: "page";
   name: string;
   slug: string;
   title: string;
   relativePath: string;
+  /** 資源の`kind`。アイコンの解決に使う */
+  resourceKind?: string;
 }
 
 export type DocumentNavigationNode =
@@ -137,7 +140,8 @@ export function buildDocumentNavigation(
       name: page.name,
       slug: page.slug ?? page.name,
       title: page.title,
-      relativePath: page.relativePath
+      relativePath: page.relativePath,
+      ...(page.resourceKind ? { resourceKind: page.resourceKind } : {})
     });
   }
 

@@ -75,6 +75,11 @@ export interface PageEntry {
   readOnly: boolean;
   readOnlyReasons?: string[];
   diagnostics?: Diagnostic[];
+  /**
+   * プラグインが作った種別固有の索引行。一覧の絞り込みと並べ替えはこれだけで行う。
+   * 完全なリソースは保持しない。
+   */
+  indexRow?: Readonly<Record<string, string | number | boolean | null | readonly string[]>>;
 }
 
 /** base projectionを指すlocale key。PageLocaleEntry.locale === undefined に対応する。 */
@@ -243,6 +248,8 @@ export function extractPageEntryWithPage(input: {
   source: string;
   mtimeMs: number;
   size: number;
+  /** 有効なプラグインが解釈できるkind。渡さなければCore組み込みだけを既知とする */
+  knownKinds?: ReadonlySet<string>;
 }): PageEntryWithPageExtraction {
   const diagnostics: Diagnostic[] = [];
   // Source tokens are only needed by the write path. The read index inspects the
@@ -273,19 +280,22 @@ export function extractPageEntryWithPage(input: {
   }
   if (!isVellymCandidate(value)) return { kind: "ignored", diagnostics };
 
-  // Coreが種別固有スキーマを持たないkindは、Pageスキーマで検証しない。共通契約の
-  // 範囲だけを解釈し、種別固有のspecは解釈せず原文のまま保持する。解釈できない
+  // Pageでないkindは、Pageスキーマで検証しない。共通契約の範囲だけを解釈し、
+  // 種別固有のspecは解釈せず原文のまま保持する。種別固有スキーマを持つのは
+  // それを登録したプラグイン側であり、Coreは共通契約までを見る。解釈できない
   // ことをerrorにせず、repositoryの読み込みもbuildも失敗させない。
-  const unknownKind = isUnknownKind(value);
-  const validation = unknownKind
-    ? validateResource(value, input.relativePath)
-    : validatePage(value, input.relativePath);
+  const isPage = (value as { kind?: unknown }).kind === "Page";
+  const validation = isPage
+    ? validatePage(value, input.relativePath)
+    : validateResource(value, input.relativePath);
   diagnostics.push(...validation.diagnostics);
-  const validated = unknownKind
-    ? (validation as ReturnType<typeof validateResource>).resource
-    : (validation as ReturnType<typeof validatePage>).page;
+  const validated = isPage
+    ? (validation as ReturnType<typeof validatePage>).page
+    : (validation as ReturnType<typeof validateResource>).resource;
   if (!validated) return { kind: "invalid", diagnostics };
-  if (unknownKind) {
+  // 警告は「解釈できるプラグインが無い」ときだけ出す。プラグインが登録した
+  // kindは、Coreが種別固有specを解釈しないまま、警告なしで読み進める。
+  if (isUnknownKind(value, input.knownKinds)) {
     diagnostics.push({
       file: input.relativePath,
       path: "/kind",

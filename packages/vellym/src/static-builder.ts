@@ -24,6 +24,9 @@ import {
   localizedPage,
   localizedPageSummaries,
   loadConfig,
+  loadPlugins,
+  pluginKinds,
+  buildPluginViewFromSnapshot,
   loadRepository
 } from "@vellym-internal/runtime-node";
 import { VELLYM_VERSION } from "./version.js";
@@ -79,6 +82,11 @@ function injectStaticMarker(html: string, options: {
     .replace(/<html lang="[^"]*"(?: dir="[^"]*")?>/, `<html lang="${options.locale}" dir="${direction(options.locale)}">`)
     .replaceAll('href="./assets/', `href="${base}assets/`)
     .replaceAll('src="./assets/', `src="${base}assets/`)
+    // import mapの値も同じ深さへ直す。**属性ではなくscript要素の本文にある**
+    // ため、上の置換では拾えない。相対のままだと
+    // `/pages/<slug>/assets/...`へ解決され、プラグインからのReactの
+    // 読み込みだけが404になる。動的版でも同じ見落としをしていた。
+    .replaceAll('"./assets/vellym-', `"${base}assets/vellym-`)
     .replace('href="./favicon.png"', `href="${base}favicon.png"`)
     .replace("</head>", `${links}${marker}</head>`);
 }
@@ -174,7 +182,13 @@ JS/CSS/データを読み込めず表示できません。次のいずれかで�
 
 export async function buildStatic(configPath: string): Promise<StaticBuildResult> {
   const loaded = await loadConfig(configPath);
-  const repository = await loadRepository(loaded.contentRoot);
+  // プラグインが解釈するkindは未知kind扱いにしない。読み込めなくてもbuildは続ける。
+  const plugins = await loadPlugins({
+    configDir: path.dirname(loaded.configPath),
+    packageNames: loaded.config.plugins,
+    hostVersion: VELLYM_VERSION
+  });
+  const repository = await loadRepository(loaded.contentRoot, undefined, pluginKinds(plugins));
   const defaultLocale = resolveDefaultLocale(loaded.config);
   const discoveredLocales = [...new Set(repository.pages.flatMap((entry) => [
     ...(entry.configuredBaseLocale ? [entry.configuredBaseLocale] : []),
@@ -186,12 +200,14 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       .filter((locale) => locale !== defaultLocale)
       .sort((left, right) => left.localeCompare(right))
   ];
+  // プラグイン由来の診断はすべて警告であり、buildを止めない。
+  const buildDiagnostics = [...repository.diagnostics, ...plugins.diagnostics];
   const errors = repository.diagnostics.filter((item) => item.severity === "error");
   if (errors.length) {
     return {
       exitCode: 1,
       data: null,
-      diagnostics: repository.diagnostics,
+      diagnostics: buildDiagnostics,
       message: `静的生成を中止しました: ${errors.length}件のエラー`
     };
   }
@@ -245,6 +261,24 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
               path.relative(loaded.projectRoot, loaded.configPath) ||
               "vellym.config.yaml"
           },
+          // 静的版でもプラグインの画面を描く。資産は同じ出力の中にある。
+          plugins: {
+            hostVersion: VELLYM_VERSION,
+            browserEntries: plugins.plugins
+              .filter((plugin) => plugin.browserEntry)
+              .map((plugin) => ({
+                id: plugin.id,
+                url: `plugins/${plugin.id}/${plugin.browserEntry}`
+              })),
+            kindIcons: Object.fromEntries(
+              plugins.plugins.flatMap((plugin) =>
+                plugin.kinds
+                  .filter((contribution) => contribution.icon)
+                  .map((contribution) => [contribution.kind, contribution.icon!])
+              )
+            ),
+            documentTreeCommands: []
+          },
           capabilities: {
             repository: true,
             editing: false,
@@ -257,6 +291,28 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       await writeFile(path.join(dataDir, "repository.json"), `${JSON.stringify(
         envelope({ locale, defaultLocale, availableLocales: locales, pages: summaries, folders }, buildId, repository.diagnostics)
       )}\n`, "utf8");
+
+      // プラグインのビューを焼き込む。**devと同じ関数を通す。**
+      // 違うのは`isStatic: true`だけで、編集の宣言はプラグイン側が落とす。
+      const viewsDir = path.join(dataDir, "views");
+      let bakedViews = 0;
+      for (const summary of summaries) {
+        const payload = buildPluginViewFromSnapshot({
+          registry: plugins,
+          snapshot: repository,
+          name: summary.name,
+          locale,
+          isStatic: true
+        });
+        if (!payload) continue;
+        if (bakedViews === 0) await mkdir(viewsDir, { recursive: true });
+        await writeFile(
+          path.join(viewsDir, `${summary.name}.json`),
+          `${JSON.stringify(envelope(payload, buildId))}\n`,
+          "utf8"
+        );
+        bakedViews += 1;
+      }
 
       for (const summary of summaries) {
         const projected = await localizedPage(repository, summary.name, locale, defaultLocale);
@@ -304,7 +360,15 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       }), "utf8");
     }
 
-    // 3) 来歴とREADMEを出力する。
+    // 3) プラグインのブラウザ側資産を出力へ含める。**外部URLを参照しない。**
+    for (const plugin of plugins.plugins) {
+      if (!plugin.browserRoot) continue;
+      await cp(plugin.browserRoot, path.join(temporary, "plugins", plugin.id), {
+        recursive: true
+      });
+    }
+
+    // 4) 来歴とREADMEを出力する。
     await writeFile(
       path.join(temporary, "vellym-build.json"),
       `${JSON.stringify({
@@ -352,7 +416,7 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
   return {
     exitCode: 0,
     data: { outputDir: target, pages: repository.pages.length },
-    diagnostics: repository.diagnostics,
+    diagnostics: buildDiagnostics,
     message: `静的サイトを生成しました: ${repository.pages.length}ページ -> ${target}`
   };
 }

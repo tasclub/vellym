@@ -6,10 +6,12 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "vite build"
+    "build": "vite build && npm run build:contract",
+    "build:contract": "tsc -p tsconfig.contract.json"
   },
   "dependencies": {
     "@vellym-internal/core": "*",
+    "@vellym/plugin-api": "*",
     "@milkdown/components": "^7.21.3",
     "@milkdown/core": "^7.21.3",
     "@milkdown/plugin-history": "^7.21.3",

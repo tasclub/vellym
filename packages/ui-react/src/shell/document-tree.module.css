@@ -1,0 +1,183 @@
+@layer components {
+.treeToolbar {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3) 0;
+}
+
+.treeToolbarButton {
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--size-caption);
+}
+
+.treeToolbarButton[data-hovered] {
+  color: var(--text-primary);
+  background: var(--surface-sunken);
+}
+
+.treeToolbarButton[data-focus-visible] {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -2px;
+}
+
+.tree {
+  padding: var(--space-1) var(--space-2) var(--space-5);
+  outline: none;
+}
+
+.item {
+  color: var(--text-secondary);
+  cursor: default;
+  outline: none;
+}
+
+.row {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) calc(9px + (var(--tree-level) - 1) * 15px);
+  border-radius: var(--radius-lg);
+  font-size: var(--size-ui);
+  line-height: 1.35;
+}
+
+.item[data-hovered] .row {
+  background: var(--surface-sunken);
+}
+
+.item[data-selected] .row {
+  color: var(--text-primary);
+  background: var(--selected-bg);
+  font-weight: 650;
+}
+
+.item[data-focus-visible] .row {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -2px;
+}
+
+.item[data-drop-target] .row {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -2px;
+  background: var(--selected-bg);
+}
+
+.tree :global(.react-aria-DropIndicator) {
+  height: 2px;
+  margin-left: var(--space-4);
+  background: var(--text-primary);
+}
+
+.chevron {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.chevron[data-focus-visible] {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -2px;
+}
+
+.pageIcon,
+.folderIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.pageIcon {
+  margin-left: var(--space-6);
+}
+
+.item[data-selected] .pageIcon,
+.item[data-selected] .folderIcon {
+  color: var(--text-primary);
+}
+
+.label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemAction {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.row:hover .itemAction,
+.row:focus-within .itemAction,
+.itemAction[data-pressed] {
+  opacity: 1;
+}
+
+.itemAction[data-focus-visible] {
+  outline: 2px solid var(--text-primary);
+}
+
+.menuPopover {
+  min-width: 160px;
+  padding: var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 14%);
+}
+
+.menu {
+  outline: none;
+}
+
+.menuItem,
+.dangerItem {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  font-size: var(--size-ui);
+}
+
+.menuItem[data-focused],
+.dangerItem[data-focused] {
+  background: var(--surface-sunken);
+}
+
+.dangerItem {
+  color: var(--status-attention);
+}
+
+.empty {
+  padding: var(--space-5) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--size-ui);
+  line-height: 1.65;
+}
+}

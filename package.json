@@ -9,7 +9,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "npm run build --workspace @vellym-internal/ui-react && node scripts/build.mjs",
+    "build": "npm run build --workspace @vellym/plugin-api --workspace @vellym/tickets --workspace @vellym-internal/ui-react && node scripts/build.mjs",
     "dev": "npm run build && node packages/vellym/dist/cli.mjs dev",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && vitest run",
@@ -31,6 +31,7 @@
     "@vitejs/plugin-react": "5.1.4",
     "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.28.1",
+    "jsdom": "^30.0.1",
     "typescript": "^5.9.0",
     "vite": "7.3.6",
     "vitest": "^4.0.0"

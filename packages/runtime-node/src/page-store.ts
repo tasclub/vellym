@@ -15,6 +15,8 @@ import {
   normalizeLocale,
   persistedBaseLocaleForTranslations,
   validatePage,
+  validateResource,
+  type Diagnostic,
   type Page,
   type PageView
 } from "@vellym-internal/core";
@@ -22,7 +24,7 @@ import { RuntimeError } from "./errors.js";
 import { contentHash, isInside } from "./path-utils.js";
 import { pageLocaleHashes } from "./locale-hash.js";
 import { loadRepository } from "./repository.js";
-import type { LoadedPage, LocaleChange, PagePatch } from "./types.js";
+import type { LoadedPage, LocaleChange, PagePatch, SpecValue } from "./types.js";
 
 function patchObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -85,6 +87,26 @@ function richTextChanges(
     throw new RuntimeError("同じblock IDを複数回変更できません", 400, "INVALID_PATCH");
   }
   return changes;
+}
+
+/**
+ * 正本へ書ける値か。関数・undefined・循環を弾き、入れ子の深さも制限する。
+ * プラグインが宣言したpathの下とはいえ、任意の構造を無検査で書かせない。
+ */
+function isSpecValue(value: unknown, depth: number): boolean {
+  if (depth > 4) return false;
+  if (value === null) return true;
+  const type = typeof value;
+  if (type === "string" || type === "number" || type === "boolean") {
+    return type !== "number" || Number.isFinite(value);
+  }
+  if (Array.isArray(value)) return value.every((item) => isSpecValue(item, depth + 1));
+  if (type === "object") {
+    return Object.entries(value as Record<string, unknown>).every(
+      ([key, item]) => typeof key === "string" && key.length > 0 && isSpecValue(item, depth + 1)
+    );
+  }
+  return false;
 }
 
 function localeChange(value: unknown, index: number): LocaleChange {
@@ -173,6 +195,44 @@ export function parsePagePatch(value: unknown): PagePatch {
       throw new RuntimeError("同じlocaleを複数回変更できません", 400, "INVALID_PATCH");
     }
   }
+  let specValues: PagePatch["specValues"];
+  if (candidate.specValues !== undefined) {
+    if (!Array.isArray(candidate.specValues)) {
+      throw new RuntimeError("specValuesは配列で指定してください", 400, "INVALID_PATCH");
+    }
+    specValues = candidate.specValues.map((item, index) => {
+      const entry = patchObject(item);
+      const itemPath = entry.path;
+      if (
+        !Array.isArray(itemPath) ||
+        itemPath.length === 0 ||
+        itemPath.some((part) => typeof part !== "string" || part.length === 0)
+      ) {
+        throw new RuntimeError(
+          `specValues[${index}].pathが不正です`,
+          400,
+          "INVALID_PATCH"
+        );
+      }
+      // Coreが解釈する領域はこの経路で書かせない。本文とlocaleは専用の経路を持つ。
+      const reserved = new Set(["blocks", "locale", "translations"]);
+      if (reserved.has(itemPath[0] as string)) {
+        throw new RuntimeError(
+          `specValues[${index}].pathに${itemPath[0]}は指定できません`,
+          400,
+          "INVALID_PATCH"
+        );
+      }
+      if (!isSpecValue(entry.value, 0)) {
+        throw new RuntimeError(
+          `specValues[${index}].valueが不正です`,
+          400,
+          "INVALID_PATCH"
+        );
+      }
+      return { path: itemPath as string[], value: entry.value as SpecValue };
+    });
+  }
   let removeLocales: string[] | undefined;
   if (candidate.removeLocales !== undefined) {
     if (!Array.isArray(candidate.removeLocales)) {
@@ -210,6 +270,7 @@ export function parsePagePatch(value: unknown): PagePatch {
       ? {}
       : { richTextBlocks: richTextChanges(candidate.richTextBlocks)! }),
     ...(localeChanges === undefined ? {} : { localeChanges }),
+    ...(specValues === undefined ? {} : { specValues }),
     ...(removeLocales === undefined ? {} : { removeLocales }),
     ...(removeTranslationKeys === undefined ? {} : { removeTranslationKeys })
   };
@@ -290,8 +351,30 @@ function applyRichTextChanges(
   }
 }
 
+/**
+ * 保存後の検証。`kind: Page`以外はPageスキーマで検証しない。
+ *
+ * プラグインが解釈するkindは共通契約までを検証する。種別固有スキーマの検証は
+ * 保存を止める理由にしない。定義との食い違いは警告として扱う、という
+ * プラグイン側の原則を保存経路でも守る。
+ */
+function validateSaved(
+  value: unknown,
+  file: string
+): { page?: Page; diagnostics: Diagnostic[] } {
+  if ((value as { kind?: unknown } | undefined)?.kind === "Page") {
+    const result = validatePage(value, file);
+    return { ...(result.page ? { page: result.page } : {}), diagnostics: result.diagnostics };
+  }
+  const result = validateResource(value, file);
+  return {
+    ...(result.resource ? { page: result.resource as Page } : {}),
+    diagnostics: result.diagnostics
+  };
+}
+
 function validationErrors(page: unknown, file: string): Set<string> {
-  const result = validatePage(page, file);
+  const result = validateSaved(page, file);
   return new Set(
     result.diagnostics
       .filter(({ severity }) => severity === "error")
@@ -521,12 +604,21 @@ export async function savePage(
   if (patch.richTextBlocks) {
     applyRichTextChanges(document, original, ["spec", "blocks"], patch.richTextBlocks);
   }
+  // プラグインが宣言した項目の書き戻し。値がnullならキーごと消す。
+  // 非破壊往復はCoreの保存経路のままであり、書いていないキーとコメントは残る。
+  for (const change of patch.specValues ?? []) {
+    if (change.value === null) {
+      document.deleteIn(["spec", ...change.path]);
+      continue;
+    }
+    document.setIn(["spec", ...change.path], change.value);
+  }
   applyLocaleChanges(document, patch, defaultLocale);
 
   const output = document.toString({ lineWidth: 0 });
   const checkedDocument = parseDocument(output);
   const checkedValue = checkedDocument.toJS();
-  if (checkedDocument.errors.length || !validatePage(checkedValue, loaded.relativePath).page) {
+  if (checkedDocument.errors.length || !validateSaved(checkedValue, loaded.relativePath).page) {
     throw new RuntimeError("保存後のPage検証に失敗しました", 422, "SAVE_VALIDATION");
   }
   assertNoNewValidationErrors(beforeErrors, checkedValue, loaded.relativePath);
@@ -540,7 +632,7 @@ export async function savePage(
     await chmod(temporary, info.mode);
     const rereadDocument = parseDocument(await readFile(temporary, "utf8"));
     const rereadValue = rereadDocument.toJS();
-    if (rereadDocument.errors.length || !validatePage(rereadValue, loaded.relativePath).page) {
+    if (rereadDocument.errors.length || !validateSaved(rereadValue, loaded.relativePath).page) {
       throw new RuntimeError("一時ファイルの再検証に失敗しました", 422, "TEMP_VALIDATION");
     }
     assertNoNewValidationErrors(beforeErrors, rereadValue, loaded.relativePath);
@@ -549,7 +641,7 @@ export async function savePage(
     await rm(temporary, { force: true });
     throw error;
   }
-  const validatedOutput = validatePage(checkedValue, loaded.relativePath);
+  const validatedOutput = validateSaved(checkedValue, loaded.relativePath);
   if (!validatedOutput.page) {
     throw new RuntimeError("保存後のPageを再読込できません", 500, "RELOAD_FAILED");
   }

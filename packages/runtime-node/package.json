@@ -8,6 +8,10 @@
   "dependencies": {
     "@vellym-internal/core": "*",
     "chokidar": "^5.0.0",
-    "yaml": "^2.8.0"
+    "yaml": "^2.8.0",
+    "semver": "^7.7.2"
+  },
+  "devDependencies": {
+    "@types/semver": "^7.7.1"
   }
 }

@@ -1,0 +1,11 @@
+@layer components {
+  /*
+   * 器と操作欄は共通のDialog／Buttonが持つ。ここに残すのは
+   * **この画面固有の文言の見え方だけ**である。
+   */
+  .detail {
+    margin-top: var(--gap-inline) !important;
+    color: var(--text-muted) !important;
+    font-size: var(--text-note);
+  }
+}

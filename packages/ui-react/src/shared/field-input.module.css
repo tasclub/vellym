@@ -1,0 +1,6 @@
+@layer components {
+  .plugin-required {
+    margin-inline-start: 0.25em;
+    font-weight: 700;
+  }
+}

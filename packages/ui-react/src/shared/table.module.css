@@ -1,0 +1,66 @@
+@layer components {
+  /*
+   * 横に溢れる分はこの器の中だけでスクロールさせる。**画面ごと横に流さない。**
+   * 320px幅・文字200%でも全機能へ到達できることが受入条件である。
+   */
+  .scroll {
+    overflow-x: auto;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    /* 面が決めた尺度を受ける。紙面に置けば読む大きさ、一覧なら詰まった大きさ */
+    font-size: var(--text-body);
+  }
+
+  .table thead tr {
+    border-block-end: var(--border-width) solid var(--border-strong);
+  }
+
+  .table th {
+    padding: var(--gap-inline) var(--gap-inline);
+    color: var(--text-muted);
+    font-size: var(--text-note);
+    font-weight: 500;
+    text-align: start;
+    vertical-align: bottom;
+    white-space: nowrap;
+  }
+
+  .table td {
+    padding: var(--gap-inline);
+    border-block-end: var(--border-width) solid var(--border-subtle);
+    text-align: start;
+    vertical-align: top;
+  }
+
+  .table tbody tr:hover {
+    background: var(--surface-sunken);
+  }
+
+  /* 並べ替えの導線。見出しそのものを押せるようにする */
+  .sort {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+
+  /*
+   * 並び順の向きは記号でも示す。`aria-sort`だけでは見て分からず、
+   * 色や太さだけでは読み上げに載らない。
+   */
+  .direction {
+    margin-inline-start: var(--space-1);
+  }
+
+  .selectCell {
+    width: 1%;
+    white-space: nowrap;
+  }
+}

@@ -3,7 +3,7 @@ import {
   documentPagePath,
   localeDirection,
   resolveDocumentLocation
-} from "../packages/ui-react/src/routing.js";
+} from "../packages/ui-react/src/shell/routing.js";
 
 describe("locale document routing", () => {
   it("resolves a canonical locale page pathname and heading", () => {

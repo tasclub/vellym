@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { setupCatalog } from "@vellym-internal/runtime-node";
-import type { SetupCatalog } from "../packages/ui-react/src/api.js";
+import type { SetupCatalog } from "../packages/ui-react/src/shared/api.js";
 import {
   buildCatalogIndex,
   checkState,
@@ -15,8 +15,8 @@ import {
   toggleNode,
   treeForIds,
   type SetupSelectionState
-} from "../packages/ui-react/src/setup-catalog-tree.js";
-import { SetupTree } from "../packages/ui-react/src/setup-tree.js";
+} from "../packages/ui-react/src/setup/setup-catalog-tree.js";
+import { SetupTree } from "../packages/ui-react/src/setup/setup-tree.js";
 
 const catalog = setupCatalog("ja") as unknown as SetupCatalog;
 const index = buildCatalogIndex(catalog);
@@ -222,7 +222,10 @@ describe("SetupTree markup", () => {
       })
     );
     expect(markup).toContain("作成しません");
-    expect(markup).toContain("setup-tree-item page omitted");
+    // CSS moduleのクラス名はハッシュ付きになる。**文字列そのものを固定しない。**
+    // 見たいのは「作成しない行だと分かる印が付いていること」である。
+    expect(markup).toMatch(/class="[^"]*setup-tree-item[^"]*page[^"]*omitted/);
+    expect(markup).toContain('aria-checked="false"');
   });
 
   it("renders an empty tree as a message instead of an empty group", () => {

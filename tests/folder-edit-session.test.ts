@@ -6,7 +6,7 @@ import {
   folderEditPatch,
   folderEditSessionDirty,
   removeFolderLocale
-} from "../packages/ui-react/src/folder-edit-session.js";
+} from "../packages/ui-react/src/editor/folder-edit-session.js";
 
 const view: FolderEditView = {
   folderPath: "guides",

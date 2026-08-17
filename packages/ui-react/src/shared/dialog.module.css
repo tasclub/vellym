@@ -1,0 +1,50 @@
+@layer components {
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-dialog);
+    display: grid;
+    place-items: center;
+    padding: var(--space-4);
+    background: rgb(0 0 0 / 30%);
+  }
+
+  .modal {
+    width: min(100%, 520px);
+    max-height: min(80vh, 720px);
+    overflow: auto;
+  }
+
+  .dialog {
+    padding: var(--space-5);
+    border: var(--border-width) solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-overlay);
+    outline: none;
+  }
+
+  .dialog p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: var(--leading-text);
+  }
+
+  .title {
+    margin: 0 0 var(--gap-block);
+    font-size: var(--text-heading);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--gap-inline);
+    margin-top: var(--gap-block);
+  }
+
+  @media (max-width: 479px) {
+    .dialog { padding: var(--space-5) var(--space-4); }
+    .actions { flex-direction: column; }
+  }
+}

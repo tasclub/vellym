@@ -2,12 +2,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { buildDocumentNavigation } from "@vellym-internal/core";
-import { DocumentTree } from "../packages/ui-react/src/document-tree.js";
-import { FolderView } from "../packages/ui-react/src/folder-view.js";
-import { AdminView } from "../packages/ui-react/src/admin-view.js";
-import { LanguageSwitcher } from "../packages/ui-react/src/language-switcher.js";
-import { FolderLanguageControls } from "../packages/ui-react/src/folder-language-controls.js";
-import { createFolderEditSession } from "../packages/ui-react/src/folder-edit-session.js";
+import { DocumentTree } from "../packages/ui-react/src/shell/document-tree.js";
+import { FolderView } from "../packages/ui-react/src/editor/folder-view.js";
+import { AdminView } from "../packages/ui-react/src/shell/admin-view.js";
+import { LanguageSwitcher } from "../packages/ui-react/src/shell/language-switcher.js";
+import { FolderLanguageControls } from "../packages/ui-react/src/editor/folder-language-controls.js";
+import { createFolderEditSession } from "../packages/ui-react/src/editor/folder-edit-session.js";
 
 describe("DocumentTree", () => {
   it("renders physical folders and document titles as an accessible tree", () => {

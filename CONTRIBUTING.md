@@ -76,6 +76,23 @@ this). Version-specific schemas are produced only when publishing them to the si
 - Plugin-provided blocks are namespaced (`vendor-name/block-type`) and are validated by
   the plugin that owns them. They never require a core schema change.
 
+## Changing the plugin contract
+
+`@vellym/plugin-api` is published, so anything exported from it is a public contract.
+Keep it to types, constants, the manifest schema, and locale resolution. Runtime
+behaviour belongs in `core`: if the contract package carries an implementation, a plugin
+can bundle one version of it while the host runs another.
+
+- A plugin receives extracted records, never a filesystem path or the content root, and
+  writes only through host commands that go through the normal save path.
+- A record projector must not retain the record it is given. Copy the values you need;
+  keeping the reference retains every resource's `spec`.
+- Anything a plugin gets wrong is a diagnostic. Nothing a plugin does may fail
+  `validate`, `build`, the dev server, or the SPA.
+
+Build the publishable output with `npm run build --workspace @vellym/plugin-api`. Day to
+day you do not need to: the workspace resolves the package to its source.
+
 ## Releasing
 
 Publishing to npm uses trusted publishing (OIDC), so no npm token is stored in this

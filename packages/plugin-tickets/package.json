@@ -1,0 +1,125 @@
+{
+  "name": "@vellym/tickets",
+  "version": "0.3.0-beta.1",
+  "description": "Official ticket management plugin for Vellym",
+  "keywords": [
+    "vellym",
+    "vellym-plugin",
+    "tickets",
+    "issue-tracking"
+  ],
+  "license": "MIT",
+  "author": "tasclub",
+  "homepage": "https://vellym.tasclub.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tasclub/vellym.git",
+    "directory": "packages/plugin-tickets"
+  },
+  "bugs": {
+    "url": "https://github.com/tasclub/vellym/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0",
+    "vellym": ">=0.3.0-beta.1"
+  },
+  "exports": {
+    ".": {
+      "vellym-source": "./src/node.ts",
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
+    "./package.json": "./package.json",
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/ui"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@vellym/plugin-api": "^0.3.0-beta.1",
+    "react": ">=18",
+    "@vellym/ui": "^0.3.0-beta.1"
+  },
+  "devDependencies": {
+    "@vellym/plugin-api": "*",
+    "esbuild": "^0.28.1",
+    "@vellym/ui": "*"
+  },
+  "vellym": {
+    "id": "tickets",
+    "contributes": {
+      "kinds": [
+        {
+          "kind": "Ticket"
+        },
+        {
+          "kind": "TicketTracker",
+          "showInDocumentTree": true,
+          "hasBlocks": false
+        }
+      ],
+      "views": [
+        {
+          "id": "ticket-list",
+          "kind": "Ticket",
+          "opensKind": "TicketTracker",
+          "type": "list",
+          "static": true
+        },
+        {
+          "id": "ticket-tracker-settings",
+          "kind": "TicketTracker",
+          "opensKind": "TicketTracker",
+          "type": "detail",
+          "static": false
+        },
+        {
+          "id": "ticket-detail",
+          "kind": "Ticket",
+          "opensKind": "Ticket",
+          "type": "detail",
+          "static": true
+        }
+      ],
+      "commands": [
+        {
+          "id": "ticket.create",
+          "title": {
+            "ja": "チケットを作成",
+            "en": "New ticket"
+          },
+          "static": false
+        },
+        {
+          "id": "ticket.create-tracker",
+          "title": {
+            "ja": "チケット管理",
+            "en": "Ticket tracker"
+          },
+          "static": false,
+          "placement": "document-tree"
+        }
+      ]
+    }
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "@vellym/ui": {
+      "optional": true
+    }
+  }
+}
