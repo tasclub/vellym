@@ -225,15 +225,54 @@ describe("reactRenderer", () => {
     expect(seen).toEqual(["ja", "en"]);
   });
 
-  it("defers unmount by a microtask so React does not warn", async () => {
+  it("tears down without leaving an unhandled DOM error", async () => {
     const { reactRenderer } = await import("@vellym/plugin-api/react");
     const renderer = reactRenderer(() => createElement("p", null, "x"));
     render(
       createElement(PluginRendererView, { viewId: "ticket-list", renderer, context })
     );
     render(createElement("p", null, "別の画面"));
-    // 解体は1 microtask遅れる。hostは完了を待たない契約なので問題ない。
+    // 解体は同期で走る。捨てた要素の後片付けが失敗しても、そこで受け止める。
     await Promise.resolve();
     expect(host.textContent).toBe("別の画面");
+  });
+});
+
+describe("a plugin's own React tree", () => {
+  it("catches an exception thrown while rendering, not only while mounting", async () => {
+    /*
+     * **hostのエラー境界では捕まえられない。** `reactRenderer`は`createRoot`で
+     * 別のReactツリーを作るため、その中の例外はhost側のツリーへ伝わらない。
+     * 描画中に投げるcomponentで画面に何も出ない状態を実際に踏んだので、
+     * `reactRenderer`側に境界を置いた。
+     */
+    const { reactRenderer } = await import("@vellym/plugin-api/react");
+    const renderer = reactRenderer(() => {
+      throw new Error("描画中に落ちました");
+    });
+    render(
+      createElement(
+        "div",
+        null,
+        createElement("nav", null, "文書ツリー"),
+        createElement(PluginRendererView, { viewId: "ticket-list", renderer, context })
+      )
+    );
+    // その区画にだけ診断が出る。隣は残る。
+    expect(host.querySelector('[role="alert"]')).not.toBeNull();
+    expect(host.textContent).toContain("描画中に落ちました");
+    expect(host.textContent).toContain("文書ツリー");
+  });
+
+  it("keeps working after the failing view is replaced", async () => {
+    const { reactRenderer } = await import("@vellym/plugin-api/react");
+    const broken = reactRenderer(() => {
+      throw new Error("落ちた");
+    });
+    const healthy = reactRenderer(() => createElement("p", null, "次の画面"));
+    render(createElement(PluginRendererView, { viewId: "a", renderer: broken, context }));
+    expect(host.querySelector('[role="alert"]')).not.toBeNull();
+    render(createElement(PluginRendererView, { viewId: "b", renderer: healthy, context }));
+    expect(host.textContent).toContain("次の画面");
   });
 });

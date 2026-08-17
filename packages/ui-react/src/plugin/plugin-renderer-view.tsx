@@ -42,10 +42,18 @@ function RendererHost({
   const deliveredRef = useRef<PluginRenderContext | undefined>(undefined);
 
   useEffect(() => {
-    const element = elementRef.current;
-    if (!element) return;
-    // 要素の中身はプラグインのものになる。渡す前にhostが空にする。
-    element.replaceChildren();
+    const host = elementRef.current;
+    if (!host) return;
+    /*
+     * **Reactが管理しない要素を1枚挟んで、そこへプラグインを描かせる。**
+     *
+     * hostのReactとプラグインのReactが同じDOMの区画を取り合うと、解体の
+     * 順序次第で`removeChild`が`NotFoundError`を投げる。実際に踏んだ。
+     * 挟んだ要素はhostのReactから見えないので、取り合いが起きない。
+     * 片付けもこちらで行う。
+     */
+    const element = document.createElement("div");
+    host.append(element);
     deliveredRef.current = contextRef.current;
     handleRef.current = renderer.mount(element, contextRef.current);
     return () => {
@@ -54,6 +62,7 @@ function RendererHost({
       handleRef.current = undefined;
       deliveredRef.current = undefined;
       handle?.unmount();
+      element.remove();
     };
   }, [renderer]);
 
