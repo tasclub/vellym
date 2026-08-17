@@ -4,7 +4,6 @@ import {
   resolveLocalizedText,
   type PluginDetailViewDescriptor,
   type PluginFieldDescriptor,
-  type PluginGroupFieldDescriptor,
   type PluginIndexValue
 } from "@vellym/plugin-api";
 import type { PluginViewPayload, PluginViewRow } from "./plugin-list-view.js";
@@ -22,12 +21,6 @@ import styles from "./plugin.module.css";
 
 export type { PluginSpecValue };
 
-function isGroup(
-  field: PluginFieldDescriptor | PluginGroupFieldDescriptor
-): field is PluginGroupFieldDescriptor {
-  return field.type === "group";
-}
-
 /**
  * 宣言に無い値。定義から消えた項目がここに入る。
  *
@@ -41,7 +34,7 @@ function undeclaredEntries(
   const prefix = descriptor.undeclaredKeyPrefix;
   if (!row || !prefix || descriptor.undeclaredFields === "hidden") return [];
   const declared = new Set(
-    descriptor.fields.filter((field) => !isGroup(field)).map((field) => valueKeyOf(field))
+    descriptor.fields.map((field) => valueKeyOf(field))
   );
   return Object.entries(row.values).filter(
     ([key]) => key.startsWith(prefix) && !declared.has(key)
@@ -61,19 +54,7 @@ function displayText(
   return option.symbol ? `${option.symbol} ${label}` : label;
 }
 
-type GroupRow = Record<string, string>;
-
 /** 繰り返し行の入れ替え。並び順が表示順であり、先頭が新規作成時の初期値になる */
-function moveRow(rows: GroupRow[], index: number, delta: number): GroupRow[] {
-  const target = index + delta;
-  if (target < 0 || target >= rows.length) return rows;
-  const next = [...rows];
-  const moved = next[index]!;
-  next[index] = next[target]!;
-  next[target] = moved;
-  return next;
-}
-
 /**
  * プラグインが宣言した詳細descriptorを描く汎用レンダラ。
  *
@@ -118,41 +99,18 @@ export function PluginDetailView({
   const initial = useMemo(() => {
     const values: Record<string, string> = {};
     for (const field of descriptor?.fields ?? []) {
-      if (isGroup(field)) continue;
       values[field.id] = asText(row?.values[valueKeyOf(field)]);
     }
     return values;
   }, [descriptor, row]);
 
-  const initialGroups = useMemo(() => {
-    const groups: Record<string, GroupRow[]> = {};
-    for (const field of descriptor?.fields ?? []) {
-      if (!isGroup(field)) continue;
-      const source = field.path.reduce<unknown>(
-        (value, key) => (value as Record<string, unknown> | undefined)?.[key],
-        spec
-      );
-      groups[field.id] = (Array.isArray(source) ? source : []).map((item) => {
-        const record = (item ?? {}) as Record<string, unknown>;
-        const entry: GroupRow = {};
-        for (const child of field.fields) {
-          const raw = record[child.path[child.path.length - 1] ?? child.id];
-          entry[child.id] = raw === undefined || raw === null ? "" : String(raw);
-        }
-        return entry;
-      });
-    }
-    return groups;
-  }, [descriptor, spec]);
 
   const [draft, setDraft] = useState(initial);
-  const [groups, setGroups] = useState(initialGroups);
   const [saving, setSaving] = useState(false);
   useEffect(() => setDraft(initial), [initial]);
-  useEffect(() => setGroups(initialGroups), [initialGroups]);
 
   const singleFields = useMemo(
-    () => (descriptor?.fields ?? []).filter((field) => !isGroup(field)),
+    () => descriptor?.fields ?? [],
     [descriptor]
   );
 
@@ -179,11 +137,9 @@ export function PluginDetailView({
   if (!descriptor) return null;
   const changed =
     Object.keys(draft).some((id) => draft[id] !== initial[id]) ||
-    JSON.stringify(groups) !== JSON.stringify(initialGroups);
+    false;
   const undeclared = undeclaredEntries(descriptor, row);
 
-  const updateGroup = (id: string, next: GroupRow[]) =>
-    setGroups({ ...groups, [id]: next });
 
   const notices = payload.targetDiagnostics ?? [];
 
@@ -202,7 +158,7 @@ export function PluginDetailView({
         </div>
       ) : null}
       <dl className={styles["plugin-detail-fields"]}>
-        {descriptor.fields.filter((field) => !isGroup(field)).map((field) => (
+        {descriptor.fields.map((field) => (
           <div key={field.id} className={styles["plugin-detail-field"]}>
             <dt>
               {mode === "read" ? (
@@ -251,95 +207,6 @@ export function PluginDetailView({
         ))}
       </dl>
 
-      {mode === "settings"
-        ? descriptor.fields.filter(isGroup).map((group) => {
-        const rows = groups[group.id] ?? [];
-        return (
-          <section key={group.id} className={styles["plugin-detail-group"]}>
-            <h2>{resolveLocalizedText(group.label, locale)}</h2>
-            {group.description ? (
-              <p className={styles["plugin-detail-note"]}>
-                {resolveLocalizedText(group.description, locale)}
-              </p>
-            ) : null}
-            <DataTable
-              rows={rows}
-              rowKey={(_, index) => String(index)}
-              caption={resolveLocalizedText(group.label, locale)}
-              columns={[
-                ...group.fields.map((child) => ({
-                  id: child.id,
-                  label: resolveLocalizedText(child.label, locale),
-                  cell: (entry: Record<string, string>, index: number) => (
-                    <FieldInput
-                      field={child}
-                      id={`plugin-group-${group.id}-${index}-${child.id}`}
-                      value={entry[child.id] ?? ""}
-                      locale={locale}
-                      disabled={false}
-                      onChange={(next) =>
-                        updateGroup(
-                          group.id,
-                          rows.map((item, position) =>
-                            position === index ? { ...item, [child.id]: next } : item
-                          )
-                        )
-                      }
-                    />
-                  )
-                })),
-                {
-                  id: "actions",
-                  label: t("plugin.rowActions"),
-                  labelHidden: true,
-                  cell: (_entry: Record<string, string>, index: number) => (
-                    <>
-                      {/*
-                        並び順が表示順であり、先頭が新規作成時の初期値になる。
-                        並べ替えられなければ、どちらも利用者が決められない。
-                      */}
-                      <Button
-                        disabled={index === 0}
-                        aria-label={t("plugin.moveUp")}
-                        onClick={() => updateGroup(group.id, moveRow(rows, index, -1))}
-                      >
-                        ↑
-                      </Button>
-                      <Button
-                        disabled={index === rows.length - 1}
-                        aria-label={t("plugin.moveDown")}
-                        onClick={() => updateGroup(group.id, moveRow(rows, index, 1))}
-                      >
-                        ↓
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          updateGroup(
-                            group.id,
-                            rows.filter((_, position) => position !== index)
-                          )
-                        }
-                      >
-                        {t("plugin.removeRow")}
-                      </Button>
-                    </>
-                  )
-                }
-              ]}
-            />
-            {true ? (
-              <Button
-                onClick={() => updateGroup(group.id, [...rows, {}])}
-              >
-                {group.addLabel
-                  ? resolveLocalizedText(group.addLabel, locale)
-                  : t("plugin.addRow")}
-              </Button>
-            ) : null}
-          </section>
-            );
-          })
-        : null}
 
       {mode === "settings" && onSave ? (
         <Button className={styles["plugin-detail-save"]}
@@ -349,28 +216,6 @@ export function PluginDetailView({
             try {
               const changes: Array<{ path: string[]; value: PluginSpecValue }> = [];
               for (const field of descriptor.fields) {
-                if (isGroup(field)) {
-                  if (JSON.stringify(groups[field.id]) === JSON.stringify(initialGroups[field.id])) {
-                    continue;
-                  }
-                  changes.push({
-                    path: [...field.path],
-                    value: (groups[field.id] ?? [])
-                      // すべて空の行は書き出さない。追加しただけの行を残さない。
-                      .filter((entry) => Object.values(entry).some((value) => value))
-                      .map((entry) => {
-                        const item: Record<string, PluginSpecValue> = {};
-                        for (const child of field.fields) {
-                          const value = toSpecValue(child, entry[child.id] ?? "");
-                          if (value !== null) {
-                            item[child.path[child.path.length - 1] ?? child.id] = value;
-                          }
-                        }
-                        return item;
-                      })
-                  });
-                  continue;
-                }
                 if (draft[field.id] === initial[field.id]) continue;
                 changes.push({
                   path: [...field.path],

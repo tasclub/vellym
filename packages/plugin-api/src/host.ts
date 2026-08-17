@@ -22,24 +22,14 @@ import type {
 export type PluginInputValue = string | number | boolean | readonly string[];
 
 /**
- * コマンドが起こす前に尋ねる入力欄。
+ * コマンドが起こす前に尋ねる入力欄。詳細の項目と同じ宣言を使う。
  *
- * 詳細の項目と同じ宣言を使い、初期値だけを足す。初期値は**プラグインが
- * その場で決めて渡す**。hostが定義を読んで推測しない。
+ * 初期値の宣言（`initialValue`）と、対象ごとに項目を変える関数形は
+ * 2026-08-18に剥がした。**どちらも使う者が居なかった。**
+ * 対象によって尋ねることを変えたくなったら、宣言を増やすのではなく
+ * プラグイン側の画面で解く（`registerViewRenderer`）。
  */
-export interface PluginCommandInput extends PluginFieldDescriptor {
-  initialValue?: PluginInputValue;
-}
-
-/**
- * 入力欄の宣言。開いている対象によって変わる場合は関数で渡す。
- *
- * 「そのチケット管理が必須と定めた項目だけを尋ねる」のように、対象が
- * 決まってはじめて何を尋ねるかが決まる場合がある。
- */
-export type PluginCommandInputsProvider =
-  | readonly PluginCommandInput[]
-  | ((context: PluginViewContext) => readonly PluginCommandInput[]);
+export type PluginCommandInput = PluginFieldDescriptor;
 
 /**
  * 種別ごとのアイコン。
@@ -132,7 +122,7 @@ export interface PluginCommandContribution {
    * `required`の入力欄は**このコマンドの実行だけを止める。** 既にあるリソースの
    * 編集も、手で書いたYAMLも止めない。塞げないものを塞げるふりをしない。
    */
-  inputs?: PluginCommandInputsProvider;
+  inputs?: readonly PluginCommandInput[];
   run(context: PluginCommandContext): Promise<PluginCommandResult> | PluginCommandResult;
 }
 

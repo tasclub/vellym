@@ -17,15 +17,6 @@ export interface PluginCommandDescriptor {
   inputs?: readonly PluginCommandInput[];
 }
 
-/** 初期値を入力欄の文字列にする。表示上は「ただの初期の値」であり、印は付けない */
-function initialText(field: PluginCommandInput): string {
-  const value = field.initialValue;
-  if (value === undefined) return "";
-  if (typeof value === "boolean") return value ? "true" : "";
-  if (Array.isArray(value)) return value.join(", ");
-  return String(value);
-}
-
 /**
  * プラグインのコマンドを起こす前に、宣言された入力を尋ねるダイアログ。
  *
@@ -48,7 +39,8 @@ export function PluginCommandDialog({
   const fields = useMemo(() => command?.inputs ?? [], [command]);
   const initial = useMemo(() => {
     const values: Record<string, string> = {};
-    for (const field of fields) values[field.id] = initialText(field);
+    // 初期値の宣言は契約から剥がした。空から始める
+    for (const field of fields) values[field.id] = "";
     return values;
   }, [fields]);
   const [draft, setDraft] = useState(initial);

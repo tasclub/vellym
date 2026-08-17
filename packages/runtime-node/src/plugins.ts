@@ -403,9 +403,7 @@ export function resolveCommandInputs(
 ): readonly PluginCommandInput[] | undefined {
   if (!command.inputs) return undefined;
   try {
-    const inputs =
-      typeof command.inputs === "function" ? command.inputs(context) : command.inputs;
-    return inputs.length ? inputs : undefined;
+    return command.inputs.length ? command.inputs : undefined;
   } catch {
     return undefined;
   }

@@ -569,8 +569,7 @@ export function App() {
       value === "" ||
       (Array.isArray(value) && value.length === 0);
     return descriptor.fields
-      .filter((field) => field.type !== "group")
-      .filter((field) => "required" in field && field.required === true)
+      .filter((field) => field.required === true)
       .filter((field) => {
         const key = field.path.join("\u0000");
         const valueKey =

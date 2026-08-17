@@ -157,30 +157,13 @@ export interface PluginFieldDescriptor {
   description?: PluginLocalizedText;
 }
 
-/**
- * 繰り返し構造の項目。同じ形の要素を利用者が増減する。
- *
- * 「項目の定義そのものを増減する」ような画面は、項目を並べるだけの宣言では
- * 表せない。配列の要素に何を書くかを宣言し、追加と削除はレンダラが受け持つ。
- */
-export interface PluginGroupFieldDescriptor {
-  id: string;
-  label: PluginLocalizedText;
-  type: "group";
-  /** `spec`内の配列の位置 */
-  path: readonly string[];
-  /** 各要素が持つ項目。入れ子のgroupは持てない */
-  fields: readonly PluginFieldDescriptor[];
-  addLabel?: PluginLocalizedText;
-  description?: PluginLocalizedText;
-}
 
 /** 詳細ビュー */
 export interface PluginDetailViewDescriptor {
   type: "detail";
   id: string;
   kind: string;
-  fields: readonly (PluginFieldDescriptor | PluginGroupFieldDescriptor)[];
+  fields: readonly PluginFieldDescriptor[];
   /**
    * 説明本文の扱い。`"blocks"`にすると、通常のPage編集と同じエディタと
    * 同じ保存経路を使う。未保存離脱の保護、保存失敗時の入力保持、外部変更と

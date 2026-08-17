@@ -231,85 +231,17 @@ export function ticketTrackerSettingsView(
     kind: "TicketTracker",
     body: "none",
     undeclaredFields: "read-only",
-    fields: [
-      {
-        id: "statuses",
-        type: "group",
-        label: { ja: "ステータス", en: "Statuses" },
-        path: ["statuses"],
-        addLabel: { ja: "ステータスを追加", en: "Add status" },
-        description: {
-          ja: "idは不変の識別子。既存チケットが指す値なので、変えると定義外になります。先頭が新しいチケットの初期値になります",
-          en: "The id is permanent; existing tickets point at it. The first row is the initial status for new tickets."
-        },
-        fields: [
-          { id: "id", label: { ja: "ID", en: "ID" }, type: "text", path: ["id"], required: true },
-          {
-            id: "label",
-            label: { ja: "表示名", en: "Label" },
-            type: "text",
-            path: ["label"],
-            required: true
-          },
-          {
-            id: "category",
-            label: { ja: "区分", en: "Category" },
-            type: "select",
-            path: ["category"],
-            required: true,
-            options: [
-              { value: "open", label: { ja: "未完了", en: "Open" } },
-              { value: "closed", label: { ja: "完了", en: "Closed" } }
-            ]
-          }
-        ]
-      },
-      {
-        id: "fields",
-        type: "group",
-        label: { ja: "項目", en: "Fields" },
-        path: ["fields"],
-        addLabel: { ja: "項目を追加", en: "Add field" },
-        description: {
-          ja: "並び順が表示順です。単一選択の初期値は選択肢の先頭になります",
-          en: "The order here is the display order. The first option is the initial value."
-        },
-        fields: [
-          { id: "id", label: { ja: "ID", en: "ID" }, type: "text", path: ["id"], required: true },
-          {
-            id: "label",
-            label: { ja: "表示名", en: "Label" },
-            type: "text",
-            path: ["label"],
-            required: true
-          },
-          {
-            id: "type",
-            label: { ja: "型", en: "Type" },
-            type: "select",
-            path: ["type"],
-            required: true,
-            options: TYPE_OPTIONS
-          },
-          {
-            id: "required",
-            label: { ja: "必須", en: "Required" },
-            type: "boolean",
-            path: ["required"],
-            description: {
-              ja: "新しく作るときだけ入力を求めます。既存チケットの編集は止めません",
-              en: "Only enforced when creating. Editing existing tickets is never blocked."
-            }
-          },
-          {
-            id: "listColumn",
-            label: { ja: "一覧に出す", en: "Show in list" },
-            type: "boolean",
-            path: ["listColumn"]
-          }
-        ]
-      }
-    ],
+    /*
+     * **この画面はプラグイン側のrendererが描く**（`settings-screen.tsx`）。
+     *
+     * 選択肢の編集は「繰り返し構造の中の繰り返し構造」であり、宣言では
+     * 表せない。契約に入れ子を足す代わりにプラグインが描くと決めたので、
+     * ここで項目を宣言しない。
+     *
+     * ブラウザ側の資産が読み込めなかった場合、この画面からは編集できない。
+     * 正本YAMLを直接編集する道は残る。
+     */
+    fields: [],
     ...(tracker ? { parent: { name: tracker.name, title: tracker.title } } : {})
   };
 }
