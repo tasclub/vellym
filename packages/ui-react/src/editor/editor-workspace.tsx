@@ -24,6 +24,7 @@ import { draftCopyText } from "./save-state.js";
 import { DocumentView } from "./view.js";
 import { errorMessage } from "../shared/error-message.js";
 import { Button } from "../shared/button.js";
+import styles from "./editor-workspace.module.css";
 
 const FORMAT_ACTIONS: {
   command: EditorCommand;
@@ -118,10 +119,10 @@ function Notices(props: {
         </div>
       )}
       {props.saveState === "failure" && (
-        <div className="notice warning save-problem" role="alert">
+        <div className={`notice warning ${styles["save-problem"]}`} role="alert">
           <strong>{t("editor.saveFailedTitle")}</strong>
           <span>{props.saveError}</span>
-          <div className="notice-actions">
+          <div className={styles["notice-actions"]}>
             <button type="button" onClick={props.onRetry}>
               {t("editor.retrySave")}
             </button>
@@ -132,13 +133,13 @@ function Notices(props: {
         </div>
       )}
       {props.saveState === "conflict" && (
-        <div className="notice warning save-problem" role="alert">
+        <div className={`notice warning ${styles["save-problem"]}`} role="alert">
           <strong>{t("editor.conflictTitle")}</strong>
           <span>{t("editor.conflictBody")}</span>
           {props.conflictView && (
-            <details className="conflict-details">
+            <details className={styles["conflict-details"]}>
               <summary>{t("editor.conflictCompare")}</summary>
-              <div className="conflict-comparison">
+              <div className={styles["conflict-comparison"]}>
                 <section>
                   <h3>{t("editor.conflictDraftHeading")}</h3>
                   <pre>
@@ -160,7 +161,7 @@ function Notices(props: {
               </div>
             </details>
           )}
-          <div className="notice-actions">
+          <div className={styles["notice-actions"]}>
             <button type="button" onClick={props.onCopy}>
               {t("editor.copyDraft")}
             </button>
@@ -182,7 +183,7 @@ function Notices(props: {
       )}
       {(props.watchConnection.state === "disconnected" ||
         props.watchConnection.state === "error") && (
-        <div className="notice warning watch-problem" role="status">
+        <div className={`notice warning ${styles["watch-problem"]}`} role="status">
           <strong>
             {props.watchConnection.state === "error"
               ? t("editor.watchError")
@@ -358,7 +359,7 @@ export function EditorWorkspace(props: {
             beforeBody={props.beforeBody}
             headerActions={
               props.languageSwitcher || props.canEdit ? (
-                <div className="document-actions">
+                <div className={styles["document-actions"]}>
                   {props.languageSwitcher}
                   {props.canEdit && (
                 <Button tone="primary" onClick={props.onStartEdit}>
@@ -379,8 +380,8 @@ export function EditorWorkspace(props: {
       <div className="edit-desktop">
         {props.aboveSurface}
         {props.editLanguageControls}
-        <div className="edit-toolbar" role="toolbar" aria-label={t("editor.toolbarLabel")}>
-          <div className="history-actions" role="group" aria-label={t("editor.historyGroup")}>
+        <div className={styles["edit-toolbar"]} role="toolbar" aria-label={t("editor.toolbarLabel")}>
+          <div className={styles["history-actions"]} role="group" aria-label={t("editor.historyGroup")}>
             <button
               type="button"
               aria-label={t("editor.undo")}
@@ -400,7 +401,7 @@ export function EditorWorkspace(props: {
               ↷
             </button>
           </div>
-          <div className="format-actions" role="group" aria-label={t("editor.formatGroup")}>
+          <div className={styles["format-actions"]} role="group" aria-label={t("editor.formatGroup")}>
             {PRIMARY_ACTIONS.map((action) => (
               <button
                 key={action.command}
@@ -419,7 +420,7 @@ export function EditorWorkspace(props: {
                 {action.text}
               </button>
             ))}
-            <details className="more-actions">
+            <details className={styles["more-actions"]}>
               <summary
                 aria-label={t("editor.moreFormats")}
                 title={t("editor.moreFormats")}
@@ -427,7 +428,7 @@ export function EditorWorkspace(props: {
                 ⋯
               </summary>
               <div
-                className="more-menu"
+                className={styles["more-menu"]}
                 role="group"
                 aria-label={t("editor.moreFormats")}
               >
@@ -446,7 +447,7 @@ export function EditorWorkspace(props: {
                       else run(action.command);
                     }}
                   >
-                    <span className="more-icon" aria-hidden="true">
+                    <span className={styles["more-icon"]} aria-hidden="true">
                       {action.text}
                     </span>
                     <span>{t(action.labelKey)}</span>
@@ -457,7 +458,7 @@ export function EditorWorkspace(props: {
           </div>
           {editorState.activeCommands.includes("table") && (
             <div
-              className="table-actions"
+              className={styles["table-actions"]}
               role="group"
               aria-label={t("editor.tableGroup")}
             >
@@ -512,11 +513,11 @@ export function EditorWorkspace(props: {
         <Notices {...props} view={props.view} draft={props.draft} />
         {settingsOpen && (
           <div
-            className="page-settings-panel"
+            className={styles["page-settings-panel"]}
             role="group"
             aria-label={t("editor.pageSettings")}
           >
-            <label className="slug-editor">
+            <label className={styles["slug-editor"]}>
               <span>{t("editor.slugLabel")}</span>
               <input
                 value={props.slug}
@@ -526,7 +527,7 @@ export function EditorWorkspace(props: {
               />
               <small>{t("editor.slugHint")}</small>
             </label>
-            <div className="file-name-field">
+            <div className={styles["file-name-field"]}>
               <label>
                 <span>{t("editor.fileNameLabel")}</span>
                 <input
@@ -583,7 +584,7 @@ export function EditorWorkspace(props: {
               (!props.view?.baseLocale || localeDraft.locale === props.view.baseLocale)
                 ? props.beforeBody
                 : null}
-              <label className="title-editor">
+              <label className={styles["title-editor"]}>
                 <span className="visually-hidden">{t("editor.pageTitle")}</span>
                 <input
                   value={localeDraft.title}
@@ -602,8 +603,8 @@ export function EditorWorkspace(props: {
                   : undefined;
                 if (assessment && !assessment.supported) {
                   return (
-                    <section key={block.id} className="locked-block">
-                      <p className="locked-block-reason notice" role="note">
+                    <section key={block.id} className={styles["locked-block"]}>
+                      <p className={`${styles["locked-block-reason"]} notice`} role="note">
                         {t("editor.blockReadOnly", { reasons: assessment.reasons.join("、") })}
                       </p>
                       <div className="document-paper">
