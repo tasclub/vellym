@@ -1,0 +1,102 @@
+@layer components {
+  /*
+   * `internal-link`・`broken-link`・`external-link`は**Coreがマークダウン
+   * 変換で埋め込む**クラスである（`core/src/relations.ts`）。Reactが付ける
+   * ものではないのでハッシュを付けられない。`:global`で残す。
+   */
+  .document-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .document-header-main { min-width: 0; }
+  .document-header-actions { flex-shrink: 0; padding-top: var(--space-2); }
+  .document-header h1 {
+    margin: var(--space-1) 0 var(--space-2);
+    font-family: var(--font-heading);
+    font-size: var(--size-doc-title);
+  }
+  .rich-text { line-height: var(--leading-text); overflow-wrap: anywhere; }
+  .rich-text h1,
+  .rich-text h2,
+  .rich-text h3,
+  .rich-text h4,
+  .rich-text h5,
+  .rich-text h6 {
+    font-family: var(--font-heading);
+    line-height: 1.4;
+  }
+  .rich-text a { color: var(--accent-default); text-decoration: underline; text-underline-offset: 2px; }
+  .rich-text a:hover { text-decoration-thickness: 2px; }
+  .rich-text blockquote {
+    margin: var(--space-3) 0;
+    padding-left: var(--space-4);
+    border-left: 3px solid var(--border-strong);
+    color: var(--text-secondary);
+  }
+  .rich-text ul, .rich-text ol { margin: var(--space-3) 0; padding-left: var(--space-5); }
+  .rich-text li { margin: var(--space-1) 0; }
+  .rich-text :not(pre) > code {
+    padding: var(--space-1) var(--space-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--surface-sunken);
+    font-size: var(--text-note);
+  }
+  .rich-text pre { overflow: auto; padding: var(--space-4); background: var(--text-primary); color: var(--surface-page); border-radius: var(--radius-lg); }
+  /* Tables: visible cell borders, and horizontal scroll so a narrow reading
+     column no longer squeezes wide tables into an unreadable block. */
+  .table-scroll { margin: var(--space-4) 0; overflow-x: auto; }
+  .rich-text table { width: 100%; border-collapse: collapse; font-size: var(--text-note); }
+  .rich-text th,
+  .rich-text td {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-strong);
+    text-align: left;
+    vertical-align: top;
+  }
+  .rich-text thead th { background: var(--surface-sunken); }
+  /* Distinguish internal ([[...]]) links from external links in the reader. */
+  .rich-text a:global(.internal-link) { text-decoration-style: solid; }
+  .rich-text :global(.external-link-icon) { margin-left: var(--space-1); font-size: var(--text-note); opacity: .7; }
+  /* Unresolved [[...]] stays readable but is visibly not a link. */
+  .rich-text :global(.broken-link) {
+    color: var(--text-muted);
+    font-style: normal;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    cursor: help;
+  }
+  .page-backlinks,
+  .page-reference-diagnostics {
+    margin-top: var(--space-6);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-subtle);
+  }
+  .page-backlinks h2,
+  .page-reference-diagnostics h2 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--size-ui);
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .page-backlinks ul,
+  .page-reference-diagnostics ul { margin: 0; padding-left: 1.2em; }
+  .page-backlinks li,
+  .page-reference-diagnostics li { margin: var(--space-1) 0; }
+  .page-backlinks .backlink {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent-default);
+    font: inherit;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .page-reference-diagnostics { color: var(--text-secondary); font-size: var(--size-body); }
+}

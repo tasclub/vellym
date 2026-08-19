@@ -24,6 +24,7 @@ import {
   resolveDocumentLocation,
   staticAppBasePath
 } from "../shell/routing.js";
+import styles from "./view.module.css";
 
 function referenceLookupKey(parts: Pick<WikiLinkParts, "target" | "heading">): string {
   return `${parts.target}\u0000${parts.heading ?? ""}`;
@@ -134,17 +135,17 @@ export function DocumentView({
       lang={locale}
       dir={localeDirection(locale ?? "en")}
     >
-      <header className="document-header">
-        <div className="document-header-main">
+      <header className={styles["document-header"]}>
+        <div className={styles["document-header-main"]}>
           <h1>{view.page.metadata.title}</h1>
         </div>
         {headerActions && (
-          <div className="document-header-actions">{headerActions}</div>
+          <div className={styles["document-header-actions"]}>{headerActions}</div>
         )}
       </header>
       {beforeBody}
       {view.knownBlocks.map((block) => (
-        <section className="rich-text" key={block.id} data-block-id={block.id}>
+        <section className={styles["rich-text"]} key={block.id} data-block-id={block.id}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkWikiLinks]}
             components={{
@@ -197,7 +198,7 @@ export function DocumentView({
               // 幅広の表は横スクロールのコンテナに入れ、狭い読み幅でもセルが
               // 潰れて読めなくならないようにする。
               table: ({ children }) => (
-                <div className="table-scroll">
+                <div className={styles["table-scroll"]}>
                   <table>{children}</table>
                 </div>
               )
@@ -208,19 +209,19 @@ export function DocumentView({
         </section>
       ))}
       {unknownBlockCount > 0 && (
-        <aside className="unsupported-content">
+        <aside className={styles["unsupported-content"]}>
           この文書には、この版で表示できない内容があります。
         </aside>
       )}
       {incoming.length > 0 && (
-        <aside className="page-backlinks">
+        <aside className={styles["page-backlinks"]}>
           <h2>このPageを参照しているPage</h2>
           <ul>
             {incoming.map((reference) => (
               <li key={reference.pageId}>
                 <button
                   type="button"
-                  className="backlink"
+                  className={styles["backlink"]}
                   onClick={() => onNavigatePage?.(reference.pageId!)}
                 >
                   {reference.title ?? reference.pageId}
@@ -231,7 +232,7 @@ export function DocumentView({
         </aside>
       )}
       {diagnostics.length > 0 && (
-        <aside className="page-reference-diagnostics">
+        <aside className={styles["page-reference-diagnostics"]}>
           <h2>リンクの問題</h2>
           <ul>
             {diagnostics.map((diagnostic) => (
