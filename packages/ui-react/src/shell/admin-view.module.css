@@ -13,7 +13,7 @@
 .panel dd { margin:0; overflow-wrap:anywhere; }
 .panelHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-4); }
 .panelHeading p { margin-top:var(--space-1); }
-.panel button { min-height:38px; padding:var(--space-2) var(--space-4); border:1px solid var(--border-strong); background:var(--surface-raised); cursor:pointer; }
+/* ボタンの見た目は共通部品が持つ。**ここで作り直さない。** */
 .problems { display:grid; gap:var(--space-3); margin:var(--space-4) 0 0; padding:0; list-style:none; }
 .problems li { display:grid; gap:var(--space-1); padding:var(--space-4); border:2px solid var(--border-strong); background:var(--surface-page); }
 .problems small { color:var(--text-muted); font-family: var(--font-mono); }

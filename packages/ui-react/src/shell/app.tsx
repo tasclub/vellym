@@ -80,6 +80,7 @@ import {
   resolveDocumentLocation,
   staticAppBasePath
 } from "./routing.js";
+import { Button } from "../shared/button.js";
 
 function currentDocumentLocation() {
   return resolveDocumentLocation({
@@ -1092,9 +1093,9 @@ export function App() {
           {bootstrapError || "Vellymを読み込んでいます…"}
         </p>
         {bootstrapError && (
-          <button type="button" onClick={() => void loadBootstrap()}>
+          <Button onClick={() => void loadBootstrap()}>
             もう一度試す
-          </button>
+          </Button>
         )}
       </main>
     );
@@ -1127,9 +1128,9 @@ export function App() {
               {item.message}
             </p>
           ))}
-          <button type="button" onClick={() => void loadBootstrap()}>
+          <Button onClick={() => void loadBootstrap()}>
             再読み込み
-          </button>
+          </Button>
         </div>
       </main>
     );

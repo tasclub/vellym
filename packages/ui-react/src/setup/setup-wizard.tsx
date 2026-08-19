@@ -428,14 +428,13 @@ export function SetupWizard(props: {
                   : "Skipped because the file exists"}
             </span>
             {file.conflictReason !== "template-existing" && (
-              <button
-                type="button"
+              <Button
                 onClick={() =>
                   setConflictResolutions((current) => ({ ...current, [node.id]: "alternate" }))
                 }
               >
                 {ja ? "別名で作成" : "Create with another name"}
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -707,7 +706,7 @@ export function SetupWizard(props: {
             )}
 
             <div className={styles["setup-actions"]}>
-              <button type="button" onClick={() => setStep(1)}>{copy.back}</button>
+              <Button onClick={() => setStep(1)}>{copy.back}</Button>
               <Button tone="primary"
                 onClick={() => {
                   setPlan(undefined);
@@ -741,12 +740,12 @@ export function SetupWizard(props: {
                     : `Creating ${finalCounts.folders} folders and ${finalCounts.pages} pages`}
               </p>
               <div className={styles["setup-tree-toolbar-actions"]}>
-                <button type="button" onClick={() => revealFolders(reviewFolderIds)}>
+                <Button onClick={() => revealFolders(reviewFolderIds)}>
                   {ja ? "すべて展開" : "Expand all"}
-                </button>
-                <button type="button" onClick={() => setExpanded(new Set())}>
+                </Button>
+                <Button onClick={() => setExpanded(new Set())}>
                   {ja ? "すべて折りたたむ" : "Collapse all"}
-                </button>
+                </Button>
               </div>
             </div>
             {omittedIds.size > 0 && (
@@ -772,7 +771,7 @@ export function SetupWizard(props: {
               />
             </div>
             <div className={styles["setup-actions"]}>
-              <button type="button" disabled={busy} onClick={() => setStep(2)}>{copy.back}</button>
+              <Button disabled={busy} onClick={() => setStep(2)}>{copy.back}</Button>
               <Button tone="primary"
                 disabled={busy || !plan || plan.files.some((file) => file.status === "conflict")}
                 onClick={() => void apply()}

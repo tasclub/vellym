@@ -336,18 +336,6 @@
     padding-left: var(--space-2);
     border-left: 1px solid var(--border-subtle);
   }
-  .table-actions button {
-    min-height: 32px;
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    color: var(--text-primary);
-    background: var(--surface-raised);
-    cursor: pointer;
-    font-size: var(--size-caption);
-    font-weight: 700;
-  }
-  .table-actions button:hover { background: var(--surface-sunken); }
   .page-settings-panel {
     display: grid;
     gap: var(--space-4);
@@ -375,16 +363,6 @@
     background: var(--surface-raised);
   }
   .file-name-field small { color: var(--text-muted); font-weight: 400; }
-  .file-name-field button {
-    justify-self: start;
-    min-height: 34px;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    background: var(--surface-raised);
-    cursor: pointer;
-  }
-  .file-name-field button:disabled { color: var(--text-muted); cursor: default; }
   .title-editor { display: block; margin-bottom: var(--space-5); }
   .title-editor input {
     width: 100%;
@@ -558,20 +536,6 @@
     background: var(--surface-page);
   }
   .startup-state > div { max-width: 70ch; }
-  .startup-state button {
-    min-height: 40px;
-    padding: var(--space-2) var(--space-4);
-    border: 1px solid var(--text-primary);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    background: var(--surface-raised);
-    cursor: pointer;
-  }
-  .startup-state button:disabled {
-    color: var(--text-muted);
-    border-color: var(--border-strong);
-    cursor: default;
-  }
 
   .structure-group {
     display: grid;

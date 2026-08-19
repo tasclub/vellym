@@ -17,6 +17,7 @@ import {
 import styles from "./admin-view.module.css";
 import { errorMessage } from "../shared/error-message.js";
 import { SetupWizard } from "../setup/setup-wizard.js";
+import { Button } from "../shared/button.js";
 
 export function AdminView(props: {
   contentRoot: string;
@@ -182,9 +183,9 @@ export function AdminView(props: {
           <h2 id="template-add-title">{t("admin.templateAddTitle")}</h2>
           <p>{t("admin.templateAddDescription")}</p>
           <div className={styles.configActions}>
-            <button type="button" onClick={() => setAddingTemplates(true)}>
+            <Button onClick={() => setAddingTemplates(true)}>
               {t("admin.templateAddAction")}
-            </button>
+            </Button>
           </div>
         </section>
       )}
@@ -216,13 +217,12 @@ export function AdminView(props: {
         </label>
         {languageError && <p role="alert">{languageError}</p>}
         <div className={styles.configActions}>
-          <button
-            type="button"
+          <Button
             disabled={languageBusy || uiLanguage === props.language}
             onClick={() => void changeLanguage()}
           >
             {languageBusy ? t("admin.languageApplying") : t("admin.languageApplyAction")}
-          </button>
+          </Button>
         </div>
       </section>
       <section className={styles.panel} aria-labelledby="content-root-title">
@@ -254,13 +254,13 @@ export function AdminView(props: {
         {error && <p role="alert">{error}</p>}
         <div className={styles.configActions}>
           {!plan ? (
-            <button type="button" disabled={busy} onClick={() => void preview()}>
+            <Button disabled={busy} onClick={() => void preview()}>
               {busy ? t("admin.previewing") : t("admin.previewAction")}
-            </button>
+            </Button>
           ) : (
-            <button type="button" disabled={busy} onClick={() => void apply()}>
+            <Button disabled={busy} onClick={() => void apply()}>
               {busy ? t("admin.applying") : t("admin.applyAction")}
-            </button>
+            </Button>
           )}
         </div>
       </section>
@@ -287,13 +287,13 @@ export function AdminView(props: {
         {slugMessage && <p role="status">{slugMessage}</p>}
         <div className={styles.configActions}>
           {!slugPlan ? (
-            <button type="button" disabled={busy} onClick={() => void inspectSlugs()}>
+            <Button disabled={busy} onClick={() => void inspectSlugs()}>
               {t("admin.slugMigrationPreviewAction")}
-            </button>
+            </Button>
           ) : slugPlan.pages.length > 0 ? (
-            <button type="button" disabled={busy} onClick={() => void migrateSlugs()}>
+            <Button disabled={busy} onClick={() => void migrateSlugs()}>
               {t("admin.slugMigrationApplyAction")}
-            </button>
+            </Button>
           ) : null}
         </div>
       </details>
@@ -322,15 +322,14 @@ export function AdminView(props: {
                       <code>{entry.archivePath}</code>
                     </small>
                   </div>
-                  <button
-                    type="button"
+                  <Button
                     disabled={archiveBusy !== null}
                     onClick={() => void restoreEntry(entry)}
                   >
                     {archiveBusy === entry.archivePath
                       ? t("admin.archivedRestoring")
                       : t("admin.archivedRestoreAction")}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

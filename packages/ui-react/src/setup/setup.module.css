@@ -1,18 +1,5 @@
 @layer components {
-  .setup-shell button {
-    min-height: 40px;
-    padding: var(--space-2) var(--space-4);
-    border: 1px solid var(--text-primary);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    background: var(--surface-raised);
-    cursor: pointer;
-  }
-  .setup-shell button:disabled {
-    color: var(--text-muted);
-    border-color: var(--border-strong);
-    cursor: default;
-  }
+  /* ボタンの見た目は共通部品が持つ。**ここで作り直さない。** */
   .setup-shell {
     min-height: 100vh;
     color: var(--text-primary);

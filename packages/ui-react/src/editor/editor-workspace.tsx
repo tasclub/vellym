@@ -462,16 +462,16 @@ export function EditorWorkspace(props: {
               aria-label={t("editor.tableGroup")}
             >
               {TABLE_ACTIONS.map((action) => (
-                <button
+                <Button
                   key={action.command}
-                  type="button"
+                  icon
                   aria-label={t(action.labelKey)}
                   title={t(action.labelKey)}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => run(action.command)}
                 >
                   {action.text}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -539,8 +539,7 @@ export function EditorWorkspace(props: {
                 <small>{t("editor.fileNameHint")}</small>
               </label>
               {fileError && <p role="alert">{fileError}</p>}
-              <button
-                type="button"
+              <Button
                 disabled={
                   fileBusy || props.hasUnsavedChanges || !fileName.trim()
                 }
@@ -557,7 +556,7 @@ export function EditorWorkspace(props: {
                 }}
               >
                 {fileBusy ? t("editor.renaming") : t("editor.renameFile")}
-              </button>
+              </Button>
             </div>
           </div>
         )}
