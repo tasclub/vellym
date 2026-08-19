@@ -58,7 +58,7 @@ describe.skipIf(!built)("shared entries for plugins", () => {
     const match = html.match(/<script type="importmap">(.*?)<\/script>/s);
     const imports = JSON.parse(match?.[1] ?? "{}").imports as Record<string, string>;
     expect(Object.keys(imports).sort()).toEqual([
-      "@vellym/ui",
+      "@vellym/plugin-api/ui",
       "react",
       "react-dom",
       "react-dom/client",

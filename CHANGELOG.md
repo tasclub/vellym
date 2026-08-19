@@ -115,9 +115,10 @@
 - `vellym init`が`package.json`を生成するようにした。`name`（ディレクトリ名から
   正規化）、`version`、`private`、`type`だけの最小構成で、既存ファイルがある場合は
   内容を検査せず触らない。
-- **`@vellym/ui`を公開した。** 本体が持つUI部品（Button・Dialog・DataTable・
-  FieldInput・Icon・KindIcon・RequiredMark）の**型だけを配るパッケージ**である。
-  実装は本体が持ち、ブラウザではimport mapが`/assets/vellym-ui.js`へ向ける。
+- **`@vellym/plugin-api/ui`を公開した。** 本体が持つUI部品（Button・Dialog・
+  DataTable・FieldInput・Icon・KindIcon・RequiredMark）の**型だけを配る
+  subpath**である。**実装は`vellym`に同梱されている。**
+  ブラウザではimport mapが`/assets/vellym-ui.js`へ向ける。
   プラグインはexternalとしてビルドし、実体を本体から受け取る。同梱すると
   部品が二重になり、Reactのインスタンスも分かれてhooksが壊れる。
   **宣言は実装から生成する。** 手で書かないので、実装と宣言が離れない。

@@ -9,7 +9,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "npm run build --workspace @vellym/plugin-api --workspace @vellym/tickets --workspace @vellym-internal/ui-react && node scripts/build.mjs",
+    "build": "npm run build --workspace @vellym/plugin-api --workspace @vellym-internal/ui-react --workspace @vellym/tickets && node scripts/build.mjs",
     "dev": "npm run build && node packages/vellym/dist/cli.mjs dev",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && vitest run",

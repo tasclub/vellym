@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "rootDir": "src/shared",
-    "outDir": "../ui-contract/dist",
+    "outDir": "../plugin-api/dist/ui",
     "declaration": true,
     "emitDeclarationOnly": true,
     "declarationMap": false,

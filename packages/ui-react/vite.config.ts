@@ -30,7 +30,7 @@ const IMPORT_MAP: Record<string, string> = {
   "react-dom/client": "./assets/vellym-react-dom.js",
   "react/jsx-runtime": "./assets/vellym-jsx-runtime.js",
   "react/jsx-dev-runtime": "./assets/vellym-jsx-runtime.js",
-  "@vellym/ui": "./assets/vellym-ui.js"
+  "@vellym/plugin-api/ui": "./assets/vellym-ui.js"
 };
 
 export default defineConfig({

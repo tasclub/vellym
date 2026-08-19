@@ -34,6 +34,10 @@
       "types": "./dist/react.d.ts",
       "default": "./dist/react.js"
     },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/runtime.js"
+    },
     "./plugin-manifest.schema.json": {
       "vellym-source": "./src/plugin-manifest.schema.json",
       "default": "./dist/plugin-manifest.schema.json"

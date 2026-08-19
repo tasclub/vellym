@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { PluginRenderContext, PluginValueType } from "@vellym/plugin-api";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
-import { Button } from "@vellym/ui";
+import { Button } from "@vellym/plugin-api/ui";
 
 /**
  * 定義の編集画面。**プラグインが自分で描く。**
@@ -11,8 +11,8 @@ import { Button } from "@vellym/ui";
  * 入れ子を足すと、プラグインが新しい見せ方を欲しがるたびにCoreの契約が太る
  * 問題が再発する。**だからここはプラグイン側で描く。**
  *
- * 操作はhostの`Button`を使う。実体はimport mapで受け取り、型は`@vellym/ui`
- * から得る。**第三者のプラグインと同じ経路である。** 入力欄は素の要素で描く
+ * 操作はhostの`Button`を使う。実体はimport mapで受け取り、型は
+ * `@vellym/plugin-api/ui`から得る。**第三者のプラグインと同じ経路である。** 入力欄は素の要素で描く
  * （`FieldInput`は保存pathを前提にした宣言を要求するため、画面の中だけの
  * 一時的な入力には向かない）。字の大きさと余白はトークンが継承で降りてくる。
  */

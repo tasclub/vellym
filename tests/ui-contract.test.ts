@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
-const contractDist = path.join(root, "packages/ui-contract/dist");
+const contractDist = path.join(root, "packages/plugin-api/dist/ui");
 const sharedIndex = path.join(root, "packages/ui-react/src/shared/index.ts");
 
 function packageJson(relative: string): Record<string, unknown> {
@@ -25,20 +25,22 @@ function exportedNames(source: string): string[] {
 const built = existsSync(path.join(contractDist, "index.d.ts"));
 
 describe("@vellym/ui", () => {
-  it("ships types only. the implementation stays in the host", () => {
-    // 実装を同梱すると部品が二重になり、Reactのインスタンスも分かれて
-    // hooksが壊れる。実体はimport mapが`/assets/vellym-ui.js`へ向ける。
-    const manifest = packageJson("packages/ui-contract/package.json");
-    expect(manifest.name).toBe("@vellym/ui");
+  it("ships as a subpath of the contract, not a separate package", () => {
+    /*
+     * **UI部品の実装は`vellym`に同梱されている。** 別パッケージにすると
+     * 「実装が入っていないのにインストールさせる」形になって分かりにくい。
+     * プラグイン作者はどのみち`@vellym/plugin-api`へ依存するので、
+     * 型はそのsubpathへ置く。`/react`と同じ形である。
+     */
+    const manifest = packageJson("packages/plugin-api/package.json");
+    const exports = manifest.exports as Record<string, unknown>;
+    expect(exports["./ui"]).toBeDefined();
     expect(manifest.dependencies).toBeUndefined();
-    expect(manifest.peerDependencies).toEqual({ react: ">=18" });
-    // scoped packageは既定が非公開なので明示が要る
-    expect((manifest.publishConfig as { access?: string }).access).toBe("public");
   });
 
   it("fails loudly if a plugin forgets to mark it external", () => {
     const runtime = readFileSync(
-      path.join(root, "packages/ui-contract/src/runtime.ts"),
+      path.join(root, "packages/plugin-api/src/ui/runtime.ts"),
       "utf8"
     );
     expect(runtime).toContain("throw new Error");
