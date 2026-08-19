@@ -50,7 +50,6 @@ import type { PluginInputValue } from "@vellym/plugin-api";
 import { FolderView } from "../editor/folder-view.js";
 import {
   draftCopyText,
-  sameDraft,
   type SaveState
 } from "../editor/save-state.js";
 import { useRepositoryWatch } from "./use-repository-watch.js";
@@ -231,9 +230,7 @@ export function App() {
       ? { page: location.page, heading: location.heading }
       : undefined;
   });
-  const draftRef = useRef({ title, slug, blocks });
   const viewRef = useRef(view);
-  draftRef.current = { title, slug, blocks };
   viewRef.current = view;
   const legacyUnsavedChanges = Boolean(
     view &&
@@ -923,64 +920,30 @@ export function App() {
         return false;
       }
     }
-    const submitted = {
-      title,
-      slug,
-      blocks: blocks.map((block) => ({ ...block }))
-    };
-    const originalById = new Map(
-      view.knownBlocks.map((block) => [block.id, block.content])
-    );
+    /*
+     * **プラグインの項目だけを保存する経路である。**
+     *
+     * ここへ来るのは`editSession`が無いときだけで、そのとき題名・URL名・
+     * 本文は`view`と一致している（変えられるのは編集セッションの中だけで、
+     * `applyView`が開くたびに揃えるため）。以前はここで差分を計算して
+     * いたが、**その差分は常に空だった。** 計算ごと落とした。
+     *
+     * この経路が残るのは、プラグインが`body: "none"`の詳細を宣言すると、
+     * 編集セッション無しで`specChanges`が立つためである。
+     */
+    if (!specValues.length) {
+      setSaveState("saved");
+      return true;
+    }
     try {
       const result = await patchPage(view.page.metadata.name, {
         baseHash: view.hash,
-        ...(submitted.title === view.page.metadata.title
-          ? {}
-          : { title: submitted.title }),
-        ...(submitted.slug === (view.page.metadata.slug ?? view.page.metadata.name)
-          ? {}
-          : { slug: submitted.slug }),
-        richTextBlocks: submitted.blocks
-          .filter((block) => originalById.get(block.id) !== block.content)
-          .map(({ id, content }) => ({ id, content })),
-        ...(specValues.length ? { specValues } : {})
+        specValues
       });
       setSpecChanges([]);
-      const current = draftRef.current;
       setView(result.data);
-      const savedSlug =
-        result.data.page.metadata.slug ?? result.data.page.metadata.name;
-      setPages((currentPages) =>
-        currentPages.map((page) =>
-          page.name === result.data.page.metadata.name
-            ? {
-                ...page,
-                title: result.data.page.metadata.title,
-                slug: savedSlug
-              }
-            : page
-        )
-      );
-      const currentLocation = currentDocumentLocation();
-      window.history.replaceState(
-        null,
-        "",
-        documentPagePath(
-          requestedLocale ?? bootstrap?.project.defaultLocale ?? "ja",
-          savedSlug,
-          currentLocation.heading
-        )
-      );
       setExternalChange(false);
       setMessage("");
-      if (!sameDraft(submitted, current)) {
-        setSaveState("dirty");
-        return false;
-      }
-      setTitle(result.data.page.metadata.title);
-      setSlug(result.data.page.metadata.slug ?? result.data.page.metadata.name);
-      setBlocks(result.data.knownBlocks.map((block) => ({ ...block })));
-      setEditing(false);
       setSavedAt(Date.now());
       setSaveState("success");
       return true;
@@ -990,15 +953,9 @@ export function App() {
         setExternalChange(true);
         setSaveError(error.message);
         try {
-          setConflictView(
-            (await fetchPage(view.page.metadata.name)).data
-          );
+          setConflictView((await fetchPage(view.page.metadata.name)).data);
         } catch {
-          setSaveError(
-            t("app.saveErrorReloadNeeded", {
-              message: error.message
-            })
-          );
+          setSaveError(t("app.saveErrorReloadNeeded", { message: error.message }));
         }
         return false;
       }
