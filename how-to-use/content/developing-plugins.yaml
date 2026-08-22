@@ -9,27 +9,392 @@ spec:
     - id: developing-plugins
       type: rich-text
       content: |
-        ## 公開APIから始める
+        Vellymのプラグインはnpmパッケージとして作る。公開契約の
+        `@vellym/plugin-api`だけに依存し、Vellym本体の内部パッケージはimportしない。
+        このページでは、独自の`ReadingItem`リソースを文書ツリーへ追加し、URL、
+        読了状態、本文を編集できる最小プラグインを作る。
 
-        Vellym 0.4.0-beta向けプラグインの公開契約は、初回公開の
-        `@vellym/plugin-api` 0.1.0-betaに含まれる。プラグインのプロジェクトへ
-        開発依存として追加する。
+        ## 開発に必要なもの
 
-        ```bash
-        npm install --save-dev @vellym/plugin-api@0.1.0-beta
+        - Node.js 22.12.0以上
+        - npm
+        - 動作確認に使うVellym 0.4.0-betaのプロジェクト
+
+        プラグインにはNode側の入口が必須である。kind、画面、索引、操作をここで登録する。
+        一覧と詳細は宣言だけでVellymが描画できるため、独自UIが必要になるまでは
+        ブラウザ側の入口を作らなくてよい。
+
+        ## 1. プロジェクトを作る
+
+        ```text
+        vellym-plugin-reading-list/
+        ├── package.json
+        ├── tsconfig.json
+        └── src/
+            └── node.ts
         ```
 
-        パッケージの`engines.vellym`で対応するVellymの版域を宣言し、`package.json`の
-        `vellym`にkind、画面、操作などの貢献点を書く。Node側の入口では、公開APIを
-        使ってプラグインを定義する。
+        `package.json`には、通常のnpmパッケージ情報に加えて`engines.vellym`と
+        `vellym` manifestを書く。manifestは、コードを実行しなくてもVellymが
+        貢献点を判定できるようにする宣言である。
 
-        最小構成、Node側の例、ホストが守る規則は
-        [@vellym/plugin-api README](https://github.com/tasclub/vellym/tree/main/packages/plugin-api#readme)
-        を参照。公式プラグイン以外のパッケージ名には`vellym-plugin-<name>`を推奨する。
+        ```json
+        {
+          "name": "vellym-plugin-reading-list",
+          "version": "0.1.0",
+          "type": "module",
+          "files": ["dist"],
+          "engines": {
+            "node": ">=22.12.0",
+            "vellym": ">=0.4.0-beta <0.5.0"
+          },
+          "exports": {
+            ".": {
+              "types": "./dist/node.d.ts",
+              "default": "./dist/node.js"
+            }
+          },
+          "scripts": {
+            "build": "tsc -p tsconfig.json",
+            "typecheck": "tsc -p tsconfig.json --noEmit"
+          },
+          "peerDependencies": {
+            "@vellym/plugin-api": "^0.1.0-beta"
+          },
+          "devDependencies": {
+            "@vellym/plugin-api": "0.1.0-beta",
+            "typescript": "^5.9.0"
+          },
+          "vellym": {
+            "id": "reading-list",
+            "contributes": {
+              "kinds": [
+                {
+                  "kind": "ReadingItem",
+                  "showInDocumentTree": true,
+                  "hasBlocks": true
+                }
+              ],
+              "views": [
+                {
+                  "id": "reading-item-detail",
+                  "kind": "ReadingItem",
+                  "type": "detail",
+                  "static": true
+                }
+              ],
+              "commands": [
+                {
+                  "id": "reading-item.create",
+                  "title": { "ja": "読むもの", "en": "Reading item" },
+                  "static": false,
+                  "placement": "document-tree"
+                }
+              ]
+            }
+          }
+        }
+        ```
+
+        `id`は小文字英数字とハイフンだけ、`kind`は英大文字で始まる英数字にする。
+        `engines.vellym`はプラグインAPIの版ではなく、対応するVellym本体の版域である。
+        Vellymは版域外、manifest不正、同じ`id`や`kind`の重複を警告し、その
+        プラグインだけを読み飛ばす。
+
+        `tsconfig.json`は次のようにする。
+
+        ```json
+        {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "NodeNext",
+            "moduleResolution": "NodeNext",
+            "strict": true,
+            "declaration": true,
+            "rootDir": "src",
+            "outDir": "dist"
+          },
+          "include": ["src/**/*.ts"]
+        }
+        ```
+
+        ```bash
+        npm install
+        ```
+
+        ## 2. Node側の入口を書く
+
+        `src/node.ts`を次の内容にする。
+
+        ```ts
+        import { definePlugin } from "@vellym/plugin-api";
+
+        const READING_ITEM_SCHEMA = {
+          type: "object",
+          required: ["url", "read"],
+          properties: {
+            url: { type: "string", minLength: 1 },
+            read: { type: "boolean" }
+          }
+        } as const;
+
+        export default definePlugin({
+          activate(host) {
+            host.registerKind({
+              kind: "ReadingItem",
+              specSchema: READING_ITEM_SCHEMA,
+              showInDocumentTree: true,
+              hasBlocks: true
+            });
+
+            host.registerRecordProjection("ReadingItem", () => (record) => ({
+              values: {
+                url: typeof record.spec.url === "string" ? record.spec.url : "",
+                read: record.spec.read === true
+              }
+            }));
+
+            host.registerView({
+              id: "reading-item-detail",
+              opensKind: "ReadingItem",
+              static: true,
+              view: {
+                type: "detail",
+                id: "reading-item-detail",
+                kind: "ReadingItem",
+                fields: [
+                  {
+                    id: "url",
+                    label: { ja: "URL", en: "URL" },
+                    type: "text",
+                    path: ["url"],
+                    required: true
+                  },
+                  {
+                    id: "read",
+                    label: { ja: "読了", en: "Read" },
+                    type: "boolean",
+                    path: ["read"]
+                  }
+                ],
+                body: "blocks"
+              }
+            });
+
+            host.registerCommand({
+              id: "reading-item.create",
+              title: { ja: "読むもの", en: "Reading item" },
+              static: false,
+              placement: "document-tree",
+              inputs: [
+                {
+                  id: "title",
+                  label: { ja: "タイトル", en: "Title" },
+                  type: "text",
+                  path: ["title"],
+                  required: true
+                },
+                {
+                  id: "url",
+                  label: { ja: "URL", en: "URL" },
+                  type: "text",
+                  path: ["url"],
+                  required: true
+                }
+              ],
+              run(context) {
+                const title = String(context.input?.title ?? "").trim();
+                const url = String(context.input?.url ?? "").trim();
+                const folder = String(context.input?.folder ?? "").trim();
+                return context.createResource({
+                  kind: "ReadingItem",
+                  title,
+                  ...(folder ? { folder } : {}),
+                  spec: {
+                    url,
+                    read: false,
+                    blocks: [
+                      { id: "notes", type: "rich-text", content: "" }
+                    ]
+                  }
+                });
+              }
+            });
+          }
+        });
+        ```
+
+        manifestと`activate`には同じ貢献点を書くが、役割は異なる。manifestには
+        ID、kind、画面の型、静的出力で使えるかなど、読み込み前に必要な情報を書く。
+        `activate`にはschema、列、項目、索引の作り方、操作の処理を書く。
+
+        `registerRecordProjection`が返す索引行は、一覧の絞り込み・並べ替えと詳細画面の
+        現在値に使われる。`record`そのものを保持せず、必要な値だけを`values`へコピーする。
+        これにより、大量のリソースの`spec`全体がメモリに残ることを防ぐ。
+
+        ## 3. ビルドしてVellymで試す
+
+        ```bash
+        npm run typecheck
+        npm run build
+        ```
+
+        動作確認用Vellymプロジェクトのルートで、プラグインのディレクトリを
+        ローカル依存としてインストールする。
+
+        ```bash
+        npm install ../vellym-plugin-reading-list
+        ```
+
+        同じプロジェクトの`vellym.config.yaml`へパッケージ名を追加する。
+
+        ```yaml
+        plugins:
+          - vellym-plugin-reading-list
+        ```
+
+        ```bash
+        npx vellym dev
+        ```
+
+        文書ツリーの追加メニューから「読むもの」を選び、保存する。作成された
+        `ReadingItem`を開き、URL、読了、本文を編集して保存できれば動作している。
+        コードを変更したらプラグインを再ビルドし、必要に応じて動作確認用プロジェクトで
+        再インストールしてからVellymを再起動する。
+
+        `npx vellym validate`でもプラグインの読み込み警告と、`specSchema`に合わない
+        リソースの警告を確認できる。プラグインの失敗だけを理由に`validate`、`build`、
+        開発サーバー全体が停止することはない。
+
+        ## manifestの項目
+
+        | 貢献点 | 必須項目 | 用途 |
+        | --- | --- | --- |
+        | `kinds` | `kind` | 独自リソース種別を宣言する。`showInDocumentTree`の既定は`false`、`hasBlocks`の既定は`true`。 |
+        | `views` | `id`, `kind`, `type`, `static` | `list`または`detail`画面を宣言する。別のkindを入口にする場合は`opensKind`も書く。 |
+        | `commands` | `id`, `title`, `static` | 操作を宣言する。文書ツリーの追加メニューへ置く場合だけ`placement: "document-tree"`にする。 |
+        | `settings` | `id`, `label`, `type` | 設定のメタ情報を宣言する。0.4.0-betaではmanifest検証の対象だが、設定画面や値を読むhost APIはまだない。 |
+
+        `static: true`は静的サイトでも読み取り機能として使えるという意味である。
+        作成・保存など、サーバーが必要な操作は`false`にする。静的版では`false`の
+        画面や操作は無効表示ではなく、導線ごと出ない。
+
+        manifestのJSON Schemaは
+        `@vellym/plugin-api/plugin-manifest.schema.json`から取得できる。公開前のCIで
+        `package.json`の`vellym`フィールドを検証すれば、IDの形式や必須項目を
+        読み込み前に検出できる。
+
+        ## Node側の公開API
+
+        | API | 用途 |
+        | --- | --- |
+        | `registerKind` | kind、`spec`のJSON Schema、本文の有無、ツリー表示、16×16アイコンを登録する。schema不一致は警告になり、原文は保持される。 |
+        | `registerRecordProjection` | 抽出済みレコードを、一覧と詳細が使う小さな索引行へ変換する。 |
+        | `registerView` | 汎用の一覧・詳細descriptor、または文脈からdescriptorを作る関数を登録する。 |
+        | `registerCommand` | 入力項目と処理を登録する。新規リソースは`context.createResource()`で未保存ドラフトとして始める。 |
+        | `reportDiagnostic` | 例外の代わりに、file、JSON Pointer、severity、安定したcode、messageを持つ診断を出す。 |
+
+        一覧の列と詳細の項目で使える型は`text`、`multiline`、`number`、`boolean`、
+        `date`、`select`、`multiselect`、`reference`である。表示名は文字列、または
+        `{ ja: "...", en: "..." }`のようなlocale別の対応で書ける。
+
+        利用者が正本YAMLへ書いた定義を参照する場合は、view providerやprojector
+        factoryの`context.records(kind)`を使う。これは設定リソースのような少数の
+        集合にだけ使い、大量の本体リソースはprojectionで索引化する。
+
+        ## 独自のブラウザ画面が必要な場合
+
+        繰り返し項目の編集など、一覧・詳細descriptorで表現できない画面に限り、
+        ブラウザ側の入口を追加する。`package.json`の`exports`へ次を足す。
+
+        ```json
+        {
+          "exports": {
+            ".": {
+              "types": "./dist/node.d.ts",
+              "default": "./dist/node.js"
+            },
+            "./browser": {
+              "types": "./dist/browser.d.ts",
+              "default": "./dist/browser.js"
+            }
+          }
+        }
+        ```
+
+        ブラウザ側では、Node側で登録したview IDへrendererを結び付ける。
+
+        ```ts
+        import { defineBrowserPlugin } from "@vellym/plugin-api";
+
+        export default defineBrowserPlugin({
+          activate(host) {
+            host.registerViewRenderer("reading-item-detail", {
+              mount(element, context) {
+                const draw = () => {
+                  element.textContent = context.target?.title ?? "";
+                };
+                draw();
+                return {
+                  update(next) {
+                    context = next;
+                    draw();
+                  },
+                  unmount() {
+                    element.replaceChildren();
+                  }
+                };
+              }
+            });
+          }
+        });
+        ```
+
+        `mount`は同期でhandleを返し、timerや購読は`unmount`で同期的に解除する。
+        書き戻しはrendererへ渡る`context.save()`を使い、静的版では`context.isStatic`を
+        見て保存操作を表示しない。ブラウザ資産はES moduleとしてbundleする。
+
+        Reactを使う場合は`@vellym/plugin-api/react`の`reactRenderer`でcomponentを包む。
+        `react`、`react-dom`、`react/jsx-runtime`、`@vellym/plugin-api/ui`はbundleへ
+        同梱せずexternalにする。Vellymが同一の実体を提供するため、Reactを二重に
+        同梱するとhooksが壊れる。
+
+        ## データと安全性の規則
+
+        - プラグインにファイルシステムのpathやcontent rootは渡らない。読み取りは
+          `PluginResourceRecord`、作成は`createResource()`、更新はrendererの`save()`を使う。
+        - `spec`は読み取り専用の入力である。直接変更しても保存されない。
+        - 未知のフィールド、未知のblock、コメントは保存時にも保持される。プラグインを
+          外しても、そのプラグインが扱っていたYAMLは削除されない。
+        - schema不一致はリソースを編集不能にするエラーではなく警告である。位置の分かる
+          問題は`reportDiagnostic`で報告し、`activate`やrendererから例外を投げない。
+        - `metadata.name`は全kindを通して一意な機械IDである。kind固有の値は
+          `metadata`へ増やさず、`spec`直下に置く。
+
+        ## 公開前の確認
+
+        1. `npm run typecheck`と`npm run build`が成功する。
+        2. `npm pack --dry-run`で`dist`と必要な型宣言が含まれる。
+        3. 新しいディレクトリへtarballをインストールし、`exports`のNode入口を読める。
+        4. 宣言した範囲の最小・最大Vellym版で、読み込み、編集、`validate`、`build`を試す。
+        5. manifestと`activate`のID、kind、`static`が一致している。
+        6. 公式以外のパッケージ名には`vellym-plugin-<name>`を推奨する。Vellymは
+           `vellym.config.yaml`の`plugins`に書かれた名前をそのまま解決する。
+
+        ## 読み込みで警告が出る場合
+
+        | 警告 | 確認すること |
+        | --- | --- |
+        | パッケージを解決できない | `vellym.config.yaml`があるプロジェクトへインストールしたか、パッケージ名が一致するか。 |
+        | manifestが不正 | `vellym.id`の形式、各貢献点の必須項目、未対応の余分な項目がないか。 |
+        | `engines.vellym`がない／版域外 | Vellym本体を対象にしたsemver範囲を宣言し、実行中の版を含めたか。 |
+        | `activate(host)`がない | Node入口がdefault exportまたはnamed exportで、`definePlugin(...)`の結果を公開しているか。 |
+        | browser入口を読めない | `exports["./browser"]`のファイルがpackされ、依存をbundleまたはexternal化できているか。 |
 
         ## 関連
 
         - 作成したプラグインをプロジェクトで使う → [[using-plugins|プラグインを使う]]
+        - 設定全体を確認する → [[configuration|設定ファイル]]
   translations:
     en:
       visibility: published
@@ -38,25 +403,392 @@ spec:
         - id: developing-plugins
           type: rich-text
           content: |
-            ## Start with the public API
+            A Vellym plugin is an npm package. Depend only on the public
+            `@vellym/plugin-api` contract; do not import Vellym's internal packages. This page
+            builds a minimal plugin that adds a `ReadingItem` resource to the document tree and
+            lets users edit its URL, read state, and body.
 
-            The public contract for plugins targeting Vellym 0.4.0-beta is the initial
-            `@vellym/plugin-api` 0.1.0-beta release. Add it to the plugin project as a
-            development dependency:
+            ## Prerequisites
 
-            ```bash
-            npm install --save-dev @vellym/plugin-api@0.1.0-beta
+            - Node.js 22.12.0 or later
+            - npm
+            - A Vellym 0.4.0-beta project for testing
+
+            Every plugin needs a Node entry to register kinds, views, indexes, and commands.
+            Vellym renders declarative lists and details, so a browser entry is unnecessary
+            until the plugin needs a custom interface.
+
+            ## 1. Create the project
+
+            ```text
+            vellym-plugin-reading-list/
+            ├── package.json
+            ├── tsconfig.json
+            └── src/
+                └── node.ts
             ```
 
-            Declare the supported Vellym range in `engines.vellym`, and list contributed
-            kinds, views, commands, and other capabilities under `vellym` in `package.json`.
-            Use the public API to define the plugin's Node entry.
+            Alongside normal npm fields, `package.json` contains `engines.vellym` and the
+            `vellym` manifest. The manifest lets Vellym inspect contributions without executing
+            plugin code.
 
-            See the [@vellym/plugin-api README](https://github.com/tasclub/vellym/tree/main/packages/plugin-api#readme)
-            for a minimal package, a Node entry example, and the rules enforced by the host.
-            For non-official plugins, the recommended package name is
-            `vellym-plugin-<name>`.
+            ```json
+            {
+              "name": "vellym-plugin-reading-list",
+              "version": "0.1.0",
+              "type": "module",
+              "files": ["dist"],
+              "engines": {
+                "node": ">=22.12.0",
+                "vellym": ">=0.4.0-beta <0.5.0"
+              },
+              "exports": {
+                ".": {
+                  "types": "./dist/node.d.ts",
+                  "default": "./dist/node.js"
+                }
+              },
+              "scripts": {
+                "build": "tsc -p tsconfig.json",
+                "typecheck": "tsc -p tsconfig.json --noEmit"
+              },
+              "peerDependencies": {
+                "@vellym/plugin-api": "^0.1.0-beta"
+              },
+              "devDependencies": {
+                "@vellym/plugin-api": "0.1.0-beta",
+                "typescript": "^5.9.0"
+              },
+              "vellym": {
+                "id": "reading-list",
+                "contributes": {
+                  "kinds": [
+                    {
+                      "kind": "ReadingItem",
+                      "showInDocumentTree": true,
+                      "hasBlocks": true
+                    }
+                  ],
+                  "views": [
+                    {
+                      "id": "reading-item-detail",
+                      "kind": "ReadingItem",
+                      "type": "detail",
+                      "static": true
+                    }
+                  ],
+                  "commands": [
+                    {
+                      "id": "reading-item.create",
+                      "title": { "ja": "読むもの", "en": "Reading item" },
+                      "static": false,
+                      "placement": "document-tree"
+                    }
+                  ]
+                }
+              }
+            }
+            ```
+
+            `id` accepts lowercase ASCII letters, digits, and hyphens. `kind` starts with an
+            uppercase ASCII letter and contains only letters and digits. `engines.vellym` is a
+            range for Vellym itself, not a separate plugin API version. Vellym warns and skips
+            only the affected plugin for an incompatible range, invalid manifest, or conflicting
+            `id` or `kind`.
+
+            Use this `tsconfig.json`:
+
+            ```json
+            {
+              "compilerOptions": {
+                "target": "ES2022",
+                "module": "NodeNext",
+                "moduleResolution": "NodeNext",
+                "strict": true,
+                "declaration": true,
+                "rootDir": "src",
+                "outDir": "dist"
+              },
+              "include": ["src/**/*.ts"]
+            }
+            ```
+
+            ```bash
+            npm install
+            ```
+
+            ## 2. Write the Node entry
+
+            Put the following in `src/node.ts`:
+
+            ```ts
+            import { definePlugin } from "@vellym/plugin-api";
+
+            const READING_ITEM_SCHEMA = {
+              type: "object",
+              required: ["url", "read"],
+              properties: {
+                url: { type: "string", minLength: 1 },
+                read: { type: "boolean" }
+              }
+            } as const;
+
+            export default definePlugin({
+              activate(host) {
+                host.registerKind({
+                  kind: "ReadingItem",
+                  specSchema: READING_ITEM_SCHEMA,
+                  showInDocumentTree: true,
+                  hasBlocks: true
+                });
+
+                host.registerRecordProjection("ReadingItem", () => (record) => ({
+                  values: {
+                    url: typeof record.spec.url === "string" ? record.spec.url : "",
+                    read: record.spec.read === true
+                  }
+                }));
+
+                host.registerView({
+                  id: "reading-item-detail",
+                  opensKind: "ReadingItem",
+                  static: true,
+                  view: {
+                    type: "detail",
+                    id: "reading-item-detail",
+                    kind: "ReadingItem",
+                    fields: [
+                      {
+                        id: "url",
+                        label: { ja: "URL", en: "URL" },
+                        type: "text",
+                        path: ["url"],
+                        required: true
+                      },
+                      {
+                        id: "read",
+                        label: { ja: "読了", en: "Read" },
+                        type: "boolean",
+                        path: ["read"]
+                      }
+                    ],
+                    body: "blocks"
+                  }
+                });
+
+                host.registerCommand({
+                  id: "reading-item.create",
+                  title: { ja: "読むもの", en: "Reading item" },
+                  static: false,
+                  placement: "document-tree",
+                  inputs: [
+                    {
+                      id: "title",
+                      label: { ja: "タイトル", en: "Title" },
+                      type: "text",
+                      path: ["title"],
+                      required: true
+                    },
+                    {
+                      id: "url",
+                      label: { ja: "URL", en: "URL" },
+                      type: "text",
+                      path: ["url"],
+                      required: true
+                    }
+                  ],
+                  run(context) {
+                    const title = String(context.input?.title ?? "").trim();
+                    const url = String(context.input?.url ?? "").trim();
+                    const folder = String(context.input?.folder ?? "").trim();
+                    return context.createResource({
+                      kind: "ReadingItem",
+                      title,
+                      ...(folder ? { folder } : {}),
+                      spec: {
+                        url,
+                        read: false,
+                        blocks: [
+                          { id: "notes", type: "rich-text", content: "" }
+                        ]
+                      }
+                    });
+                  }
+                });
+              }
+            });
+            ```
+
+            The manifest and `activate` name the same contributions but serve different roles.
+            The manifest contains IDs, kinds, view types, and static availability needed before
+            loading code. `activate` supplies schemas, fields, projection logic, and behavior.
+
+            The index row from `registerRecordProjection` supplies values for list filtering and
+            sorting and for the current values in a detail view. Never retain the `record` itself.
+            Copy only required values into `values`, so complete `spec` objects from large
+            collections do not stay in memory.
+
+            ## 3. Build and test in Vellym
+
+            ```bash
+            npm run typecheck
+            npm run build
+            ```
+
+            From the test Vellym project's root, install the plugin directory as a local dependency:
+
+            ```bash
+            npm install ../vellym-plugin-reading-list
+            ```
+
+            Add the package to that project's `vellym.config.yaml`:
+
+            ```yaml
+            plugins:
+              - vellym-plugin-reading-list
+            ```
+
+            ```bash
+            npx vellym dev
+            ```
+
+            Choose “Reading item” from the document tree's add menu and save it. The plugin works
+            when the resulting `ReadingItem` opens and its URL, read state, and body can be edited
+            and saved. After code changes, rebuild the plugin and, when needed, reinstall it in
+            the test project before restarting Vellym.
+
+            `npx vellym validate` reports plugin-loading warnings and resources that do not match
+            `specSchema`. A plugin failure alone never stops `validate`, `build`, or the entire
+            development server.
+
+            ## Manifest fields
+
+            | Contribution | Required fields | Purpose |
+            | --- | --- | --- |
+            | `kinds` | `kind` | Declares a custom kind. `showInDocumentTree` defaults to `false`; `hasBlocks` defaults to `true`. |
+            | `views` | `id`, `kind`, `type`, `static` | Declares a `list` or `detail` view. Set `opensKind` when a different kind opens it. |
+            | `commands` | `id`, `title`, `static` | Declares an action. Set `placement: "document-tree"` only for an item in the tree's add menu. |
+            | `settings` | `id`, `label`, `type` | Declares setting metadata. In 0.4.0-beta it is validated in the manifest, but there is not yet a settings screen or host API for reading values. |
+
+            `static: true` means a contribution works as a read-only feature in a static site.
+            Creation and saving require a server and must use `false`. Static output omits views
+            and actions marked `false` rather than showing disabled controls.
+
+            The manifest JSON Schema is exported as
+            `@vellym/plugin-api/plugin-manifest.schema.json`. Validate the `vellym` field in
+            `package.json` against it in CI to catch malformed IDs and missing fields before load.
+
+            ## Public Node API
+
+            | API | Purpose |
+            | --- | --- |
+            | `registerKind` | Registers a kind, its `spec` JSON Schema, body behavior, tree visibility, and optional 16×16 icon. Schema mismatch is a warning and source is preserved. |
+            | `registerRecordProjection` | Reduces extracted records to small index rows used by lists and details. |
+            | `registerView` | Registers a generic list/detail descriptor, or a function that creates one from context. |
+            | `registerCommand` | Registers inputs and behavior. Start a resource as an unsaved draft with `context.createResource()`. |
+            | `reportDiagnostic` | Reports a file, JSON Pointer, severity, stable code, and message instead of throwing. |
+
+            List columns and detail fields support `text`, `multiline`, `number`, `boolean`,
+            `date`, `select`, `multiselect`, and `reference`. Display text can be a string or a
+            locale map such as `{ ja: "...", en: "..." }`.
+
+            When behavior depends on definitions in source YAML, call `context.records(kind)`
+            from a view provider or projector factory. Use it only for small sets such as
+            configuration resources. Index large resource sets through projections.
+
+            ## Add a custom browser view only when needed
+
+            Add a browser entry only for interfaces descriptors cannot express, such as nested
+            repeating fields. Add this export to `package.json`:
+
+            ```json
+            {
+              "exports": {
+                ".": {
+                  "types": "./dist/node.d.ts",
+                  "default": "./dist/node.js"
+                },
+                "./browser": {
+                  "types": "./dist/browser.d.ts",
+                  "default": "./dist/browser.js"
+                }
+              }
+            }
+            ```
+
+            Connect a browser renderer to a view ID registered by the Node entry:
+
+            ```ts
+            import { defineBrowserPlugin } from "@vellym/plugin-api";
+
+            export default defineBrowserPlugin({
+              activate(host) {
+                host.registerViewRenderer("reading-item-detail", {
+                  mount(element, context) {
+                    const draw = () => {
+                      element.textContent = context.target?.title ?? "";
+                    };
+                    draw();
+                    return {
+                      update(next) {
+                        context = next;
+                        draw();
+                      },
+                      unmount() {
+                        element.replaceChildren();
+                      }
+                    };
+                  }
+                });
+              }
+            });
+            ```
+
+            `mount` returns a handle synchronously. Stop timers and subscriptions synchronously
+            in `unmount`. Write through `context.save()` and hide saving controls when
+            `context.isStatic` is true. Bundle browser assets as ES modules.
+
+            For React, wrap a component with `reactRenderer` from
+            `@vellym/plugin-api/react`. Mark `react`, `react-dom`, `react/jsx-runtime`, and
+            `@vellym/plugin-api/ui` as external. Vellym supplies shared instances; bundling a
+            second React instance breaks hooks.
+
+            ## Data and safety rules
+
+            - A plugin never receives a filesystem path or content root. Read through
+              `PluginResourceRecord`, create through `createResource()`, and update through a
+              renderer's `save()`.
+            - `spec` is read-only input. Mutating it directly does not save anything.
+            - Unknown fields, unknown blocks, and comments survive saves. Removing a plugin does
+              not delete the YAML it handled.
+            - Schema mismatch is a warning, not an error that makes a resource uneditable.
+              Report located problems with `reportDiagnostic`; do not throw from `activate` or a
+              renderer.
+            - `metadata.name` is the immutable machine ID and is unique across all kinds. Put
+              kind-specific values directly under `spec`, not in new metadata fields.
+
+            ## Before publishing
+
+            1. `npm run typecheck` and `npm run build` succeed.
+            2. `npm pack --dry-run` includes `dist` and required declarations.
+            3. A fresh directory can install the tarball and resolve its Node export.
+            4. Loading, editing, `validate`, and `build` work with the oldest and newest Vellym
+               versions in the declared range.
+            5. IDs, kinds, and `static` values agree between the manifest and `activate`.
+            6. Non-official packages should use `vellym-plugin-<name>`. Vellym resolves exactly
+               what is listed under `plugins` in `vellym.config.yaml`.
+
+            ## Loading warnings
+
+            | Warning | What to check |
+            | --- | --- |
+            | Package cannot be resolved | Install it in the project containing `vellym.config.yaml`, and check the package name. |
+            | Invalid manifest | Check the `vellym.id` format, required contribution fields, and unsupported extra fields. |
+            | Missing or incompatible `engines.vellym` | Declare a semver range for Vellym itself and include the running version. |
+            | Missing `activate(host)` | Ensure the Node entry exports the result of `definePlugin(...)` as a default or named export. |
+            | Browser entry cannot be loaded | Ensure the file in `exports["./browser"]` is packed and dependencies are bundled or externalized. |
 
             ## Related
 
             - Use the plugin in a project → [[using-plugins|Using Plugins]]
+            - Review all configuration → [[configuration|Configuration File]]
