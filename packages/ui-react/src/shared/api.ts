@@ -393,10 +393,21 @@ function fetchStaticPluginViewIndex(base: string): Promise<StaticPluginViewIndex
   ) {
     return staticPluginViewIndex.value;
   }
-  const value = fetchStatic<StaticPluginViewIndex>(base, "plugin-views.json")
-    .then((envelope) => envelope.data);
-  staticPluginViewIndex = { base, buildId, value };
-  return value;
+  const entry = {
+    base,
+    buildId,
+    value: undefined as unknown as Promise<StaticPluginViewIndex>
+  };
+  entry.value = fetchStatic<StaticPluginViewIndex>(base, "plugin-views.json")
+    .then((envelope) => envelope.data)
+    .catch((error) => {
+      // 一時的な取得失敗をキャッシュすると、同じセッションで再取得できなくなるため。
+      // 後から別のbase/buildIdで入れ替わったエントリは消さない。
+      if (staticPluginViewIndex === entry) staticPluginViewIndex = undefined;
+      throw error;
+    });
+  staticPluginViewIndex = entry;
+  return entry.value;
 }
 
 export function fetchBootstrap(
