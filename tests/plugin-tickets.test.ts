@@ -7,6 +7,7 @@ import type {
   VellymPluginHost
 } from "@vellym/plugin-api";
 import { validatePluginManifest } from "@vellym-internal/core";
+import { pluginResourceRelativePath } from "@vellym-internal/runtime-node";
 import plugin from "@vellym/tickets";
 import {
   initialTicketSpec,
@@ -343,7 +344,7 @@ describe("ticket plugin", () => {
     expect(activate().commands.get("ticket.create")?.inputs).toBeUndefined();
   });
 
-  it("returns an initialized in-memory draft without persisting at creation start", async () => {
+  it("creates an indexed in-memory draft under the tracker's +tickets folder", async () => {
     const tracker = record(
       "TicketTracker",
       "quality-tickets",
@@ -387,7 +388,7 @@ describe("ticket plugin", () => {
       ok: true,
       draft: {
         kind: "Ticket",
-        folder: "40-品質",
+        folder: "40-品質/+tickets",
         spec: {
           status: "todo",
           fields: { priority: "mid", readiness: "ready" },
@@ -395,6 +396,35 @@ describe("ticket plugin", () => {
         }
       }
     });
+    if (!result.ok) throw new Error("ticket creation failed");
+    const relativePath = pluginResourceRelativePath(result.draft);
+    expect(relativePath).toBe(`40-品質/+tickets/${result.draft.name}.yaml`);
+    expect(
+      project(
+        [tracker],
+        record("Ticket", result.draft.name, relativePath, result.draft.spec)
+      )?.values.trackers
+    ).toEqual(["quality-tickets"]);
+  });
+
+  it("keeps the content root default when no tracker can be found", async () => {
+    const command = activate().commands.get("ticket.create");
+    if (!command) throw new Error("ticket.create was not registered");
+    const stage = vi.fn(async (draft: import("@vellym/plugin-api").PluginResourceDraft) => {
+      if (!draft.name) throw new Error("ticket name is required");
+      return { ok: true as const, name: draft.name, draft: { ...draft, name: draft.name } };
+    });
+
+    const result = await command.run({
+      locale: "ja",
+      records: () => [],
+      createResource: stage
+    });
+
+    expect(stage).toHaveBeenCalledOnce();
+    if (!result.ok) throw new Error("ticket creation failed");
+    expect(result.draft).not.toHaveProperty("folder");
+    expect(pluginResourceRelativePath(result.draft)).toBe(`${result.draft.name}.yaml`);
   });
 
   it("creates a tracker with the standard statuses and opens its settings", async () => {

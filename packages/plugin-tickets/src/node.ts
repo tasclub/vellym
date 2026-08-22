@@ -83,7 +83,8 @@ export default definePlugin({
       // 作る前に尋ねない。押すと初期値だけのドラフトになり、そのまま編集画面へ入る。
       // 作成用の画面と編集用の画面を別に持たない。同じ画面で全部を書く。
       run: (context) => {
-        // 所属は置き場所で決まる。開いているチケット管理と同じフォルダへ作る。
+        // 所属は置き場所で決まる。開いているチケット管理の配下にある
+        // 機械用フォルダへまとめ、管理ファイルと同じ階層へ平らに溜めない。
         const tracker = context.target
           ? trackerFor(readTrackers(context), context.target.relativePath) ??
             readTrackers(context).find((item) => item.name === context.target?.name)
@@ -102,7 +103,9 @@ export default definePlugin({
           kind: TICKET_KIND,
           name: ticketName(),
           title: title || (context.locale === "ja" ? "新しいチケット" : "New ticket"),
-          ...(tracker ? { folder: tracker.folder } : {}),
+          ...(tracker
+            ? { folder: tracker.folder ? `${tracker.folder}/+tickets` : "+tickets" }
+            : {}),
           // 本文ブロックは必ず用意する。無いと通常のPage編集経路が
           // 「編集できる本文がない」と判断し、内容を書けなくなる。
           spec: {

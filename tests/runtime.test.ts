@@ -3,6 +3,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  symlink,
   writeFile
 } from "node:fs/promises";
 import { request } from "node:http";
@@ -1286,6 +1287,89 @@ plugins:
       });
       expect(conflict.status).toBe(409);
       expect(await readFile(path.join(root, "ticket-draft-test.yaml"), "utf8")).toBe(output);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("creates an official ticket under the tracker's +tickets folder", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-ticket-folder-server-"));
+    const root = path.join(project, "docs/content");
+    await mkdir(path.join(root, "40-quality"), { recursive: true });
+    await writeFile(
+      path.join(root, "40-quality/tracker.yaml"),
+      `apiVersion: vellym.tasclub.com/v1
+kind: TicketTracker
+metadata:
+  name: quality-tickets
+  title: Quality tickets
+spec:
+  statuses:
+    - id: todo
+      label: Todo
+      category: open
+  fields: []
+`,
+      "utf8"
+    );
+    await mkdir(path.join(project, "node_modules/@vellym"), { recursive: true });
+    await symlink(
+      path.join(process.cwd(), "packages/plugin-tickets"),
+      path.join(project, "node_modules/@vellym/tickets"),
+      "dir"
+    );
+    await symlink(
+      path.join(process.cwd(), "packages/plugin-api"),
+      path.join(project, "node_modules/@vellym/plugin-api"),
+      "dir"
+    );
+    const configPath = path.join(project, "vellym.config.yaml");
+    await writeFile(
+      configPath,
+      `schemaVersion: "1.0"
+contentRoot: docs/content
+outputDir: dist/vellym
+ui:
+  language: ja
+plugins:
+  - "@vellym/tickets"
+`,
+      "utf8"
+    );
+    const ui = await mkdtemp(path.join(tmpdir(), "vellym-ticket-folder-ui-"));
+    await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
+    const server = await startDevServer({
+      configPath,
+      uiRoot: ui,
+      hostVersion: "0.3.0-beta.1",
+      port: 0
+    });
+    try {
+      const started = await fetch(`${server.url}/api/v1/plugins/commands/ticket.create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "quality-tickets" })
+      });
+      expect(started.status).toBe(200);
+      const startedBody = await started.json() as {
+        data: {
+          draft: Record<string, unknown> & { name: string };
+          relativePath: string;
+        };
+      };
+      expect(startedBody.data.relativePath).toBe(
+        `40-quality/+tickets/${startedBody.data.draft.name}.yaml`
+      );
+
+      const saved = await fetch(`${server.url}/api/v1/plugins/resources`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ baseHash: null, draft: startedBody.data.draft })
+      });
+      expect(saved.status).toBe(201);
+      expect(
+        await readFile(path.join(root, startedBody.data.relativePath), "utf8")
+      ).toContain("kind: Ticket");
     } finally {
       await server.close();
     }
