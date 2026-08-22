@@ -497,7 +497,9 @@ export async function fetchPluginView(
     try {
       const baked = await fetchStatic<PluginViewPayload>(
         base,
-        `views/${encodeURIComponent(name)}.json`
+        viewId
+          ? `views/${encodeURIComponent(name)}/${encodeURIComponent(viewId)}.json`
+          : `views/${encodeURIComponent(name)}.json`
       );
       return baked.data;
     } catch {

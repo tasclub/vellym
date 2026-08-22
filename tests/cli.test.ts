@@ -183,6 +183,24 @@ spec:
 `,
       "utf8"
     );
+    await mkdir(path.join(root, "docs/+tickets"), { recursive: true });
+    await writeFile(
+      path.join(root, "docs/+tickets/ticket-static-detail.yaml"),
+      `apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-static-detail
+  title: 静的版で開くチケット
+spec:
+  status: todo
+  fields: {}
+  blocks:
+    - id: description
+      type: rich-text
+      content: 静的詳細
+`,
+      "utf8"
+    );
 
     const output = buildDir(config);
     const dataDir = await staticDataDir(output);
@@ -193,6 +211,26 @@ spec:
     );
     expect(view.data.pluginId).toBe("tickets");
     expect(view.data.descriptor).toBeDefined();
+    // static:falseの設定ビューは切替導線へ残さない。
+    expect(view.data.siblings.map((item: { id: string }) => item.id)).toEqual([
+      "ticket-list"
+    ]);
+
+    // 文書ツリーへ出ないTicketも、static:trueの詳細ビューを持つため焼かれる。
+    expect(existsSync(path.join(dataDir, "pages/ticket-static-detail.json"))).toBe(true);
+    expect(existsSync(path.join(dataDir, "views/ticket-static-detail.json"))).toBe(true);
+    expect(
+      existsSync(path.join(output, "pages/ticket-static-detail/index.html"))
+    ).toBe(true);
+    const ticketView = JSON.parse(
+      await readFile(path.join(dataDir, "views/ticket-static-detail.json"), "utf8")
+    );
+    expect(ticketView.data.viewId).toBe("ticket-detail");
+    const repository = JSON.parse(
+      await readFile(path.join(dataDir, "repository.json"), "utf8")
+    );
+    expect(repository.data.pages.map((item: { name: string }) => item.name))
+      .not.toContain("ticket-static-detail");
 
     // ブラウザ側資産が出力へ含まれている。**外部URLを参照しない。**
     expect(existsSync(path.join(output, "plugins/tickets/index.js"))).toBe(true);

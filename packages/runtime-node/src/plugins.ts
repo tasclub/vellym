@@ -418,19 +418,65 @@ export function resolveCommandInputs(
 export function viewForKind(
   registry: PluginRegistry,
   kind: string,
-  viewId?: string
+  viewId?: string,
+  isStatic = false
 ): { plugin: LoadedPlugin; contribution: PluginViewContribution } | undefined {
   for (const plugin of registry.plugins) {
     for (const contribution of plugin.views) {
-      const descriptorKind =
-        typeof contribution.view === "function" ? undefined : contribution.view.kind;
-      const opensKind = contribution.opensKind ?? descriptorKind;
+      if (isStatic && !contribution.static) continue;
+      const opensKind = viewOpensKind(plugin, contribution);
       if (opensKind !== kind) continue;
       if (viewId && contribution.id !== viewId) continue;
       return { plugin, contribution };
     }
   }
   return undefined;
+}
+
+/** 登録値を優先し、関数形のビューではmanifestの宣言で入口kindを補う */
+function viewOpensKind(
+  plugin: LoadedPlugin,
+  contribution: PluginViewContribution
+): string | undefined {
+  const descriptorKind =
+    typeof contribution.view === "function" ? undefined : contribution.view.kind;
+  const declared = plugin.manifest.contributes?.views?.find(
+    (item) => item.id === contribution.id
+  );
+  return (
+    contribution.opensKind ??
+    descriptorKind ??
+    declared?.opensKind ??
+    declared?.kind
+  );
+}
+
+/** 静的版で開けるとプラグインが宣言したResourceのkind */
+export function staticViewKinds(registry: PluginRegistry): ReadonlySet<string> {
+  const kinds = new Set<string>();
+  for (const plugin of registry.plugins) {
+    for (const contribution of plugin.views) {
+      if (!contribution.static) continue;
+      const opensKind = viewOpensKind(plugin, contribution);
+      if (opensKind) kinds.add(opensKind);
+    }
+  }
+  return kinds;
+}
+
+/** 指定kindで静的版に出せるビュー。複数ビューの焼き込みに使う */
+export function staticViewIdsForKind(
+  registry: PluginRegistry,
+  kind: string
+): readonly string[] {
+  return registry.plugins.flatMap((plugin) =>
+    plugin.views
+      .filter((contribution) => {
+        if (!contribution.static) return false;
+        return viewOpensKind(plugin, contribution) === kind;
+      })
+      .map((contribution) => contribution.id)
+  );
 }
 
 /**
@@ -481,7 +527,12 @@ export function buildPluginView(options: {
   /** 同じkindに複数のビューがある場合に、どれを出すか */
   viewId?: string;
 }): PluginViewPayload | undefined {
-  const found = viewForKind(options.registry, options.target.kind, options.viewId);
+  const found = viewForKind(
+    options.registry,
+    options.target.kind,
+    options.viewId,
+    options.isStatic
+  );
   if (!found) return undefined;
   const { plugin, contribution } = found;
   const context: PluginViewContext = {
@@ -532,9 +583,8 @@ export function buildPluginView(options: {
     allRows: scoped,
     siblings: plugin.views
       .filter((item) => {
-        const itemKind =
-          typeof item.view === "function" ? undefined : item.view.kind;
-        return (item.opensKind ?? itemKind) === options.target.kind;
+        if (options.isStatic && !item.static) return false;
+        return viewOpensKind(plugin, item) === options.target.kind;
       })
       .map((item) => ({
         id: item.id,

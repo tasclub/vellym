@@ -23,9 +23,12 @@ import {
   localizedFolderSummaries,
   localizedPage,
   localizedPageSummaries,
+  pageSummaries,
   loadConfig,
   loadPlugins,
   pluginKinds,
+  staticViewIdsForKind,
+  staticViewKinds,
   buildPluginViewFromSnapshot,
   loadRepository
 } from "@vellym-internal/runtime-node";
@@ -242,6 +245,19 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
     for (const locale of locales) {
       const segment = localeUrlSegment(locale)!;
       const summaries = localizedPageSummaries(repository, locale, defaultLocale);
+      // 文書ツリーへ出すPageに加え、プラグインが静的表示を明示したkindも焼く。
+      // repository.jsonは従来どおりツリー対象だけにし、非ツリーResourceを
+      // ナビゲーションへ混ぜない。
+      const staticKinds = staticViewKinds(plugins);
+      const summaryNames = new Set(summaries.map((summary) => summary.name));
+      const bakedSummaries = [
+        ...summaries,
+        ...pageSummaries(repository).filter(
+          (summary) =>
+            !summaryNames.has(summary.name) &&
+            staticKinds.has(summary.resourceKind ?? "Page")
+        )
+      ];
       const folders = localizedFolderSummaries(repository, locale, defaultLocale);
       const dataDir = path.join(dataRoot, segment);
       await mkdir(path.join(dataDir, "pages"), { recursive: true });
@@ -296,7 +312,7 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       // 違うのは`isStatic: true`だけで、編集の宣言はプラグイン側が落とす。
       const viewsDir = path.join(dataDir, "views");
       let bakedViews = 0;
-      for (const summary of summaries) {
+      for (const summary of bakedSummaries) {
         const payload = buildPluginViewFromSnapshot({
           registry: plugins,
           snapshot: repository,
@@ -312,9 +328,35 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
           "utf8"
         );
         bakedViews += 1;
+
+        // 同じkindに複数の静的ビューがある場合も、切替先を個別に読めるようにする。
+        const viewIds = staticViewIdsForKind(
+          plugins,
+          summary.resourceKind ?? "Page"
+        );
+        if (viewIds.length > 1) {
+          const resourceViewsDir = path.join(viewsDir, summary.name);
+          await mkdir(resourceViewsDir, { recursive: true });
+          for (const viewId of viewIds) {
+            const selectedPayload = buildPluginViewFromSnapshot({
+              registry: plugins,
+              snapshot: repository,
+              name: summary.name,
+              locale,
+              isStatic: true,
+              viewId
+            });
+            if (!selectedPayload) continue;
+            await writeFile(
+              path.join(resourceViewsDir, `${viewId}.json`),
+              `${JSON.stringify(envelope(selectedPayload, buildId))}\n`,
+              "utf8"
+            );
+          }
+        }
       }
 
-      for (const summary of summaries) {
+      for (const summary of bakedSummaries) {
         const projected = await localizedPage(repository, summary.name, locale, defaultLocale);
         if (!projected || "state" in projected) continue;
         await writeFile(

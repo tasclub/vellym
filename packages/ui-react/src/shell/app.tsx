@@ -1443,13 +1443,20 @@ export function App() {
           />
         ) : !editing && pluginView && pluginView.descriptor.type === "list" && view ? (
           <PluginListPage
-            notice={pluginRendererMessage}
+            notice={
+              message ||
+              pluginRendererMessage ||
+              (diagnostics.some((item) => item.severity === "error")
+                ? t("app.diagnosticsMessage")
+                : "")
+            }
             renderer={pluginRenderers.byViewId.get(pluginView.viewId)}
             {...(pluginRenderContext ? { renderContext: pluginRenderContext } : {})}
             payload={pluginView}
             view={view}
             uiLocale={bootstrap.project.uiLocale}
             showAll={showAllRows}
+            editable={bootstrap.capabilities.editing}
             onToggleShowAll={setShowAllRows}
             onNavigate={navigate}
             onSwitchView={async (viewId) => {

@@ -35,6 +35,8 @@ export function PluginListPage(props: {
   onNavigate(name: string): void;
   onSwitchView(viewId: string): void | Promise<void>;
   onRunCommand(commandId: string, input: Record<string, PluginInputValue>): void;
+  /** 編集不能な静的版では一括操作そのものを渡さない */
+  editable: boolean;
   onBulkChange(change: PluginBulkChange): Promise<string[]>;
   onBulkArchive(names: string[]): Promise<string[]>;
   /**
@@ -68,8 +70,12 @@ export function PluginListPage(props: {
       onToggleShowAll={props.onToggleShowAll}
       onOpen={props.onNavigate}
       onRunCommand={props.onRunCommand}
-      onBulkChange={props.onBulkChange}
-      onBulkArchive={props.onBulkArchive}
+      {...(props.editable
+        ? {
+            onBulkChange: props.onBulkChange,
+            onBulkArchive: props.onBulkArchive
+          }
+        : {})}
     />
   );
   return (
