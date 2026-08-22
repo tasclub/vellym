@@ -1,0 +1,20 @@
+{
+  // 型検査だけの設定。**パッケージのビルド設定はこれを継承しない。**
+  //
+  // `@vellym/plugin-api/ui`のexportsはdistしか指していない。その宣言は
+  // `ui-react`の`build:contract`が生成するため、素のcloneでは存在せず、
+  // typecheckがビルド成果物へ依存してしまう。実際にCIが
+  // 「Cannot find module '@vellym/plugin-api/ui'」で落ちた。
+  //
+  // 生成元のsrcへ向けて依存を切る。**公開時のexportsはdistのままである。**
+  //
+  // この`paths`をルートのtsconfigへ置くと、各パッケージの`tsconfig.build.json`が
+  // 継承してしまい、宣言の出力が`rootDir`の外のファイルを取り込んで壊れる。
+  // ビルドは公開物の型（dist）を参照するのが正しく、そちらはビルド順で満たされる。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@vellym/plugin-api/ui": ["./packages/ui-react/src/shared/index.ts"]
+    }
+  }
+}
