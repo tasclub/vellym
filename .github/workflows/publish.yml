@@ -3,8 +3,9 @@ name: Publish
 # GitHub Release を published にすると npm へ provenance 付きで公開する。
 #
 # 認証はnpmのTrusted Publishing（OIDC）を使い、publish用のtokenは保持しない。
-# npm側でpackage vellymのTrusted Publisherに、このリポジトリと
-# workflowファイル名publish.ymlを登録しておくこと（Environmentは未設定）。
+# npm側でpackage @vellym/plugin-api、@vellym/tickets、vellymそれぞれの
+# Trusted Publisherに、このリポジトリとworkflowファイル名publish.ymlを
+# 登録しておくこと（Environmentは未設定）。
 # npm CLIは11.5.1以降が必要で、Node.js 24に同梱される版がこれを満たす。
 #
 # dist-tagの変更はこのworkflowでは行わない。OIDCの資格情報はpublishに限定され、
@@ -47,18 +48,6 @@ jobs:
       - run: npm run pack:smoke
       - run: npx playwright install --with-deps chromium
       - run: npm run verify:core
-      - id: dist-tag
-        name: Select npm dist-tag
-        run: |
-          VERSION="$(node -p "require('./packages/vellym/package.json').version")"
-          PRERELEASE="${VERSION#*-}"
-          if [ "$PRERELEASE" = "$VERSION" ]; then
-            TAG=latest
-          else
-            TAG="${PRERELEASE%%.*}"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       # OIDCへ乗る前提条件を失敗前に確認する。
       # npm 11.5.1以降と、id-token: writeによるOIDC要求URLの両方が必要。
       - name: Show npm auth configuration
@@ -71,19 +60,27 @@ jobs:
           else
             echo "OIDC要求URL: なし（id-token権限を確認する）"
           fi
-      - name: Publish to npm
-        # package directoryから実行する。--workspace経由ではnpmがOIDCの交換を行わず
-        # ENEEDAUTHになるため、trusted publishingでは通常のpublishと同じ形にする。
+      # package directoryから依存順に実行する。--workspace経由ではnpmがOIDCの交換を
+      # 行わずENEEDAUTHになるため、trusted publishingでは通常のpublishと同じ形にする。
+      # 各package.jsonの版からdist-tagを決め、同じ版が公開済みなら再実行時に飛ばす。
+      - id: plugin_api_publish
+        name: Publish @vellym/plugin-api to npm
+        working-directory: packages/plugin-api
+        run: bash ../../scripts/publish-package.sh
+      - id: tickets_publish
+        name: Publish @vellym/tickets to npm
+        working-directory: packages/plugin-tickets
+        run: bash ../../scripts/publish-package.sh
+      - id: vellym_publish
+        name: Publish vellym to npm
         working-directory: packages/vellym
-        run: |
-          npm publish --provenance --access public \
-            --tag "${{ steps.dist-tag.outputs.tag }}"
+        run: bash ../../scripts/publish-package.sh
       # prereleaseはlatestを指さないまま公開される。1.0未満の間latestを持たないと
       # `npx vellym`が解決できないため、公開後にlatestを同じ版へ向ける。
       # OIDCの資格情報はpublishに限定されdist-tagのPUTは401になるので、
       # ここでは実行せず手順を出力するだけにする。
       - name: Next step for the latest dist-tag
-        if: steps.dist-tag.outputs.tag != 'latest'
+        if: steps.vellym_publish.outputs.tag != 'latest'
         run: |
           {
             echo "### 公開後の手作業"
@@ -91,7 +88,7 @@ jobs:
             echo "prereleaseのため\`latest\`は更新されていない。npmへログイン済みの環境で実行する。"
             echo
             echo '```bash'
-            echo "npm dist-tag add vellym@${{ steps.dist-tag.outputs.version }} latest"
+            echo "npm dist-tag add vellym@${{ steps.vellym_publish.outputs.version }} latest"
             echo "npm dist-tag ls vellym"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
