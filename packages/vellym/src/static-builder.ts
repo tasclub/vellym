@@ -311,6 +311,7 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       // プラグインのビューを焼き込む。**devと同じ関数を通す。**
       // 違うのは`isStatic: true`だけで、編集の宣言はプラグイン側が落とす。
       const viewsDir = path.join(dataDir, "views");
+      const viewIndex: Record<string, { viewIds: string[] }> = {};
       let bakedViews = 0;
       for (const summary of bakedSummaries) {
         const payload = buildPluginViewFromSnapshot({
@@ -328,6 +329,8 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
           "utf8"
         );
         bakedViews += 1;
+        const indexedViewIds: string[] = [];
+        viewIndex[summary.name] = { viewIds: indexedViewIds };
 
         // 同じkindに複数の静的ビューがある場合も、切替先を個別に読めるようにする。
         const viewIds = staticViewIdsForKind(
@@ -352,9 +355,17 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
               `${JSON.stringify(envelope(selectedPayload, buildId))}\n`,
               "utf8"
             );
+            indexedViewIds.push(viewId);
           }
         }
       }
+      // クライアントが存在しないビューを取りに行くと、例外を握り潰しても
+      // ブラウザの404は残る。ビューが無いlocaleでも索引自体は必ず置く。
+      await writeFile(
+        path.join(dataDir, "plugin-views.json"),
+        `${JSON.stringify(envelope({ views: viewIndex }, buildId))}\n`,
+        "utf8"
+      );
 
       for (const summary of bakedSummaries) {
         const projected = await localizedPage(repository, summary.name, locale, defaultLocale);
