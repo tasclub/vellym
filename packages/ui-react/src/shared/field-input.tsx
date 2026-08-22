@@ -123,7 +123,9 @@ export function FieldInput({
         checked={value === "true"}
         disabled={disabled}
         autoFocus={autoFocus}
-        onChange={(event) => onChange(event.target.checked ? "true" : "")}
+        // チェックボックスに「未入力」は無い。外した状態は空欄ではなく偽である。
+        // 空文字を返すと`toSpecValue`がnullにし、キーごと消えてしまう。
+        onChange={(event) => onChange(event.target.checked ? "true" : "false")}
       />
     );
   }
