@@ -9,10 +9,14 @@ const source = readFileSync(
   ),
   "utf8"
 );
+const globalSource = readFileSync(
+  path.join(process.cwd(), "packages/ui-react/src/styles.css"),
+  "utf8"
+);
 
-function declarations(selector: string): string {
+function declarations(selector: string, css = source): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return source.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+  return css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
 }
 
 describe("workspace scroll containers", () => {
@@ -28,5 +32,23 @@ describe("workspace scroll containers", () => {
     expect(declarations(".navigation")).toMatch(/overflow:\s*auto/);
     expect(declarations(".content")).toMatch(/overflow:\s*auto/);
     expect(declarations(".outlineColumn")).toMatch(/overflow:\s*auto/);
+  });
+
+  it("anchors screen-reader-only content without using its static position", () => {
+    const visuallyHidden = declarations(".visually-hidden", globalSource);
+
+    // CSS契約だけを固定する。jsdomはレイアウトしないため、documentの
+    // scrollHeightがclientHeightと一致することまではこのテストで担保できない。
+    expect(visuallyHidden).toMatch(/position:\s*absolute/);
+    expect(visuallyHidden).toMatch(/inset-block-start:\s*0/);
+    expect(visuallyHidden).toMatch(/inset-inline-start:\s*0/);
+    expect(visuallyHidden).toMatch(/width:\s*1px/);
+    expect(visuallyHidden).toMatch(/height:\s*1px/);
+    expect(visuallyHidden).toMatch(/overflow:\s*hidden/);
+    expect(visuallyHidden).toMatch(/clip:\s*rect\(0,\s*0,\s*0,\s*0\)/);
+    expect(visuallyHidden).toMatch(/clip-path:\s*inset\(50%\)/);
+    expect(visuallyHidden).not.toMatch(/margin:\s*-[^;]+/);
+    expect(visuallyHidden).not.toMatch(/display:\s*none/);
+    expect(visuallyHidden).not.toMatch(/visibility:\s*hidden/);
   });
 });
