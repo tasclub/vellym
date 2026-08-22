@@ -3,7 +3,8 @@
   display: grid;
   height: 100dvh;
   min-height: 0;
-  overflow: hidden;
+  /* 外枠をスクロールコンテナにせず、各列だけをスクロールさせる。 */
+  overflow: clip;
   grid-template:
     "rail header header header" 54px
     "rail navigation content outline" minmax(0, 1fr)
