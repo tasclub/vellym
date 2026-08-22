@@ -1338,10 +1338,18 @@ plugins:
     );
     const ui = await mkdtemp(path.join(tmpdir(), "vellym-ticket-folder-ui-"));
     await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
+    // このテストは**実物の**`@vellym/tickets`をsymlinkで読み込むため、
+    // ホスト版が`engines.vellym`を満たしていないとプラグインごと弾かれ、
+    // commandが404になる。版を書き写すと、リリースのたびにここが落ちる。
+    const hostVersion = (
+      JSON.parse(
+        await readFile(path.join(process.cwd(), "packages/vellym/package.json"), "utf8")
+      ) as { version: string }
+    ).version;
     const server = await startDevServer({
       configPath,
       uiRoot: ui,
-      hostVersion: "0.3.0-beta.1",
+      hostVersion,
       port: 0
     });
     try {
