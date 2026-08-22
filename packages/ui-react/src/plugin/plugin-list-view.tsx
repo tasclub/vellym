@@ -209,7 +209,12 @@ export function PluginListView({
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkColumn, setBulkColumn] = useState("");
   const [bulkValue, setBulkValue] = useState("");
-  const [bulkResult, setBulkResult] = useState<{ ok: number; failed: number }>();
+  // 何をした結果かで文言が変わるため、件数だけでなく操作の種類も持つ。
+  const [bulkResult, setBulkResult] = useState<{
+    kind: "change" | "archive";
+    ok: number;
+    failed: number;
+  }>();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -253,13 +258,13 @@ export function PluginListView({
   if (!descriptor) return null;
 
   const bulkTarget = editable.find((column) => column.id === bulkColumn);
-  const runBulk = async (run: () => Promise<string[]>) => {
+  const runBulk = async (kind: "change" | "archive", run: () => Promise<string[]>) => {
     setBusy(true);
     try {
       const failed = await run();
       // 途中で失敗しても成功した分は残す。全体を取り消さない。
       // 失敗した行は選択に残し、個別に開いて直せるようにする。
-      setBulkResult({ ok: selected.length - failed.length, failed: failed.length });
+      setBulkResult({ kind, ok: selected.length - failed.length, failed: failed.length });
       setSelected(failed);
     } finally {
       setBusy(false);
@@ -425,7 +430,7 @@ export function PluginListView({
             <Button
               disabled={!bulkTarget || !bulkValue || busy}
               onClick={() =>
-                runBulk(() =>
+                runBulk("change", () =>
                   onBulkChange({
                     names: [...selected],
                     path: [...(bulkTarget?.editPath ?? [])],
@@ -441,7 +446,7 @@ export function PluginListView({
         {onBulkArchive ? (
           <Button
             disabled={busy}
-            onClick={() => runBulk(() => onBulkArchive([...selected]))}
+            onClick={() => runBulk("archive", () => onBulkArchive([...selected]))}
           >
             {t("plugin.bulkArchive")}
           </Button>
@@ -452,9 +457,15 @@ export function PluginListView({
       </div>
     ) : null;
 
+  // 成功だけ・失敗だけ・両方で別の文にする。0件を数え上げても読む側に意味が無い。
   const bulkReport = bulkResult ? (
     <p className="notice" role="status">
-      {t("plugin.bulkResult", { ok: bulkResult.ok, failed: bulkResult.failed })}
+      {t(
+        `plugin.${bulkResult.kind === "archive" ? "bulkArchive" : "bulkChange"}${
+          bulkResult.failed === 0 ? "Done" : bulkResult.ok === 0 ? "Failed" : "Partial"
+        }`,
+        { ok: bulkResult.ok, failed: bulkResult.failed }
+      )}
     </p>
   ) : null;
 
