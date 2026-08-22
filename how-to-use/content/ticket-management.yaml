@@ -1,0 +1,125 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: ticket-management
+  title: チケット管理
+spec:
+  locale: ja
+  blocks:
+    - id: ticket-management
+      type: rich-text
+      content: |
+        ## はじめる
+
+        先に`@vellym/tickets`をインストールして有効にする。手順は
+        [[using-plugins|プラグインを使う]]を参照。
+
+        `vellym dev`の文書ツリーで、管理したい工程のフォルダにある追加メニューから
+        「チケット管理」を選ぶ。たとえば開発、テスト、リリース準備の各フォルダへ
+        一つずつ置けば、工程ごとに別のチケット管理を持てる。
+
+        ## 所属は置き場所で決まる
+
+        `TicketTracker`は、置いたフォルダとその子孫のチケットを対象にする。チケットの
+        YAMLに所属先を書く必要はない。上位に複数のTrackerがある場合は、最も近い祖先の
+        Trackerがそのチケットを所有し、ステータスと項目の定義を与える。さらに上位の
+        Trackerの一覧にも同じチケットが表示される。
+
+        一覧から「チケットを作成」を選ぶと、新しいチケットは既定で
+        `<Trackerのフォルダ>/+tickets/`へ保存される。
+
+        ## ステータスと項目を定義する
+
+        Trackerを開き、「このチケット管理の設定」から定義する。
+
+        - **ステータス**: ID、表示名、未完了／完了の区分と並び順を決める。先頭の
+          ステータスが新しいチケットの初期値になる。
+        - **項目**: ID、表示名、型、必須かどうか、一覧へ列として出すかを決める。
+          単一選択と複数選択には選択肢も定義する。
+
+        定義と既存チケットの値が食い違っても、すべて警告として表示される。チケットは
+        読み取りと編集を続けられ、定義から外れた値も勝手に削除されない。
+
+        ## 一覧を使う
+
+        一覧では、ステータス、一覧列にした項目、ラベルで絞り込める。列見出しから
+        並べ替えられ、既定では完了に分類したステータスを除いて表示する。「未完了のみ」の
+        切り替えを外すと完了分も確認できる。
+
+        複数行を選ぶと、ステータスまたは単一選択の項目をまとめて変更できる。
+        選んだチケットをまとめてアーカイブへ移すこともできる。
+
+        ## `_`と`+`で始まるフォルダ
+
+        - `+`で始まるフォルダは文書ツリーだけから隠す。中のチケットは一覧、全文検索、
+          内部リンクに出る。既定の`+tickets/`はこの用途である。
+        - `_`で始まるフォルダは文書ツリーに出ず、中のチケットをすべてのチケット一覧からも
+          除外する。警告を出さずに保留しておきたいチケットに使う。全文検索と内部リンクからは
+          引き続き到達できる。ただし、予約済みの`_archive/`はVellymの読み込み対象外になる。
+
+        ## 関連
+
+        - プラグインの追加と削除 → [[using-plugins|プラグインを使う]]
+  translations:
+    en:
+      visibility: published
+      title: Ticket Management
+      blocks:
+        - id: ticket-management
+          type: rich-text
+          content: |
+            ## Get started
+
+            Install and enable `@vellym/tickets` first. See
+            [[using-plugins|Using Plugins]] for the steps.
+
+            In the `vellym dev` document tree, open the add menu on the folder for the stage
+            you want to manage and choose "Ticket tracker." Place one in each of your
+            development, testing, and release-preparation folders to manage those stages
+            separately.
+
+            ## Location determines ownership
+
+            A `TicketTracker` covers tickets in its folder and descendants. There is no need
+            to name an owner in each ticket's YAML. When more than one Tracker is above a
+            ticket, the nearest ancestor owns it and supplies its status and field definitions.
+            The same ticket also appears in the lists of Trackers farther up the hierarchy.
+
+            Choosing "New ticket" from a list saves the new ticket under
+            `<Tracker folder>/+tickets/` by default.
+
+            ## Define statuses and fields
+
+            Open the Tracker and choose "Tracker settings."
+
+            - **Statuses**: set the ID, label, open/closed category, and order. The first
+              status is the initial value for a new ticket.
+            - **Fields**: set the ID, label, type, whether it is required, and whether it is
+              a list column. Define options for select and multi-select fields.
+
+            Mismatches between the definitions and existing ticket values are all reported as
+            warnings. Tickets remain readable and editable, and values removed from a
+            definition are not silently deleted.
+
+            ## Work with the list
+
+            Filter the list by status, fields enabled as list columns, or labels. Sort from a
+            column heading. By default, statuses categorized as closed are hidden; clear the
+            "Open only" toggle to include them.
+
+            Select multiple rows to change their status or a single-select field together.
+            You can also move the selected tickets to the archive in one operation.
+
+            ## Folders beginning with `_` and `+`
+
+            - A folder beginning with `+` is hidden only from the document tree. Its tickets
+              remain in ticket lists, full-text search, and internal links. The default
+              `+tickets/` folder uses this behavior.
+            - A folder beginning with `_` is hidden from the document tree and its tickets are
+              excluded from every ticket list. Use it to hold tickets silently without
+              warnings. They remain reachable through full-text search and internal links.
+              The reserved `_archive/` folder is the exception and is not loaded by Vellym.
+
+            ## Related
+
+            - Adding and removing plugins → [[using-plugins|Using Plugins]]

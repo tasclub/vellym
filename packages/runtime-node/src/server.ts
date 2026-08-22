@@ -1,4 +1,5 @@
 import { access, readFile, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
@@ -17,6 +18,23 @@ import {
   type ContentRootPlan
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
+import {
+  createPluginResource,
+  parsePluginResourceDraft,
+  pluginResourceRelativePath
+} from "./plugin-resources.js";
+import type {
+  PluginInputValue,
+  PluginResourceRecord
+} from "@vellym/plugin-api";
+import {
+  buildPluginViewFromSnapshot,
+  loadPlugins,
+  pluginKinds,
+  resolveCommandInputs,
+  type PluginRegistry,
+  type PluginViewRow
+} from "./plugins.js";
 import { parseFolderPatch, saveFolder } from "./folder-store.js";
 import { parsePagePatch, savePage } from "./page-store.js";
 import { isInside } from "./path-utils.js";
@@ -175,11 +193,16 @@ function contentTypeFor(extension: string): string {
 // Viteのbundleは静的サイトのsubdirectory配信に備えて相対asset URLを持つ。
 // dev serverのSPA fallbackでそのまま返すと、深いlocale URLでは
 // /en/pages/<slug>/assets/... と解決されるため、動的版だけ配信rootへ固定する。
-function dynamicIndexHtml(body: Buffer): Buffer {
+export function dynamicIndexHtml(body: Buffer): Buffer {
   return Buffer.from(
     body.toString("utf8")
       .replaceAll('href="./assets/', 'href="/assets/')
       .replaceAll('src="./assets/', 'src="/assets/')
+      // import mapの値も同じ理由で配信rootへ固定する。**属性ではなく
+      // script要素の本文にあるため、上の置換では拾えない。**
+      // 相対のままだと`/ja/pages/<slug>`で`/ja/pages/assets/...`へ解決され、
+      // プラグインからのReactの読み込みだけが静かに404になる。
+      .replaceAll('"./assets/vellym-', '"/assets/vellym-')
       .replace('href="./favicon.png"', 'href="/favicon.png"'),
     "utf8"
   );
@@ -417,6 +440,11 @@ export async function startDevServer(options: {
   uiRoot: string;
   host?: string;
   port: number;
+  /**
+   * 実行中のVellym本体のversion。`engines.vellym`の判定に使う。
+   * 省略するとプラグインを読み込まない。
+   */
+  hostVersion?: string;
 }): Promise<{ url: string; close(): Promise<void> }> {
   const host = options.host ?? "127.0.0.1";
   const allowedHosts: ReadonlySet<string> = isLoopbackHost(host)
@@ -426,6 +454,14 @@ export async function startDevServer(options: {
   const projectRoot = path.dirname(configPath);
   let loadedConfig: LoadedConfig | undefined;
   let snapshot: RepositorySnapshot | undefined;
+  // プラグインが解釈できるkindと、そのうち文書ツリーへ出すもの。
+  // 読み込み直すたびに解決し直す。
+  let kindOptions: { knownKinds: ReadonlySet<string>; treeKinds: ReadonlySet<string> } = {
+    knownKinds: new Set<string>(),
+    treeKinds: new Set<string>()
+  };
+  let pluginDiagnostics: Diagnostic[] = [];
+  let pluginRegistry: PluginRegistry | undefined;
   let state: "setup" | "config-error" | "ready" = "setup";
   let configDiagnostics: Diagnostic[] = [];
   let watcher: FSWatcher | undefined;
@@ -478,7 +514,7 @@ export async function startDevServer(options: {
       timer = setTimeout(async () => {
         if (!loadedConfig || !snapshot) return;
         try {
-          snapshot = await loadRepository(loadedConfig.contentRoot, snapshot);
+          snapshot = await loadRepository(loadedConfig.contentRoot, snapshot, kindOptions);
         } catch (error) {
           snapshot = reloadFailureSnapshot(snapshot, error);
         }
@@ -503,9 +539,27 @@ export async function startDevServer(options: {
 
   const activateReady = async () => {
     const nextConfig = await loadConfig(configPath);
-    const nextSnapshot = await loadRepository(nextConfig.contentRoot);
+    // プラグインの失敗は診断になるだけで、serverの起動を妨げない。
+    const registry = options.hostVersion
+      ? await loadPlugins({
+          configDir: path.dirname(nextConfig.configPath),
+          packageNames: nextConfig.config.plugins,
+          hostVersion: options.hostVersion
+        })
+      : undefined;
+    const nextKinds = registry
+      ? pluginKinds(registry)
+      : { knownKinds: new Set<string>(), treeKinds: new Set<string>() };
+    const nextSnapshot = await loadRepository(
+      nextConfig.contentRoot,
+      undefined,
+      nextKinds
+    );
     await closeWatcher();
     loadedConfig = nextConfig;
+    kindOptions = nextKinds;
+    pluginDiagnostics = registry?.diagnostics ?? [];
+    pluginRegistry = registry;
     snapshot = nextSnapshot;
     configDiagnostics = [];
     state = "ready";
@@ -615,6 +669,49 @@ export async function startDevServer(options: {
                   : [localeState.defaultLocale],
                 configPath: path.relative(projectRoot, configPath) || "vellym.config.yaml"
               },
+              // 文書ツリーの追加メニューへ並べるプラグインのコマンドと、
+              // 種別ごとのアイコン。**hostは種別名からアイコンを推測しない。**
+              plugins: {
+                // ブラウザ側の`activate(host)`へ渡す版。プラグインが
+                // 自分で振る舞いを変えたいときの手掛かりになる。
+                ...(options.hostVersion ? { hostVersion: options.hostVersion } : {}),
+                // ブラウザ側エントリの読み込み先。**同一originの相対URL。**
+                // 宣言していないプラグインは並ばない。
+                browserEntries: (pluginRegistry?.plugins ?? [])
+                  .filter((plugin) => plugin.browserEntry)
+                  .map((plugin) => ({
+                    id: plugin.id,
+                    url: `/plugins/${plugin.id}/${plugin.browserEntry}`
+                  })),
+                kindIcons: Object.fromEntries(
+                  (pluginRegistry?.plugins ?? []).flatMap((plugin) =>
+                    plugin.kinds
+                      .filter((contribution) => contribution.icon)
+                      .map((contribution) => [contribution.kind, contribution.icon!])
+                  )
+                ),
+                documentTreeCommands: (pluginRegistry?.plugins ?? []).flatMap((plugin) =>
+                  plugin.commands
+                    .filter((command) => command.placement === "document-tree")
+                    .map((command) => {
+                      // ツリーの追加メニューには対象が無い。開いている資源に
+                      // 依存しない入力だけが宣言できる。
+                      const inputs = resolveCommandInputs(command, {
+                        locale: localeState.uiLocale,
+                        isStatic: false,
+                        records: (kind) =>
+                          (snapshot?.definitionRecords ?? []).filter(
+                            (record) => record.kind === kind
+                          )
+                      });
+                      return {
+                        id: command.id,
+                        title: command.title,
+                        ...(inputs ? { inputs } : {})
+                      };
+                    })
+                )
+              },
               capabilities: {
                 repository: state === "ready",
                 editing: state === "ready",
@@ -624,7 +721,9 @@ export async function startDevServer(options: {
                 live: true
               }
             },
-            configDiagnostics
+            // プラグインの失敗も状態として返す。起動は妨げないが、
+            // 「入れたのに出てこない」理由を利用者が知れるようにする。
+            [...configDiagnostics, ...pluginDiagnostics]
           )
         );
         return;
@@ -872,7 +971,11 @@ export async function startDevServer(options: {
           ready.loadedConfig.contentRoot,
           plan as SlugMigrationPlan
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
+        snapshot = await loadRepository(
+          ready.loadedConfig.contentRoot,
+          snapshot,
+          kindOptions
+        );
         publishChange("repository-change");
         json(response, 200, envelope(result));
         return;
@@ -940,7 +1043,11 @@ export async function startDevServer(options: {
           ready.loadedConfig.contentRoot,
           expected
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
+        snapshot = await loadRepository(
+          ready.loadedConfig.contentRoot,
+          snapshot,
+          kindOptions
+        );
         publishChange("repository-change");
         json(
           response,
@@ -975,7 +1082,11 @@ export async function startDevServer(options: {
           ready.loadedConfig.contentRoot,
           plan as StructureUndoPlan
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
+        snapshot = await loadRepository(
+          ready.loadedConfig.contentRoot,
+          snapshot,
+          kindOptions
+        );
         publishChange("repository-change");
         json(
           response,
@@ -1027,7 +1138,11 @@ export async function startDevServer(options: {
           patch,
           resolveDefaultLocale(ready.loadedConfig.config)
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
+        snapshot = await loadRepository(
+          ready.loadedConfig.contentRoot,
+          snapshot,
+          kindOptions
+        );
         publishChange("repository-change");
         json(response, 200, envelope(saved, snapshot.diagnostics));
         return;
@@ -1060,6 +1175,191 @@ export async function startDevServer(options: {
           throw new RuntimeError("Pageが見つかりません", 404, "NOT_FOUND");
         }
         json(response, 200, envelope(editable, ready.snapshot.diagnostics));
+        return;
+      }
+      // プラグインが登録したコマンド。作成のような操作をここから起こす。
+      const commandMatch = url.pathname.match(
+        /^\/api\/v1\/plugins\/commands\/([a-zA-Z0-9._-]+)$/
+      );
+      if (commandMatch && request.method === "POST") {
+        const ready = requireReady();
+        const localeState = localeRequest(url, ready.loadedConfig.config);
+        const body = (await readJson(request)) as {
+          target?: unknown;
+          input?: unknown;
+        };
+        const targetName = typeof body?.target === "string" ? body.target : undefined;
+        // 宣言した型のまま渡す。すべてを文字列へ潰すと、真偽値のfalseと未入力、
+        // 数値の0と空欄がプラグイン側で区別できなくなる。
+        const input: Record<string, PluginInputValue> = {};
+        if (body?.input && typeof body.input === "object" && !Array.isArray(body.input)) {
+          for (const [key, value] of Object.entries(body.input as Record<string, unknown>)) {
+            if (
+              typeof value === "string" ||
+              typeof value === "number" ||
+              typeof value === "boolean"
+            ) {
+              input[key] = value;
+            } else if (
+              Array.isArray(value) &&
+              value.every((item) => typeof item === "string")
+            ) {
+              input[key] = value as string[];
+            }
+          }
+        }
+        const command = pluginRegistry?.plugins
+          .flatMap((plugin) => plugin.commands)
+          .find((item) => item.id === commandMatch[1]);
+        if (!command) {
+          throw new RuntimeError("コマンドが見つかりません", 404, "NOT_FOUND");
+        }
+        const definitions = ready.snapshot.definitionRecords ?? [];
+        const targetEntry = targetName
+          ? ready.snapshot.byName.get(targetName)
+          : undefined;
+        const result = await command.run({
+          locale: localeState.requestedLocale ?? localeState.defaultLocale,
+          input,
+          records: (kind) => definitions.filter((record) => record.kind === kind),
+          ...(targetEntry
+            ? {
+                target:
+                  definitions.find((record) => record.name === targetEntry.name) ?? {
+                    kind: targetEntry.kind,
+                    name: targetEntry.name,
+                    title: targetEntry.title,
+                    relativePath: targetEntry.relativePath,
+                    spec: {},
+                    readOnly: targetEntry.readOnly
+                  }
+              }
+            : {}),
+          createResource: async (draft) => {
+            const pending = {
+              ...draft,
+              // 名前を決めないプラグインでも同じ未作成編集経路へ入れる。
+              name: draft.name ?? `resource-${randomUUID().replaceAll("-", "").slice(0, 24)}`
+            };
+            pluginResourceRelativePath(pending);
+            return { ok: true, name: pending.name, draft: pending };
+          }
+        });
+        if (!result.ok) {
+          json(response, 422, envelope(null, [...result.diagnostics]));
+          return;
+        }
+        const relativePath = pluginResourceRelativePath(result.draft);
+        const draftRecord: PluginResourceRecord = {
+          kind: result.draft.kind,
+          name: result.draft.name,
+          title: result.draft.title,
+          ...(result.draft.slug === undefined ? {} : { slug: result.draft.slug }),
+          ...(result.draft.labels === undefined ? {} : { labels: result.draft.labels }),
+          ...(result.draft.annotations === undefined
+            ? {}
+            : { annotations: result.draft.annotations }),
+          relativePath,
+          spec: result.draft.spec,
+          readOnly: false
+        };
+        let draftIndexRow: Readonly<Record<string, import("@vellym/plugin-api").PluginIndexValue>>
+          | undefined;
+        const owner = pluginRegistry?.kinds.get(result.draft.kind);
+        const createProjector = owner?.projections.get(result.draft.kind);
+        if (createProjector) {
+          try {
+            draftIndexRow = createProjector({
+              records: (kind) => definitions.filter((record) => record.kind === kind)
+            })(draftRecord)?.values;
+          } catch {
+            // 作成画面の索引化に失敗してもドラフトそのものは編集できる。
+          }
+        }
+        const pluginView = buildPluginViewFromSnapshot({
+          registry: pluginRegistry,
+          snapshot: {
+            pages: [
+              ...ready.snapshot.pages,
+              {
+                kind: draftRecord.kind,
+                name: draftRecord.name,
+                title: draftRecord.title,
+                relativePath,
+                readOnly: false,
+                ...(draftIndexRow ? { indexRow: draftIndexRow } : {})
+              }
+            ],
+            diagnostics: ready.snapshot.diagnostics,
+            definitionRecords: [...definitions, draftRecord]
+          },
+          name: result.name,
+          locale: localeState.requestedLocale ?? localeState.defaultLocale,
+          isStatic: false,
+          ...(result.openView ? { viewId: result.openView } : {})
+        });
+        // コマンドではrepositoryを読み直さず、watchも通知しない。まだ正本に変化はない。
+        json(
+          response,
+          200,
+          envelope(
+            { ...result, relativePath, ...(pluginView ? { pluginView } : {}) },
+            ready.snapshot.diagnostics
+          )
+        );
+        return;
+      }
+      // 未作成Resourceの初回保存。commandとは分け、離脱だけでは到達しない。
+      if (url.pathname === "/api/v1/plugins/resources" && request.method === "POST") {
+        const ready = requireReady();
+        const body = (await readJson(request)) as { baseHash?: unknown; draft?: unknown };
+        if (body.baseHash !== null) {
+          throw new RuntimeError(
+            "未作成ResourceのbaseHashはnullで指定してください",
+            400,
+            "INVALID_CREATE_BASELINE"
+          );
+        }
+        const draft = parsePluginResourceDraft(body.draft);
+        if (!pluginRegistry?.kinds.has(draft.kind)) {
+          throw new RuntimeError("登録されていないkindは作成できません", 422, "PLUGIN_KIND_NOT_REGISTERED");
+        }
+        const created = await createPluginResource(ready.loadedConfig.contentRoot, draft);
+        snapshot = await loadRepository(
+          ready.loadedConfig.contentRoot,
+          snapshot,
+          kindOptions
+        );
+        publishChange();
+        json(response, 201, envelope(created, snapshot.diagnostics));
+        return;
+      }
+      // プラグインが登録したビュー。開いたリソースのkindで決まる。
+      // 対応するビューが無ければ404にし、SPAは通常の表示へ戻る。
+      const viewMatch = url.pathname.match(/^\/api\/v1\/plugins\/views\/([a-z0-9-]+)$/);
+      if (viewMatch && request.method === "GET") {
+        const ready = requireReady();
+        const localeState = localeRequest(url, ready.loadedConfig.config);
+        const entry = ready.snapshot.byName.get(viewMatch[1]!);
+        if (!entry || !pluginRegistry) {
+          throw new RuntimeError("ビューが見つかりません", 404, "NOT_FOUND");
+        }
+        // **静的生成と同じ経路を通す。** 索引行の集め方や注意の分け方が
+        // 2箇所に分かれると、静的版だけ挙動が違うという状態が生まれる。
+        const payload = buildPluginViewFromSnapshot({
+          registry: pluginRegistry,
+          snapshot: ready.snapshot,
+          name: viewMatch[1]!,
+          locale: localeState.requestedLocale ?? localeState.defaultLocale,
+          isStatic: false,
+          ...(url.searchParams.get("view")
+            ? { viewId: url.searchParams.get("view")! }
+            : {})
+        });
+        if (!payload) {
+          throw new RuntimeError("ビューが見つかりません", 404, "NOT_FOUND");
+        }
+        json(response, 200, envelope(payload, ready.snapshot.diagnostics));
         return;
       }
       const pageMatch = url.pathname.match(
@@ -1106,7 +1406,11 @@ export async function startDevServer(options: {
           resolveDefaultLocale(ready.loadedConfig.config),
           ready.snapshot
         );
-        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot);
+        snapshot = await loadRepository(
+          ready.loadedConfig.contentRoot,
+          snapshot,
+          kindOptions
+        );
         json(response, 200, envelope(saved, snapshot.diagnostics));
         return;
       }
@@ -1135,6 +1439,48 @@ export async function startDevServer(options: {
       if (request.method !== "GET") {
         throw new RuntimeError("Not found", 404, "NOT_FOUND");
       }
+      /*
+       * プラグインのブラウザ側資産を**同一originで**配る。
+       *
+       * 外部URLからは読み込まない。同一originに限ることは
+       * [[plugin-installation-requirement]]で決めた要件である。
+       *
+       * 配る範囲はそのプラグインが`exports["./browser"]`で示した先の
+       * ディレクトリだけとし、realpathで確かめる。symlinkでその外へ
+       * 抜ける経路を残さない。
+       */
+      const pluginAsset = /^\/plugins\/([^/]+)\/(.+)$/.exec(url.pathname);
+      if (pluginAsset && request.method === "GET") {
+        const [, pluginId, assetPath] = pluginAsset;
+        const owner = (pluginRegistry?.plugins ?? []).find(
+          (plugin) => plugin.id === pluginId && plugin.browserRoot
+        );
+        if (!owner?.browserRoot) {
+          throw new RuntimeError("Not found", 404, "NOT_FOUND");
+        }
+        let assetFile: string;
+        try {
+          assetFile = path.resolve(owner.browserRoot, decodeURIComponent(assetPath ?? ""));
+        } catch {
+          throw new RuntimeError("Not found", 404, "NOT_FOUND");
+        }
+        if (!isInside(owner.browserRoot, assetFile)) {
+          throw new RuntimeError("Not found", 404, "NOT_FOUND");
+        }
+        let assetBody: Buffer;
+        try {
+          assetBody = await readFile(assetFile);
+        } catch {
+          throw new RuntimeError("Not found", 404, "NOT_FOUND");
+        }
+        response.writeHead(200, {
+          ...SECURITY_HEADERS,
+          "Content-Type": contentTypeFor(path.extname(assetFile).toLowerCase())
+        });
+        response.end(assetBody);
+        return;
+      }
+
       let requested: string;
       try {
         requested =

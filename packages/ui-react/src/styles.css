@@ -1,967 +1,455 @@
-@layer reset, tokens, foundation, components;
+/*
+ * 重ね順を先に宣言する。**後に書いた層が必ず勝つ。** 詳細度の偶然で
+ * 決まらないようにするためであり、`*.module.css`は`components`へ入る。
+ *
+ * reset      箱の計算と既定の余白
+ * tokens     値の定義。ここ以外に色・寸法の生の値を書かない
+ * elements   素の要素の作法（見出し、本文、リンク、focus）
+ * components 画面と部品。`*.module.css`もここ
+ */
+@layer reset, tokens, elements, components;
 
-:root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
-  color: #172033;
-  background: #f3f5f8;
-  font-synthesis: none;
-  --paper: #fbfaf7;
-  --raised: #fff;
-  --sunken: #f2f0ea;
-  --ink: #1a1815;
-  --secondary: #4a463f;
-  --muted: #6b665c;
-  --border: #e2ded5;
-  --border-strong: #cfc9bb;
-  --accent: #4056c7;
-}
+@layer tokens {
+  /*
+   * 名前は初回デザイン引き継ぎ（[[design-reference-assets]] README §7）に従う。
+   * **用途で命名し、色そのものを名前にしない。** 配色の方向を変える場合も
+   * 名前は変えず値だけ差し替える。ここはプラグインへの公開契約でもある。
+   */
+  :root {
+    /* 色 */
+    --surface-page: #fbfaf7;
+    --surface-raised: #fff;
+    --surface-sunken: #f2f0ea;
+    --text-primary: #1a1815;
+    --text-secondary: #4a463f;
+    --text-muted: #6b665c;
+    --border-subtle: #e2ded5;
+    --border-strong: #cfc9bb;
+    --accent-default: oklch(0.45 0.062 252);
+    --selected-bg: #eae5da;
+    /*
+     * 注意を引く色。**エラー・警告・成功に専用の色相を持たせない。**
+     * 記号（■ ▲ ✓ ● ◐ □ ◌）、罫の太さ、文言で区別する。
+     * 色を見分けられない利用者にも同じ情報が届くようにするためである。
+     */
+    --status-attention: #1a1815;
 
-* { box-sizing: border-box; }
-body { margin: 0; }
-button, input, textarea { font: inherit; }
-button:focus-visible, input:focus-visible, textarea:focus-visible {
-  outline: 2px solid #1a1815;
-  outline-offset: 2px;
-}
+    /* 書体。**ウェブフォントは使わない。** OS標準のみ */
+    --font-body: system-ui, -apple-system, "Segoe UI", "Hiragino Sans",
+      "Yu Gothic UI", sans-serif;
+    --font-heading: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-.workspace { min-width: 0; padding: clamp(18px, 3vw, 40px); }
-.status { color: #667085; font-size: .9rem; }
-.status.dirty, .status.failure, .status.conflict { color: #b54708; }
-.primary { border: 0; border-radius: 9px; background: #4056c7; color: #fff; padding: 9px 18px; font-weight: 700; cursor: pointer; }
-.primary:disabled { background: #c5cad8; cursor: default; }
-.notice { background: #eef4ff; border: 1px solid #b2ccff; border-radius: 9px; padding: 12px 14px; margin: 10px 0; }
-.notice.warning { background: #fffaeb; border-color: #fedf89; }
-.notice.success { background: #ecfdf3; border-color: #abefc6; }
-.notice button { margin-left: 10px; }
-.locked-block { border: 1px dashed #d0d5dd; border-radius: 9px; padding: 4px 14px 14px; margin: 10px 0; background: #fcfcfd; }
-.locked-block-reason { font-size: 0.9em; }
-.save-problem,
-.watch-problem {
-  display: grid;
-  gap: 6px;
-}
-.notice-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 4px;
-}
-.notice-actions button { margin-left: 0; }
-.conflict-details {
-  margin-top: 4px;
-}
-.conflict-details summary {
-  width: fit-content;
-  cursor: pointer;
-  font-weight: 700;
-}
-.conflict-comparison {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 10px;
-}
-.conflict-comparison section {
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid #fedf89;
-  border-radius: 6px;
-  background: var(--raised);
-}
-.conflict-comparison h3 {
-  margin: 0 0 6px;
-  font-size: .9rem;
-}
-.conflict-comparison pre {
-  max-height: 240px;
-  margin: 0;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: .82rem;
-}
-.edit-page-button,
-.secondary-button,
-.history-actions button,
-.format-actions button {
-  min-height: 34px;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  color: var(--ink);
-  background: var(--raised);
-  cursor: pointer;
-}
-.edit-page-button { padding: 7px 18px; font-weight: 700; }
-.secondary-button { padding: 7px 14px; }
-.secondary-button:disabled { color: var(--muted); cursor: default; }
-.document-paper,
-.page-editor-surface {
-  width: min(100%, 84ch);
-  margin: 0 auto;
-  padding: clamp(28px, 5vw, 64px);
-  border: 1px solid var(--border);
-  background: var(--raised);
-  box-shadow: 0 4px 18px rgb(16 24 40 / 5%);
-}
-.edit-toolbar {
-  position: sticky;
-  z-index: 4;
-  top: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: min(100%, 980px);
-  margin: 0 auto 16px;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  background: rgb(255 255 255 / 96%);
-  box-shadow: 0 3px 12px rgb(16 24 40 / 6%);
-}
-.format-actions {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.history-actions {
-  display: flex;
-  gap: 4px;
-  padding-right: 8px;
-  border-right: 1px solid var(--border);
-}
-.history-actions button {
-  min-width: 32px;
-  min-height: 32px;
-  padding: 4px 8px;
-  font-weight: 700;
-}
-.history-actions button:disabled {
-  color: var(--border-strong);
-  cursor: default;
-}
-.format-actions button {
-  min-width: 32px;
-  min-height: 32px;
-  padding: 4px 8px;
-  font-weight: 700;
-}
-.format-actions button:hover,
-.history-actions button:not(:disabled):hover,
-.edit-page-button:hover,
-.secondary-button:hover { background: var(--sunken); }
-.format-actions button[aria-pressed="true"] {
-  border-color: var(--ink);
-  background: var(--sunken);
-}
-.more-actions { position: relative; display: inline-flex; }
-.more-actions > summary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  color: var(--ink);
-  background: var(--raised);
-  cursor: pointer;
-  font-weight: 700;
-  list-style: none;
-}
-.more-actions > summary::-webkit-details-marker { display: none; }
-.more-actions > summary:hover { background: var(--sunken); }
-.more-actions[open] > summary { border-color: var(--ink); background: var(--sunken); }
-.more-menu {
-  position: absolute;
-  z-index: 5;
-  top: calc(100% + 4px);
-  left: 0;
-  display: grid;
-  gap: 2px;
-  min-width: 210px;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--raised);
-  box-shadow: 0 8px 24px rgb(16 24 40 / 12%);
-}
-.more-menu button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 34px;
-  padding: 5px 8px;
-  border: 0;
-  border-radius: 4px;
-  color: var(--ink);
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-.more-menu button:hover { background: var(--sunken); }
-.more-menu button[aria-pressed="true"] { background: var(--sunken); font-weight: 700; }
-.more-menu .more-icon {
-  display: inline-flex;
-  justify-content: center;
-  min-width: 22px;
-  font-weight: 700;
-}
-.table-actions {
-  display: flex;
-  gap: 4px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border);
-}
-.table-actions button {
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  color: var(--ink);
-  background: var(--raised);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-}
-.table-actions button:hover { background: var(--sunken); }
-.page-settings-panel {
-  display: grid;
-  gap: 16px;
-  width: min(100%, 84ch);
-  margin: 0 auto 16px;
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--paper);
-}
-.page-settings-panel .slug-editor { margin: 0; }
-.file-name-field { display: grid; gap: 8px; }
-.file-name-field label {
-  display: grid;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-.file-name-field input {
-  width: min(100%, 48ch);
-  min-height: 36px;
-  padding: 7px 10px;
-  border: 1px solid var(--border-strong);
-  background: var(--raised);
-}
-.file-name-field small { color: var(--muted); font-weight: 400; }
-.file-name-field button {
-  justify-self: start;
-  min-height: 34px;
-  padding: 6px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  background: var(--raised);
-  cursor: pointer;
-}
-.file-name-field button:disabled { color: var(--muted); cursor: default; }
-.title-editor { display: block; margin-bottom: 26px; }
-.title-editor input {
-  width: 100%;
-  padding: 4px 0 12px;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  color: var(--ink);
-  background: transparent;
-  font-family: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif;
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: 700;
+    /* 字の大きさ。**この6段の外を作らない** */
+    --size-doc-title: 25px;
+    --size-h2: 19px;
+    --size-h3: 17px;
+    --size-body: 16px;
+    --size-ui: 14px;
+    --size-caption: 12.5px;
+    --leading-doc-title: 1.45;
+    --leading-body: 1.95;
+    --measure-body: 68ch;
+
+    /* 余白。4の倍数の8段 */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+    --space-8: 64px;
+
+    /* 形。**2pxと4pxより大きい角丸を使わない** */
+    --radius-sm: 2px;
+    --radius-lg: 4px;
+    --border-width: 1px;
+    --border-width-strong: 2px;
+    --shadow-overlay: 0 2px 8px rgb(0 0 0 / .10);
+    --target-min: 24px;
+
+    /* 動き・重なり */
+    --motion-fast: 90ms;
+    --motion-base: 160ms;
+    --z-header: 100;
+    --z-drawer: 200;
+    --z-dialog: 300;
+  }
+
+  /*
+   * 面。**同じ名前の値だけが入れ替わる。**
+   *
+   * 部品は`font-size: var(--text-body)`とだけ書けばよく、自分がどの面に
+   * 置かれているかを知らなくてよい。カスタムプロパティは継承するため、
+   * 同じ表部品を紙面に置けば読む尺度、一覧に置けば詰まった尺度で出る。
+   * 部品側に「詰めて描く」ような分岐を持たせない。
+   *
+   * 面は3つだけとする。4つ目が要ることが分かった時点で改めて決める。
+   */
+  :root,
+  .chrome {
+    /* 操作面。ツリー・ツールバー・ダイアログ・設定。既定はこれ */
+    --text-body: var(--size-ui);
+    --text-note: var(--size-caption);
+    --text-heading: var(--size-h3);
+    --leading-text: 1.5;
+    --gap-inline: var(--space-2);
+    --gap-block: var(--space-3);
+  }
+
+  .document-paper,
+  .page-editor-surface,
+  .paper {
+    /* 紙面。文書の本文とプラグインの詳細。読むための尺度 */
+    --text-body: var(--size-body);
+    --text-note: var(--size-ui);
+    --text-heading: var(--size-h2);
+    --leading-text: var(--leading-body);
+    --gap-inline: var(--space-3);
+    --gap-block: var(--space-4);
+  }
+
+  .dense {
+    /* 一覧。数を見るための尺度 */
+    --text-body: var(--size-caption);
+    --text-note: var(--size-caption);
+    --text-heading: var(--size-ui);
+    --leading-text: 1.4;
+    --gap-inline: var(--space-1);
+    --gap-block: var(--space-2);
+  }
 }
 
-.slug-editor {
-  display: grid;
-  gap: 5px;
-  margin: 0 0 20px;
-  color: var(--muted);
-  font-size: 12px;
+@layer reset {
+  * { box-sizing: border-box; }
+  body { margin: 0; }
 }
 
-.slug-editor input {
-  width: min(100%, 48ch);
-  padding: 8px 10px;
-  border: 1px solid var(--border-strong);
-  color: var(--ink);
-  background: var(--raised);
-  font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+@layer elements {
+  :root {
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: var(--surface-sunken);
+    font-synthesis: none;
+  }
+
+  button, input, textarea { font: inherit; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible {
+    outline: var(--border-width-strong) solid var(--text-primary);
+    outline-offset: 2px;
+  }
 }
 
-.block-editor + .block-editor {
-  margin-top: 28px;
-  padding-top: 28px;
-  border-top: 1px solid var(--border);
-}
-.editor-loading,
-.editor-load-error { color: var(--muted); }
-.milkdown .ProseMirror {
-  min-height: 320px;
-  outline: none;
-  color: var(--ink);
-  line-height: 1.72;
-  overflow-wrap: anywhere;
-}
-.milkdown .ProseMirror > :first-child { margin-top: 0; }
-.milkdown .ProseMirror h1,
-.milkdown .ProseMirror h2,
-.milkdown .ProseMirror h3,
-.milkdown .ProseMirror h4,
-.milkdown .ProseMirror h5,
-.milkdown .ProseMirror h6 {
-  font-family: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif;
-  line-height: 1.4;
-}
-.milkdown .ProseMirror blockquote {
-  margin-left: 0;
-  padding-left: 18px;
-  border-left: 3px solid var(--border-strong);
-  color: var(--secondary);
-}
-.milkdown .ProseMirror pre {
-  overflow: auto;
-  padding: 14px;
-  border-radius: 4px;
-  color: #f2f4f7;
-  background: #101828;
-}
-.edit-mobile-fallback { display: none; }
-.document-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 26px;
-  border-bottom: 1px solid #eaecf0;
-}
-.document-header-main { min-width: 0; }
-.document-header-actions { flex-shrink: 0; padding-top: 6px; }
-.document-actions { display: flex; align-items: center; gap: 10px; }
-.language-switcher {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  max-width: min(44vw, 32rem);
-}
-.language-switcher a {
-  padding: 6px 9px;
-  border: 1px solid #d0d5dd;
-  border-radius: 999px;
-  color: #344054;
-  font-size: .82rem;
-  line-height: 1;
-  text-decoration: none;
-}
-.language-switcher a[aria-current="page"] {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: #f5f8ff;
-  font-weight: 700;
-}
-.language-switcher a[data-translation="missing"]:not([aria-current="page"]) {
-  border-style: dashed;
-}
-.language-switcher a:focus-visible { outline: 3px solid #84adff; outline-offset: 2px; }
-.document-header h1 {
-  margin: 5px 0 8px;
-  font-family: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif;
-  font-size: clamp(1.75rem, 3vw, 2.5rem);
-}
-.eyebrow, .source-path { color: #667085; font-size: .78rem; }
-.rich-text { line-height: 1.72; overflow-wrap: anywhere; }
-.rich-text h1,
-.rich-text h2,
-.rich-text h3,
-.rich-text h4,
-.rich-text h5,
-.rich-text h6 {
-  font-family: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif;
-  line-height: 1.4;
-}
-.rich-text a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
-.rich-text a:hover { text-decoration-thickness: 2px; }
-.rich-text blockquote {
-  margin: 12px 0;
-  padding-left: 18px;
-  border-left: 3px solid var(--border-strong);
-  color: var(--secondary);
-}
-.rich-text ul, .rich-text ol { margin: 12px 0; padding-left: 24px; }
-.rich-text li { margin: 4px 0; }
-.rich-text :not(pre) > code {
-  padding: 1px 5px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--sunken);
-  font-size: .92em;
-}
-.rich-text pre { overflow: auto; padding: 14px; background: #101828; color: #f2f4f7; border-radius: 9px; }
-/* Tables: visible cell borders, and horizontal scroll so a narrow reading
-   column no longer squeezes wide tables into an unreadable block. */
-.table-scroll { margin: 14px 0; overflow-x: auto; }
-.rich-text table { width: 100%; border-collapse: collapse; font-size: .95em; }
-.rich-text th,
-.rich-text td {
-  padding: 7px 12px;
-  border: 1px solid var(--border-strong);
-  text-align: left;
-  vertical-align: top;
-}
-.rich-text thead th { background: var(--sunken); }
-.milkdown .ProseMirror table {
-  display: block;
-  width: 100%;
-  overflow-x: auto;
-  border-collapse: collapse;
-}
-.milkdown .ProseMirror th,
-.milkdown .ProseMirror td {
-  min-width: 5em;
-  padding: 7px 12px;
-  border: 1px solid var(--border-strong);
-  vertical-align: top;
-}
-.milkdown .ProseMirror th { background: var(--sunken); font-weight: 700; }
-/* Distinguish internal ([[...]]) links from external links in the reader. */
-.rich-text a.internal-link { text-decoration-style: solid; }
-.rich-text .external-link-icon { margin-left: 3px; font-size: .8em; opacity: .7; }
-/* Unresolved [[...]] stays readable but is visibly not a link. */
-.rich-text .broken-link {
-  color: var(--muted);
-  font-style: normal;
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-  cursor: help;
-}
-.page-backlinks,
-.page-reference-diagnostics {
-  margin-top: 28px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-.page-backlinks h2,
-.page-reference-diagnostics h2 {
-  margin: 0 0 8px;
-  font-size: .9rem;
-  font-weight: 700;
-  color: var(--muted);
-}
-.page-backlinks ul,
-.page-reference-diagnostics ul { margin: 0; padding-left: 1.2em; }
-.page-backlinks li,
-.page-reference-diagnostics li { margin: 3px 0; }
-.page-backlinks .backlink {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.page-reference-diagnostics { color: var(--secondary); font-size: .92rem; }
-/* @milkdown/components ships no CSS; give its link tooltip a usable card. */
-.milkdown-link-preview,
-.milkdown-link-edit {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  max-width: min(90vw, 440px);
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--raised);
-  box-shadow: 0 8px 24px rgb(16 24 40 / 12%);
-  font-size: 13px;
-}
-.milkdown-link-preview a {
-  overflow: hidden;
-  color: var(--accent);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.milkdown-link-edit input {
-  min-width: 220px;
-  padding: 5px 8px;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  font: inherit;
-}
-.milkdown-link-preview .milkdown-icon,
-.milkdown-link-edit .milkdown-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  color: var(--secondary);
-  cursor: pointer;
-}
-.milkdown-link-preview .milkdown-icon:hover,
-.milkdown-link-edit .milkdown-icon:hover { background: var(--sunken); color: var(--ink); }
-.empty { min-height: 70vh; display: grid; place-items: center; color: #667085; }
+@layer components {
+  .workspace { min-width: 0; padding: clamp(18px, 3vw, 40px); }
+  .status { color: var(--text-muted); font-size: var(--text-note); }
+  /*
+   * 注意を要する状態は**太字と濃い字**で示す。色相を変えない。
+   * 記号（● ◐ ✓ ■ □ ◌）は文言側が持つ。
+   */
+  .status.dirty, .status.failure, .status.conflict {
+    color: var(--status-attention);
+    font-weight: 700;
+  }
+  /*
+   * 知らせの区別は**罫の太さ**で付ける。地の色を変えない。
+   * 通常は1px、注意を要するものだけ2pxにする。
+   */
+  .notice {
+    background: var(--surface-sunken);
+    border: var(--border-width) solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3) var(--space-4);
+    margin: var(--space-3) 0;
+  }
+  .notice.warning {
+    border-width: var(--border-width-strong);
+    border-color: var(--status-attention);
+  }
+  .notice.success { border-color: var(--border-strong); }
+  .notice button { margin-left: var(--space-3); }
+  .document-paper,
+  .page-editor-surface {
+    /* 面が決めた尺度をここで受ける。中の要素は継承だけで正しい大きさになる */
+    font-size: var(--text-body);
+    width: min(100%, 84ch);
+    margin: 0 auto;
+    padding: clamp(28px, 5vw, 64px);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-raised);
+    box-shadow: 0 4px 18px rgb(16 24 40 / 5%);
+  }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
 
-.startup-state {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 32px;
-  color: var(--ink);
-  background: var(--paper);
-}
-.startup-state > div { max-width: 70ch; }
-.startup-state button,
-.setup-shell button {
-  min-height: 40px;
-  padding: 8px 18px;
-  border: 1px solid var(--ink);
-  border-radius: 2px;
-  color: var(--ink);
-  background: var(--raised);
-  cursor: pointer;
-}
-.startup-state button:disabled,
-.setup-shell button:disabled {
-  color: var(--muted);
-  border-color: var(--border-strong);
-  cursor: default;
-}
-.setup-shell {
-  min-height: 100vh;
-  color: var(--ink);
-  background: var(--paper);
-  font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans",
-    "Yu Gothic UI", sans-serif;
-}
-.setup-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 18px clamp(20px, 5vw, 64px);
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-}
-.setup-brand { font-weight: 800; }
-.setup-steps {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  max-width: 960px;
-  margin: 32px auto 0;
-  padding: 0 24px;
-  list-style: none;
-}
-.setup-steps li {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--border-strong);
-  color: var(--muted);
-  font-size: 12.5px;
-  text-align: center;
-}
-.setup-steps li.done {
-  color: var(--secondary);
-  border-style: dashed;
-}
-.setup-steps li.current {
-  color: var(--paper);
-  background: var(--ink);
-  border-color: var(--ink);
-  font-weight: 700;
-}
-.setup-card {
-  max-width: 760px;
-  margin: 24px auto 64px;
-  padding: clamp(24px, 5vw, 48px);
-  border: 1px solid var(--border-strong);
-  background: var(--raised);
-}
-.setup-card h1 {
-  margin: 0 0 20px;
-  font-family: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, serif;
-  font-size: clamp(24px, 4vw, 32px);
-  line-height: 1.45;
-}
-.setup-card > p {
-  max-width: 70ch;
-  color: var(--secondary);
-  line-height: 1.85;
-}
-.setup-kicker {
-  margin: 0 0 8px !important;
-  color: var(--muted) !important;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12.5px;
-  letter-spacing: .08em;
-}
-.setup-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 32px;
-}
-.setup-shell .primary {
-  color: var(--paper);
-  background: var(--ink);
-  border-color: var(--ink);
-  border-radius: 2px;
-}
-.setup-location {
-  margin: 24px 0;
-  border-top: 1px solid var(--border);
-}
-.setup-location div {
-  display: grid;
-  grid-template-columns: minmax(150px, .45fr) 1fr;
-  gap: 16px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
-}
-.setup-location dt { color: var(--muted); }
-.setup-location dd {
-  margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-.setup-note,
-.setup-warning,
-.setup-error {
-  padding: 14px 16px;
-  border: 2px solid var(--ink);
-  background: var(--sunken);
-}
-.setup-warning { margin-top: 24px; }
-.setup-warning p,
-.setup-error p { margin-bottom: 0; }
-.profile-list {
-  display: grid;
-  gap: 10px;
-  margin: 24px 0 0;
-  padding: 0;
-  border: 0;
-}
-.profile-list label {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--border-strong);
-  cursor: pointer;
-}
-.profile-list label.selected {
-  border: 2px solid var(--ink);
-  background: var(--paper);
-}
-.profile-list input[type="radio"],
-.profile-list input[type="checkbox"] {
-  margin-top: 4px;
-  width: 18px;
-  height: 18px;
-  flex: none;
-}
-.profile-list label[data-field] {
-  display: grid;
-  gap: 4px;
-  align-items: center;
-}
-.profile-list label[data-field] > span:first-child {
-  color: var(--muted);
-}
-.profile-list input[type="text"] {
-  width: 100%;
-  min-width: 220px;
-  padding: 8px 10px;
-  border: 1px solid var(--border-strong);
-  font: inherit;
-}
-.profile-list small,
-.setup-file-list small {
-  display: block;
-  margin-top: 4px;
-  color: var(--secondary);
-  line-height: 1.5;
-}
-.setup-file-list {
-  margin: 24px 0 0;
-  padding: 0;
-  border-top: 1px solid var(--border);
-  list-style: none;
-}
-.setup-file-list > li {
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
-}
-.setup-file-list label {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-.setup-file-list input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  margin-top: 3px;
-  flex: none;
-}
-.file-conflict {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin: 10px 0 0 30px;
-  padding: 10px 12px;
-  border-left: 3px solid var(--ink);
-  background: var(--sunken);
-  font-size: 13px;
-}
-.file-conflict button { min-height: 32px; padding: 4px 10px; }
 
-.setup-structure {
-  margin-top: 20px;
-  display: grid;
-  gap: 24px;
-}
-.structure-group {
-  display: grid;
-  gap: 8px;
-}
-.structure-group-root {
-  margin: 0;
-  color: var(--muted);
-  font-weight: 600;
-}
-.structure-group .setup-file-list {
-  margin: 0;
-  border-top: 0;
-}
-.structure-file-name {
-  margin: 8px 0 0 30px;
-  max-width: 360px;
-}
-
-.setup-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 16px;
-}
-.setup-filters label {
-  display: grid;
-  gap: 4px;
-}
-.setup-filters label > span {
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-.setup-filters input,
-.setup-filters select {
-  min-width: 160px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-strong);
-  font: inherit;
-}
-
-.setup-tree,
-.setup-tree ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.setup-tree { margin-top: 12px; border-top: 1px solid var(--border); }
-/* Indentation compounds through the nested groups, so a row never needs to
-   know its own depth. */
-.setup-tree ul[role="group"] { padding-inline-start: 1.5rem; }
-
-.setup-tree-item {
-  display: grid;
-  grid-template-columns: 18px 18px minmax(0, 1fr);
-  align-items: start;
-  gap: 10px;
-  padding: 7px 4px;
-  border-bottom: 1px solid var(--border);
-}
-.setup-tree-item:hover { background: var(--sunken); }
-.setup-tree-item:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: -2px;
-}
-.setup-shell .setup-tree-twisty {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  min-height: 0;
-  margin-top: 2px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--secondary);
-  cursor: pointer;
-}
-.setup-shell .setup-tree-twisty:hover { color: var(--ink); }
-.setup-tree-item input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  margin: 2px 0 0;
-  flex: none;
-}
-/* A read-only tree has no checkbox, so the label takes that column back. */
-.setup-tree-item.readonly { grid-template-columns: 18px minmax(0, 1fr); }
-
-.setup-tree-label { display: block; min-width: 0; }
-.setup-tree-title {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.setup-tree-item.folder .setup-tree-title strong { font-weight: 700; }
-.setup-tree-item.page .setup-tree-title strong { font-weight: 400; }
-.setup-tree-description,
-.setup-tree-meta {
-  display: block;
-  color: var(--secondary);
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-.setup-tree-description { margin-top: 1px; }
-.setup-tree-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 0.8125rem;
-}
-.setup-tree-item.omitted .setup-tree-title strong {
-  color: var(--muted);
-  text-decoration: line-through;
-}
-.setup-tree-omitted {
-  padding: 1px 6px;
-  border: 1px solid var(--border-strong);
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-/* The name fields belong to the row above, so they sit in the label column. */
-.setup-tree-detail {
-  display: grid;
-  gap: 8px;
-  margin: 0 0 8px 60px;
-  padding: 10px 12px;
-  border-inline-start: 2px solid var(--border-strong);
-  background: var(--sunken);
-}
-.setup-tree-detail .structure-file-name {
-  display: grid;
-  grid-template-columns: 7rem minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  max-width: 34rem;
-  margin: 0;
-}
-.setup-tree-detail .structure-file-name > span {
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-.setup-tree-detail input {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--border-strong);
-  background: var(--raised);
-}
-.setup-tree-empty {
-  margin-top: 16px;
-  color: var(--muted);
-}
-.setup-tree-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 20px;
-}
-.setup-tree-count { margin: 0; font-weight: 700; }
-.setup-tree-toolbar-actions { display: flex; gap: 8px; }
-.setup-shell .setup-tree-toolbar-actions button {
-  min-height: 32px;
-  padding: 4px 12px;
-  font-size: 0.875rem;
-}
-.setup-tree-hint {
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.structure-undo {
-  position: fixed;
-  z-index: 500;
-  right: 24px;
-  bottom: 24px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  max-width: min(420px, calc(100vw - 32px));
-  padding: 12px 14px;
-  border: 1px solid var(--border-strong);
-  color: var(--raised);
-  background: var(--ink);
-  box-shadow: 0 6px 24px rgb(0 0 0 / 20%);
-}
-
-.structure-undo button {
-  padding: 4px 8px;
-  border: 1px solid currentColor;
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-@media (max-width: 767px) {
-  .workspace { padding: 16px; }
-  .document-paper { padding: 24px 20px; }
-  .edit-desktop { display: none; }
-  .edit-mobile-fallback { display: block; }
-  .setup-steps {
-    justify-content: flex-start;
+  .block-editor + .block-editor {
+    margin-top: var(--space-6);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border-subtle);
+  }
+  .editor-loading,
+  .editor-load-error { color: var(--text-muted); }
+  .milkdown .ProseMirror {
+    min-height: 320px;
+    outline: none;
+    color: var(--text-primary);
+    line-height: 1.72;
+    overflow-wrap: anywhere;
+  }
+  .milkdown .ProseMirror > :first-child { margin-top: 0; }
+  .milkdown .ProseMirror h1,
+  .milkdown .ProseMirror h2,
+  .milkdown .ProseMirror h3,
+  .milkdown .ProseMirror h4,
+  .milkdown .ProseMirror h5,
+  .milkdown .ProseMirror h6 {
+    font-family: var(--font-heading);
+    line-height: 1.4;
+  }
+  .milkdown .ProseMirror blockquote {
+    margin-left: 0;
+    padding-left: var(--space-4);
+    border-left: 3px solid var(--border-strong);
+    color: var(--text-secondary);
+  }
+  .milkdown .ProseMirror pre {
+    overflow: auto;
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    color: var(--surface-page);
+    background: var(--text-primary);
+  }
+  .edit-mobile-fallback { display: none; }
+  .language-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    max-width: min(44vw, 32rem);
+  }
+  .language-switcher a {
+    padding: var(--space-2) var(--space-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    color: var(--text-secondary);
+    font-size: var(--size-ui);
+    line-height: 1;
+    text-decoration: none;
+  }
+  .language-switcher a[aria-current="page"] {
+    border-color: var(--accent-default);
+    color: var(--accent-default);
+    background: var(--surface-sunken);
+    font-weight: 700;
+  }
+  .language-switcher a[data-translation="missing"]:not([aria-current="page"]) {
+    border-style: dashed;
+  }
+  .language-switcher a:focus-visible { outline: 3px solid var(--text-primary); outline-offset: 2px; }
+  .eyebrow, .source-path { color: var(--text-muted); font-size: var(--size-caption); }
+  .milkdown .ProseMirror table {
+    display: block;
+    width: 100%;
     overflow-x: auto;
-    padding-bottom: 4px;
+    border-collapse: collapse;
   }
-  .setup-steps li { flex: 0 0 auto; min-width: 112px; }
-  .setup-card {
-    margin: 16px;
-    padding: 24px 20px;
+  .milkdown .ProseMirror th,
+  .milkdown .ProseMirror td {
+    min-width: 5em;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-strong);
+    vertical-align: top;
   }
-  .setup-location div { grid-template-columns: 1fr; gap: 5px; }
-  .setup-actions { flex-direction: column-reverse; }
-  .setup-actions button { width: 100%; min-height: 44px; }
-  .file-conflict { align-items: stretch; flex-direction: column; }
+  .milkdown .ProseMirror th { background: var(--surface-sunken); font-weight: 700; }
+  /* @milkdown/components ships no CSS; give its link tooltip a usable card. */
+  .milkdown-link-preview,
+  .milkdown-link-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    max-width: min(90vw, 440px);
+    padding: var(--space-2) var(--space-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--surface-raised);
+    box-shadow: 0 8px 24px rgb(16 24 40 / 12%);
+    font-size: var(--size-ui);
+  }
+  .milkdown-link-preview a {
+    overflow: hidden;
+    color: var(--accent-default);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .milkdown-link-edit input {
+    min-width: 220px;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    font: inherit;
+  }
+  .milkdown-link-preview .milkdown-icon,
+  .milkdown-link-edit .milkdown-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-lg);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .milkdown-link-preview .milkdown-icon:hover,
+  .milkdown-link-edit .milkdown-icon:hover { background: var(--surface-sunken); color: var(--text-primary); }
+  .empty { min-height: 70vh; display: grid; place-items: center; color: var(--text-muted); }
+
+  .visually-hidden {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .startup-state {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: var(--space-6);
+    color: var(--text-primary);
+    background: var(--surface-page);
+  }
+  .startup-state > div { max-width: 70ch; }
+
+  .structure-group {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .structure-group-root {
+    margin: 0;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+
+
+
+
+
+  .structure-undo {
+    position: fixed;
+    z-index: 500;
+    right: 24px;
+    bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    max-width: min(420px, calc(100vw - 32px));
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-strong);
+    color: var(--surface-raised);
+    background: var(--text-primary);
+    box-shadow: 0 6px 24px rgb(0 0 0 / 20%);
+  }
+
+  .structure-undo button {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid currentColor;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  @media (max-width: 767px) {
+    .workspace { padding: var(--space-4); }
+    .document-paper { padding: var(--space-5) var(--space-5); }
+    .edit-desktop { display: none; }
+    .edit-mobile-fallback { display: block; }
+  }
+
+  /*
+   * プラグインの画面を載せる紙。影と角丸を外し、罫線1本の面にする。
+   * 文書の「紙」は読み物のための版面だが、こちらは一覧と属性の面である。
+   */
+  .document-paper:has(.plugin-list),
+  .document-paper:has(.plugin-detail),
+  .page-editor-surface:has(.plugin-detail) {
+    border: 1px solid var(--border-strong);
+    background: var(--surface-page);
+    box-shadow: none;
+  }
+
+  /* 表は版面の幅に収まらない。一覧のときだけ広げる。 */
+  .document-paper:has(.plugin-list) {
+    width: min(100%, 1100px);
+    padding: var(--space-5) var(--space-5) var(--space-5);
+  }
+
+  .document-paper:has(.plugin-detail),
+  .page-editor-surface:has(.plugin-detail) {
+    padding: var(--space-5) var(--space-5) var(--space-5);
+  }
+
+  /* 属性と本文の境。本文はここから下だと分かるようにする。 */
+  .plugin-detail + * {
+    padding-block-start: 4px;
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }

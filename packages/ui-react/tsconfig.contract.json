@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src/shared",
+    "outDir": "../plugin-api/dist/ui",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": false,
+    "types": [],
+    "customConditions": []
+  },
+  "files": [
+    "src/shared/css.d.ts",
+    "src/shared/index.ts"
+  ],
+  "include": []
+}

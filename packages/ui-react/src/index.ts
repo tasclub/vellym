@@ -1,1 +1,1 @@
-export { DocumentView } from "./view.js";
+export { DocumentView } from "./editor/view.js";

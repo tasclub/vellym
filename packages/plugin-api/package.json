@@ -1,0 +1,70 @@
+{
+  "name": "@vellym/plugin-api",
+  "version": "0.1.0-beta",
+  "description": "Public contract for Vellym plugins: host API types, manifest schema, record types",
+  "keywords": [
+    "vellym",
+    "plugin",
+    "plugin-api"
+  ],
+  "license": "MIT",
+  "author": "tasclub",
+  "homepage": "https://vellym.tasclub.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tasclub/vellym.git",
+    "directory": "packages/plugin-api"
+  },
+  "bugs": {
+    "url": "https://github.com/tasclub/vellym/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "vellym-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./react": {
+      "vellym-source": "./src/react.ts",
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/runtime.js"
+    },
+    "./plugin-manifest.schema.json": {
+      "vellym-source": "./src/plugin-manifest.schema.json",
+      "default": "./dist/plugin-manifest.schema.json"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

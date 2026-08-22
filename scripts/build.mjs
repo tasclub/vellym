@@ -19,6 +19,10 @@ await build({
   bundle: true,
   platform: "node",
   format: "esm",
+  // @vellym/plugin-api はワークスペースのsrcから取り込む（tsconfigと同じ条件）。
+  // "module"を併記するのは、conditionsを指定するとesbuildの既定の独自条件が
+  // 外れ、ESM entryを"module"で示す依存の解決が変わるためである。
+  conditions: ["vellym-source", "module"],
   target: "node22",
   define: {
     __VELLYM_VERSION__: JSON.stringify(version)

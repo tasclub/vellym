@@ -5,8 +5,10 @@ import {
   readFile,
   readdir,
   stat,
+  symlink,
   writeFile
 } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -139,6 +141,119 @@ describe("published CLI shape", () => {
     expect(run(["migrate", "--to", "v1", "--config", config]).status).toBe(0);
     expect(await readFile(welcome, "utf8"))
       .toContain("apiVersion: vellym.tasclub.com/v1\n");
+  });
+
+  it("bakes plugin views and assets into the static output", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-plugin-"));
+    expect(run(initArgs(root)).status).toBe(0);
+    const config = path.join(root, "vellym.config.yaml");
+    // 同じリポジトリのworkspaceを解決させる。第三者と同じ経路（package名）で読む。
+    // 生成された設定には`plugins: []`が既にある。足すのではなく差し替える。
+    const baseConfig = await readFile(config, "utf8");
+    expect(baseConfig).toContain("plugins: []");
+    await writeFile(
+      config,
+      baseConfig.replace("plugins: []", 'plugins:\n  - "@vellym/tickets"'),
+      "utf8"
+    );
+    await mkdir(path.join(root, "node_modules/@vellym"), { recursive: true });
+    await symlink(
+      path.join(process.cwd(), "packages/plugin-tickets"),
+      path.join(root, "node_modules/@vellym/tickets"),
+      "dir"
+    );
+    await symlink(
+      path.join(process.cwd(), "packages/plugin-api"),
+      path.join(root, "node_modules/@vellym/plugin-api"),
+      "dir"
+    );
+    await writeFile(
+      path.join(root, "docs/tracker.yaml"),
+      `apiVersion: vellym.tasclub.com/v1
+kind: TicketTracker
+metadata:
+  name: build-tracker
+  title: 作業
+spec:
+  statuses:
+    - id: todo
+      label: 未着手
+      category: open
+  fields: []
+`,
+      "utf8"
+    );
+    await mkdir(path.join(root, "docs/+tickets"), { recursive: true });
+    await writeFile(
+      path.join(root, "docs/+tickets/ticket-static-detail.yaml"),
+      `apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-static-detail
+  title: 静的版で開くチケット
+spec:
+  status: todo
+  fields: {}
+  blocks:
+    - id: description
+      type: rich-text
+      content: 静的詳細
+`,
+      "utf8"
+    );
+
+    const output = buildDir(config);
+    const dataDir = await staticDataDir(output);
+
+    // **プラグインのビューが焼き込まれている。** devと同じ関数を通した結果である。
+    const view = JSON.parse(
+      await readFile(path.join(dataDir, "views/build-tracker.json"), "utf8")
+    );
+    expect(view.data.pluginId).toBe("tickets");
+    expect(view.data.descriptor).toBeDefined();
+    // static:falseの設定ビューは切替導線へ残さない。
+    expect(view.data.siblings.map((item: { id: string }) => item.id)).toEqual([
+      "ticket-list"
+    ]);
+
+    // 文書ツリーへ出ないTicketも、static:trueの詳細ビューを持つため焼かれる。
+    expect(existsSync(path.join(dataDir, "pages/ticket-static-detail.json"))).toBe(true);
+    expect(existsSync(path.join(dataDir, "views/ticket-static-detail.json"))).toBe(true);
+    expect(
+      existsSync(path.join(output, "pages/ticket-static-detail/index.html"))
+    ).toBe(true);
+    const ticketView = JSON.parse(
+      await readFile(path.join(dataDir, "views/ticket-static-detail.json"), "utf8")
+    );
+    expect(ticketView.data.viewId).toBe("ticket-detail");
+    const repository = JSON.parse(
+      await readFile(path.join(dataDir, "repository.json"), "utf8")
+    );
+    expect(repository.data.pages.map((item: { name: string }) => item.name))
+      .not.toContain("ticket-static-detail");
+
+    // ブラウザ側資産が出力へ含まれている。**外部URLを参照しない。**
+    expect(existsSync(path.join(output, "plugins/tickets/index.js"))).toBe(true);
+    // Node側の出力と型定義を混ぜない。専用ディレクトリだけを配る。
+    expect(existsSync(path.join(output, "plugins/tickets/node.js"))).toBe(false);
+
+    const bootstrap = JSON.parse(
+      await readFile(path.join(dataDir, "bootstrap.json"), "utf8")
+    );
+    expect(bootstrap.data.plugins.browserEntries).toEqual([
+      { id: "tickets", url: "plugins/tickets/index.js" }
+    ]);
+    expect(bootstrap.data.plugins.kindIcons.TicketTracker).toBeDefined();
+
+    // 深いページのimport mapが、その深さへ直っていること。相対のままだと
+    // `pages/<slug>/assets/...`へ解決され、Reactの読み込みだけが404になる。
+    const pageHtml = await readFile(
+      path.join(output, "pages/build-tracker/index.html"),
+      "utf8"
+    );
+    expect(pageHtml).toContain('"react":"../../assets/vellym-react.js"');
+    const rootHtml = await readFile(path.join(output, "index.html"), "utf8");
+    expect(rootHtml).toContain('"react":"./assets/vellym-react.js"');
   });
 
   it("initializes, validates, and builds a minimal project", async () => {

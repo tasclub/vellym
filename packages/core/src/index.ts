@@ -1,6 +1,7 @@
 export * from "./editing.js";
 export * from "./i18n.js";
 export * from "./navigation.js";
+export * from "./plugin-manifest.js";
 export * from "./projection.js";
 export * from "./relations.js";
 export * from "./search.js";

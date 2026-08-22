@@ -125,13 +125,21 @@ export function resourceKind(value: unknown): string | undefined {
 }
 
 /**
- * Coreが種別固有スキーマを持たないkindか。プラグインが登録していないkindの
+ * Coreもプラグインも種別固有スキーマを持たないkindか。どこも登録していないkindの
  * ファイルは、Pageスキーマで検証せず、共通契約の範囲だけを解釈する。
  * 解釈できないことをerrorにせず、無視して壊れないようにするための判定。
+ *
+ * `knownKinds`には有効なプラグインが登録したkindを渡す。プラグインを外せば
+ * 同じファイルが未知kindの扱いへ戻る。これが「外しても壊れない」の実体である。
  */
-export function isUnknownKind(value: unknown): boolean {
+export function isUnknownKind(
+  value: unknown,
+  knownKinds?: ReadonlySet<string>
+): boolean {
   const kind = resourceKind(value);
-  return kind !== undefined && !(BUILT_IN_KINDS as readonly string[]).includes(kind);
+  if (kind === undefined) return false;
+  if ((BUILT_IN_KINDS as readonly string[]).includes(kind)) return false;
+  return !knownKinds?.has(kind);
 }
 
 // Pageのschemaは版ごとに分けない。追加（新しいblock種別、optionalな項目）は

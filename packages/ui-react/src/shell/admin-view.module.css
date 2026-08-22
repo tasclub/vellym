@@ -1,0 +1,35 @@
+@layer components {
+.admin { width:min(100%,920px); margin:auto; padding:clamp(28px,5vw,64px); }
+.admin header { margin-bottom:var(--space-6); }
+.admin header p { margin:0 0 var(--space-2); color:var(--text-muted); font-size:var(--size-caption); letter-spacing:.08em; }
+.admin h1 { margin:0 0 var(--space-2); font-family: var(--font-heading); font-size:var(--size-doc-title); }
+.admin header span,.panel p { color:var(--text-muted); }
+.panel { margin-top:var(--space-4); padding:var(--space-5); border:1px solid var(--border-subtle); background:var(--surface-raised); }
+.panel h2,.panel p { margin:0; }
+.panel h2 { font-size:var(--size-h3); }
+.panel dl { display:grid; gap:0; margin:var(--space-4) 0 0; }
+.panel dl div { display:grid; grid-template-columns:minmax(140px,1fr) 2fr; gap:var(--space-4); padding:var(--space-3) 0; border-top:1px solid var(--border-subtle); }
+.panel dt { color:var(--text-muted); }
+.panel dd { margin:0; overflow-wrap:anywhere; }
+.panelHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-4); }
+.panelHeading p { margin-top:var(--space-1); }
+/* ボタンの見た目は共通部品が持つ。**ここで作り直さない。** */
+.problems { display:grid; gap:var(--space-3); margin:var(--space-4) 0 0; padding:0; list-style:none; }
+.problems li { display:grid; gap:var(--space-1); padding:var(--space-4); border:2px solid var(--border-strong); background:var(--surface-page); }
+.problems small { color:var(--text-muted); font-family: var(--font-mono); }
+.configField { display:grid; gap:var(--space-2); margin-top:var(--space-4); }
+.configField input { min-height:40px; padding:var(--space-2) var(--space-3); border:1px solid var(--border-strong); }
+.configPreview { display:grid; gap:var(--space-1); margin-top:var(--space-4); padding:var(--space-3); background:var(--surface-sunken); }
+.configActions { margin-top:var(--space-4); }
+.advancedPanel > summary { display:flex; align-items:center; gap:var(--space-2); cursor:pointer; font-size:var(--size-h3); font-weight:600; list-style:revert; }
+.advancedPanel > summary::-webkit-details-marker { display:revert; }
+.advancedPanel[open] > summary { margin-bottom:var(--space-2); }
+.advancedSummaryNote { color:var(--text-muted); font-weight:400; font-size:var(--size-caption); }
+.archivedEmpty { margin-top:var(--space-4); color:var(--text-muted); }
+.archivedList { display:grid; gap:var(--space-3); margin:var(--space-4) 0 0; padding:0; list-style:none; }
+.archivedItem { display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); padding:var(--space-3) var(--space-4); border:1px solid var(--border-subtle); background:var(--surface-page); }
+.archivedMeta { display:grid; gap:var(--space-1); overflow-wrap:anywhere; }
+.archivedMeta small { color:var(--text-muted); }
+@media(max-width:600px){.archivedItem{flex-direction:column;align-items:stretch}}
+@media(max-width:600px){.panel dl div{grid-template-columns:1fr;gap:5px}.panelHeading{display:grid}}
+}

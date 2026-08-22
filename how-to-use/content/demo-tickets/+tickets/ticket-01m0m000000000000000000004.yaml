@@ -1,0 +1,18 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-01m0m000000000000000000004
+  title: はじめかたの手順を実機で確認する
+spec:
+  status: done
+  fields:
+    priority: high
+    assignee: 編集チーム
+    due: 2026-08-20
+    notes: |
+      新しい環境で最初から辿り、コマンドの出力と画面が文書どおりか確かめた。
+  blocks:
+    - id: description
+      type: rich-text
+      content: |
+        新しい環境で最初から辿り、コマンドの出力と画面が文書どおりか確かめた。

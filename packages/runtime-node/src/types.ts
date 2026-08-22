@@ -46,6 +46,17 @@ export interface FolderPatch {
 
 export interface RepositorySnapshot {
   contentRoot: string;
+  /** この読み込みで既知として扱ったプラグインのkind */
+  knownKinds?: ReadonlySet<string>;
+  /** そのうち文書ツリーへ出すkind */
+  treeKinds?: ReadonlySet<string>;
+  /** 索引行の元になった定義リソースの顔ぶれ。増分読み込みの妥当性判定に使う */
+  definitionSignature?: string;
+  /**
+   * 定義として保持したプラグインリソース。projectorを登録していないkindだけが入る。
+   * 数が少ない前提であり、チケット本体のような大量のkindはここに入らない。
+   */
+  definitionRecords?: import("@vellym/plugin-api").PluginResourceRecord[];
   entryIndex: RepositoryEntryIndex;
   pages: LoadedPage[];
   byName: Map<string, LoadedPage>;
@@ -55,8 +66,22 @@ export interface RepositorySnapshot {
   diagnostics: Diagnostic[];
 }
 
+/** 正本YAMLへ書ける値。プラグインが宣言したpathの下だけに書かれる */
+export type SpecValue =
+  | string
+  | number
+  | boolean
+  | null
+  | SpecValue[]
+  | { [key: string]: SpecValue };
+
 export interface PagePatch {
   baseHash: string;
+  /**
+   * プラグインが宣言した項目の書き戻し。`spec`直下からの相対pathで指定する。
+   * `null`はキーの削除。`blocks`・`locale`・`translations`は指定できない。
+   */
+  specValues?: Array<{ path: string[]; value: SpecValue }>;
   title?: string;
   slug?: string;
   richTextBlocks?: Array<{ id: string; content: string }>;

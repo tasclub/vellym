@@ -3,6 +3,9 @@
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // ワークスペース内では @vellym/plugin-api をビルド済みdistではなくsrcで解決する。
+    // 公開時のexportsはdistのままにし、ビルド順への依存を作らない。
+    "customConditions": ["vellym-source"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,

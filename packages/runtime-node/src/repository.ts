@@ -22,6 +22,11 @@ import {
   type PageView,
   type PageSummary
 } from "@vellym-internal/core";
+import type {
+  PluginDiagnostic,
+  PluginRecordProjectorFactory,
+  PluginResourceRecord
+} from "@vellym/plugin-api";
 import { RuntimeError } from "./errors.js";
 import { contentHash } from "./path-utils.js";
 import { folderLocaleHashes, pageLocaleHashes } from "./locale-hash.js";
@@ -55,6 +60,34 @@ export async function loadCanonicalPage(
     throw new RuntimeError("Pageを読み込めません", 422, "PAGE_READ");
   }
   return extracted.page;
+}
+
+/**
+ * 文書ツリーへ出さない置き場所か。
+ *
+ * `_`または`+`で始まるフォルダの配下を隠す。`_`は一覧からも除外する置き場所、
+ * `+`は一覧には出す機械用の置き場所である。ここではツリー表示だけを判定し、
+ * 一覧から除外するかどうかは各一覧の別の判定に委ねる。
+ * **隠すだけで、読み込みからは外さない。** 全文検索と内部リンクからは到達でき、
+ * ファイルにも触れない。整理は利用者の作業であり、Vellymは自動で移動も削除もしない。
+ */
+export function isHiddenPath(relativePath: string): boolean {
+  return relativePath
+    .split("/")
+    .slice(0, -1)
+    .some((segment) => segment.startsWith("_") || segment.startsWith("+"));
+}
+
+/** 既知kindの集合が同じか。増分読み込みで前回の結果を使えるかの判定に使う */
+function sameKinds(
+  left: ReadonlySet<string> | undefined,
+  right: ReadonlySet<string> | undefined
+): boolean {
+  if (left === right) return true;
+  if (!left || !right) return (left?.size ?? 0) === (right?.size ?? 0);
+  if (left.size !== right.size) return false;
+  for (const kind of left) if (!right.has(kind)) return false;
+  return true;
 }
 
 const ignoredDirectories = new Set([
@@ -258,18 +291,80 @@ async function statRepositoryFiles(
   return result;
 }
 
+export interface LoadRepositoryOptions {
+  /**
+   * 有効なプラグインが解釈できるkind。渡さなければCore組み込みだけを既知とする。
+   *
+   * プラグインを外せば同じファイルが未知kindの扱いへ戻る。読み込みの結果が
+   * プラグインの有無で変わるのはここだけであり、正本YAMLは変わらない。
+   */
+  knownKinds?: ReadonlySet<string>;
+  /**
+   * `knownKinds`のうち、文書ツリーへ出すkind。プラグインが宣言する。
+   * チケット本体のように、読めるが木には出さないkindはここへ入れない。
+   */
+  treeKinds?: ReadonlySet<string>;
+  /**
+   * kindごとの索引行の作り方。プラグインが`registerRecordProjection`で登録する。
+   *
+   * **projectorを登録したkindは「大量にあるデータ」として扱う。** 完全な
+   * リソースを常駐させず、返された索引行だけを保持する。登録が無いプラグイン
+   * kindは「定義」として扱い、projectorを組み立てる文脈から読めるようにする。
+   * 数の多いものと少ないものを、登録の有無だけで区別する。
+   */
+  projections?: ReadonlyMap<string, PluginRecordProjectorFactory>;
+}
+
+/** 抽出済みリソースからプラグインへ渡すレコードを作る。pathもFSも渡さない */
+function pluginRecord(
+  page: import("@vellym-internal/core").Page,
+  entry: PageEntry
+): PluginResourceRecord {
+  return {
+    kind: entry.kind,
+    name: entry.name,
+    title: entry.title,
+    ...(entry.slug === entry.name ? {} : { slug: entry.slug }),
+    relativePath: entry.relativePath,
+    ...(entry.configuredBaseLocale ? { locale: entry.configuredBaseLocale } : {}),
+    ...(entry.labels ? { labels: entry.labels } : {}),
+    ...(entry.annotations ? { annotations: entry.annotations } : {}),
+    spec: page.spec as Readonly<Record<string, unknown>>,
+    readOnly: entry.readOnly
+  };
+}
+
+/** 定義リソースの顔ぶれ。変わったら索引行を作り直す必要がある */
+function definitionSignature(records: readonly PluginResourceRecord[]): string {
+  return records
+    .map((record) => `${record.kind}\0${record.name}\0${JSON.stringify(record.spec)}`)
+    .sort()
+    .join("\n");
+}
+
 export async function loadRepository(
   contentRoot: string,
-  previous?: RepositorySnapshot
+  previous?: RepositorySnapshot,
+  options: LoadRepositoryOptions = {}
 ): Promise<RepositorySnapshot> {
   await assertContentRoot(contentRoot);
   const { files, directories } = await findRepositoryEntries(contentRoot);
   const fileStats = await statRepositoryFiles(files);
   const entries: PageEntry[] = [];
+  // projectorを持つkind（＝大量にあるデータ）。定義を読み終えるまで索引行を作れない
+  // ため、いったん保持してから最後にまとめて落とす。ここが常駐しないよう、
+  // 索引行を作った時点でレコードを捨てる。
+  const pendingProjection: Array<{ entry: PageEntry; record: PluginResourceRecord }> = [];
+  // projectorを持たないプラグインkind（＝定義）。数が少ない前提で保持する。
+  const definitionRecords: PluginResourceRecord[] = [];
+  let reusedAnyEntry = false;
   const previousEntries = new Map(
     (previous?.entryIndex.pages ?? []).map((entry) => [entry.relativePath, entry])
   );
   const diagnostics: Diagnostic[] = [];
+  const knownKindsUnchanged =
+    previous === undefined ||
+    sameKinds(previous.knownKinds, options.knownKinds);
   const loadedFolders = await loadFolderSummaries(
     contentRoot,
     directories,
@@ -284,9 +379,12 @@ export async function loadRepository(
     if (
       previousEntry &&
       previousEntry.mtimeMs === info.mtimeMs &&
-      previousEntry.size === info.size
+      previousEntry.size === info.size &&
+      // 既知kindの集合が変われば解釈も変わる。前回の結果を使い回せない。
+      knownKindsUnchanged
     ) {
       entries.push(previousEntry);
+      reusedAnyEntry = true;
       continue;
     }
     let source: string;
@@ -306,10 +404,72 @@ export async function loadRepository(
       relativePath,
       source,
       mtimeMs: info.mtimeMs,
-      size: info.size
+      size: info.size,
+      ...(options.knownKinds ? { knownKinds: options.knownKinds } : {})
     });
     diagnostics.push(...extracted.diagnostics);
-    if (extracted.kind === "entry") entries.push(extracted.entry);
+    if (extracted.kind !== "entry") continue;
+    entries.push(extracted.entry);
+    const kind = extracted.entry.kind;
+    if (kind !== "Page" && options.knownKinds?.has(kind)) {
+      const record = pluginRecord(extracted.page, extracted.entry);
+      if (options.projections?.has(kind)) {
+        pendingProjection.push({ entry: extracted.entry, record });
+      } else {
+        definitionRecords.push(record);
+      }
+    }
+  }
+
+  if (options.projections?.size) {
+    const context = {
+      records: (kind: string): readonly PluginResourceRecord[] =>
+        definitionRecords.filter((record) => record.kind === kind),
+      reportDiagnostic: (diagnostic: PluginDiagnostic) =>
+        diagnostics.push({ ...diagnostic })
+    };
+    const projectors = new Map<string, ReturnType<PluginRecordProjectorFactory>>();
+    for (const [kind, create] of options.projections) {
+      try {
+        projectors.set(kind, create(context));
+      } catch (error) {
+        // プラグインが投げても読み込みは続ける。そのkindの索引行が無いだけにする。
+        diagnostics.push({
+          file: ".",
+          severity: "warning",
+          code: "PLUGIN_PROJECTION_FAILED",
+          message: `kind ${kind}の索引を作れませんでした: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        });
+      }
+    }
+    for (const { entry, record } of pendingProjection) {
+      const project = projectors.get(entry.kind);
+      if (!project) continue;
+      try {
+        const projection = project(record);
+        if (!projection) continue;
+        entry.indexRow = projection.values;
+        if (projection.diagnostics?.length) diagnostics.push(...projection.diagnostics);
+      } catch (error) {
+        diagnostics.push({
+          file: entry.relativePath,
+          severity: "warning",
+          code: "PLUGIN_PROJECTION_FAILED",
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+  }
+  pendingProjection.length = 0;
+
+  // 定義が変わると、使い回した項目の索引行が古いままになる。顔ぶれが変わっていたら
+  // 増分をあきらめて読み直す。定義の変更は稀なので、単純さを優先する。
+  const signature = definitionSignature(definitionRecords);
+  if (previous && reusedAnyEntry && previous.definitionSignature !== undefined &&
+      previous.definitionSignature !== signature) {
+    return loadRepository(contentRoot, undefined, options);
   }
 
   const entryIndex = deriveRepositoryEntryIndex(entries);
@@ -344,6 +504,10 @@ export async function loadRepository(
   }
   return {
     contentRoot,
+    ...(options.knownKinds ? { knownKinds: options.knownKinds } : {}),
+    ...(options.treeKinds ? { treeKinds: options.treeKinds } : {}),
+    ...(options.projections?.size ? { definitionSignature: signature } : {}),
+    ...(definitionRecords.length ? { definitionRecords } : {}),
     entryIndex,
     pages: entryIndex.pages,
     byName: entryIndex.byName,
@@ -369,6 +533,8 @@ export function unknownKindGroups(snapshot: RepositorySnapshot): UnknownKindGrou
   const groups = new Map<string, UnknownKindGroup>();
   for (const entry of snapshot.pages) {
     if (entry.kind === "Page") continue;
+    // 解釈できるプラグインがあるkindは「未知の内容」ではない。
+    if (snapshot.knownKinds?.has(entry.kind)) continue;
     const group = groups.get(entry.kind) ?? { kind: entry.kind, count: 0, resources: [] };
     group.count += 1;
     group.resources.push({
@@ -387,7 +553,8 @@ export function pageSummaries(snapshot: RepositorySnapshot): PageSummary[] {
     slug: entry.slug,
     title: entry.title,
     relativePath: entry.relativePath,
-    readOnly: entry.readOnly
+    readOnly: entry.readOnly,
+    resourceKind: entry.kind
   }));
 }
 
@@ -403,9 +570,14 @@ export function localizedPageSummaries(
   const cacheKey = `${locale}\0${defaultLocale}`;
   const cached = snapshot.entryIndex.localizedSummaryCache.get(cacheKey);
   if (cached) return cached;
-  // 文書ツリーと一覧はkind: Pageだけを載せる。解釈できないkindは「未知の内容」として
-  // 別に集約する。検索と内部リンクからは引き続き到達できる。
-  const summaries = snapshot.pages.filter(({ kind }) => kind === "Page").map((entry) => {
+  // 文書ツリーと一覧に載せるのは、kind: Pageと、プラグインが「木へ出す」と
+  // 宣言したkindだけである。解釈できないkindは「未知の内容」として別に集約する。
+  // 検索と内部リンクからは引き続き到達できる。
+  const inTree = (kind: string): boolean =>
+    kind === "Page" || snapshot.treeKinds?.has(kind) === true;
+  const summaries = snapshot.pages
+    .filter(({ kind, relativePath }) => inTree(kind) && !isHiddenPath(relativePath))
+    .map((entry) => {
     const translation = locale === defaultLocale ? undefined : entry.translations?.get(locale);
     const record = translation?.visibility === "published" ? translation : entry.base;
     return {
@@ -414,6 +586,7 @@ export function localizedPageSummaries(
       title: record.title,
       relativePath: entry.relativePath,
       readOnly: entry.readOnly,
+      resourceKind: entry.kind,
       locale: record.locale ?? entry.configuredBaseLocale ?? defaultLocale,
       baseLocale: entry.configuredBaseLocale ?? defaultLocale
     };
@@ -437,6 +610,7 @@ export function localizedFolderSummaries(
   }
   const requestedIsDefault = locale === defaultLocale;
   return snapshot.folders
+    .filter((summary) => !isHiddenPath(`${summary.path}/x`))
     .filter((summary) => requestedIsDefault || visibleFolderPaths.has(summary.path))
     .map((summary) => {
     const loaded = snapshot.folderResources.get(summary.path);

@@ -1,0 +1,60 @@
+@layer components {
+  .button {
+    min-height: 34px;
+    padding: var(--space-2) var(--space-4);
+    border: var(--border-width) solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-raised);
+    color: var(--text-primary);
+    font-size: var(--text-body);
+    cursor: pointer;
+  }
+
+  .button:hover:not(:disabled) {
+    background: var(--surface-sunken);
+  }
+
+  .button:disabled {
+    color: var(--text-muted);
+    cursor: default;
+  }
+
+  /*
+   * 主たる操作は墨の地に紙の字で描く。**強調を色相で作らない。**
+   * 明度差で主従を示すので、色を見分けられなくても区別が付く。
+   */
+  .primary {
+    border-color: var(--text-primary);
+    background: var(--text-primary);
+    color: var(--surface-page);
+    font-weight: 700;
+  }
+
+  .primary:hover:not(:disabled) {
+    border-color: var(--text-secondary);
+    background: var(--text-secondary);
+  }
+
+  .primary:disabled {
+    border-color: var(--border-strong);
+    background: var(--border-strong);
+    color: var(--surface-page);
+  }
+
+  /*
+   * 取り消しにくい操作。**赤にしない。** 罫を太くして文言で示す。
+   * 資料の方針どおり、危険を色相だけに載せない。
+   */
+  .danger {
+    border-width: var(--border-width-strong);
+    border-color: var(--status-attention);
+    font-weight: 700;
+  }
+
+  /* 記号1つだけを置く小さな操作。↑ ↓ など */
+  .icon {
+    min-width: 32px;
+    padding: var(--space-1) var(--space-2);
+    font-weight: 700;
+  }
+}

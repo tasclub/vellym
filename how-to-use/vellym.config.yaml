@@ -10,4 +10,5 @@ i18n:
     en: English
 static:
   publicBaseUrl: https://vellym.tasclub.com/
-plugins: []
+plugins:
+  - "@vellym/tickets"

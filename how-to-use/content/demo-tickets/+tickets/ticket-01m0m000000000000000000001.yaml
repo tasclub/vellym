@@ -1,0 +1,18 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-01m0m000000000000000000001
+  title: 見出しの階層を3段までに整理する
+spec:
+  status: doing
+  fields:
+    priority: high
+    assignee: 編集チーム
+    due: 2026-09-05
+    notes: |
+      アウトラインが深くなりすぎて、右の見出し一覧が読みにくい。h4以下は本文の強調で表す。
+  blocks:
+    - id: description
+      type: rich-text
+      content: |
+        アウトラインが深くなりすぎて、右の見出し一覧が読みにくい。h4以下は本文の強調で表す。

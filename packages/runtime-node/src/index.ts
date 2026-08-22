@@ -4,6 +4,8 @@ export * from "./folder-store.js";
 export * from "./locale-hash.js";
 export * from "./migration.js";
 export * from "./page-store.js";
+export * from "./plugin-resources.js";
+export * from "./plugins.js";
 export * from "./repository.js";
 export * from "./server.js";
 export * from "./setup.js";

@@ -1,25 +1,62 @@
 import { readFile } from "node:fs/promises";
+import semver from "semver";
 
-const manifest = JSON.parse(
-  await readFile(new URL("../packages/vellym/package.json", import.meta.url), "utf8")
+const packagePaths = {
+  pluginApi: "packages/plugin-api",
+  tickets: "packages/plugin-tickets",
+  vellym: "packages/vellym"
+};
+const manifests = Object.fromEntries(
+  await Promise.all(
+    Object.entries(packagePaths).map(async ([key, packagePath]) => [
+      key,
+      JSON.parse(
+        await readFile(new URL(`../${packagePath}/package.json`, import.meta.url), "utf8")
+      )
+    ])
+  )
 );
+const manifest = manifests.vellym;
 const lockfile = JSON.parse(
   await readFile(new URL("../package-lock.json", import.meta.url), "utf8")
 );
-const lockedVersion = lockfile.packages?.["packages/vellym"]?.version;
-if (lockedVersion !== manifest.version) {
-  throw new Error(`package-lock versionが一致しません: ${lockedVersion} != ${manifest.version}`);
+for (const [key, packagePath] of Object.entries(packagePaths)) {
+  const packageManifest = manifests[key];
+  const lockedVersion = lockfile.packages?.[packagePath]?.version;
+  if (lockedVersion !== packageManifest.version) {
+    throw new Error(
+      `package-lock versionが一致しません: ${packageManifest.name}は${lockedVersion} != ${packageManifest.version}`
+    );
+  }
+  if (!/^\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)(?:\.\d+)?)?$/.test(packageManifest.version)) {
+    throw new Error(
+      `許可されていないversion形式です: ${packageManifest.name}@${packageManifest.version}`
+    );
+  }
 }
+
+const pluginApiRange = manifests.tickets.peerDependencies?.["@vellym/plugin-api"] ?? "";
+if (!semver.satisfies(manifests.pluginApi.version, pluginApiRange)) {
+  throw new Error(
+    `@vellym/ticketsのpeer dependencyが公開版を満たしません: @vellym/plugin-api@${manifests.pluginApi.version}は${pluginApiRange}の範囲外です`
+  );
+}
+const vellymRange = manifests.tickets.engines?.vellym ?? "";
+if (!semver.satisfies(manifests.vellym.version, vellymRange)) {
+  throw new Error(
+    `@vellym/ticketsのengines.vellymが公開版を満たしません: vellym@${manifests.vellym.version}は${vellymRange}の範囲外です`
+  );
+}
+
 const suppliedTag = process.argv[2] ?? process.env.GITHUB_REF_NAME;
 if (!suppliedTag) throw new Error("release tagを引数またはGITHUB_REF_NAMEで指定してください");
 const expected = `v${manifest.version}`;
 if (suppliedTag !== expected) {
   throw new Error(`release tagとpackage versionが一致しません: ${suppliedTag} != ${expected}`);
 }
-if (!/^\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?$/.test(manifest.version)) {
-  throw new Error(`許可されていないversion形式です: ${manifest.version}`);
-}
-
+// prereleaseの連番は任意とする。`0.4.0-beta`のように番号を持たない形を許す。
+// 同じ版のbetaを2回出すときだけ`beta.2`のように付ける。dist-tagは`-`の後の
+// 先頭要素から決まるため、番号の有無で変わらない。
 // publish workflowが選ぶdist-tagと、利用者が最初に叩くコマンドを一致させる。
 // ここがずれると、npmと公式サイトの手順が古い版を導入してしまい気づきにくい。
 const prerelease = manifest.version.includes("-")

@@ -1,0 +1,370 @@
+@layer components {
+  /* ボタンの見た目は共通部品が持つ。**ここで作り直さない。** */
+  .setup-shell {
+    min-height: 100vh;
+    color: var(--text-primary);
+    background: var(--surface-page);
+    font-family: var(--font-body);
+  }
+  .setup-header {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-5);
+    padding: var(--space-4) clamp(20px, 5vw, 64px);
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: var(--size-ui);
+  }
+  .setup-brand { font-weight: 800; }
+  .setup-steps {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-2);
+    max-width: 960px;
+    margin: var(--space-6) auto 0;
+    padding: 0 var(--space-5);
+    list-style: none;
+  }
+  .setup-steps li {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    font-size: var(--size-caption);
+    text-align: center;
+  }
+  .setup-steps li.done {
+    color: var(--text-secondary);
+    border-style: dashed;
+  }
+  .setup-steps li.current {
+    color: var(--surface-page);
+    background: var(--text-primary);
+    border-color: var(--text-primary);
+    font-weight: 700;
+  }
+  .setup-card {
+    max-width: 760px;
+    margin: var(--space-5) auto var(--space-8);
+    padding: clamp(24px, 5vw, 48px);
+    border: 1px solid var(--border-strong);
+    background: var(--surface-raised);
+  }
+  .setup-card h1 {
+    margin: 0 0 var(--space-5);
+    font-family: var(--font-heading);
+    font-size: var(--size-doc-title);
+    line-height: 1.45;
+  }
+  .setup-card > p {
+    max-width: 70ch;
+    color: var(--text-secondary);
+    line-height: 1.85;
+  }
+  .setup-kicker {
+    margin: 0 0 var(--space-2) !important;
+    color: var(--text-muted) !important;
+    font-family: var(--font-mono);
+    font-size: var(--size-caption);
+    letter-spacing: .08em;
+  }
+  .setup-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+  }
+  .setup-location {
+    margin: var(--space-5) 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .setup-location div {
+    display: grid;
+    grid-template-columns: minmax(150px, .45fr) 1fr;
+    gap: var(--space-4);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .setup-location dt { color: var(--text-muted); }
+  .setup-location dd {
+    margin: 0;
+    font-family: var(--font-mono);
+  }
+  .setup-note,
+  .setup-warning,
+  .setup-error {
+    padding: var(--space-4) var(--space-4);
+    border: 2px solid var(--text-primary);
+    background: var(--surface-sunken);
+  }
+  .setup-warning { margin-top: var(--space-5); }
+  .setup-warning p,
+  .setup-error p { margin-bottom: 0; }
+  .profile-list {
+    display: grid;
+    gap: var(--space-3);
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    border: 0;
+  }
+  .profile-list label {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-4);
+    border: 1px solid var(--border-strong);
+    cursor: pointer;
+  }
+  .profile-list label.selected {
+    border: 2px solid var(--text-primary);
+    background: var(--surface-page);
+  }
+  .profile-list input[type="radio"],
+  .profile-list input[type="checkbox"] {
+    margin-top: var(--space-1);
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+  .profile-list label[data-field] {
+    display: grid;
+    gap: var(--space-1);
+    align-items: center;
+  }
+  .profile-list label[data-field] > span:first-child {
+    color: var(--text-muted);
+  }
+  .profile-list input[type="text"] {
+    width: 100%;
+    min-width: 220px;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-strong);
+    font: inherit;
+  }
+  .profile-list small,
+  .setup-file-list small {
+    display: block;
+    margin-top: var(--space-1);
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .setup-file-list {
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    border-top: 1px solid var(--border-subtle);
+    list-style: none;
+  }
+  .setup-file-list > li {
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .setup-file-list label {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+  }
+  .setup-file-list input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-top: var(--space-1);
+    flex: none;
+  }
+  .file-conflict {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    margin: var(--space-3) 0 0 var(--space-6);
+    padding: var(--space-3) var(--space-3);
+    border-left: 3px solid var(--text-primary);
+    background: var(--surface-sunken);
+    font-size: var(--size-ui);
+  }
+  .file-conflict button { min-height: 32px; padding: var(--space-1) var(--space-3); }
+  .setup-structure {
+    margin-top: var(--space-5);
+    display: grid;
+    gap: var(--space-5);
+  }
+  .structure-group .setup-file-list {
+    margin: 0;
+    border-top: 0;
+  }
+  .structure-file-name {
+    margin: var(--space-2) 0 0 var(--space-6);
+    max-width: 360px;
+  }
+  .setup-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+  }
+  .setup-filters label {
+    display: grid;
+    gap: var(--space-1);
+  }
+  .setup-filters label > span {
+    color: var(--text-muted);
+    font-size: var(--size-ui);
+  }
+  .setup-filters input,
+  .setup-filters select {
+    min-width: 160px;
+    padding: var(--space-2) var(--space-2);
+    border: 1px solid var(--border-strong);
+    font: inherit;
+  }
+  .setup-tree,
+  .setup-tree ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .setup-tree { margin-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
+  /* Indentation compounds through the nested groups, so a row never needs to
+     know its own depth. */
+  .setup-tree ul[role="group"] { padding-inline-start: 1.5rem; }
+  .setup-tree-item {
+    display: grid;
+    grid-template-columns: 18px 18px minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-1);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .setup-tree-item:hover { background: var(--surface-sunken); }
+  .setup-tree-item:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: -2px;
+  }
+  .setup-shell .setup-tree-twisty {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    min-height: 0;
+    margin-top: var(--space-1);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .setup-shell .setup-tree-twisty:hover { color: var(--text-primary); }
+  .setup-tree-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: var(--space-1) 0 0;
+    flex: none;
+  }
+  /* A read-only tree has no checkbox, so the label takes that column back. */
+  .setup-tree-item.readonly { grid-template-columns: 18px minmax(0, 1fr); }
+  .setup-tree-label { display: block; min-width: 0; }
+  .setup-tree-title {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .setup-tree-item.folder .setup-tree-title strong { font-weight: 700; }
+  .setup-tree-item.page .setup-tree-title strong { font-weight: 400; }
+  .setup-tree-description,
+  .setup-tree-meta {
+    display: block;
+    color: var(--text-secondary);
+    font-size: var(--size-ui);
+    line-height: 1.5;
+  }
+  .setup-tree-description { margin-top: var(--space-1); }
+  .setup-tree-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    margin-top: var(--space-1);
+    color: var(--text-muted);
+    font-size: var(--size-ui);
+  }
+  .setup-tree-item.omitted .setup-tree-title strong {
+    color: var(--text-muted);
+    text-decoration: line-through;
+  }
+  .setup-tree-omitted {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    font-size: var(--size-caption);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  /* The name fields belong to the row above, so they sit in the label column. */
+  .setup-tree-detail {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-2) var(--space-8);
+    padding: var(--space-3) var(--space-3);
+    border-inline-start: 2px solid var(--border-strong);
+    background: var(--surface-sunken);
+  }
+  .setup-tree-detail .structure-file-name {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-3);
+    max-width: 34rem;
+    margin: 0;
+  }
+  .setup-tree-detail .structure-file-name > span {
+    color: var(--text-muted);
+    font-size: var(--size-ui);
+  }
+  .setup-tree-detail input {
+    width: 100%;
+    padding: var(--space-2) var(--space-2);
+    border: 1px solid var(--border-strong);
+    background: var(--surface-raised);
+  }
+  .setup-tree-empty {
+    margin-top: var(--space-4);
+    color: var(--text-muted);
+  }
+  .setup-tree-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+  }
+  .setup-tree-count { margin: 0; font-weight: 700; }
+  .setup-tree-toolbar-actions { display: flex; gap: var(--space-2); }
+  .setup-shell .setup-tree-toolbar-actions button {
+    min-height: 32px;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--size-ui);
+  }
+  .setup-tree-hint {
+    margin: var(--space-2) 0 0;
+    color: var(--text-muted);
+    font-size: var(--size-ui);
+  }
+  /* 狭い画面。段を縦に積み、操作の的を44px以上にする */
+  @media (max-width: 767px) {
+    .setup-steps {
+      justify-content: flex-start;
+      overflow-x: auto;
+      padding-bottom: var(--space-1);
+    }
+    .setup-steps li { flex: 0 0 auto; min-width: 112px; }
+    .setup-card {
+      margin: var(--space-4);
+      padding: var(--space-5) var(--space-5);
+    }
+    .setup-location div { grid-template-columns: 1fr; gap: var(--space-1); }
+    .setup-actions { flex-direction: column-reverse; }
+    .setup-actions button { width: 100%; min-height: 44px; }
+    .file-conflict { align-items: stretch; flex-direction: column; }
+  }
+}

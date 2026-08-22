@@ -43,7 +43,7 @@ spec:
         | `i18n.defaultLocale` | いいえ | locale文字列 | URLで言語を省略したときの文書言語。 |
         | `i18n.displayNames` | いいえ | 文字列の対応表 | 言語切り替えに表示するlocale名を上書きする。 |
         | `static.publicBaseUrl` | いいえ | `/`で終わるHTTPS URL | 静的HTMLのcanonicalとhreflangに使う公開URL。未指定時はそれらを出力しない。 |
-        | `plugins` | はい | 文字列の配列 | プラグイン指定。現段階では未実装のため空配列`[]`とする。 |
+        | `plugins` | はい | 文字列の配列 | 読み込むプラグインのnpmパッケージ名。追加・削除の手順は[[using-plugins|プラグインを使う]]を参照。 |
 
         ## outputDirと生成先
 
@@ -63,6 +63,7 @@ spec:
 
         - コマンド → [[cli-reference|CLIリファレンス]]
         - 文書の書き方 → [[authoring|文書の書き方（YAML）]]
+        - プラグインの追加と削除 → [[using-plugins|プラグインを使う]]
   translations:
     en:
       visibility: published
@@ -104,7 +105,7 @@ spec:
             | `i18n.defaultLocale` | no | locale string | Document language used when the URL omits a locale. |
             | `i18n.displayNames` | no | string map | Overrides locale names shown in the language switcher. |
             | `static.publicBaseUrl` | no | HTTPS URL ending in `/` | Public URL used for static canonical and hreflang links. They are omitted when this setting is absent. |
-            | `plugins` | yes | array of strings | Plugin list. Not implemented at this stage; use an empty array `[]`. |
+            | `plugins` | yes | array of strings | npm package names of plugins to load. See [[using-plugins|Using Plugins]] for adding and removing them. |
 
             ## outputDir and generated output
 
@@ -124,3 +125,4 @@ spec:
 
             - Commands → [[cli-reference|CLI Reference]]
             - Authoring documents → [[authoring|Authoring Documents (YAML)]]
+            - Adding and removing plugins → [[using-plugins|Using Plugins]]

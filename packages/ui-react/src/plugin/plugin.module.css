@@ -1,0 +1,293 @@
+@layer components {
+  /*
+   * プラグインが宣言した一覧・詳細の見た目。
+   *
+   * 引き継ぎ資料（`design_handoff_tickets`）の紙面に合わせる。角丸は付けず、
+   * 影も落とさない。罫線と余白と字の大きさだけで区切る。状態は色ではなく
+   * 記号と太さと文言で伝える。
+   */
+  /* 行を縦に積み上げず、副次情報は1行へ畳む。 */
+
+
+
+
+
+
+  /* 題名は行の主役。他の列より1段強くする。 */
+  .plugin-list-open {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-weight: 700;
+    color: inherit;
+    cursor: pointer;
+    text-align: start;
+  }
+  .plugin-list-secondary {
+    display: block;
+    margin-block-start: 2px;
+    font-size: var(--size-caption);
+    color: var(--text-muted);
+  }
+  /* 一覧の見出し行。件数を添えて、絞り込みで消えた分に気づけるようにする。 */
+  .plugin-list-count {
+    font-size: var(--size-caption);
+    color: var(--text-muted);
+  }
+  /*
+   * 帯の見出し（FILTER）。機械的な区分であることを、字送りの広い等幅で示す。
+   * 読み上げには載せない。
+   */
+  .plugin-band-label {
+    font-family: var(--font-mono);
+    font-size: var(--size-caption);
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+  }
+  /*
+   * プラグインが宣言した詳細。ラベル左・入力右の2カラム固定幅にする。
+   * ラベルの長短で入力欄の位置が動かないようにする。
+   */
+  .plugin-detail-fields {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: center;
+    margin: 0 0 var(--space-5);
+    padding-block-end: 16px;
+    border-block-end: 1px solid var(--border-subtle);
+  }
+  .plugin-detail-field {
+    display: contents;
+  }
+  .plugin-detail-field dt {
+    font-size: var(--size-ui);
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+  .plugin-detail-field dd {
+    margin: 0;
+  }
+  /*
+   * 参照のときの値。入力欄の枠を出さず、地の文として読ませる。
+   * 「読むだけの画面」と「直す画面」が同じ顔をしないようにする。
+   */
+  .plugin-detail-value {
+    font-size: var(--size-ui);
+    white-space: pre-wrap;
+  }
+  .plugin-detail-value:empty::before {
+    content: "—";
+    color: var(--text-muted);
+  }
+  /* 複数行は上端で揃える。1行の項目と同じ中央揃えにすると読み口がずれる。 */
+  .plugin-detail-field:has(textarea) dt {
+    align-self: start;
+    padding-block-start: 7px;
+  }
+  .plugin-detail-fields textarea,
+  .plugin-detail-fields input:not([type="checkbox"]),
+  .plugin-detail-fields select {
+    inline-size: 100%;
+    max-inline-size: 34rem;
+  }
+  .plugin-detail-undeclared dd {
+    display: flex;
+    gap: var(--space-2);
+    align-items: baseline;
+  }
+  .plugin-detail-note {
+    font-size: var(--text-note);
+    opacity: 0.75;
+  }
+  .plugin-list-toolbar {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    margin-block-end: 12px;
+  }
+  /* コマンドは行の右端へ寄せる。左は「いま何を見ているか」の側にする。 */
+  .plugin-list-toolbar > button:first-of-type {
+    margin-inline-start: auto;
+  }
+  /* 帯の中のボタンは罫だけの薄い見た目にする。共通部品の既定を上書きする */
+  .plugin-list-toolbar button,
+  .plugin-list-bulk button,
+  .plugin-list-filters button {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-strong);
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--size-ui);
+  }
+  .plugin-list-toolbar button[aria-pressed="true"] {
+    border-color: var(--text-primary);
+    background: var(--surface-sunken);
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+  /* 絞り込みの帯。地の色を沈めて、表と入力の領域を分ける。 */
+  .plugin-list-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+    margin-block-end: 12px;
+    padding: var(--space-3) var(--space-3);
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-sunken);
+    font-size: var(--size-caption);
+  }
+  /*
+   * 選択中の帯は、輪郭を2倍にして地の色を上げる。塗りではなく線の太さで
+   * 「いま効いている」ことを示す。
+   */
+  .plugin-list-bulk {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+    margin-block-end: 12px;
+    padding: var(--space-2) var(--space-3);
+    border: 2px solid var(--text-primary);
+    background: var(--surface-page);
+    font-size: var(--size-caption);
+  }
+  .plugin-list-filters label,
+  .plugin-list-bulk label {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    color: var(--text-secondary);
+  }
+  .plugin-list-bulk p {
+    margin: 0;
+    font-weight: 700;
+  }
+  .plugin-list-bulk > button:last-child {
+    margin-inline-start: auto;
+  }
+  /*
+   * ブラウザ既定のselectとdateをそのまま出さない。枠線と高さを他の入力と揃える。
+   * 同じ行に並ぶ入力の背が揃っていないと、表として読めなくなる。
+   */
+  .plugin-list-filters select,
+  .plugin-list-filters input,
+  .plugin-list-bulk select,
+
+  .plugin-list-filters select,
+  .plugin-list-filters input,
+  .plugin-list-bulk select {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--size-caption);
+    background: var(--surface-page);
+  }
+  .plugin-list-filters input[type="checkbox"],
+  .plugin-detail-fields input[type="checkbox"],
+
+  /* 必須は色に頼らず、記号と読み上げ文言で示す */
+  /*
+   * 読み込めない行は、値が読めていて注意があるだけの行と見た目を分ける。
+   * 記号と文言の両方を出し、色だけに意味を持たせない。
+   */
+  .plugin-list-error {
+    display: inline-block;
+    margin-inline-start: 0.5rem;
+    padding: 0 0.4em;
+    border: 2px solid var(--text-primary);
+    border-radius: 0;
+    font-size: var(--size-caption);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .plugin-list-error::before {
+    content: "△ ";
+  }
+  /* 詳細の注意。塗りではなく左の太線で示す。 */
+  .plugin-detail-notices {
+    border: 0;
+    border-inline-start: 2px solid var(--text-primary);
+    border-radius: 0;
+    background: transparent;
+    padding: var(--space-1) 0 var(--space-1) var(--space-4);
+  }
+  .plugin-detail-notices ul {
+    font-size: var(--size-ui);
+    color: var(--text-secondary);
+  }
+  /*
+   * 一覧へ戻る導線。紙の外、いちばん上に置く。
+   * 戻り先の名前はボタンではなく添え書きにする。押す場所と行き先の説明を分ける。
+   */
+  .plugin-detail-parent {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    /* 紙と同じ幅・同じ中央寄せにして、左端を揃える */
+    width: min(100%, 84ch);
+    margin: 0 auto var(--space-3);
+  }
+  .plugin-detail-parent-name {
+    font-size: var(--size-caption);
+    color: var(--text-muted);
+  }
+  .plugin-detail-save {
+    margin-block-start: 0.5rem;
+  }
+  .plugin-detail-group {
+    margin-block-end: 1.5rem;
+  }
+  .plugin-detail-group h2 {
+    font-size: var(--size-body);
+  }
+  .plugin-detail-group h2 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--size-h3);
+    font-weight: 600;
+  }
+  /*
+   * 定義編集の表。1行が定義1つであることが分かる密度にする。
+   * 表そのものの作法は共通部品が持つので、ここでは中身の詰め方だけを足す。
+   */
+  .plugin-detail-group td {
+    padding: var(--space-2) var(--space-2) var(--space-2) 0;
+    vertical-align: middle;
+  }
+  .plugin-detail-group td:last-child {
+    display: flex;
+    gap: var(--space-1);
+    align-items: center;
+  }
+  .plugin-detail-group td button {
+    padding: var(--space-1) var(--space-2);
+    border-radius: 0;
+    font-size: var(--size-caption);
+  }
+  .plugin-list-notice {
+    display: inline-block;
+    margin-inline-start: 0.5rem;
+    padding: 0 0.4em;
+    border: 1px solid var(--border-strong);
+    border-radius: 0;
+    font-size: var(--size-caption);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .plugin-detail-notices {
+    margin-block-end: 1rem;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--surface-sunken);
+  }
+  .plugin-detail-notices p {
+    margin: 0 0 var(--space-1);
+    font-weight: 700;
+  }
+  .plugin-detail-notices ul {
+    margin: 0;
+    padding-inline-start: 1.2rem;
+  }
+}

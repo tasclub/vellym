@@ -13,11 +13,13 @@ introduce a second place where document content lives.
 
 ## Packages
 
-The repository is an npm workspaces monorepo. Only `vellym` is published; the other
-three are internal and get bundled into it at build time.
+The repository is an npm workspaces monorepo. Three packages are published; the
+internal ones are bundled into `vellym` at build time.
 
 | Package | Published | Responsibility |
 | --- | --- | --- |
+| `@vellym/plugin-api` | **yes** | The public plugin contract: host API types, record types, view descriptors, manifest schema |
+| `@vellym/tickets` | **yes** | The official ticket management plugin. Not bundled — installed by the project that wants it |
 | `@vellym-internal/core` | no | Types, JSON Schema validation, navigation, search projection, editing rules |
 | `@vellym-internal/runtime-node` | no | Filesystem access, repository loading, saving, structure changes, the local HTTP server |
 | `@vellym-internal/ui-react` | no | The browser UI, used by both the dev server and the static build |
@@ -26,9 +28,10 @@ three are internal and get bundled into it at build time.
 ### Dependency direction
 
 ```
-vellym  ──▶  runtime-node  ──▶  core
-   │                             ▲
-   └──────▶  ui-react  ──────────┘
+vellym  ──▶  runtime-node  ──▶  core  ──▶  plugin-api
+   │                             ▲            ▲
+   └──────▶  ui-react  ──────────┘            │
+                                    plugins ──┘
 ```
 
 Enforced constraints:
@@ -39,12 +42,25 @@ Enforced constraints:
   static files; it does not know about components.
 - **`ui-react` never imports `runtime-node`.** It talks to the server over HTTP, and
   in static mode reads baked JSON instead. This is why the same UI works for both.
+- **`plugin-api` depends on nothing at all**, ours or otherwise. It is the contract;
+  `core` imports it and implements it. Reversing that direction would turn our internals
+  into the public contract. It must not import `core`, Node.js, or React — a plugin's
+  browser entry uses the host's React through an import map, not a dependency.
+
+Inside the workspace, `@vellym/plugin-api` resolves to its TypeScript source through the
+`vellym-source` export condition, so nothing has to be built before `typecheck` or the
+tests run. Published consumers get `dist` instead. The condition is declared in three
+places that must agree: `tsconfig.json` (`customConditions`), `scripts/build.mjs`
+(esbuild `conditions`), and `vitest.config.ts` (an alias, because Vite resolves
+conditions differently for client and SSR).
 
 ## Where things live
 
 | If you are changing… | Start here |
 | --- | --- |
 | The Page/Folder schema | `packages/core/schemas/`, `packages/core/src/validation.ts` |
+| What plugins are allowed to do | `packages/plugin-api/src/` |
+| The plugin manifest format | `packages/plugin-api/schemas/plugin-manifest.schema.json` |
 | What counts as an editable block | `packages/core/src/editing.ts` |
 | Search behaviour | `packages/core/src/search.ts` |
 | Tree, breadcrumbs, previous/next | `packages/core/src/navigation.ts` |
@@ -126,6 +142,7 @@ for a new contract.
 | Identifier | Where | Versions what | Who writes it |
 | --- | --- | --- | --- |
 | package `version` | `packages/vellym/package.json` | The released product (semver) | Maintainers |
+| `engines.vellym` | a plugin's `package.json` | Which product versions the plugin supports | Plugin authors |
 | `apiVersion` | Page / Folder YAML | The canonical document format | Users' files |
 | `schemaVersion` | `vellym.config.yaml` | The config file format | Users' files |
 | `apiSchemaVersion` | HTTP responses and baked static data | The response envelope shape | Server / static builder |
@@ -138,6 +155,11 @@ Two rules follow from this table.
 `apiVersion` is raised **only when existing files stop being readable**. Relaxations —
 removing a required field, making one optional — do not break existing files and do not
 justify a new version. Raising it forces every user through a migration for no benefit.
+
+There is deliberately **no separate plugin API version**. A plugin declares the product
+versions it supports in `engines.vellym`, and the host checks that range with
+`includePrerelease` so beta versions match. A second number would be one more contract to
+keep aligned for no benefit while the product itself is pre-1.0.
 
 `apiSchemaVersion` must be identical in the dynamic API and the static build. The same
 SPA reads both, so the two envelopes are one contract. It is defined once in

@@ -101,7 +101,7 @@ export interface SetupCatalog {
 
 export interface SetupPlanFile {
   relativePath: string;
-  kind: "page" | "folder" | "config";
+  kind: "page" | "folder" | "config" | "package-json";
   /** Catalog node this file comes from; absent for the root folder and config. */
   nodeId?: string;
   templateId?: string;
@@ -186,6 +186,36 @@ function configSource(contentRoot: string, language: SetupLanguage): string {
     ui: { language },
     plugins: []
   }, { lineWidth: 0 });
+}
+
+/**
+ * `plugins`をconfigDir起点で解決するためのアンカー。プラグインの導入先でもある。
+ * `scripts`も`dependencies`もVellymは読まないため、最小構成だけを書く。
+ */
+function packageJsonSource(projectRoot: string): string {
+  return `${JSON.stringify(
+    {
+      name: packageNameFrom(projectRoot),
+      version: "0.0.0",
+      private: true,
+      type: "module"
+    },
+    undefined,
+    2
+  )}\n`;
+}
+
+/** ディレクトリ名をnpmの命名規則へ正規化する。`npm init`と同じ導出にする。 */
+export function packageNameFrom(projectRoot: string): string {
+  const normalized = path
+    .basename(path.resolve(projectRoot))
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9\-._~]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^[._-]+/, "")
+    .replace(/-+$/, "")
+    .slice(0, 214);
+  return normalized || "vellym-project";
 }
 
 function pageSource(
@@ -641,6 +671,13 @@ export async function planProjectSetup(
       title: "Vellym設定",
       status: (await exists(path.join(root, "vellym.config.yaml"))) ? "conflict" : "create"
     });
+    // 既存のpackage.jsonは内容を検査せず触らない。利用者の依存記録だからである。
+    files.push({
+      relativePath: "package.json",
+      kind: "package-json",
+      title: "npm package定義",
+      status: (await exists(path.join(root, "package.json"))) ? "conflict" : "create"
+    });
   }
 
   const planHash = createHash("sha256")
@@ -818,6 +855,7 @@ Vellym does not infer semantic duplication or contradictions, and it never runs 
 }
 
 function sourceFor(plan: SetupPlan, file: SetupPlanFile): string {
+  if (file.kind === "package-json") return packageJsonSource(plan.projectRoot);
   if (file.kind === "config") return configSource(plan.contentRoot, plan.language);
   if (file.kind === "page") {
     const page = setupPage(file.templateId!)!;
@@ -887,6 +925,19 @@ export async function applyProjectSetup(expected: SetupPlan): Promise<void> {
     createdCandidates.map((file) => [file.relativePath, sourceFor(current, file)])
   );
   for (const file of createdCandidates) {
+    // package.jsonはYAMLでもVellymのリソースでもない。JSONとして読めれば足りる。
+    if (file.kind === "package-json") {
+      try {
+        JSON.parse(sources.get(file.relativePath)!);
+      } catch {
+        throw new RuntimeError(
+          `初期生成JSONの検証に失敗しました: ${file.relativePath}`,
+          500,
+          "SETUP_VALIDATION"
+        );
+      }
+      continue;
+    }
     const document = parseDocument(sources.get(file.relativePath)!);
     const value = document.toJS();
     const valid = file.kind === "page"
@@ -928,7 +979,11 @@ export async function applyProjectSetup(expected: SetupPlan): Promise<void> {
 
     // Shallow folders first, then pages, then the config that points at them.
     const rank = (file: SetupPlanFile): number =>
-      file.kind === "config" ? 2 : file.kind === "folder" ? 0 : 1;
+      file.kind === "config" || file.kind === "package-json"
+        ? 2
+        : file.kind === "folder"
+          ? 0
+          : 1;
     const ordered = [...createdCandidates].sort((a, b) => {
       const byKind = rank(a) - rank(b);
       if (byKind !== 0) return byKind;

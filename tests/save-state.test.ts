@@ -5,7 +5,7 @@ import {
   parseRepositoryEvent,
   sameDraft,
   type SaveState
-} from "../packages/ui-react/src/save-state.js";
+} from "../packages/ui-react/src/editor/save-state.js";
 
 const block = (content: string): RichTextBlock => ({
   id: "body",

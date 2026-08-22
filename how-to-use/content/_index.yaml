@@ -9,6 +9,10 @@ spec:
     - cli-reference.yaml
     - compatibility.yaml
     - configuration.yaml
+    - using-plugins.yaml
+    - ticket-management.yaml
+    - developing-plugins.yaml
+    - demo-tickets
     - concepts.yaml
     - self-hosting.yaml
     - index.yaml

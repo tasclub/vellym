@@ -203,6 +203,13 @@ export interface PageSummary {
   title: string;
   relativePath: string;
   readOnly: boolean;
+  /**
+   * 資源の`kind`。`Page`のほか、プラグインが木へ出すと宣言した種別が入る。
+   *
+   * 木のノード種別（`"page"` / `"folder"`）とは**別物**である。あちらは
+   * 構造上の位置、こちらは中身の種別を指す。
+   */
+  resourceKind?: string;
   locale?: string;
   baseLocale?: string;
 }

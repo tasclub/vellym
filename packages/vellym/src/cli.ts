@@ -5,7 +5,9 @@ import {
   loadRepository,
   applyMigration,
   isLoopbackHost,
+  loadPlugins,
   pageSummaries,
+  pluginKinds,
   planMigration,
   startDevServer
 } from "@vellym-internal/runtime-node";
@@ -98,17 +100,21 @@ async function validateCommand(args: string[]): Promise<number> {
   const json = args.includes("--json");
   const loaded = await loadConfig(resolveConfigPath(args));
   if (!cliLanguageFromArgs(args)) setLanguage(loaded.config.ui.language);
-  const repository = await loadRepository(loaded.contentRoot);
-  const summary = messages.validateSummary(
-    repository.pages.length,
-    repository.diagnostics.length
-  );
+  // プラグインの失敗はすべて警告になる。validateをそれで落とさない。
+  const plugins = await loadPlugins({
+    configDir: path.dirname(loaded.configPath),
+    packageNames: loaded.config.plugins,
+    hostVersion: VELLYM_VERSION
+  });
+  const repository = await loadRepository(loaded.contentRoot, undefined, pluginKinds(plugins));
+  const diagnostics = [...repository.diagnostics, ...plugins.diagnostics];
+  const summary = messages.validateSummary(repository.pages.length, diagnostics.length);
   const text =
-    repository.diagnostics.length > 0
-      ? `${summary}\n${formatDiagnostics(repository.diagnostics)}`
+    diagnostics.length > 0
+      ? `${summary}\n${formatDiagnostics(diagnostics)}`
       : summary;
-  output(json, { pages: pageSummaries(repository) }, repository.diagnostics, text);
-  return repository.diagnostics.some((item) => item.severity === "error") ? 1 : 0;
+  output(json, { pages: pageSummaries(repository) }, diagnostics, text);
+  return diagnostics.some((item) => item.severity === "error") ? 1 : 0;
 }
 
 async function buildCommand(args: string[]): Promise<number> {
@@ -152,11 +158,22 @@ async function devCommand(args: string[]): Promise<void> {
   }
   const configPath = resolveConfigPath(args);
   const directory = path.dirname(fileURLToPath(import.meta.url));
+  // 読み込めなかったプラグインを起動時に示す。serverの起動は妨げない。
+  const loaded = await loadConfig(configPath);
+  const plugins = await loadPlugins({
+    configDir: path.dirname(loaded.configPath),
+    packageNames: loaded.config.plugins,
+    hostVersion: VELLYM_VERSION
+  });
+  if (plugins.diagnostics.length) {
+    process.stderr.write(`${formatDiagnostics(plugins.diagnostics)}\n`);
+  }
   const server = await startDevServer({
     configPath,
     uiRoot: path.join(directory, "ui"),
     host,
-    port
+    port,
+    hostVersion: VELLYM_VERSION
   });
   if (!isLoopbackHost(host)) {
     process.stderr.write(`${messages.externalBindWarning()}\n`);
