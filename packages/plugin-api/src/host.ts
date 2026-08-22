@@ -1,6 +1,7 @@
 import type { PluginDiagnostic } from "./diagnostics.js";
 import type {
   PluginRecordProjectorFactory,
+  PluginPendingResource,
   PluginResourceDraft
 } from "./records.js";
 import type { PluginResourceRecord } from "./records.js";
@@ -139,8 +140,10 @@ export interface PluginCommandContext extends PluginDefinitionContext {
    */
   target?: PluginResourceRecord;
   /**
-   * 正本YAMLを作る。**Coreの保存経路を通る。** 非破壊往復、realpath境界、
-   * hash競合検出はこの経路でも同じく効く。
+   * 未作成リソースの編集を始める。ここでは正本YAMLを作らない。
+   *
+   * 最初の保存までメモリに留めることで、離脱しただけの操作を正本へ変えず、
+   * 保存時には既存リソースと同じ境界・競合検査を通せるようにする。
    */
   createResource(draft: PluginResourceDraft): Promise<PluginCommandResult>;
 }
@@ -149,10 +152,12 @@ export type PluginCommandResult =
   | {
       ok: true;
       name: string;
+      /** 最初の保存までhostがメモリ上で編集する値 */
+      draft: PluginPendingResource;
       /**
-       * 作った直後に開くビュー。省略すると既定のビューを開く。
+       * 未作成の編集セッションで最初に開くビュー。省略すると既定を開く。
        *
-       * 作成直後に設定を促したい場合に使う。どこへ連れて行くかを
+       * 初回保存前に設定を促したい場合に使う。どこへ連れて行くかを
        * hostが推測しない。
        */
       openView?: string;

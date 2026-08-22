@@ -71,13 +71,25 @@ export type PluginRecordProjectorFactory = (
   context: import("./views.js").PluginDefinitionContext
 ) => PluginRecordProjector;
 
-/** 新しいリソースを作る指示。Coreの保存経路を通して正本YAMLになる */
+/**
+ * まだ正本に存在しないリソースの編集開始値。
+ *
+ * **この値を作ってもファイルは作られない。** 作成コマンドのキャンセルや離脱で
+ * 不完全な正本を残さず、最初の保存にも既存の境界・競合検査を課すためである。
+ */
 export interface PluginResourceDraft {
   kind: string;
   /** 省略するとCoreが生成する。プラグインが規則を持つ場合だけ指定する */
   name?: string;
   title: string;
+  /** 共通metadata。kind固有の状態をmetadataへ混ぜない */
+  slug?: string;
+  labels?: Readonly<Record<string, string>>;
+  annotations?: Readonly<Record<string, string>>;
   /** content root相対のフォルダ。省略時はcontent root直下 */
   folder?: string;
   spec: Readonly<Record<string, unknown>>;
 }
+
+/** hostが名前を確定した、メモリ上だけの新規リソース */
+export type PluginPendingResource = PluginResourceDraft & { name: string };

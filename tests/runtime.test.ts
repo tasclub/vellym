@@ -1129,6 +1129,129 @@ plugins: []
     }
   });
 
+  it("keeps a plugin Resource in memory until its first save", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-plugin-draft-server-"));
+    const root = path.join(project, "docs/content");
+    await mkdir(root, { recursive: true });
+    await writeFile(path.join(root, "page.yaml"), source(), "utf8");
+    const pluginRoot = path.join(project, "node_modules/example-ticket-plugin");
+    await mkdir(pluginRoot, { recursive: true });
+    await writeFile(
+      path.join(pluginRoot, "package.json"),
+      JSON.stringify({
+        name: "example-ticket-plugin",
+        version: "1.0.0",
+        type: "module",
+        main: "index.mjs",
+        engines: { vellym: ">=0.3.0-beta.1" },
+        vellym: {
+          id: "example-tickets",
+          contributes: {
+            kinds: [{ kind: "Ticket" }],
+            commands: [
+              { id: "ticket.create", title: { ja: "チケットを作成" }, static: false }
+            ]
+          }
+        }
+      }),
+      "utf8"
+    );
+    await writeFile(
+      path.join(pluginRoot, "index.mjs"),
+      `export function activate(host) {
+  host.registerKind({ kind: "Ticket" });
+  host.registerCommand({
+    id: "ticket.create",
+    title: { ja: "チケットを作成" },
+    static: false,
+    run(context) {
+      return context.createResource({
+        kind: "Ticket",
+        name: "ticket-draft-test",
+        title: "新しいチケット",
+        spec: {
+          status: "todo",
+          fields: { priority: "mid", readiness: "ready" },
+          vendorValue: { keep: true },
+          blocks: [{ id: "description", type: "rich-text", content: "" }]
+        }
+      });
+    }
+  });
+}`,
+      "utf8"
+    );
+    const configPath = path.join(project, "vellym.config.yaml");
+    await writeFile(
+      configPath,
+      `schemaVersion: "1.0"
+contentRoot: docs/content
+outputDir: dist/vellym
+ui:
+  language: ja
+plugins:
+  - example-ticket-plugin
+`,
+      "utf8"
+    );
+    const ui = await mkdtemp(path.join(tmpdir(), "vellym-plugin-draft-ui-"));
+    await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
+    const server = await startDevServer({
+      configPath,
+      uiRoot: ui,
+      hostVersion: "0.3.0-beta.1",
+      port: 0
+    });
+    try {
+      const before = (await readdir(root)).filter((file) => file.startsWith("ticket-"));
+      const started = await fetch(`${server.url}/api/v1/plugins/commands/ticket.create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      expect(started.status).toBe(200);
+      const startedBody = await started.json() as {
+        data: { draft: Record<string, unknown>; relativePath: string };
+      };
+      expect(startedBody.data).toMatchObject({
+        relativePath: "ticket-draft-test.yaml",
+        draft: {
+          kind: "Ticket",
+          name: "ticket-draft-test",
+          spec: { fields: { priority: "mid", readiness: "ready" } }
+        }
+      });
+      // キャンセルや離脱は追加のHTTP操作をしない。commandだけでは1件も増えない。
+      expect((await readdir(root)).filter((file) => file.startsWith("ticket-"))).toEqual(before);
+
+      const saved = await fetch(`${server.url}/api/v1/plugins/resources`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ baseHash: null, draft: startedBody.data.draft })
+      });
+      expect(saved.status).toBe(201);
+      expect((await readdir(root)).filter((file) => file.startsWith("ticket-"))).toHaveLength(
+        before.length + 1
+      );
+      const output = await readFile(path.join(root, "ticket-draft-test.yaml"), "utf8");
+      expect(output).toContain("priority: mid");
+      expect(output).toContain("readiness: ready");
+      // UIが解釈しないspecも初回保存で落とさない。
+      expect(output).toContain("vendorValue:");
+
+      // null baselineの競合は既存ファイルを上書きしない。
+      const conflict = await fetch(`${server.url}/api/v1/plugins/resources`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ baseHash: null, draft: startedBody.data.draft })
+      });
+      expect(conflict.status).toBe(409);
+      expect(await readFile(path.join(root, "ticket-draft-test.yaml"), "utf8")).toBe(output);
+    } finally {
+      await server.close();
+    }
+  });
+
   it("validates patch structure before touching a page", () => {
     expect(() => parsePagePatch({ baseHash: "short" })).toThrow("baseHash");
     expect(() =>

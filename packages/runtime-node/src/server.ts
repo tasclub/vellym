@@ -1,4 +1,5 @@
 import { access, readFile, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
@@ -17,8 +18,15 @@ import {
   type ContentRootPlan
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
-import { createPluginResource } from "./plugin-resources.js";
-import type { PluginInputValue } from "@vellym/plugin-api";
+import {
+  createPluginResource,
+  parsePluginResourceDraft,
+  pluginResourceRelativePath
+} from "./plugin-resources.js";
+import type {
+  PluginInputValue,
+  PluginResourceRecord
+} from "@vellym/plugin-api";
 import {
   buildPluginViewFromSnapshot,
   loadPlugins,
@@ -1228,37 +1236,102 @@ export async function startDevServer(options: {
               }
             : {}),
           createResource: async (draft) => {
-            if (!draft.name) {
-              return {
-                ok: false,
-                diagnostics: [
-                  {
-                    file: ".",
-                    severity: "warning",
-                    code: "PLUGIN_CREATE_NAME_REQUIRED",
-                    message: "metadata.nameを指定してください"
-                  }
-                ]
-              };
-            }
-            const created = await createPluginResource(ready.loadedConfig.contentRoot, {
+            const pending = {
               ...draft,
-              name: draft.name
-            });
-            return { ok: true, name: created.name };
+              // 名前を決めないプラグインでも同じ未作成編集経路へ入れる。
+              name: draft.name ?? `resource-${randomUUID().replaceAll("-", "").slice(0, 24)}`
+            };
+            pluginResourceRelativePath(pending);
+            return { ok: true, name: pending.name, draft: pending };
           }
         });
+        if (!result.ok) {
+          json(response, 422, envelope(null, [...result.diagnostics]));
+          return;
+        }
+        const relativePath = pluginResourceRelativePath(result.draft);
+        const draftRecord: PluginResourceRecord = {
+          kind: result.draft.kind,
+          name: result.draft.name,
+          title: result.draft.title,
+          ...(result.draft.slug === undefined ? {} : { slug: result.draft.slug }),
+          ...(result.draft.labels === undefined ? {} : { labels: result.draft.labels }),
+          ...(result.draft.annotations === undefined
+            ? {}
+            : { annotations: result.draft.annotations }),
+          relativePath,
+          spec: result.draft.spec,
+          readOnly: false
+        };
+        let draftIndexRow: Readonly<Record<string, import("@vellym/plugin-api").PluginIndexValue>>
+          | undefined;
+        const owner = pluginRegistry?.kinds.get(result.draft.kind);
+        const createProjector = owner?.projections.get(result.draft.kind);
+        if (createProjector) {
+          try {
+            draftIndexRow = createProjector({
+              records: (kind) => definitions.filter((record) => record.kind === kind)
+            })(draftRecord)?.values;
+          } catch {
+            // 作成画面の索引化に失敗してもドラフトそのものは編集できる。
+          }
+        }
+        const pluginView = buildPluginViewFromSnapshot({
+          registry: pluginRegistry,
+          snapshot: {
+            pages: [
+              ...ready.snapshot.pages,
+              {
+                kind: draftRecord.kind,
+                name: draftRecord.name,
+                title: draftRecord.title,
+                relativePath,
+                readOnly: false,
+                ...(draftIndexRow ? { indexRow: draftIndexRow } : {})
+              }
+            ],
+            diagnostics: ready.snapshot.diagnostics,
+            definitionRecords: [...definitions, draftRecord]
+          },
+          name: result.name,
+          locale: localeState.requestedLocale ?? localeState.defaultLocale,
+          isStatic: false,
+          ...(result.openView ? { viewId: result.openView } : {})
+        });
+        // コマンドではrepositoryを読み直さず、watchも通知しない。まだ正本に変化はない。
+        json(
+          response,
+          200,
+          envelope(
+            { ...result, relativePath, ...(pluginView ? { pluginView } : {}) },
+            ready.snapshot.diagnostics
+          )
+        );
+        return;
+      }
+      // 未作成Resourceの初回保存。commandとは分け、離脱だけでは到達しない。
+      if (url.pathname === "/api/v1/plugins/resources" && request.method === "POST") {
+        const ready = requireReady();
+        const body = (await readJson(request)) as { baseHash?: unknown; draft?: unknown };
+        if (body.baseHash !== null) {
+          throw new RuntimeError(
+            "未作成ResourceのbaseHashはnullで指定してください",
+            400,
+            "INVALID_CREATE_BASELINE"
+          );
+        }
+        const draft = parsePluginResourceDraft(body.draft);
+        if (!pluginRegistry?.kinds.has(draft.kind)) {
+          throw new RuntimeError("登録されていないkindは作成できません", 422, "PLUGIN_KIND_NOT_REGISTERED");
+        }
+        const created = await createPluginResource(ready.loadedConfig.contentRoot, draft);
         snapshot = await loadRepository(
           ready.loadedConfig.contentRoot,
           snapshot,
           kindOptions
         );
-        if (!result.ok) {
-          json(response, 422, envelope(null, [...result.diagnostics]));
-          return;
-        }
         publishChange();
-        json(response, 200, envelope(result, snapshot.diagnostics));
+        json(response, 201, envelope(created, snapshot.diagnostics));
         return;
       }
       // プラグインが登録したビュー。開いたリソースのkindで決まる。

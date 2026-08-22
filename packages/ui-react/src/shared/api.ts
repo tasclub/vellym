@@ -1,5 +1,5 @@
 import type { PluginViewPayload } from "../plugin/plugin-list-view.js";
-import type { PluginInputValue } from "@vellym/plugin-api";
+import type { PluginInputValue, PluginPendingResource } from "@vellym/plugin-api";
 import type { PluginSpecValue } from "../plugin/plugin-detail-view.js";
 import type {
   Diagnostic,
@@ -528,9 +528,22 @@ export async function runPluginCommand(
     input?: Record<string, PluginInputValue>;
     locale?: string;
   } = {}
-): Promise<{ name: string; openView?: string }> {
+): Promise<{
+  name: string;
+  draft: PluginPendingResource;
+  relativePath: string;
+  pluginView?: PluginViewPayload;
+  openView?: string;
+}> {
   const query = options.locale ? `?locale=${encodeURIComponent(options.locale)}` : "";
-  const envelope = await request<{ ok: true; name: string; openView?: string }>(
+  const envelope = await request<{
+    ok: true;
+    name: string;
+    draft: PluginPendingResource;
+    relativePath: string;
+    pluginView?: PluginViewPayload;
+    openView?: string;
+  }>(
     `/api/v1/plugins/commands/${encodeURIComponent(commandId)}${query}`,
     {
       method: "POST",
@@ -543,8 +556,22 @@ export async function runPluginCommand(
   );
   return {
     name: envelope.data.name,
+    draft: envelope.data.draft,
+    relativePath: envelope.data.relativePath,
+    ...(envelope.data.pluginView ? { pluginView: envelope.data.pluginView } : {}),
     ...(envelope.data.openView ? { openView: envelope.data.openView } : {})
   };
+}
+
+/** 未作成Resourceを初めて正本へする。null baselineにより同名を上書きしない */
+export function createPluginResource(
+  draft: PluginPendingResource
+): Promise<Envelope<{ name: string; relativePath: string }>> {
+  return request("/api/v1/plugins/resources", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ baseHash: null, draft })
+  });
 }
 
 export function fetchPage(

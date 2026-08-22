@@ -17,6 +17,7 @@ import {
 import { useTranslation } from "react-i18next";
 import {
   ApiError,
+  createPluginResource,
   fetchBootstrap,
   fetchPage,
   fetchPluginView,
@@ -46,7 +47,11 @@ import type {
   PluginViewPayload
 } from "../plugin/plugin-list-view.js";
 import type { PluginSpecValue } from "../shared/field-input.js";
-import type { PluginInputValue } from "@vellym/plugin-api";
+import type {
+  PluginInputValue,
+  PluginPendingResource,
+  PluginSpecWrite
+} from "@vellym/plugin-api";
 import { FolderView } from "../editor/folder-view.js";
 import {
   draftCopyText,
@@ -96,6 +101,107 @@ type PendingLeave =
   | { kind: "settings" }
   | { kind: "cancel" }
   | { kind: "reload" };
+
+interface PendingResourceSession {
+  draft: PluginPendingResource;
+  relativePath: string;
+  /** キャンセル時に戻る、作成コマンドを起こしたResource */
+  originName?: string;
+}
+
+function richTextBlocksOf(draft: PluginPendingResource): RichTextBlock[] {
+  const source = Array.isArray(draft.spec.blocks) ? draft.spec.blocks : [];
+  return source.flatMap((item) => {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      Array.isArray(item) ||
+      (item as Record<string, unknown>).type !== "rich-text" ||
+      typeof (item as Record<string, unknown>).id !== "string" ||
+      typeof (item as Record<string, unknown>).content !== "string"
+    ) {
+      return [];
+    }
+    return [{ ...(item as RichTextBlock) }];
+  });
+}
+
+/** 未指定のspecと未知blockを落とさず、画面で触った値だけを重ねる */
+function pendingDraftForSave(
+  session: PendingResourceSession,
+  title: string,
+  slug: string,
+  blocks: readonly RichTextBlock[],
+  writes: readonly PluginSpecWrite[]
+): PluginPendingResource {
+  const spec = structuredClone(session.draft.spec) as Record<string, unknown>;
+  for (const write of writes) {
+    if (!write.path.length) continue;
+    let target = spec;
+    for (const key of write.path.slice(0, -1)) {
+      const current = target[key];
+      if (!current || typeof current !== "object" || Array.isArray(current)) {
+        target[key] = {};
+      }
+      target = target[key] as Record<string, unknown>;
+    }
+    const key = write.path.at(-1)!;
+    if (write.value === null) delete target[key];
+    else target[key] = structuredClone(write.value);
+  }
+  if (Array.isArray(spec.blocks)) {
+    const edited = new Map(blocks.map((block) => [block.id, block.content]));
+    spec.blocks = spec.blocks.map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return item;
+      const block = item as Record<string, unknown>;
+      if (block.type !== "rich-text" || typeof block.id !== "string") return item;
+      const content = edited.get(block.id);
+      return content === undefined ? item : { ...block, content };
+    });
+  }
+  return {
+    ...session.draft,
+    title,
+    ...(slug === session.draft.name && session.draft.slug === undefined
+      ? {}
+      : { slug }),
+    spec
+  };
+}
+
+function pendingPageView(
+  session: PendingResourceSession,
+  locale: string
+): PageView {
+  return {
+    page: {
+      apiVersion: "vellym.tasclub.com/v1",
+      kind: session.draft.kind,
+      metadata: {
+        name: session.draft.name,
+        title: session.draft.title,
+        ...(session.draft.slug === undefined ? {} : { slug: session.draft.slug }),
+        ...(session.draft.labels === undefined ? {} : { labels: { ...session.draft.labels } }),
+        ...(session.draft.annotations === undefined
+          ? {}
+          : { annotations: { ...session.draft.annotations } })
+      },
+      spec: structuredClone(session.draft.spec)
+    } as PageView["page"],
+    knownBlocks: richTextBlocksOf(session.draft),
+    relativePath: session.relativePath,
+    // 空文字は「保存済みhash」ではなく、未作成セッション内だけの番兵である。
+    hash: "",
+    readOnly: false,
+    readOnlyReasons: [],
+    locale,
+    requestedLocale: locale,
+    baseLocale: locale,
+    availableLocales: [locale],
+    editableLocales: [locale],
+    isBaseLocale: true
+  };
+}
 
 function parentPath(relativePath: string): string {
   const parts = relativePath.replaceAll("\\", "/").split("/");
@@ -162,6 +268,8 @@ export function App() {
   // プラグインが登録したビュー。開いたリソースのkindに対応するものがあれば、
   // 本文の代わりにこれを描く。無ければ通常の文書表示のままにする。
   const [pluginView, setPluginView] = useState<PluginViewPayload>();
+  // 未作成Resourceは正本にもrepository一覧にも入れず、このセッションだけで持つ。
+  const [pendingResource, setPendingResource] = useState<PendingResourceSession>();
   // 「完了を含める」は個人設定であり、正本にも絞り込み条件にも書き戻さない。
   const [showAllRows, setShowAllRows] = useState(false);
   // 次に開くリソースと、そこで開くビュー。対象が一致したときだけ使い、
@@ -184,8 +292,6 @@ export function App() {
   const [specChanges, setSpecChanges] = useState<
     Array<{ path: string[]; value: PluginSpecValue }>
   >([]);
-  /** 作成した直後は編集画面へ入る。作ってから開き直させない */
-  const pendingEditRef = useRef<string | undefined>(undefined);
   // ツリーから起こしたプラグインのコマンド。入力を尋ねてから実行する。
   const [pluginCommand, setPluginCommand] = useState<{
     commandId: string;
@@ -247,6 +353,7 @@ export function App() {
   const hasUnsavedChanges =
     // プラグインの項目もページの未保存に含める。ここから漏れると、
     // 保存状態が「未保存」と「保存済み」の間で往復する。
+    Boolean(pendingResource) ||
     specChanges.length > 0 ||
     (editSession ? pageEditSessionDirty(editSession) : legacyUnsavedChanges);
 
@@ -302,6 +409,7 @@ export function App() {
   }
 
   function applyView(next: PageView) {
+    setPendingResource(undefined);
     setView(next);
     setSelected(next.page.metadata.name);
     setTitle(next.page.metadata.title);
@@ -355,12 +463,6 @@ export function App() {
         return;
       }
       applyView(next);
-      // 作った直後はそのまま編集画面へ入る。作ってから開き直させない。
-      if (pendingEditRef.current === name) {
-        pendingEditRef.current = undefined;
-        // `view`の状態はまだ前のページを指している。開いたばかりの名前を渡す。
-        await startMultilingualEdit(name);
-      }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setMessage(errorMessage(error, t));
@@ -394,10 +496,11 @@ export function App() {
   useEffect(() => {
     if (bootstrap?.state !== "ready") return;
     if (!selected) return;
+    if (pendingResource?.draft.name === selected) return;
     const controller = new AbortController();
     void loadPage(selected, true, controller.signal);
     return () => controller.abort();
-  }, [selected, requestedLocale]);
+  }, [selected, requestedLocale, pendingResource?.draft.name]);
 
   useEffect(() => {
     function restoreLocation() {
@@ -544,7 +647,26 @@ export function App() {
       targetName: view.page.metadata.name,
       targetTitle: view.page.metadata.title,
       targetPath: view.relativePath,
+      ...(pendingResource
+        ? {
+            saveDraft: async (writes: readonly PluginSpecWrite[]) => {
+              const draft = pendingDraftForSave(
+                pendingResource,
+                title,
+                slug,
+                blocks,
+                writes
+              );
+              await createPluginResource(draft);
+            }
+          }
+        : {}),
       onSaved: async () => {
+        if (pendingResource) {
+          setPendingResource(undefined);
+          setSpecChanges([]);
+          await loadList();
+        }
         await loadPage(view.page.metadata.name, true);
         setSavedAt(Date.now());
         setSaveState("success");
@@ -553,7 +675,7 @@ export function App() {
     });
     // 読み直しの関数は毎回作り直されるため、依存に含めない。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pluginView, view, t]);
+  }, [pluginView, view, pendingResource, title, slug, blocks, t]);
 
   const missingRequired = useMemo(() => {
     const descriptor = pluginView?.descriptor;
@@ -679,6 +801,39 @@ export function App() {
     setArea("documents");
   }
 
+  function openPendingResource(
+    created: Awaited<ReturnType<typeof runPluginCommand>>,
+    originName?: string
+  ) {
+    const session: PendingResourceSession = {
+      draft: created.draft,
+      relativePath: created.relativePath,
+      ...(originName ? { originName } : {})
+    };
+    const locale = requestedLocale ?? bootstrap?.project.defaultLocale ?? "ja";
+    const next = pendingPageView(session, locale);
+    setPendingResource(session);
+    setView(next);
+    setPluginView(created.pluginView);
+    setSelected(created.name);
+    setSelectedFolder(undefined);
+    setArea("documents");
+    setTitle(created.draft.title);
+    setSlug(created.draft.slug ?? created.draft.name);
+    setBlocks(next.knownBlocks.map((block) => ({ ...block })));
+    setEditSession(undefined);
+    setSpecChanges([]);
+    setEditing(true);
+    setSaveState("dirty");
+    setSaveError("");
+    setMessage("");
+    window.history.pushState(
+      null,
+      "",
+      documentPagePath(locale, created.draft.slug ?? created.name)
+    );
+  }
+
   function navigate(name: string, heading?: string) {
     if (hasUnsavedChanges && selected !== name) {
       setPendingLeave({ kind: "navigate", page: name, heading });
@@ -799,6 +954,23 @@ export function App() {
     const action = pendingLeave;
     setPendingLeave(undefined);
     if (!action || !view) return;
+    if (pendingResource) {
+      const originName = pendingResource.originName;
+      setPendingResource(undefined);
+      setSpecChanges([]);
+      setEditing(false);
+      if ((action.kind === "cancel" || action.kind === "reload") && originName) {
+        commitNavigation(originName);
+        return;
+      }
+      if (action.kind === "cancel" || action.kind === "reload") {
+        const fallback = pages[0]?.name;
+        if (fallback) commitNavigation(fallback);
+        return;
+      }
+      leaveTo(action);
+      return;
+    }
     applyView(view);
     leaveTo(action);
   }
@@ -823,10 +995,8 @@ export function App() {
   /**
    * 編集を始める。
    *
-   * 対象を引数で受け取れるようにしてある。読み込み直後に呼ぶ場合、`view`の状態は
-   * まだこの関数が閉じ込めた**前の**ページを指しており、そのまま使うと
-   * 「別のページの編集セッション」と「開いたページのプラグイン画面」が
-   * 混ざる。作った直後に編集へ入る経路がこれを踏んだ。
+   * 対象を引数で受け取れるようにしてある。読み込み直後に呼ぶ側は、`view`のstateが
+   * まだこの関数が閉じ込めた**前の**ページを指しうるためである。
    */
   async function startMultilingualEdit(target?: string) {
     const pageId = target ?? view?.page.metadata.name;
@@ -883,6 +1053,37 @@ export function App() {
     setSaveError("");
     setCopyMessage("");
     setConflictView(undefined);
+    if (pendingResource) {
+      try {
+        const pending = pendingDraftForSave(
+          pendingResource,
+          title,
+          slug,
+          blocks,
+          specValues
+        );
+        await createPluginResource(pending);
+        setPendingResource(undefined);
+        setSpecChanges([]);
+        await loadList();
+        await loadPage(pending.name, true);
+        window.history.replaceState(
+          null,
+          "",
+          documentPagePath(
+            requestedLocale ?? bootstrap?.project.defaultLocale ?? "ja",
+            pending.slug ?? pending.name
+          )
+        );
+        setSavedAt(Date.now());
+        setSaveState("success");
+        return true;
+      } catch (error) {
+        setSaveState(error instanceof ApiError && error.status === 409 ? "conflict" : "failure");
+        setSaveError(errorMessage(error, t));
+        return false;
+      }
+    }
     if (editSession) {
       const submittedSession = editSession;
       try {
@@ -975,13 +1176,8 @@ export function App() {
         input: { ...input, folder: target.parentPath },
         locale: requestedLocale ?? bootstrap?.project.requestedLocale
       });
-      await loadList();
-      // 作った直後は設定画面を開く。ステータスも項目も空のままにしない。
-      // どのビューを開くかはプラグインが決める（作成の応答で受け取る）。
-      if (created.openView) {
-        pendingViewRef.current = { name: created.name, viewId: created.openView };
-      }
-      navigate(created.name);
+      // repositoryへはまだ存在しない。作成元だけを戻り先としてメモリに持つ。
+      openPendingResource(created, selected);
     } catch (error) {
       setMessage(errorMessage(error, t));
     }
@@ -1267,10 +1463,7 @@ export function App() {
                   input,
                   locale: requestedLocale ?? bootstrap.project.requestedLocale
                 });
-                // 作成の行き先が指定されていなければ編集画面へ入る。
-                // 定義の設定画面のように、行き先を宣言しているものは従う。
-                if (!created.openView) pendingEditRef.current = created.name;
-                navigate(created.name);
+                openPendingResource(created, view.page.metadata.name);
               } catch (error) {
                 setMessage(errorMessage(error, t));
               }

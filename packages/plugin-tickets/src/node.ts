@@ -76,7 +76,7 @@ export default definePlugin({
       title: { ja: "チケットを作成", en: "New ticket" },
       // 作成は静的版に出さない。無効な操作をdisabledで残さない。
       static: false,
-      // 作る前に尋ねない。押すと初期値だけのチケットができ、そのまま編集画面へ入る。
+      // 作る前に尋ねない。押すと初期値だけのドラフトになり、そのまま編集画面へ入る。
       // 作成用の画面と編集用の画面を別に持たない。同じ画面で全部を書く。
       run: (context) => {
         // 所属は置き場所で決まる。開いているチケット管理と同じフォルダへ作る。
@@ -157,7 +157,7 @@ export default definePlugin({
             spec: { statuses: [], fields: [] }
           })
           .then((result) =>
-            // 作った直後は設定へ連れて行く。定義が空のまま放置させない。
+            // 最初の保存前から設定へ連れて行く。空の正本を先に作らない。
             result.ok ? { ...result, openView: SETTINGS_VIEW_ID } : result
           );
       }

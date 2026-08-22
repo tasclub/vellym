@@ -25,6 +25,8 @@ export function createRenderContext(options: {
   targetName: string;
   targetTitle: string;
   targetPath: string;
+  /** 未作成ResourceではPATCHせず、null baselineの初回保存を行う */
+  saveDraft?(writes: readonly PluginSpecWrite[]): Promise<void>;
   /** 保存が通ったあとに呼ぶ。読み直しは呼ぶ側の仕事 */
   onSaved(): void | Promise<void>;
   /** 保存に失敗したときの1行を作る */
@@ -65,6 +67,11 @@ export function createRenderContext(options: {
         return { ok: false, message: "静的出力では保存できません" };
       }
       try {
+        if (options.saveDraft) {
+          await options.saveDraft(writes);
+          await options.onSaved();
+          return { ok: true };
+        }
         const edit = await fetchPageEdit(options.targetName);
         await patchPage(options.targetName, {
           baseHash: edit.data.hash,

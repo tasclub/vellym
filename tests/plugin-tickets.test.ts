@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   PluginResourceRecord,
   PluginViewContext,
@@ -306,9 +306,63 @@ describe("ticket plugin", () => {
   });
 
   it("creates without asking anything first", () => {
-    // 作成用の画面を別に持たない。押すと初期値だけのチケットができ、
-    // そのまま編集画面で全部を書く。作ってから開き直させない。
+    // 作成用の画面を別に持たない。押すと初期値だけのドラフトになり、
+    // そのまま編集画面で全部を書く。保存前に正本を開き直させない。
     expect(activate().commands.get("ticket.create")?.inputs).toBeUndefined();
+  });
+
+  it("returns an initialized in-memory draft without persisting at creation start", async () => {
+    const tracker = record(
+      "TicketTracker",
+      "quality-tickets",
+      "40-品質/quality-tickets.yaml",
+      {
+        statuses: [{ id: "todo", label: "未対応", category: "open" }],
+        fields: [
+          {
+            id: "priority",
+            label: "優先度",
+            type: "select",
+            required: true,
+            options: [{ value: "mid", label: "中" }]
+          },
+          {
+            id: "readiness",
+            label: "準備状況",
+            type: "select",
+            required: true,
+            options: [{ value: "ready", label: "着手可" }]
+          }
+        ]
+      }
+    );
+    const command = activate().commands.get("ticket.create");
+    if (!command) throw new Error("ticket.create was not registered");
+    // createResourceはhostのステージング口であり、ファイル保存のmockではない。
+    const stage = vi.fn(async (draft: import("@vellym/plugin-api").PluginResourceDraft) => {
+      if (!draft.name) throw new Error("ticket name is required");
+      return { ok: true as const, name: draft.name, draft: { ...draft, name: draft.name } };
+    });
+    const result = await command.run({
+      locale: "ja",
+      target: tracker,
+      records: (kind) => kind === "TicketTracker" ? [tracker] : [],
+      createResource: stage
+    });
+
+    expect(stage).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({
+      ok: true,
+      draft: {
+        kind: "Ticket",
+        folder: "40-品質",
+        spec: {
+          status: "todo",
+          fields: { priority: "mid", readiness: "ready" },
+          blocks: [{ id: "description", type: "rich-text", content: "" }]
+        }
+      }
+    });
   });
 
   it("puts labels in the index row so the list can filter on them", () => {
