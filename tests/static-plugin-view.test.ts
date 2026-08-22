@@ -55,4 +55,32 @@ describe("静的プラグインビューの索引", () => {
       "https://example.test/data/static-test/ja/views/ticket/detail.json"
     ]);
   });
+
+  it("索引の取得に失敗した後は次の呼び出しで再取得する", async () => {
+    window.__VELLYM_STATIC__ = {
+      appBase: "https://retry.example.test/",
+      assetBase: "https://retry.example.test/assets",
+      dataBase: "https://retry.example.test/data/static-test/ja",
+      buildId: "static-test",
+      locale: "ja",
+      defaultLocale: "ja"
+    };
+    let indexCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("plugin-views.json")) {
+        indexCalls += 1;
+        if (indexCalls === 1) throw new Error("temporary failure");
+        return staticEnvelope({ views: { ticket: { viewIds: [] } } });
+      }
+      if (url.endsWith("views/ticket.json")) {
+        return staticEnvelope({ pluginId: "tickets", viewId: "list" });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    }));
+
+    await expect(fetchPluginView("ticket")).resolves.toBeUndefined();
+    await expect(fetchPluginView("ticket")).resolves.toMatchObject({ viewId: "list" });
+    expect(indexCalls).toBe(2);
+  });
 });
