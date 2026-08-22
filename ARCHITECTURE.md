@@ -13,12 +13,13 @@ introduce a second place where document content lives.
 
 ## Packages
 
-The repository is an npm workspaces monorepo. Only `vellym` is published; the other
-three are internal and get bundled into it at build time.
+The repository is an npm workspaces monorepo. Three packages are published; the
+internal ones are bundled into `vellym` at build time.
 
 | Package | Published | Responsibility |
 | --- | --- | --- |
 | `@vellym/plugin-api` | **yes** | The public plugin contract: host API types, record types, view descriptors, manifest schema |
+| `@vellym/tickets` | **yes** | The official ticket management plugin. Not bundled — installed by the project that wants it |
 | `@vellym-internal/core` | no | Types, JSON Schema validation, navigation, search projection, editing rules |
 | `@vellym-internal/runtime-node` | no | Filesystem access, repository loading, saving, structure changes, the local HTTP server |
 | `@vellym-internal/ui-react` | no | The browser UI, used by both the dev server and the static build |

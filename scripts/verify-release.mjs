@@ -16,7 +16,10 @@ const expected = `v${manifest.version}`;
 if (suppliedTag !== expected) {
   throw new Error(`release tagとpackage versionが一致しません: ${suppliedTag} != ${expected}`);
 }
-if (!/^\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?$/.test(manifest.version)) {
+// prereleaseの連番は任意とする。`0.4.0-beta`のように番号を持たない形を許す。
+// 同じ版のbetaを2回出すときだけ`beta.2`のように付ける。dist-tagは`-`の後の
+// 先頭要素から決まるため、番号の有無で変わらない。
+if (!/^\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)(?:\.\d+)?)?$/.test(manifest.version)) {
   throw new Error(`許可されていないversion形式です: ${manifest.version}`);
 }
 

@@ -1,0 +1,32 @@
+apiVersion: vellym.tasclub.com/v1
+kind: TicketTracker
+metadata:
+  name: demo-tickets
+  title: デモ：チケット管理
+spec:
+  # 先頭が新規作成時の初期値。配列順が表示順。
+  statuses:
+    - { id: todo, label: 未着手, category: open }
+    - { id: doing, label: 対応中, category: open }
+    - { id: done, label: 完了, category: closed }
+  fields:
+    - id: priority
+      label: 優先度
+      type: select
+      required: true
+      listColumn: true
+      options:
+        - { value: high, label: 高 }
+        - { value: mid, label: 中 }
+        - { value: low, label: 低 }
+    - id: assignee
+      label: 担当
+      type: text
+      listColumn: true
+    - id: due
+      label: 期限
+      type: date
+      listColumn: true
+    - id: notes
+      label: メモ
+      type: multiline

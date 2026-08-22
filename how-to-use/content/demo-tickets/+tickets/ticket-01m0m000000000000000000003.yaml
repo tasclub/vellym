@@ -1,0 +1,18 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-01m0m000000000000000000003
+  title: 英語版の言い回しを揃える
+spec:
+  status: todo
+  fields:
+    priority: low
+    assignee: 翻訳担当
+    due: 2026-10-01
+    notes: |
+      同じ概念に別の訳語が当たっている箇所がある。
+  blocks:
+    - id: description
+      type: rich-text
+      content: |
+        同じ概念に別の訳語が当たっている箇所がある。

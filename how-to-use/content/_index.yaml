@@ -12,6 +12,7 @@ spec:
     - using-plugins.yaml
     - ticket-management.yaml
     - developing-plugins.yaml
+    - demo-tickets
     - concepts.yaml
     - self-hosting.yaml
     - index.yaml

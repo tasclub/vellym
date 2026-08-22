@@ -1,0 +1,16 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-01m0m000000000000000000002
+  title: 用語集のページを作る
+spec:
+  status: todo
+  fields:
+    priority: mid
+    notes: |
+      「正本」「索引行」など、説明なしで使っている語をまとめる。
+  blocks:
+    - id: description
+      type: rich-text
+      content: |
+        「正本」「索引行」など、説明なしで使っている語をまとめる。
