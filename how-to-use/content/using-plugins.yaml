@@ -1,0 +1,97 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: using-plugins
+  title: プラグインを使う
+spec:
+  locale: ja
+  blocks:
+    - id: using-plugins
+      type: rich-text
+      content: |
+        ## プラグインを追加する
+
+        Vellymプロジェクトのルートで、使いたいプラグインをnpmパッケージとして
+        インストールする。公式のチケット管理を使う場合は次のとおり。
+
+        ```bash
+        npm install @vellym/tickets
+        ```
+
+        次に、`vellym.config.yaml`の`plugins`へパッケージ名を追加する。
+
+        ```yaml
+        plugins:
+          - "@vellym/tickets"
+        ```
+
+        複数使う場合は同じ配列へ一つずつ並べる。Vellymは設定ファイルの場所を起点に
+        パッケージを探すため、そのプロジェクトへインストールする。
+
+        設定ファイルのほかの項目は[[configuration|設定ファイル]]を参照。
+
+        ## プラグインを外す
+
+        `plugins`からパッケージ名を削除すると、そのプラグインの一覧、専用画面、操作が
+        表示されなくなる。不要なら、その後npmパッケージも削除できる。
+
+        ```bash
+        npm uninstall @vellym/tickets
+        ```
+
+        プラグインを外しても、そのプラグインが扱っていたYAMLをVellymが削除したり
+        書き換えたりすることはない。対応するプラグインがない`kind`は専用の解釈をせず、
+        文書ツリーには表示しない。これはエラーではなく、共通部分の本文は全文検索と
+        内部リンクから引き続き利用できる。
+
+        ## 関連
+
+        - 公式チケット管理 → [[ticket-management|チケット管理]]
+        - プラグイン開発の入口 → [[developing-plugins|プラグインを作る]]
+  translations:
+    en:
+      visibility: published
+      title: Using Plugins
+      blocks:
+        - id: using-plugins
+          type: rich-text
+          content: |
+            ## Add a plugin
+
+            From the Vellym project root, install the plugin as an npm package. For the
+            official ticket manager, run:
+
+            ```bash
+            npm install @vellym/tickets
+            ```
+
+            Then add the package name to `plugins` in `vellym.config.yaml`:
+
+            ```yaml
+            plugins:
+              - "@vellym/tickets"
+            ```
+
+            List each package separately when using more than one. Vellym resolves packages
+            from the config file's location, so install them in that project.
+
+            See [[configuration|Configuration File]] for the other settings.
+
+            ## Remove a plugin
+
+            Removing a package name from `plugins` removes that plugin's lists, dedicated
+            screens, and actions. You can then remove the npm package if it is no longer needed:
+
+            ```bash
+            npm uninstall @vellym/tickets
+            ```
+
+            Removing a plugin never deletes or rewrites the YAML it handled. A `kind` with no
+            matching plugin is no longer interpreted or shown in the document tree. This is
+            not an error: its common body remains available to full-text search and internal
+            links.
+
+            ## Related
+
+            - Official ticket management → [[ticket-management|Ticket Management]]
+            - Start developing a plugin → [[developing-plugins|Developing Plugins]]

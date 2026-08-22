@@ -43,8 +43,9 @@ spec:
         - **導入・運用者**（CLIで初期化・起動し、静的サイトや自己ホストを運用する人）
         - **利用者**（ブラウザ上で文書を閲覧する人、YAML／リッチテキストで文書を執筆する人）
 
-        製品を組み込むための公開ライブラリSDKは現段階では提供していないため、
-        パッケージ内部を利用する開発者向けの記述は含めない。
+        Vellymを拡張するプラグインには公開APIを提供する。入口は
+        [[developing-plugins|プラグインを作る]]を参照。Vellym本体を組み込むための
+        ライブラリSDKや、公開されていない内部パッケージは対象にしない。
 
         ## この資料の読み方
 
@@ -52,6 +53,9 @@ spec:
         - まず動かしたい → [[getting-started|はじめかた]]
         - コマンドを調べたい → [[cli-reference|CLIリファレンス]]
         - 設定ファイルを調べたい → [[configuration|設定ファイル]]
+        - プラグインを追加したい → [[using-plugins|プラグインを使う]]
+        - チケットを管理したい → [[ticket-management|チケット管理]]
+        - プラグインを作りたい → [[developing-plugins|プラグインを作る]]
         - 文書を書きたい → [[authoring|文書の書き方（YAML）]]
         - ブラウザ画面の操作を知りたい → [[browser-guide|ブラウザ画面の使い方]]
         - 静的配信・自己ホストしたい → [[self-hosting|静的配信と自己ホスト]]
@@ -104,8 +108,9 @@ spec:
               site or self-hosting.
             - **Users** who read documents in the browser and author them in YAML or rich text.
 
-            A public library SDK for embedding the product is not provided at this stage, so
-            this guide does not cover developer usage of the internal packages.
+            A public API is available for plugins that extend Vellym; see
+            [[developing-plugins|Developing Plugins]] to get started. A library SDK for
+            embedding Vellym itself and unpublished internal packages are out of scope.
 
             ## How to read this guide
 
@@ -113,6 +118,9 @@ spec:
             - Just run it → [[getting-started|Getting Started]]
             - Look up commands → [[cli-reference|CLI Reference]]
             - Look up the config file → [[configuration|Configuration File]]
+            - Add a plugin → [[using-plugins|Using Plugins]]
+            - Manage tickets → [[ticket-management|Ticket Management]]
+            - Develop a plugin → [[developing-plugins|Developing Plugins]]
             - Author documents → [[authoring|Authoring Documents (YAML)]]
             - Learn the browser UI → [[browser-guide|Using the Browser UI]]
             - Publish a static site / self-host → [[self-hosting|Static Publishing and Self-Hosting]]

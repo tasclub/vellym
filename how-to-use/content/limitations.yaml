@@ -28,12 +28,13 @@ spec:
         - locale別URL、Page単位の言語切り替え、既定言語fallback、locale別閲覧・検索
         - 閲覧専用の静的サイト生成と配信（[[self-hosting|静的配信と自己ホスト]]）
         - 本文ブロックは`rich-text`（CommonMark）（[[authoring|文書の書き方（YAML）]]）
+        - npmパッケージとして追加するプラグインと公開plugin API（[[using-plugins|プラグインを使う]]）
+        - 公式チケット管理プラグイン（[[ticket-management|チケット管理]]）
 
         ## 現段階では利用できないこと（今後の範囲）
 
         次の機能はまだ実装されておらず、「利用可能」ではない。今後の拡張として扱う。
 
-        - プラグイン／plugin SDK（設定の`plugins`は空配列のみ）
         - 差分表示
         - Vellymからのgit操作
         - `rich-text`以外の追加ブロック
@@ -90,13 +91,14 @@ spec:
             - Locale URLs, per-Page language switching, default-language fallback, and locale-specific reading and search
             - Read-only static site generation and serving ([[self-hosting|Static Publishing and Self-Hosting]])
             - The `rich-text` (CommonMark) body block ([[authoring|Authoring Documents (YAML)]])
+            - Plugins installed as npm packages and the public plugin API ([[using-plugins|Using Plugins]])
+            - The official ticket management plugin ([[ticket-management|Ticket Management]])
 
             ## Not available yet (future scope)
 
             The following are not implemented and are not "available". They are treated as
             future extensions.
 
-            - Plugins / plugin SDK (the config `plugins` accepts only an empty array)
             - Diff view
             - Git operations from Vellym
             - Body blocks other than `rich-text`

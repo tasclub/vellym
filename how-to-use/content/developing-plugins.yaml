@@ -1,0 +1,62 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: developing-plugins
+  title: プラグインを作る
+spec:
+  locale: ja
+  blocks:
+    - id: developing-plugins
+      type: rich-text
+      content: |
+        ## 公開APIから始める
+
+        Vellym 0.4.0-beta向けプラグインの公開契約は、初回公開の
+        `@vellym/plugin-api` 0.1.0-betaに含まれる。プラグインのプロジェクトへ
+        開発依存として追加する。
+
+        ```bash
+        npm install --save-dev @vellym/plugin-api@0.1.0-beta
+        ```
+
+        パッケージの`engines.vellym`で対応するVellymの版域を宣言し、`package.json`の
+        `vellym`にkind、画面、操作などの貢献点を書く。Node側の入口では、公開APIを
+        使ってプラグインを定義する。
+
+        最小構成、Node側の例、ホストが守る規則は
+        [@vellym/plugin-api README](https://github.com/tasclub/vellym/tree/main/packages/plugin-api#readme)
+        を参照。公式プラグイン以外のパッケージ名には`vellym-plugin-<name>`を推奨する。
+
+        ## 関連
+
+        - 作成したプラグインをプロジェクトで使う → [[using-plugins|プラグインを使う]]
+  translations:
+    en:
+      visibility: published
+      title: Developing Plugins
+      blocks:
+        - id: developing-plugins
+          type: rich-text
+          content: |
+            ## Start with the public API
+
+            The public contract for plugins targeting Vellym 0.4.0-beta is the initial
+            `@vellym/plugin-api` 0.1.0-beta release. Add it to the plugin project as a
+            development dependency:
+
+            ```bash
+            npm install --save-dev @vellym/plugin-api@0.1.0-beta
+            ```
+
+            Declare the supported Vellym range in `engines.vellym`, and list contributed
+            kinds, views, commands, and other capabilities under `vellym` in `package.json`.
+            Use the public API to define the plugin's Node entry.
+
+            See the [@vellym/plugin-api README](https://github.com/tasclub/vellym/tree/main/packages/plugin-api#readme)
+            for a minimal package, a Node entry example, and the rules enforced by the host.
+            For non-official plugins, the recommended package name is
+            `vellym-plugin-<name>`.
+
+            ## Related
+
+            - Use the plugin in a project → [[using-plugins|Using Plugins]]
