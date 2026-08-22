@@ -11,6 +11,7 @@ const types = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
   [".json", "application/json; charset=utf-8"],
+  [".txt", "text/plain; charset=utf-8"],
   [".xml", "application/xml; charset=utf-8"]
 ]);
 const contentSecurityPolicy = [
@@ -102,11 +103,27 @@ try {
   if (privateProjectDocs.status !== 404) {
     throw new Error("maintainer project documents must not be published");
   }
+  const llms = await fetch(`${baseUrl}/llms.txt`);
+  const llmsText = await llms.text();
+  if (!llms.ok || !llmsText.includes("Vellymとは") || !llmsText.includes("ドキュメントの正本をGitで管理")) {
+    throw new Error("llms.txt is missing a known page title or body");
+  }
+  if (llmsText.includes("[[developing-plugins|")) {
+    throw new Error("llms.txt leaves internal link notation unexpanded");
+  }
   for (const version of ["v1alpha1", "v1"]) {
     for (const resource of ["page", "folder", "rich-text-block"]) {
       const response = await fetch(`${baseUrl}/schemas/${version}/${resource}.schema.json`);
       if (!response.ok) throw new Error(`${version} ${resource} schema is not served`);
       JSON.parse(await response.text());
+    }
+  }
+  for (const resource of ["ticket", "ticket-tracker"]) {
+    const response = await fetch(`${baseUrl}/schemas/v1/${resource}.schema.json`);
+    if (!response.ok) throw new Error(`${resource} schema is not served`);
+    const schema = JSON.parse(await response.text());
+    if (schema.$id !== `https://vellym.tasclub.com/schemas/v1/${resource}.schema.json`) {
+      throw new Error(`${resource} schema has the wrong $id`);
     }
   }
   const configSchema = await fetch(`${baseUrl}/schemas/config-v1.schema.json`);

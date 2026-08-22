@@ -9,7 +9,26 @@
 
 ## [Unreleased]
 
+### 追加
+
+- 公式サイトへ`llms.txt`を出力するようにした。静的版はJavaScriptを前提としており、
+  各`index.html`が本文を持たないため、外部AIエージェントと検索クローラは公開資料の
+  本文を1文字も取得できなかった。ja/en全ページのタイトル・正規URL・commonmark本文を
+  1枚の平文へ連結し、`[[name|表示名]]`は正規URLへの通常のMarkdownリンクへ展開する。
+  静的配信のJavaScript前提は変えず、SPAとは別の成果物として置く。
+- `Ticket`と`TicketTracker`のJSON Schemaを`/schemas/v1/`へ公開した。プラグインが
+  足した`kind`だけ、Vellymを起動せずに正本を検証する手段が無かった。定義は
+  `@vellym/tickets`のTypeScript定数を正本とし、公開時に組み立てる。
+- 利用ガイドのチケット管理と`@vellym/tickets`のREADMEへ、YAMLを直接書くための節を
+  追加した。どちらも画面操作しか説明しておらず、ファイルを直接読み書きする外部AI
+  エージェントはチケットを1件も作れなかった。`Ticket`と`TicketTracker`の完全な例、
+  8種の項目型と値の書き方、`metadata.name`の規則、`metadata.labels`の位置を載せる。
+
 ### 修正
+
+- READMEがプラグイン機構へ一切触れず、「plugin SDK は未実装」という事実と逆の記述を
+  残していたのを直した。0.4.0-betaで公開済みである。両READMEへプラグインの節と
+  `@vellym/tickets`への導線、`llms.txt`への導線を追加した。
 
 - 静的出力で、Pageを開くたびにブラウザの404が2件出ていたのを直した。表示は
   できていたが、`npm run site:verify`のconsole error判定に引っかかり公式サイトを
