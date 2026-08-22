@@ -91,6 +91,31 @@ spec:
 公式サイト <https://vellym.tasclub.com/> は Vellym 自身で生成している。
 `vellym build` の静的サイト出力がどう見えるかは、あのサイトがそのまま例になる。
 
+## プラグイン
+
+npm パッケージで `kind` を追加できる。プラグインは新しい `kind` と、その一覧画面・
+詳細画面・操作を提供する。正本は同じ YAML のまま増える。
+
+公式のチケット管理 [`@vellym/tickets`](packages/plugin-tickets/) を入れる場合。
+
+```bash
+npm install @vellym/tickets
+```
+
+```yaml
+# vellym.config.yaml
+plugins:
+  - "@vellym/tickets"
+```
+
+`Ticket` と `TicketTracker` の YAML の書き方、フィールド型、チケット管理の置き場所は
+[`@vellym/tickets` の README](packages/plugin-tickets/README.md) に載せている。
+プラグインを作る側の情報は <https://vellym.tasclub.com/pages/developing-plugins/> を参照。
+
+プラグインを外しても、そのプラグインが扱っていた YAML を Vellym が削除・書き換えする
+ことはない。対応するプラグインがない `kind` はエラーにならず、本文は全文検索と内部
+リンクから引き続き利用できる。
+
 
 ## 開発
 
@@ -134,7 +159,9 @@ Docker の公開先は `127.0.0.1:4173` に限定し、同一ネットワーク�
 ## ステータス
 
 現在は `init` / `dev` / `validate` / `build` / `migrate` を提供する。
-追加ブロック、preset、Git 操作、plugin SDK は未実装。`v1`契約はRCまで変更される可能性がある。
+プラグイン機構（`kind` の追加）と公式の [`@vellym/tickets`](packages/plugin-tickets/) は
+0.4.0-beta で提供している。追加ブロック、preset、Git 操作は未実装。
+`v1`契約はRCまで変更される可能性がある。
 
 ## ライセンス
 
@@ -143,6 +170,7 @@ MIT © tasclub
 ## 開発参加・サポート
 
 - 利用ガイド: <https://vellym.tasclub.com/>
+- 利用ガイド全文（平文・AIエージェント向け）: <https://vellym.tasclub.com/llms.txt>
 - 不具合・要望: <https://github.com/tasclub/vellym/issues/new/choose>
 - 変更履歴: [CHANGELOG.md](CHANGELOG.md)
 - 開発参加: [CONTRIBUTING.md](CONTRIBUTING.md)

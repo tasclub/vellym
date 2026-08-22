@@ -95,6 +95,25 @@ day you do not need to: the workspace resolves the package to its source.
 
 ## Releasing
 
+Before publishing a feature or a plugin, check the documentation against each reader —
+not whether a document exists, but whether that reader can *reach* it and get what they
+need. A guide page describing only screen operations leaves an agent unable to write the
+YAML, and a package nothing links to is never found.
+
+- **Humans**: a `how-to-use/` page in both languages, listed in `_index.yaml`, linked
+  from an existing page, and checked on the built site.
+- **External AI agents**: the npm README is self-sufficient — never "see the site for
+  details". A complete canonical YAML example, a table of every field type and required
+  key, the `metadata.name` rule, a published JSON Schema under `/schemas/v1/`, and the
+  page's body present in `dist/site/llms.txt`.
+- **Contributors**: `CHANGELOG.md` updated, `CONTRIBUTING.md` still accurate, and the
+  requirement or decision behind the change updated rather than the implementation
+  landing alone.
+
+Also re-walk the entry points: the two READMEs, the site page and its canonical URL,
+`llms.txt`, and `/schemas/v1/`. The README "ステータス" section lists what is *not*
+implemented, so releasing something means deleting a line there.
+
 Publishing to npm uses trusted publishing (OIDC), so no npm token is stored in this
 repository. The npm package must have a trusted publisher registered for this repository
 with workflow filename `publish.yml` and no environment.
