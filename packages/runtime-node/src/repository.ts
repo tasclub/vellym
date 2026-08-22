@@ -23,6 +23,7 @@ import {
   type PageSummary
 } from "@vellym-internal/core";
 import type {
+  PluginDiagnostic,
   PluginRecordProjectorFactory,
   PluginResourceRecord
 } from "@vellym/plugin-api";
@@ -422,7 +423,9 @@ export async function loadRepository(
   if (options.projections?.size) {
     const context = {
       records: (kind: string): readonly PluginResourceRecord[] =>
-        definitionRecords.filter((record) => record.kind === kind)
+        definitionRecords.filter((record) => record.kind === kind),
+      reportDiagnostic: (diagnostic: PluginDiagnostic) =>
+        diagnostics.push({ ...diagnostic })
     };
     const projectors = new Map<string, ReturnType<PluginRecordProjectorFactory>>();
     for (const [kind, create] of options.projections) {

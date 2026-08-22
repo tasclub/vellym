@@ -5,6 +5,7 @@ import {
   folderOf,
   initialTicketSpec,
   readTrackers,
+  trackerDefinitionDiagnostics,
   trackerFor
 } from "./definitions.js";
 import { projectTicket } from "./projection.js";
@@ -44,6 +45,9 @@ export default definePlugin({
     // 定義を先に解決してからprojectorを作る。projectorはチケット1件ごとに
     // 呼ばれるため、その中で定義を引き直さない。
     host.registerRecordProjection(TICKET_KIND, (context) => {
+      for (const diagnostic of trackerDefinitionDiagnostics(context.records(TRACKER_KIND))) {
+        context.reportDiagnostic?.(diagnostic);
+      }
       const trackers = readTrackers(context);
       return (record) => projectTicket(trackers, record);
     });
@@ -153,8 +157,16 @@ export default definePlugin({
             name: trackerName(title),
             title,
             ...(folder ? { folder } : {}),
-            // 空の定義から始める。ステータスを勝手に決めない。
-            spec: { statuses: [], fields: [] }
+            // ステータスの無いチケットは成立しないため、最小の流れを用意する。
+            // 項目は管理対象を利用者が決めるものなので空のままにする。
+            spec: {
+              statuses: [
+                { id: "todo", label: "未着手", category: "open" },
+                { id: "doing", label: "対応中", category: "open" },
+                { id: "done", label: "完了", category: "closed" }
+              ],
+              fields: []
+            }
           })
           .then((result) =>
             // 最初の保存前から設定へ連れて行く。空の正本を先に作らない。

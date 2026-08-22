@@ -1,3 +1,4 @@
+import type { PluginDiagnostic } from "./diagnostics.js";
 import type { PluginIndexValue, PluginResourceRecord } from "./records.js";
 import type { PluginLocalizedText } from "./text.js";
 
@@ -218,6 +219,14 @@ export interface PluginDefinitionContext {
    * `registerRecordProjection`で作る索引行であり、この関数ではない。
    */
   records(kind: string): readonly PluginResourceRecord[];
+  /**
+   * 定義リソースそのものの不整合を報告する。
+   *
+   * `registerRecordProjection`のfactoryを組み立てる間だけhostが渡す。定義を使う
+   * データ1件ごとのprojectorから報告すると同じ警告が大量に重複するため、定義を
+   * 読む時点で1回だけ報告する。ビュー用の文脈では省略される。
+   */
+  reportDiagnostic?(diagnostic: PluginDiagnostic): void;
 }
 
 /** descriptorを組み立てるときにCoreが渡す文脈 */

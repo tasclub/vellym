@@ -100,6 +100,17 @@ function project(definitions: PluginResourceRecord[], ticket: PluginResourceReco
   return create(context(definitions))(ticket);
 }
 
+function definitionDiagnostics(definitions: PluginResourceRecord[]) {
+  const create = activate().projections.get("Ticket");
+  if (!create) throw new Error("Ticket projection was not registered");
+  const diagnostics: import("@vellym/plugin-api").PluginDiagnostic[] = [];
+  create({
+    records: (kind) => definitions.filter((item) => item.kind === kind),
+    reportDiagnostic: (diagnostic) => diagnostics.push(diagnostic)
+  });
+  return diagnostics;
+}
+
 function listView(target?: PluginResourceRecord) {
   const view = activate().views.get("ticket-list")?.view;
   if (typeof view !== "function") throw new Error("expected a view provider");
@@ -363,6 +374,86 @@ describe("ticket plugin", () => {
         }
       }
     });
+  });
+
+  it("creates a tracker with the standard statuses and opens its settings", async () => {
+    const command = activate().commands.get("ticket.create-tracker");
+    if (!command) throw new Error("ticket.create-tracker was not registered");
+    const stage = vi.fn(async (draft: import("@vellym/plugin-api").PluginResourceDraft) => {
+      if (!draft.name) throw new Error("tracker name is required");
+      return { ok: true as const, name: draft.name, draft: { ...draft, name: draft.name } };
+    });
+    const result = await command.run({
+      locale: "ja",
+      input: { title: "開発チケット", folder: "30-実装" },
+      records: () => [],
+      createResource: stage
+    });
+
+    expect(stage).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({
+      ok: true,
+      openView: "ticket-tracker-settings",
+      draft: {
+        kind: "TicketTracker",
+        folder: "30-実装",
+        spec: {
+          statuses: [
+            { id: "todo", label: "未着手", category: "open" },
+            { id: "doing", label: "対応中", category: "open" },
+            { id: "done", label: "完了", category: "closed" }
+          ],
+          fields: []
+        }
+      }
+    });
+  });
+
+  it("warns once per select-like field whose definition has no valid options", () => {
+    const definition = record(
+      "TicketTracker",
+      "empty-options",
+      "40-品質/empty-options.yaml",
+      {
+        statuses: [{ id: "todo", label: "未着手", category: "open" }],
+        fields: [
+          { id: "priority", label: "優先度", type: "select", options: [] },
+          { id: "labels", label: "ラベル", type: "multiselect" },
+          { id: "owner", label: "担当", type: "reference" },
+          {
+            id: "severity",
+            label: "重大度",
+            type: "select",
+            options: [{ value: "high", label: "高" }]
+          }
+        ]
+      }
+    );
+
+    expect(definitionDiagnostics([definition])).toEqual([
+      {
+        file: "40-品質/empty-options.yaml",
+        path: "/spec/fields/0/options",
+        severity: "warning",
+        code: "TICKET_FIELD_OPTIONS_MISSING",
+        message: "選択式の項目に選択肢がありません: priority"
+      },
+      {
+        file: "40-品質/empty-options.yaml",
+        path: "/spec/fields/1/options",
+        severity: "warning",
+        code: "TICKET_FIELD_OPTIONS_MISSING",
+        message: "選択式の項目に選択肢がありません: labels"
+      }
+    ]);
+
+    // チケット件数には依存せず、factoryで定義を読んだときだけ報告する。
+    expect(
+      project(
+        [definition],
+        record("Ticket", "ticket-01", "40-品質/ticket-01.yaml", { status: "todo" })
+      )?.diagnostics
+    ).toBeUndefined();
   });
 
   it("puts labels in the index row so the list can filter on them", () => {

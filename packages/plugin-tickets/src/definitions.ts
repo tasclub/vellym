@@ -1,4 +1,5 @@
 import type {
+  PluginDiagnostic,
   PluginDefinitionContext,
   PluginResourceRecord,
   PluginValueType
@@ -140,6 +141,38 @@ export function readTrackers(context: PluginDefinitionContext): Tracker[] {
     .records(TRACKER_KIND)
     .map(readTracker)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+/**
+ * TicketTracker定義そのものの不整合。チケット1件ごとの投影ではなく、定義を
+ * 読み取る時点で1項目につき1回だけ報告する。
+ */
+export function trackerDefinitionDiagnostics(
+  records: readonly PluginResourceRecord[]
+): PluginDiagnostic[] {
+  const diagnostics: PluginDiagnostic[] = [];
+  for (const record of records) {
+    const fields = asArray(record.spec.fields);
+    fields.forEach((entry, index) => {
+      if (typeof entry !== "object" || entry === null) return;
+      const item = entry as Record<string, unknown>;
+      if (item.type !== "select" && item.type !== "multiselect") return;
+      const validOptions = asArray(item.options).filter((option) => {
+        if (typeof option !== "object" || option === null) return false;
+        return asString((option as Record<string, unknown>).value) !== undefined;
+      });
+      if (validOptions.length > 0) return;
+      const id = asString(item.id);
+      diagnostics.push({
+        file: record.relativePath,
+        path: `/spec/fields/${index}/options`,
+        severity: "warning",
+        code: "TICKET_FIELD_OPTIONS_MISSING",
+        message: `選択式の項目に選択肢がありません${id ? `: ${id}` : ""}`
+      });
+    });
+  }
+  return diagnostics;
 }
 
 /**
