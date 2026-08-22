@@ -226,6 +226,15 @@ spec:
       await readFile(path.join(dataDir, "views/ticket-static-detail.json"), "utf8")
     );
     expect(ticketView.data.viewId).toBe("ticket-detail");
+    // ビューを持つ資源だけを列挙する。無い`welcome`を含めると、静的SPAが
+    // そのJSONを取りに行ってブラウザの404になる。
+    const viewIndex = JSON.parse(
+      await readFile(path.join(dataDir, "plugin-views.json"), "utf8")
+    );
+    expect(viewIndex.data.views.welcome).toBeUndefined();
+    expect(viewIndex.data.views["ticket-static-detail"]).toEqual({
+      viewIds: []
+    });
     const repository = JSON.parse(
       await readFile(path.join(dataDir, "repository.json"), "utf8")
     );
@@ -292,6 +301,12 @@ spec:
     );
     const names = repository.data.pages.map((page: { name: string }) => page.name);
     expect(names).not.toContain("hidden");
+    // プラグインを使わないサイトでも、クライアントが最初に読む索引は置く。
+    // ここが無いと、通常のPageを開いただけで索引自身の404になる。
+    const viewIndex = JSON.parse(
+      await readFile(path.join(dataDir, "plugin-views.json"), "utf8")
+    );
+    expect(viewIndex.data.views).toEqual({});
     for (const name of names) {
       const page = JSON.parse(
         await readFile(path.join(dataDir, `pages/${name}.json`), "utf8")

@@ -64,6 +64,10 @@ export interface RepositoryData {
   folders: FolderSummary[];
 }
 
+interface StaticPluginViewIndex {
+  views: Record<string, { viewIds: string[] }>;
+}
+
 export type SetupMode = "recommended" | "templates" | "empty";
 export type ProjectSize = "personal" | "small-team" | "medium-large";
 export type DevelopmentMethod = "agile" | "hybrid" | "waterfall";
@@ -377,6 +381,24 @@ async function fetchStatic<T>(base: string, file: string): Promise<Envelope<T>> 
   return result as Envelope<T>;
 }
 
+let staticPluginViewIndex:
+  | { base: string; buildId: string | undefined; value: Promise<StaticPluginViewIndex> }
+  | undefined;
+
+function fetchStaticPluginViewIndex(base: string): Promise<StaticPluginViewIndex> {
+  const buildId = window.__VELLYM_STATIC__?.buildId;
+  if (
+    staticPluginViewIndex?.base === base &&
+    staticPluginViewIndex.buildId === buildId
+  ) {
+    return staticPluginViewIndex.value;
+  }
+  const value = fetchStatic<StaticPluginViewIndex>(base, "plugin-views.json")
+    .then((envelope) => envelope.data);
+  staticPluginViewIndex = { base, buildId, value };
+  return value;
+}
+
 export function fetchBootstrap(
   signal?: AbortSignal,
   locale?: string
@@ -492,9 +514,13 @@ export async function fetchPluginView(
 ): Promise<PluginViewPayload | undefined> {
   const base = staticBase();
   if (base) {
-    // 静的版はビルド時に焼き込んだJSONを読む。**ビューを持たない資源では
-    // ファイルが無い**ので、404は「ビューが無い」として扱う。
+    // 索引に無い資源は焼き込みJSONを持たない。先に止めれば、404を例外として
+    // 扱っても残ってしまうブラウザのnetwork errorを出さずに済む。
     try {
+      const indexed = (await fetchStaticPluginViewIndex(base)).views[name];
+      if (!indexed || (viewId && !indexed.viewIds.includes(viewId))) {
+        return undefined;
+      }
       const baked = await fetchStatic<PluginViewPayload>(
         base,
         viewId
