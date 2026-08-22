@@ -65,8 +65,9 @@ export async function loadCanonicalPage(
 /**
  * 文書ツリーへ出さない置き場所か。
  *
- * `_`で始まるフォルダの配下を隠す。`_index.yaml`と`_archive/`で既に使っている
- * 「通常の内容ではないもの」の印を、フォルダ名の規約として広げたものである。
+ * `_`または`+`で始まるフォルダの配下を隠す。`_`は一覧からも除外する置き場所、
+ * `+`は一覧には出す機械用の置き場所である。ここではツリー表示だけを判定し、
+ * 一覧から除外するかどうかは各一覧の別の判定に委ねる。
  * **隠すだけで、読み込みからは外さない。** 全文検索と内部リンクからは到達でき、
  * ファイルにも触れない。整理は利用者の作業であり、Vellymは自動で移動も削除もしない。
  */
@@ -74,7 +75,7 @@ export function isHiddenPath(relativePath: string): boolean {
   return relativePath
     .split("/")
     .slice(0, -1)
-    .some((segment) => segment.startsWith("_"));
+    .some((segment) => segment.startsWith("_") || segment.startsWith("+"));
 }
 
 /** 既知kindの集合が同じか。増分読み込みで前回の結果を使えるかの判定に使う */

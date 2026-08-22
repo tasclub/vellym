@@ -152,6 +152,45 @@ describe("page repository and save", () => {
     expect(repository.diagnostics).toHaveLength(0);
   });
 
+  it("loads marked folders but keeps underscore and plus folders out of the document tree", async () => {
+    const root = await fixture();
+    await mkdir(path.join(root, "+machine/nested"), { recursive: true });
+    await mkdir(path.join(root, "_private/nested"), { recursive: true });
+    await writeFile(
+      path.join(root, "+machine/nested/plus.yaml"),
+      source("plus-page").replaceAll("Before", "Plus searchable"),
+      "utf8"
+    );
+    await writeFile(
+      path.join(root, "_private/nested/underscore.yaml"),
+      source("underscore-page").replaceAll("Before", "Underscore searchable"),
+      "utf8"
+    );
+
+    const repository = await loadRepository(root);
+
+    // 印は読み込みを止めない。Coreだけでも検索と直接参照から到達できる。
+    expect(repository.byName.has("plus-page")).toBe(true);
+    expect(repository.byName.has("underscore-page")).toBe(true);
+    expect(searchRepository(repository, "Plus searchable").total).toBeGreaterThan(0);
+    expect(searchRepository(repository, "Underscore searchable").total).toBeGreaterThan(0);
+    // 中間フォルダの先頭1文字が、配下すべてのツリー表示に効く。
+    expect(localizedPageSummaries(repository, "ja", "ja").map((page) => page.name)).toEqual([
+      "test-page"
+    ]);
+    const folderPaths = localizedFolderSummaries(repository, "ja", "ja").map(
+      (folder) => folder.path
+    );
+    for (const hiddenPath of [
+      "+machine",
+      "+machine/nested",
+      "_private",
+      "_private/nested"
+    ]) {
+      expect(folderPaths).not.toContain(hiddenPath);
+    }
+  });
+
   it("isolates malformed YAML", async () => {
     const root = await fixture();
     await writeFile(path.join(root, "broken.yaml"), "value: [broken\n", "utf8");

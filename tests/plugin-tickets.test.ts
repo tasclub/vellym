@@ -175,6 +175,27 @@ describe("ticket plugin", () => {
     }
   });
 
+  it("keeps tickets under a plus folder in the index row", () => {
+    const projection = project(
+      trackers,
+      record(
+        "Ticket",
+        "ticket-01",
+        "30-実装/単体テスト/+machine/nested/ticket-01.yaml",
+        { status: "open", fields: { caseId: "UT-1" } }
+      )
+    );
+
+    // `+`はツリーだけを隠す印であり、一覧除外の判定には使わない。
+    expect(projection?.values).toMatchObject({
+      tracker: "unit-test-tickets",
+      trackers: ["unit-test-tickets"],
+      status: "open",
+      "field:caseId": "UT-1"
+    });
+    expect(projection?.diagnostics).toBeUndefined();
+  });
+
   it("lists a ticket in every tracker above it, judged by the nearest one", () => {
     const nested = record(
       "TicketTracker",
