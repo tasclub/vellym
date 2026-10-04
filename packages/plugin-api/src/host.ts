@@ -52,6 +52,11 @@ export interface PluginKindIcon {
 export interface PluginKindContribution {
   kind: string;
   /**
+   * Semver版のkind契約／エンジン。複数プラグインが同じkindを登録した場合、
+   * 最も新しい版の登録を採用する。省略時は従来の先着順になる。
+   */
+  engineVersion?: string;
+  /**
    * 種別固有`spec`のJSON Schema。省略すると共通契約の範囲だけを検証する。
    *
    * schemaに合わないリソースは**エラーにならない**。警告として示し、読める

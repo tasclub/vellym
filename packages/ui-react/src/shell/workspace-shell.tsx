@@ -112,8 +112,8 @@ export function WorkspaceShell(props: {
   canManage: boolean;
   canConfigure: boolean;
   /** プラグインが文書ツリーの追加メニューへ出すもの */
-  pluginCreateOptions?: Array<{ id: string; label: string }>;
-  onRunTreeCommand?(commandId: string, parentPath: string): void;
+  pluginCreateOptions?: Array<{ id: string; commandId: string; pluginId: string; label: string }>;
+  onRunTreeCommand?(commandId: string, pluginId: string, parentPath: string): void;
   uiLocale: string;
   currentLocale: string;
   onSelect(name: string): void;
@@ -345,7 +345,10 @@ export function WorkspaceShell(props: {
                     const id = String(key);
                     if (id !== "page" && id !== "folder") {
                       // 選択中の場所へ作る。何も選んでいなければcontent root直下。
-                      props.onRunTreeCommand?.(id, contextualParent);
+                      const command = props.pluginCreateOptions?.find((item) => item.id === id);
+                      if (command) {
+                        props.onRunTreeCommand?.(command.commandId, command.pluginId, contextualParent);
+                      }
                       return;
                     }
                     setStructureAction({
@@ -386,7 +389,8 @@ export function WorkspaceShell(props: {
           createOptions={props.pluginCreateOptions ?? []}
           onCreate={(kind, parentPath) => {
             if (kind !== "page" && kind !== "folder") {
-              props.onRunTreeCommand?.(kind, parentPath);
+              const command = props.pluginCreateOptions?.find((item) => item.id === kind);
+              if (command) props.onRunTreeCommand?.(command.commandId, command.pluginId, parentPath);
               return;
             }
             setStructureAction({
@@ -531,7 +535,8 @@ export function WorkspaceShell(props: {
               onCreate={(kind, parentPath) => {
                 setDrawerOpen(false);
                 if (kind !== "page" && kind !== "folder") {
-                  props.onRunTreeCommand?.(kind, parentPath);
+                  const command = props.pluginCreateOptions?.find((item) => item.id === kind);
+                  if (command) props.onRunTreeCommand?.(command.commandId, command.pluginId, parentPath);
                   return;
                 }
                 setStructureAction({

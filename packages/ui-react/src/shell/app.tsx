@@ -295,6 +295,7 @@ export function App() {
   // ツリーから起こしたプラグインのコマンド。入力を尋ねてから実行する。
   const [pluginCommand, setPluginCommand] = useState<{
     commandId: string;
+    pluginId: string;
     parentPath: string;
   }>();
   const [editSession, setEditSession] = useState<PageEditSession>();
@@ -1173,6 +1174,7 @@ export function App() {
     if (!target) return;
     try {
       const created = await runPluginCommand(target.commandId, {
+        pluginId: target.pluginId,
         input: { ...input, folder: target.parentPath },
         locale: requestedLocale ?? bootstrap?.project.requestedLocale
       });
@@ -1365,12 +1367,14 @@ export function App() {
         canConfigure={bootstrap.capabilities.structure}
         pluginCreateOptions={(bootstrap.plugins?.documentTreeCommands ?? []).map(
           (command) => ({
-            id: command.id,
+            id: `${command.pluginId}:${command.id}`,
+            commandId: command.id,
+            pluginId: command.pluginId,
             label: resolveLocalizedText(command.title, bootstrap.project.uiLocale)
           })
         )}
-        onRunTreeCommand={(commandId, parentPath) =>
-          setPluginCommand({ commandId, parentPath })
+        onRunTreeCommand={(commandId, pluginId, parentPath) =>
+          setPluginCommand({ commandId, pluginId, parentPath })
         }
         uiLocale={bootstrap.project.uiLocale}
         currentLocale={activeLocale}
@@ -1466,6 +1470,7 @@ export function App() {
             onRunCommand={async (commandId, input) => {
               try {
                 const created = await runPluginCommand(commandId, {
+                  pluginId: pluginView.pluginId,
                   target: view.page.metadata.name,
                   input,
                   locale: requestedLocale ?? bootstrap.project.requestedLocale

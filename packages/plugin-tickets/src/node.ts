@@ -57,6 +57,7 @@ export default definePlugin({
       id: LIST_VIEW_ID,
       view: ticketListView,
       opensKind: TRACKER_KIND,
+      label: { ja: "チケット一覧", en: "Ticket list" },
       static: true
     });
     // チケット管理そのものの設定。同じkindの2つ目のビューとして登録する。

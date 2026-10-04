@@ -42,6 +42,7 @@ export interface BootstrapData {
     kindIcons?: Record<string, import("@vellym/plugin-api").PluginKindIcon>;
     documentTreeCommands: Array<{
       id: string;
+      pluginId: string;
       title: import("@vellym/plugin-api").PluginLocalizedText;
       inputs?: readonly import("@vellym/plugin-api").PluginCommandInput[];
     }>;
@@ -562,6 +563,7 @@ export async function fetchPluginView(
 export async function runPluginCommand(
   commandId: string,
   options: {
+    pluginId?: string;
     target?: string;
     /** 宣言した型のまま送る。すべてを文字列へ潰さない */
     input?: Record<string, PluginInputValue>;
@@ -588,6 +590,7 @@ export async function runPluginCommand(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        ...(options.pluginId ? { pluginId: options.pluginId } : {}),
         ...(options.target ? { target: options.target } : {}),
         ...(options.input ? { input: options.input } : {})
       })

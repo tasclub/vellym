@@ -1221,6 +1221,43 @@ plugins: []
 }`,
       "utf8"
     );
+    const secondPluginRoot = path.join(project, "node_modules/example-ticket-plugin-two");
+    await mkdir(secondPluginRoot, { recursive: true });
+    await writeFile(
+      path.join(secondPluginRoot, "package.json"),
+      JSON.stringify({
+        name: "example-ticket-plugin-two",
+        version: "1.0.0",
+        type: "module",
+        main: "index.mjs",
+        engines: { vellym: ">=0.3.0-beta.1" },
+        vellym: {
+          id: "example-tickets-two",
+          contributes: {
+            kinds: [{ kind: "Ticket" }],
+            commands: [
+              { id: "ticket.create", title: { ja: "別の作成" }, static: false }
+            ]
+          }
+        }
+      }),
+      "utf8"
+    );
+    await writeFile(
+      path.join(secondPluginRoot, "index.mjs"),
+      `export function activate(host) {
+  host.registerKind({ kind: "Ticket" });
+  host.registerCommand({
+    id: "ticket.create",
+    title: { ja: "別の作成" },
+    static: false,
+    run(context) {
+      return context.createResource({ kind: "Ticket", name: "ticket-from-second-plugin", title: "Second", spec: {} });
+    }
+  });
+}`,
+      "utf8"
+    );
     const configPath = path.join(project, "vellym.config.yaml");
     await writeFile(
       configPath,
@@ -1231,6 +1268,7 @@ ui:
   language: ja
 plugins:
   - example-ticket-plugin
+  - example-ticket-plugin-two
 `,
       "utf8"
     );
@@ -1260,6 +1298,15 @@ plugins:
           name: "ticket-draft-test",
           spec: { fields: { priority: "mid", readiness: "ready" } }
         }
+      });
+      const secondStarted = await fetch(`${server.url}/api/v1/plugins/commands/ticket.create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pluginId: "example-tickets-two" })
+      });
+      expect(secondStarted.status).toBe(200);
+      expect(await secondStarted.json()).toMatchObject({
+        data: { name: "ticket-from-second-plugin" }
       });
       // キャンセルや離脱は追加のHTTP操作をしない。commandだけでは1件も増えない。
       expect((await readdir(root)).filter((file) => file.startsWith("ticket-"))).toEqual(before);

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  buildPluginView,
   loadPlugins,
   loadRepository,
   localizedPageSummaries,
@@ -132,6 +133,130 @@ describe("loadPlugins", () => {
     });
     expect(registry.kinds.get("Ticket")?.packageName).toBe("first");
     expect(registry.diagnostics.map((item) => item.code)).toEqual(["PLUGIN_KIND_CONFLICT"]);
+  });
+
+  it("resolves duplicate kinds by declared semver independent of plugin order", async () => {
+    const first = {
+      name: "engine-old",
+      engines: ">=0.3.0-beta.1",
+      manifest: { id: "engine-old", contributes: { kinds: [{ kind: "Ticket" }] } },
+      entry: `export function activate(host) { host.registerKind({ kind: "Ticket", engineVersion: "1.2.0-beta.2" }); }`
+    };
+    const second = {
+      name: "engine-new",
+      engines: ">=0.3.0-beta.1",
+      manifest: { id: "engine-new", contributes: { kinds: [{ kind: "Ticket" }] } },
+      entry: `export function activate(host) { host.registerKind({ kind: "Ticket", engineVersion: "1.2.0" }); }`
+    };
+    for (const plugins of [[first, second], [second, first]]) {
+      const configDir = await projectWith(plugins);
+      const registry = await loadPlugins({
+        configDir,
+        packageNames: plugins.map((plugin) => plugin.name),
+        hostVersion: HOST_VERSION
+      });
+      expect(registry.kinds.get("Ticket")?.id).toBe("engine-new");
+      expect(registry.diagnostics.map((item) => item.code)).toEqual([
+        "PLUGIN_KIND_VERSION_MISMATCH"
+      ]);
+    }
+  });
+
+  it("does not warn when duplicate kind registrations declare the same version", async () => {
+    const plugins = ["engine-a", "engine-b"].map((name) => ({
+      name,
+      engines: ">=0.3.0-beta.1",
+      manifest: { id: name, contributes: { kinds: [{ kind: "Ticket" }] } },
+      entry: `export function activate(host) { host.registerKind({ kind: "Ticket", engineVersion: "1.2.0" }); }`
+    }));
+    const configDir = await projectWith(plugins);
+    const registry = await loadPlugins({
+      configDir,
+      packageNames: plugins.map((plugin) => plugin.name),
+      hostVersion: HOST_VERSION
+    });
+    expect(registry.kinds.get("Ticket")?.id).toBe("engine-a");
+    expect(registry.diagnostics).toEqual([]);
+  });
+});
+
+describe("plugin view siblings", () => {
+  it("includes labeled views from other plugins and filters by static availability", async () => {
+    const listDescriptor = (id: string) => ({
+      type: "list",
+      id,
+      kind: "Ticket",
+      title: { en: id },
+      columns: []
+    });
+    const plugins: FakePlugin[] = [
+      {
+        name: "views-one",
+        engines: ">=0.3.0-beta.1",
+        manifest: {
+          id: "views-one",
+          contributes: {
+            views: [
+              { id: "tracker-list", kind: "TicketTracker", type: "list", static: true },
+              { id: "hidden-label", kind: "TicketTracker", type: "list", static: true },
+              { id: "dynamic", kind: "TicketTracker", type: "list", static: false }
+            ]
+          }
+        },
+        entry: `export function activate(host) {
+          host.registerView({ id: "tracker-list", opensKind: "TicketTracker", label: { en: "List" }, static: true, view: ${JSON.stringify(listDescriptor("tracker-list"))} });
+          host.registerView({ id: "hidden-label", opensKind: "TicketTracker", static: true, view: ${JSON.stringify(listDescriptor("hidden-label"))} });
+          host.registerView({ id: "dynamic", opensKind: "TicketTracker", label: { en: "Dynamic" }, static: false, view: ${JSON.stringify(listDescriptor("dynamic"))} });
+        }`
+      },
+      {
+        name: "views-two",
+        engines: ">=0.3.0-beta.1",
+        manifest: {
+          id: "views-two",
+          contributes: {
+            views: [
+              { id: "board", kind: "TicketTracker", type: "detail", static: true }
+            ]
+          }
+        },
+        entry: `export function activate(host) {
+          host.registerView({ id: "board", opensKind: "TicketTracker", label: { en: "Board" }, static: true, view: ${JSON.stringify(listDescriptor("board"))} });
+        }`
+      }
+    ];
+    const configDir = await projectWith(plugins);
+    const registry = await loadPlugins({
+      configDir,
+      packageNames: plugins.map((plugin) => plugin.name),
+      hostVersion: HOST_VERSION
+    });
+    const payload = (isStatic: boolean) =>
+      buildPluginView({
+        registry,
+        target: {
+          kind: "TicketTracker",
+          name: "tracker-1",
+          title: "Tracker",
+          relativePath: "tracker.yaml",
+          spec: {},
+          readOnly: true
+        },
+        rows: [],
+        definitions: () => [],
+        locale: "en",
+        isStatic
+      });
+
+    const devPayload = payload(false)!;
+    const staticPayload = payload(true)!;
+    expect(devPayload.siblings!.map((item) => item.id)).toEqual([
+      "tracker-list",
+      "dynamic",
+      "board"
+    ]);
+    expect(devPayload.siblings![2]?.type).toBe("detail");
+    expect(staticPayload.siblings!.map((item) => item.id)).toEqual(["tracker-list", "board"]);
   });
 });
 

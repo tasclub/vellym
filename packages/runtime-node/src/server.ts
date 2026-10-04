@@ -706,6 +706,7 @@ export async function startDevServer(options: {
                       });
                       return {
                         id: command.id,
+                        pluginId: plugin.id,
                         title: command.title,
                         ...(inputs ? { inputs } : {})
                       };
@@ -1185,6 +1186,7 @@ export async function startDevServer(options: {
         const ready = requireReady();
         const localeState = localeRequest(url, ready.loadedConfig.config);
         const body = (await readJson(request)) as {
+          pluginId?: unknown;
           target?: unknown;
           input?: unknown;
         };
@@ -1208,7 +1210,9 @@ export async function startDevServer(options: {
             }
           }
         }
+        const requestedPluginId = typeof body?.pluginId === "string" ? body.pluginId : undefined;
         const command = pluginRegistry?.plugins
+          .filter((plugin) => !requestedPluginId || plugin.id === requestedPluginId)
           .flatMap((plugin) => plugin.commands)
           .find((item) => item.id === commandMatch[1]);
         if (!command) {

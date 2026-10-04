@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import satisfies from "semver/functions/satisfies.js";
+import compare from "semver/functions/compare.js";
+import valid from "semver/functions/valid.js";
 import { validatePluginManifest, type Diagnostic } from "@vellym-internal/core";
 import {
   PLUGIN_MANIFEST_FIELD,
@@ -152,6 +154,7 @@ export async function loadPlugins(
     diagnostics: []
   };
   const seenIds = new Set<string>();
+  const pluginConfigIndexes = new Map<LoadedPlugin, number>();
 
   // 解決はconfigDir起点。CLI自身のnode_modulesへは降りない。`vellym`はnpxでも
   // 実行されるため、CLI側の依存を拾うと利用者のプロジェクトに入っていないものが動く。
@@ -172,20 +175,54 @@ export async function loadPlugins(
     }
     seenIds.add(loaded.id);
     registry.plugins.push(loaded);
-    for (const contribution of loaded.kinds) {
-      const owner = registry.kinds.get(contribution.kind);
-      if (owner) {
+    pluginConfigIndexes.set(loaded, index);
+  }
+  const kindRegistrations = new Map<
+    string,
+    Array<{ plugin: LoadedPlugin; version?: string; index: number }>
+  >();
+  for (const plugin of registry.plugins) {
+    for (const contribution of plugin.kinds) {
+      const registrations = kindRegistrations.get(contribution.kind) ?? [];
+      registrations.push({
+        plugin,
+        version: contribution.engineVersion,
+        index: pluginConfigIndexes.get(plugin) ?? 0
+      });
+      kindRegistrations.set(contribution.kind, registrations);
+    }
+  }
+  for (const [kind, registrations] of kindRegistrations) {
+    let winner = registrations[0]!;
+    const allVersioned = registrations.every(
+      (registration) => registration.version !== undefined && valid(registration.version)
+    );
+    if (registrations.length > 1 && allVersioned) {
+      winner = registrations.reduce((current, candidate) =>
+        compare(candidate.version!, current.version!) > 0 ? candidate : current
+      );
+      const versions = new Set(registrations.map((registration) => valid(registration.version!)));
+      if (versions.size > 1) {
         registry.diagnostics.push(
           diagnostic(
-            index,
-            "PLUGIN_KIND_CONFLICT",
-            `kind "${contribution.kind}"は${owner.packageName}が既に解釈します。${packageName}の登録は無視します`
+            winner.index,
+            "PLUGIN_KIND_VERSION_MISMATCH",
+            `kind "${kind}"は異なるエンジン版で登録されています。${winner.plugin.packageName} (${winner.version})を採用します`
           )
         );
-        continue;
       }
-      registry.kinds.set(contribution.kind, loaded);
+    } else if (registrations.length > 1) {
+      for (const conflict of registrations.slice(1)) {
+        registry.diagnostics.push(
+          diagnostic(
+            conflict.index,
+            "PLUGIN_KIND_CONFLICT",
+            `kind "${kind}"は${winner.plugin.packageName}が既に解釈します。${conflict.plugin.packageName}の登録は無視します`
+          )
+        );
+      }
     }
+    registry.kinds.set(kind, winner.plugin);
   }
   return registry;
 }
@@ -581,20 +618,22 @@ export function buildPluginView(options: {
     descriptor,
     rows,
     allRows: scoped,
-    siblings: plugin.views
-      .filter((item) => {
-        if (options.isStatic && !item.static) return false;
-        return viewOpensKind(plugin, item) === options.target.kind;
-      })
-      .map((item) => ({
-        id: item.id,
-        // descriptorは関数の場合があり、呼ばずに種別を知る必要がある。
-        // manifestが宣言した種別を使う。宣言と実装の一致はプラグイン側の責務。
-        type:
-          plugin.manifest.contributes?.views?.find((declared) => declared.id === item.id)
-            ?.type ?? "list",
-        ...(item.label ? { label: item.label } : {})
-      })),
+    siblings: options.registry.plugins.flatMap((siblingPlugin) =>
+      siblingPlugin.views
+        .filter((item) => {
+          if (!item.label || (options.isStatic && !item.static)) return false;
+          return viewOpensKind(siblingPlugin, item) === options.target.kind;
+        })
+        .map((item) => ({
+          id: item.id,
+          // descriptorは関数の場合があり、呼ばずに種別を知る必要がある。
+          // manifestが宣言した種別を使う。宣言と実装の一致はプラグイン側の責務。
+          type:
+            siblingPlugin.manifest.contributes?.views?.find((declared) => declared.id === item.id)
+              ?.type ?? "list",
+          label: item.label!
+        }))
+    ),
     commands: plugin.commands
       .filter((command) => command.placement !== "document-tree")
       .filter((command) => !options.isStatic || command.static)
