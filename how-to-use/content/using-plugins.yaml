@@ -48,6 +48,7 @@ spec:
 
         - 公式チケット管理 → [[ticket-management|チケット管理]]
         - プラグイン開発の入口 → [[developing-plugins|プラグインを作る]]
+        - 設計で迷う点 → [[plugin-design-notes|プラグイン設計で迷う点]]
   translations:
     en:
       visibility: published
@@ -95,3 +96,4 @@ spec:
 
             - Official ticket management → [[ticket-management|Ticket Management]]
             - Start developing a plugin → [[developing-plugins|Developing Plugins]]
+            - Design decisions and pitfalls → [[plugin-design-notes|Plugin Design Notes]]
