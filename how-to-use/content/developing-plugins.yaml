@@ -389,10 +389,13 @@ spec:
         | manifestが不正 | `vellym.id`の形式、各貢献点の必須項目、未対応の余分な項目がないか。 |
         | `engines.vellym`がない／版域外 | Vellym本体を対象にしたsemver範囲を宣言し、実行中の版を含めたか。 |
         | `activate(host)`がない | Node入口がdefault exportまたはnamed exportで、`definePlugin(...)`の結果を公開しているか。 |
+        | kindが既に解釈されている | 同じ`kind`を別のプラグインも登録していないか。既存kindへ見え方を足すだけなら`kinds`を宣言しない（[[plugin-design-notes|プラグイン設計で迷う点]]）。 |
+        | プラグインidが重複している | `vellym.id`が、同時に使う別のプラグインと同じになっていないか。 |
         | browser入口を読めない | `exports["./browser"]`のファイルがpackされ、依存をbundleまたはexternal化できているか。 |
 
         ## 関連
 
+        - 設計で迷う点と既知の落とし穴 → [[plugin-design-notes|プラグイン設計で迷う点]]
         - 作成したプラグインをプロジェクトで使う → [[using-plugins|プラグインを使う]]
         - 設定全体を確認する → [[configuration|設定ファイル]]
   translations:
@@ -786,9 +789,12 @@ spec:
             | Invalid manifest | Check the `vellym.id` format, required contribution fields, and unsupported extra fields. |
             | Missing or incompatible `engines.vellym` | Declare a semver range for Vellym itself and include the running version. |
             | Missing `activate(host)` | Ensure the Node entry exports the result of `definePlugin(...)` as a default or named export. |
+            | Kind already interpreted | Check whether another plugin registers the same `kind`. If you are only adding a presentation of an existing kind, do not declare `kinds` ([[plugin-design-notes|Plugin Design Notes]]). |
+            | Duplicate plugin id | Check that `vellym.id` differs from every other plugin in use. |
             | Browser entry cannot be loaded | Ensure the file in `exports["./browser"]` is packed and dependencies are bundled or externalized. |
 
             ## Related
 
+            - Design decisions and known pitfalls → [[plugin-design-notes|Plugin Design Notes]]
             - Use the plugin in a project → [[using-plugins|Using Plugins]]
             - Review all configuration → [[configuration|Configuration File]]

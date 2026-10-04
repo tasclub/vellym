@@ -1,0 +1,435 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: plugin-design-notes
+  title: プラグイン設計で迷う点
+spec:
+  locale: ja
+  blocks:
+    - id: plugin-design-notes
+      type: rich-text
+      content: |
+        プラグインを設計するとき、[[developing-plugins|プラグインを作る]]の手順どおりに
+        書けても判断に迷う点がある。ここでは**仕様を読むだけでは分からない挙動**と、
+        その理由、どう設計すべきかをまとめる。
+
+        特に、同じリソースを複数のプラグインで別の見え方として扱いたい場合に必要な知識である。
+
+        ## 1つのkindを解釈するのは1つのプラグインだけ
+
+        2つのプラグインが同じ`kind`を`registerKind`で登録すると、**先に読み込まれた側だけが
+        有効になる。** あとの登録は`PLUGIN_KIND_CONFLICT`の警告になり、無視される。
+        どちらが先かは`vellym.config.yaml`の`plugins`に書いた順である。
+
+        無視されるのはそのkindについての`specSchema`、`showInDocumentTree`、`hasBlocks`、
+        アイコン、そして`registerRecordProjection`で登録した索引行の作り方である。
+
+        理由は、読み取り経路が答えを1つしか持てないことにある。`specSchema`が2つあると
+        どちらで検証するか決まらず、索引行を作る関数が2つあると索引行のキーが衝突する。
+        Vellymはこれを統合する規則を持たないため、先着を採って残りを警告にする。
+
+        ### ビューは制約を受けない
+
+        **一方、`registerView`と`registerViewRenderer`に同じ制約はない。**
+        ビューの探索は全プラグインを横断するため、**あるkindを解釈するプラグインが1つで、
+        そのkindを表示するプラグインが複数**という構成は成り立つ。
+
+        索引行はkindを登録したプラグインのprojectorが作り、**どのプラグインのビューにも
+        そのまま渡る。** したがって、既存のkindへ別の見え方を足すプラグインは、
+        `kind`を登録する必要がない。ビューだけを登録すればよい。
+
+        ```text
+        プラグインA   kind + specSchema + projection + 一覧ビュー
+        プラグインB   ビューだけ（Aのkindを別の形で表示する）
+        ```
+
+        Bは`kinds`をmanifestへ書かない。書くと上の衝突が起きる。
+
+        ### 同じkindを複数のプラグインで登録したい場合
+
+        共通のリソース種別を扱う複数のプラグインを配る場合、**kindの登録を担うのは
+        1つに決める。** 各プラグインが同じ実装を同梱して全員が登録する形は、
+        現在の版では警告が出続け、`plugins`の順序によってどの実装が有効になるかが変わる。
+
+        ## 導入しただけでは画面は出ない
+
+        プラグインを`plugins`へ足しても、**その種別のリソースが1件も無ければ画面は出ない。**
+
+        ビューは`opensKind`のリソースを開いたときに本文の代わりに描かれる。
+        したがって画面へ到達するには、`opensKind`に指定したkindのリソースが
+        content rootに存在する必要がある。
+
+        公式のチケット管理がこの形である。一覧ビューの`opensKind`は`TicketTracker`なので、
+        `TicketTracker`のYAMLを作るまでチケット一覧の画面は現れない。
+
+        **画面の出現はリソースの有無で決まり、パッケージの有無では決まらない。**
+        利用者から見える入口を用意するには、`placement: "document-tree"`のコマンドで
+        その定義リソースを作れるようにする。
+
+        設計上の含意が2つある。
+
+        - 導入直後の空の状態を、エラーではなく**作成への誘導**として設計する。
+          一覧の`emptyState`に`commandId`を書くと、0件の画面から作成コマンドを起こせる。
+        - 「インストールすると画面が増える」挙動にはならない。利用者が定義リソースを
+          置いた場所にだけ現れる。
+
+        ## 定義を後から足しても、既存のリソースは壊れない
+
+        利用者が書いた定義リソース（項目の一覧など）を読んで動くプラグインでは、
+        **あとから項目を増やしたときに既存のリソースがどうなるか**が問題になる。
+
+        Vellym側の保証は2つある。
+
+        - `specSchema`に合わない値は**エラーにならない。** 警告として示され、値は原文のまま
+          保持される。定義を1つ変えただけで大量のリソースが編集不能になることはない。
+        - 入力項目の`required`は、**そのコマンドの実行だけを止める。** 既にあるリソースの
+          編集も、利用者が手で書いたYAMLも止めない。
+
+        プラグイン側で守ることは1つである。
+
+        **projectorは、リソースに実際に書かれている値だけを読む。** 定義にあって
+        リソースに無い項目を、欠損として扱ったり既定値で埋めたりしない。そうすれば、
+        あとから定義へ項目を足しても既存リソースは索引行に現れ続け、
+        利用者が全件へ値を入れ直す作業は発生しない。
+
+        初期値を書くのは作成時の1回だけにする。読み取りのたびに補完すると、
+        「書かれていない」と「既定値が書かれている」の区別が失われる。
+
+        ## 値が未設定の行を、ビューから落とさない
+
+        **最も起こりやすい不具合である。** ビューが「その値を持つ行だけ」を集めると、
+        値が未設定のリソースが一覧から消える。利用者から見ると
+        「あとからプラグインを入れたら既存のデータが表示されない」という形で現れる。
+
+        絞り込みの演算子に`not-in`があるのはこのためである。「既定では完了を出さない」と
+        いう条件は、**含めるものを数え上げるのではなく、除くものを数え上げる。**
+        含めるものを列挙すると、値が未設定のもの、定義から外れた値を持つものが、
+        数え上げ漏れで一覧から消える。
+
+        ```text
+        避ける: status が todo / doing / review のどれか  → 未設定の行が消える
+        推奨:   status が done / dropped のどれでもない   → 未設定の行も残る
+        ```
+
+        同じことが表示の軸にも当てはまる。列や行を値ごとに並べる画面では、
+        **値が未設定のものを束ねる区画を必ず用意する。** 日付で並べる画面なら
+        「日付なし」、担当で分ける画面なら「未割り当て」である。
+
+        値が定義から外れている場合も同様に、消さずに「定義外」として示し、
+        診断で位置を伝える。
+
+        ## コマンドIDは全プラグインで共有される名前空間
+
+        コマンドの**登録**はプラグインごとだが、**実行**は全プラグインを横断して
+        IDで探し、最初に見つかった1つを動かす。
+
+        したがって、別のプラグインと同じコマンドIDを使うと、
+        **自分のビューのボタンから別のプラグインの処理が動くことがある。**
+        どちらが動くかは`plugins`の順序で決まる。登録時の警告は出ない。
+
+        **コマンドIDには必ずプラグイン固有の接頭辞を付ける。**
+        `create`ではなく`reading-list.create`のようにする。
+
+        同じ理由で、ビューIDにも固有の接頭辞を付けるとよい。
+
+        ## プラグインの依存は自動で読み込まれない
+
+        Vellymが読み込むのは`vellym.config.yaml`の`plugins`に**列挙されたパッケージだけ**
+        である。あるプラグインが別のプラグインをnpmの依存に持っていても、
+        依存側が自動で有効になることはない。
+
+        2つのプラグインを組み合わせて使う構成を配る場合は、
+        **利用者が`plugins`へ両方を書く必要がある**ことを自分のREADMEへ明記する。
+
+        ```yaml
+        plugins:
+          - "vellym-plugin-foo"
+          - "vellym-plugin-foo-board"
+        ```
+
+        片方だけでも壊れない設計にしておくと、利用者が順に試せる。
+        解釈するプラグインが無いkindは、未知の内容として原文のまま保持される。
+
+        ## 表示の軸は、定義リソースから読む
+
+        「どの項目を列にするか」「どの項目を日付として扱うか」を**コードに埋めない。**
+        利用者が書く定義リソースから読む。
+
+        公式のチケット管理がこの形である。一覧の列になるのは、利用者が
+        `TicketTracker`の項目定義で`listColumn`を宣言したものだけである。
+        プラグインは項目の名前を知らない。
+
+        同じ考え方を、ほかの軸にも広げられる。
+
+        ```yaml
+        # 利用者が書く定義リソース
+        spec:
+          axes:
+            column: status      # 区画の軸にする項目
+            date: due           # 日付として扱う項目
+        ```
+
+        利点は3つある。
+
+        - 利用者が項目名を変えても、定義を1行直せば追従できる。コードへ埋めると
+          プラグインの更新を待つことになる。
+        - 同じデータを別の軸で見る画面を、定義を増やすだけで作れる。
+        - 項目の型を宣言するのは利用者であり、プラグインが型を推測しなくて済む。
+
+        軸に指定された項目が見つからない場合は、**読み込みを失敗させず診断を出す。**
+        値の不一致を警告にとどめるのと同じ扱いにする。
+
+        ## プラグインにできないこと
+
+        設計の前に知っておくと手戻りが少ない。0.4.0-beta時点で次はできない。
+
+        | できないこと | 理由と代わりにできること |
+        | --- | --- |
+        | ファイルシステムやcontent rootのpathを扱う | hostは登録関数だけを渡す。読み取りは抽出済みレコード、作成は`createResource()`、更新はrendererの`save()`を使う |
+        | 開いていないリソースを更新する | `save()`は開いているリソース1件への書き戻しに限られる。複数件の一括更新や、別リソースの更新はできない |
+        | 独自のHTTPエンドポイントを足す | サーバーの経路は固定である。YAML以外を出どころとするデータを画面へ運ぶ手段はない |
+        | 他のプラグインの画面へ操作を足す | 貢献点がない。自分のビューの中に操作を置く |
+        | YAML以外から索引行を作る | projectorが受け取るのは抽出済みレコードだけである |
+        | `list`と`detail`以外のビュー種別を宣言する | 宣言で表せない画面は`registerViewRenderer`で自分で描く |
+        | 設定画面の値を読む | manifestの`settings`は検証されるが、値を読むAPIはまだない |
+
+        最後の2つを踏まえると、**宣言で表せる画面は宣言で、表せない画面は自前描画で**
+        という切り分けになる。自前描画でも`@vellym/plugin-api/ui`のUI部品を使えるため、
+        アクセシビリティと日英表示を自分で作り直す必要はない。
+
+        ## 設計を始める前の確認
+
+        1. 既存のkindへ**見え方を足すだけ**か、**新しいkindを持つ**か。前者なら
+           `kinds`を宣言しない。
+        2. 利用者がどの定義リソースを置いたとき画面が出るか。その作成導線をどこに置くか。
+        3. 値が未設定のリソースを、どの区画に出すか。
+        4. コマンドIDとビューIDに固有の接頭辞が付いているか。
+        5. 表示の軸を定義リソースから読んでいるか。コードに埋めていないか。
+        6. 上の「できないこと」に当たる設計が混ざっていないか。
+
+        ## 関連
+
+        - プラグインの作り方 → [[developing-plugins|プラグインを作る]]
+        - 設計の実例 → [[ticket-management|チケット管理]]
+        - 利用者側の導入手順 → [[using-plugins|プラグインを使う]]
+        - 項目を足しても壊れない理由 → [[document-format|文書形式と互換性]]
+  translations:
+    en:
+      visibility: published
+      title: Plugin Design Notes
+      blocks:
+        - id: plugin-design-notes
+          type: rich-text
+          content: |
+            Even when you follow [[developing-plugins|Developing Plugins]] exactly, some design
+            decisions stay unclear. This page collects **behaviour you cannot infer from the API
+            surface alone**, why it works that way, and how to design around it.
+
+            It matters most when you want several plugins to present the same resources in
+            different ways.
+
+            ## Only one plugin interprets a given kind
+
+            If two plugins call `registerKind` for the same `kind`, **only the one loaded first
+            takes effect.** The later registration becomes a `PLUGIN_KIND_CONFLICT` warning and
+            is ignored. Load order is the order of `plugins` in `vellym.config.yaml`.
+
+            What gets ignored is that kind's `specSchema`, `showInDocumentTree`, `hasBlocks`,
+            icon, and the index-row projector registered through `registerRecordProjection`.
+
+            The reason is that the read path can only hold one answer. Two `specSchema` values
+            leave no way to decide which one validates; two projectors collide on index-row
+            keys. Vellym has no rule for merging them, so it keeps the first and warns about
+            the rest.
+
+            ### Views are not restricted this way
+
+            **`registerView` and `registerViewRenderer` carry no such limit.** View lookup spans
+            every plugin, so **one plugin interpreting a kind and several plugins displaying it**
+            is a supported arrangement.
+
+            Index rows are produced by the projector of the plugin that registered the kind, and
+            they reach **every plugin's views unchanged.** A plugin that adds another way of
+            viewing an existing kind therefore does not need to register the kind at all — only
+            the view.
+
+            ```text
+            Plugin A   kind + specSchema + projection + list view
+            Plugin B   view only (shows A's kind in a different shape)
+            ```
+
+            B leaves `kinds` out of its manifest. Declaring it triggers the conflict above.
+
+            ### When you want several plugins to register one kind
+
+            If you ship several plugins around a shared resource kind, **pick one of them to own
+            the kind registration.** Having each plugin bundle the same implementation and all
+            register it produces a standing warning in the current version, and which
+            implementation wins depends on the order of `plugins`.
+
+            ## Installing a plugin does not make a screen appear
+
+            Adding a plugin to `plugins` shows nothing **until a resource of its kind exists.**
+
+            A view is drawn in place of the body when a resource whose kind matches `opensKind`
+            is opened. Reaching the screen therefore requires a resource of that kind in the
+            content root.
+
+            The official ticket manager works this way. Its list view declares `opensKind` as
+            `TicketTracker`, so no ticket list appears until a `TicketTracker` YAML exists.
+
+            **Screens appear because resources exist, not because packages are installed.**
+            To give users an entry point, let them create that definition resource through a
+            command with `placement: "document-tree"`.
+
+            Two consequences for design:
+
+            - Treat the empty initial state as **an invitation to create**, not an error.
+              Giving a list's `emptyState` a `commandId` lets users run the create command from
+              the empty screen.
+            - You never get "installing it adds a screen" behaviour. Screens appear only where
+              the user placed a definition resource.
+
+            ## Adding definitions later does not break existing resources
+
+            For plugins driven by a user-written definition resource (a list of fields, say),
+            the question is **what happens to existing resources when fields are added later.**
+
+            Vellym guarantees two things:
+
+            - A value that does not match `specSchema` is **not an error.** It surfaces as a
+              warning and the original text is preserved. Changing one definition never makes a
+              large set of resources uneditable.
+            - `required` on a command input **only blocks that command.** It blocks neither
+              editing of existing resources nor YAML the user wrote by hand.
+
+            One rule on the plugin side:
+
+            **A projector reads only the values actually written in the resource.** Never treat
+            a field that exists in the definition but not in the resource as missing data, and
+            never fill it with a default. Then adding fields to a definition later keeps
+            existing resources present in index rows, and users never have to backfill values.
+
+            Write initial values once, at creation time. Filling them in on every read destroys
+            the distinction between "not written" and "written as the default".
+
+            ## Never drop rows whose value is unset
+
+            **This is the easiest defect to introduce.** A view that collects only the rows
+            holding a value makes resources without that value vanish. Users experience it as
+            "I installed the plugin later and my existing data does not show up."
+
+            This is why the filter operators include `not-in`. A condition such as "hide
+            completed items by default" should **enumerate what to exclude, not what to
+            include.** Enumerating what to include drops rows whose value is unset, and rows
+            holding a value outside the definition, through sheer omission.
+
+            ```text
+            Avoid:  status is one of todo / doing / review  → unset rows disappear
+            Prefer: status is none of done / dropped        → unset rows survive
+            ```
+
+            The same applies to display axes. Any screen that arranges items by value **must
+            provide a bucket for items without one** — "No date" when arranging by date,
+            "Unassigned" when splitting by owner.
+
+            Values outside the definition deserve the same treatment: keep them, label them as
+            undeclared, and report their location through a diagnostic.
+
+            ## Command IDs share one namespace across plugins
+
+            Commands are **registered** per plugin, but **executed** by searching every plugin
+            for the ID and running the first match.
+
+            Reusing another plugin's command ID therefore means **a button in your own view can
+            run the other plugin's handler.** Which one runs depends on the order of `plugins`,
+            and no warning is raised at registration.
+
+            **Always prefix command IDs with something specific to your plugin** —
+            `reading-list.create` rather than `create`.
+
+            Prefixing view IDs the same way is worth doing for the same reason.
+
+            ## Plugin dependencies are not loaded transitively
+
+            Vellym loads **only the packages listed** in `plugins` in `vellym.config.yaml`. A
+            plugin that depends on another plugin through npm does not cause that dependency to
+            activate.
+
+            When shipping plugins meant to be combined, state in your own README that **the user
+            must list both** in `plugins`.
+
+            ```yaml
+            plugins:
+              - "vellym-plugin-foo"
+              - "vellym-plugin-foo-board"
+            ```
+
+            Designing each to work on its own lets users adopt them one at a time. A kind with no
+            plugin to interpret it is preserved as unknown content, text intact.
+
+            ## Read display axes from the definition resource
+
+            Do **not** hard-code which field becomes a column, or which field counts as a date.
+            Read it from the definition resource the user writes.
+
+            The official ticket manager does this: a field becomes a list column only when the
+            user declares `listColumn` on it in the `TicketTracker` definition. The plugin does
+            not know the field names.
+
+            The same idea extends to other axes.
+
+            ```yaml
+            # definition resource, written by the user
+            spec:
+              axes:
+                column: status      # field that divides the screen
+                date: due           # field treated as a date
+            ```
+
+            Three benefits:
+
+            - Users who rename a field fix one line of the definition. Hard-coded names force
+              them to wait for a plugin release.
+            - A second view of the same data on a different axis costs only another definition.
+            - The user declares the field's type, so the plugin never has to guess it.
+
+            When an axis points at a field that cannot be found, **emit a diagnostic rather than
+            failing the load** — the same treatment as a mismatched value.
+
+            ## What plugins cannot do
+
+            Knowing this up front avoids rework. As of 0.4.0-beta, none of the following is
+            possible.
+
+            | Not possible | Why, and what to use instead |
+            | --- | --- |
+            | Touch the filesystem or the content root path | The host passes registration functions only. Read extracted records, create through `createResource()`, update through the renderer's `save()` |
+            | Update a resource that is not open | `save()` writes back to the single open resource. Bulk updates and updates to other resources are out of reach |
+            | Add your own HTTP endpoint | Server routes are fixed. There is no way to carry data originating outside YAML into a screen |
+            | Add actions to another plugin's screen | No contribution point exists. Keep actions inside your own views |
+            | Build index rows from anything but YAML | A projector only ever receives extracted records |
+            | Declare a view type other than `list` or `detail` | Draw screens that declarations cannot express yourself, through `registerViewRenderer` |
+            | Read settings values | Manifest `settings` are validated, but no API reads their values yet |
+
+            Given the last two, the split is **declare what declarations can express, and render
+            the rest yourself.** Self-rendered screens can still use the UI parts from
+            `@vellym/plugin-api/ui`, so accessibility and bilingual display need not be rebuilt.
+
+            ## Before you start designing
+
+            1. Are you **adding a presentation** of an existing kind, or **introducing a new
+               kind**? For the former, do not declare `kinds`.
+            2. Which definition resource makes your screen appear, and where does the user
+               create it?
+            3. Which bucket holds resources whose value is unset?
+            4. Do your command IDs and view IDs carry a specific prefix?
+            5. Are display axes read from the definition resource rather than hard-coded?
+            6. Does your design depend on anything in "What plugins cannot do"?
+
+            ## Related
+
+            - How to build a plugin → [[developing-plugins|Developing Plugins]]
+            - A worked example → [[ticket-management|Ticket Management]]
+            - Installation, from the user's side → [[using-plugins|Using Plugins]]
+            - Why adding fields is safe → [[document-format|Document format and compatibility]]
