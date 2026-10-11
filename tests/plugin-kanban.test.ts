@@ -7,6 +7,7 @@ import type {
   PluginViewContext,
   VellymPluginHost
 } from "@vellym/plugin-api";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import { validatePluginManifest } from "@vellym-internal/core";
 import { TICKET_ENGINE_VERSION } from "@vellym-internal/ticket-engine";
 import plugin from "@vellym/kanban";
@@ -127,6 +128,12 @@ describe("Kanban plugin", () => {
 
   it("diagnoses a missing opened Tracker without throwing", () => {
     const invalid = record("Ticket", "some-ticket", "tickets/some-ticket.yaml");
+    const [diagnostic] = resolveKanbanDefinition(context(invalid, [])).diagnostics;
+    expect(diagnostic?.code).toBe("KANBAN_TRACKER_UNRESOLVED");
+    expect(resolveLocalizedText(diagnostic!.message, "ja"))
+      .toBe("開いているチケット管理の状態定義を解決できません");
+    expect(resolveLocalizedText(diagnostic!.message, "en"))
+      .toBe("Could not resolve the opened TicketTracker status definitions.");
     expect(resolveKanbanDefinition(context(invalid, [])).diagnostics.map((item) => item.code)).toEqual([
       "KANBAN_TRACKER_UNRESOLVED"
     ]);

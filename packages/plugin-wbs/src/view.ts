@@ -26,7 +26,10 @@ export function wbsView(context: PluginViewContext): PluginListViewDescriptor {
     if (found) return found.id;
     diagnostics.push({ file: context.target?.relativePath ?? ".", path: `/spec/wbs/${setting}`,
       severity: "warning", code: "WBS_FIELD_INVALID",
-      message: `${setting}には定義済みの${type}項目を指定してください: ${String(id)}` });
+      message: {
+        ja: `${setting}には定義済みの${type}項目を指定してください: ${String(id)}`,
+        en: `Choose a defined ${type} field for ${setting}: ${String(id)}`
+      } });
     return undefined;
   };
   const parentField = field("parentField", "reference", tracker?.parentField);

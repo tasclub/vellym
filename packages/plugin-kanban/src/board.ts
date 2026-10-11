@@ -1,6 +1,7 @@
 import type {
   PluginDiagnostic,
   PluginListViewDescriptor,
+  PluginLocalizedText,
   PluginViewContext
 } from "@vellym/plugin-api";
 import {
@@ -32,7 +33,7 @@ function warning(
   context: PluginViewContext,
   path: string,
   code: string,
-  message: string
+  message: PluginLocalizedText
 ): PluginDiagnostic {
   return {
     file: context.target?.relativePath ?? ".",
@@ -55,7 +56,7 @@ export function resolveKanbanDefinition(context: PluginViewContext): KanbanRende
         context,
         "/",
         "KANBAN_TRACKER_UNRESOLVED",
-        "開いているチケット管理の状態定義を解決できません"
+        { ja: "開いているチケット管理の状態定義を解決できません", en: "Could not resolve the opened TicketTracker status definitions." }
       )
     );
   }
@@ -69,7 +70,7 @@ export function resolveKanbanDefinition(context: PluginViewContext): KanbanRende
           context,
           "/spec/statuses",
           "KANBAN_STATUS_DUPLICATED",
-          `TicketTrackerのstatusが重複しています: ${status.id}`
+          { ja: `TicketTrackerのstatusが重複しています: ${status.id}`, en: `The TicketTracker status is duplicated: ${status.id}` }
         )
       );
       continue;
@@ -87,16 +88,23 @@ export function resolveKanbanDefinition(context: PluginViewContext): KanbanRende
   const requestedOrder = kanban.orderField ?? "order";
   const orderField = tracker?.fields.find((field) => field.id === requestedOrder && field.type === "number");
   if (kanban.orderField !== undefined && !orderField) {
-    diagnostics.push(warning(context, "/spec/kanban/orderField", "KANBAN_ORDER_FIELD_INVALID", `並び順には定義済みの数値項目を指定してください: ${String(requestedOrder)}`));
+    diagnostics.push(warning(context, "/spec/kanban/orderField", "KANBAN_ORDER_FIELD_INVALID", {
+      ja: `並び順には定義済みの数値項目を指定してください: ${String(requestedOrder)}`,
+      en: `Choose a defined numeric field for ordering: ${String(requestedOrder)}`
+    }));
   }
   if (kanban.card !== undefined && (!Array.isArray(kanban.card) ||
       !kanban.card.every((id: unknown) => typeof id === "string"))) {
-    diagnostics.push(warning(context, "/spec/kanban/card", "KANBAN_CARD_INVALID", "カード項目はIDの配列で指定してください"));
+    diagnostics.push(warning(context, "/spec/kanban/card", "KANBAN_CARD_INVALID", {
+      ja: "カード項目はIDの配列で指定してください", en: "Card fields must be specified as an array of IDs."
+    }));
   } else {
     for (const id of (kanban.card ?? []) as string[]) {
       const field = tracker?.fields.find((item) => item.id === id);
       if (!field) {
-        diagnostics.push(warning(context, "/spec/kanban/card", "KANBAN_CARD_FIELD_UNDEFINED", `カード項目が定義にありません: ${id}`));
+        diagnostics.push(warning(context, "/spec/kanban/card", "KANBAN_CARD_FIELD_UNDEFINED", {
+          ja: `カード項目が定義にありません: ${id}`, en: `The card field is not defined: ${id}`
+        }));
       } else if (!cardFields.some((item) => item.id === id)) {
         cardFields.push(field);
       }
@@ -104,7 +112,9 @@ export function resolveKanbanDefinition(context: PluginViewContext): KanbanRende
   }
   if (kanban.summary !== undefined) {
     if (!Array.isArray(kanban.summary)) {
-      diagnostics.push(warning(context, "/spec/kanban/summary", "KANBAN_SUMMARY_INVALID", "集計は項目と方式の配列で指定してください"));
+      diagnostics.push(warning(context, "/spec/kanban/summary", "KANBAN_SUMMARY_INVALID", {
+        ja: "集計は項目と方式の配列で指定してください", en: "Summaries must be specified as an array of fields and methods."
+      }));
     } else {
       kanban.summary.forEach((raw: unknown, index: number) => {
         const entry = typeof raw === "object" && raw !== null && !Array.isArray(raw)
@@ -113,7 +123,10 @@ export function resolveKanbanDefinition(context: PluginViewContext): KanbanRende
         const method = entry.method;
         if (!field || typeof method !== "string" ||
           !SUMMARY_METHODS[field.type].includes(method as SummaryMethod)) {
-          diagnostics.push(warning(context, `/spec/kanban/summary/${index}`, "KANBAN_SUMMARY_UNSUPPORTED", `集計の項目または方式を確認してください: ${String(entry.field ?? "")}`));
+          diagnostics.push(warning(context, `/spec/kanban/summary/${index}`, "KANBAN_SUMMARY_UNSUPPORTED", {
+            ja: `集計の項目または方式を確認してください: ${String(entry.field ?? "")}`,
+            en: `Check the summary field and method: ${String(entry.field ?? "")}`
+          }));
         } else {
           summaries.push({ field, method: method as SummaryMethod });
         }

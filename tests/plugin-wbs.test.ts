@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import type { PluginResourceRecord, PluginViewContext, VellymPluginHost } from "@vellym/plugin-api";
+import type { PluginDiagnostic, PluginResourceRecord, PluginViewContext, VellymPluginHost } from "@vellym/plugin-api";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import type { TicketTreeNode } from "../packages/ticket-engine/src/hierarchy.js";
 import { validatePluginManifest } from "@vellym-internal/core";
 import plugin from "../packages/plugin-wbs/src/node.js";
@@ -60,9 +61,13 @@ describe("WBS as a TicketTracker view", () => {
       rendererData: { parentField: "parent", startField: "start", endField: "due",
         orderField: "sequence", diagnostics: [] } });
     const bad = { ...tracker, spec: { ...tracker.spec, wbs: { startField: "sequence" } } };
-    expect(wbsView(context(bad)).rendererData).toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "WBS_FIELD_INVALID" })]
-    });
+    const diagnostics = wbsView(context(bad)).rendererData?.diagnostics as readonly PluginDiagnostic[] | undefined;
+    const diagnostic = diagnostics?.[0];
+    expect(diagnostic?.code).toBe("WBS_FIELD_INVALID");
+    expect(resolveLocalizedText(diagnostic!.message, "ja"))
+      .toBe("startFieldには定義済みのdate項目を指定してください: sequence");
+    expect(resolveLocalizedText(diagnostic!.message, "en"))
+      .toBe("Choose a defined date field for startField: sequence");
     const withoutParent = { ...tracker, spec: { ...tracker.spec, wbs: { parentField: null } } };
     expect(wbsView(context(withoutParent)).rendererData).not.toHaveProperty("parentField");
   });
