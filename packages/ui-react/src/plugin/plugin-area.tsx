@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { PageView } from "@vellym-internal/core";
 import {
@@ -18,6 +18,7 @@ import {
 import type { PluginSpecValue } from "../shared/field-input.js";
 import { PluginRendererView } from "./plugin-renderer-view.js";
 import { Button } from "../shared/button.js";
+import { PluginCommandDialog } from "./plugin-command-dialog.js";
 import styles from "./plugin.module.css";
 
 /**
@@ -54,12 +55,27 @@ export function PluginListPage(props: {
   notice?: string;
 }) {
   const { payload, view } = props;
+  const [command, setCommand] = useState<PluginViewPayload["commands"][number]>();
   const body = props.renderer && props.renderContext ? (
-    <PluginRendererView
-      viewId={payload.viewId}
-      renderer={props.renderer}
-      context={props.renderContext}
-    />
+    <>
+      <div className={styles["plugin-list-toolbar"]}>
+        <span className={styles["plugin-list-count"]}>{resolveLocalizedText({
+          ja: `${payload.allRows.length}件`, en: `${payload.allRows.length} tickets`
+        }, props.uiLocale)}</span>
+        {props.editable ? payload.commands.map((item) => <Button key={item.id} onClick={() => {
+          if (item.inputs?.length) setCommand(item);
+          else props.onRunCommand(item.id, {});
+        }}>{resolveLocalizedText(item.title, props.uiLocale)}</Button>) : null}
+      </div>
+      <PluginRendererView
+        viewId={payload.viewId}
+        renderer={props.renderer}
+        context={props.renderContext}
+      />
+      <PluginCommandDialog command={command} locale={props.uiLocale}
+        onCancel={() => setCommand(undefined)}
+        onSubmit={(input) => { props.onRunCommand(command!.id, input); setCommand(undefined); }} />
+    </>
   ) : (
     <PluginListView
       payload={payload}
@@ -85,12 +101,20 @@ export function PluginListPage(props: {
           {props.notice}
         </p>
       ) : null}
-      <div className="document-paper">
+      <div
+        className="document-paper"
+        {...(payload.descriptor.type === "list" && payload.descriptor.paperWidth
+          ? { "data-plugin-paper-width": payload.descriptor.paperWidth }
+          : {})}
+      >
         <DocumentView
           view={view}
           onNavigatePage={props.onNavigate}
-          headerActions={(payload.siblings ?? [])
+          headerActions={[...(payload.siblings ?? [])]
             .filter((sibling) => sibling.id !== payload.viewId && sibling.label)
+            // Keep mode switches together and settings after them regardless of plugin
+            // activation order (tickets and Kanban are separate plugins).
+            .sort((left, right) => left.id.localeCompare(right.id))
             .map((sibling) => (
               <Button
                 key={sibling.id}

@@ -17,8 +17,7 @@ import {
 } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-import type { PluginViewRenderer } from "./host.js";
-import type { PluginViewContext } from "./views.js";
+import type { PluginRenderContext, PluginViewRenderer } from "./host.js";
 
 /**
  * componentが受け取るprops。
@@ -27,7 +26,7 @@ import type { PluginViewContext } from "./views.js";
  * propsの名前とぶつからないようにするためである。
  */
 export interface PluginViewProps {
-  context: PluginViewContext;
+  context: PluginRenderContext;
 }
 
 export type PluginViewComponent = ComponentType<PluginViewProps>;
@@ -80,13 +79,13 @@ export function reactRenderer(Component: PluginViewComponent): PluginViewRendere
   return {
     mount(element, context) {
       const root: Root = createRoot(element);
-      const draw = (next: PluginViewContext) =>
+      const draw = (next: PluginRenderContext) =>
         createElement(RendererBoundary, null, createElement(Component, { context: next }));
       root.render(draw(context));
 
       let unmounted = false;
       return {
-        update(next: PluginViewContext) {
+        update(next: PluginRenderContext) {
           if (unmounted) return;
           root.render(draw(next));
         },

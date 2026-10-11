@@ -20,6 +20,9 @@ export type PluginValueType =
   /** 参照先の`metadata.name`。内部リンクと同じ解決先 */
   | "reference";
 
+/** Paper width requested by a view; omitted means the normal reading measure. */
+export type PluginPaperWidth = "wide" | "full";
+
 export interface PluginSelectOption {
   value: string;
   label: PluginLocalizedText;
@@ -106,6 +109,10 @@ export interface PluginListViewDescriptor {
   type: "list";
   id: string;
   kind: string;
+  /** `wide` matches the existing list width; `full` uses the available workspace width. */
+  paperWidth?: PluginPaperWidth;
+  /** Node側で解決した、自前rendererに必要な最小データ。 */
+  rendererData?: Readonly<Record<string, unknown>>;
   title: PluginLocalizedText;
   columns: readonly PluginColumnDescriptor[];
   defaultSort?: PluginSortDescriptor;
@@ -164,6 +171,8 @@ export interface PluginDetailViewDescriptor {
   type: "detail";
   id: string;
   kind: string;
+  /** Node側で解決した、自前rendererに必要な最小データ。 */
+  rendererData?: Readonly<Record<string, unknown>>;
   fields: readonly PluginFieldDescriptor[];
   /**
    * 説明本文の扱い。`"blocks"`にすると、通常のPage編集と同じエディタと
@@ -245,6 +254,8 @@ export interface PluginViewContext extends PluginDefinitionContext {
    * ここで埋める。
    */
   target?: PluginResourceRecord;
+  /** Node側で解決した、自前rendererに必要な最小データ。 */
+  rendererData?: Readonly<Record<string, unknown>>;
 }
 
 /** descriptorそのもの、または文脈から組み立てる関数 */

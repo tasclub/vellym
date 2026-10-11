@@ -17,7 +17,9 @@ const REQUIRED_EXPORTS: Record<string, readonly string[]> = {
   "vellym-react.js": ["useState", "useEffect", "useMemo", "useRef", "createElement"],
   "vellym-react-dom.js": ["createRoot", "createPortal"],
   "vellym-jsx-runtime.js": ["jsx", "jsxs", "Fragment"],
-  "vellym-ui.js": ["Button", "Dialog", "DataTable", "FieldInput"]
+  "vellym-ui.js": ["Button", "Dialog", "DataTable", "FieldInput"],
+  "vellym-plugin-api.js": ["defineBrowserPlugin", "resolveLocalizedText"],
+  "vellym-plugin-api-react.js": ["reactRenderer"]
 };
 
 const built = existsSync(path.join(clientRoot, "index.html"));
@@ -58,6 +60,8 @@ describe.skipIf(!built)("shared entries for plugins", () => {
     const match = html.match(/<script type="importmap">(.*?)<\/script>/s);
     const imports = JSON.parse(match?.[1] ?? "{}").imports as Record<string, string>;
     expect(Object.keys(imports).sort()).toEqual([
+      "@vellym/plugin-api",
+      "@vellym/plugin-api/react",
       "@vellym/plugin-api/ui",
       "react",
       "react-dom",

@@ -49,6 +49,8 @@ import type {
 import type { PluginSpecValue } from "../shared/field-input.js";
 import type {
   PluginInputValue,
+  PluginOpenResourceResult,
+  PluginRenderContext,
   PluginPendingResource,
   PluginSpecWrite
 } from "@vellym/plugin-api";
@@ -77,6 +79,7 @@ import { planTreeMove } from "./tree-move.js";
 import { KindIconProvider } from "../shared/kind-icon.js";
 import { usePluginRenderers } from "../plugin/plugin-renderers.js";
 import { createRenderContext } from "../plugin/render-context.js";
+import { returnViewForParent, type DetailViewOrigin } from "../plugin/return-view.js";
 // 設定を読み込めない画面は初期セットアップと同じ体裁で出す
 import setupStyles from "../setup/setup.module.css";
 import {
@@ -255,6 +258,10 @@ async function applyBulkArchive(names: string[]): Promise<string[]> {
 
 export function App() {
   const { t } = useTranslation();
+  const bootstrapLanguage =
+    typeof navigator !== "undefined" && /^en(?:-|$)/i.test(navigator.language)
+      ? "en"
+      : "ja";
   const [bootstrap, setBootstrap] = useState<BootstrapData>();
   const [bootstrapDiagnostics, setBootstrapDiagnostics] = useState<Diagnostic[]>([]);
   const [bootstrapError, setBootstrapError] = useState("");
@@ -275,6 +282,8 @@ export function App() {
   // 次に開くリソースと、そこで開くビュー。対象が一致したときだけ使い、
   // 一度使ったら既定へ戻す。作成直後に設定画面を開くために使う。
   const pendingViewRef = useRef<{ name: string; viewId: string } | undefined>(undefined);
+  // Detailの親へ戻るときだけ復元する。pendingViewRefは別資源へ移ると消えるため別に持つ。
+  const detailOriginRef = useRef<DetailViewOrigin | undefined>(undefined);
   /**
    * 読み込みの通し番号。**古い応答で新しい表示を上書きしない。**
    *
@@ -640,14 +649,75 @@ export function App() {
    * 保存後は読み直す。`applyView`が保存状態とメッセージを消すため、
    * 結果の表示は読み直しのあとで行う。
    */
+  const pluginOpenResourceRef = useRef<(name: string) => Promise<PluginOpenResourceResult>>(
+    async () => ({ ok: false, reason: "unavailable", message: t("app.resourceOpenUnavailable") })
+  );
+  const pluginRunCommandRef = useRef<NonNullable<PluginRenderContext["runCommand"]>>(
+    async () => ({ ok: false, reason: "error", message: t("app.commandUnavailable") })
+  );
+  pluginRunCommandRef.current = async (id, input) => {
+    if (!pluginView || !view || !bootstrap || !bootstrap.capabilities.editing) {
+      return { ok: false, reason: "error", message: t("app.commandCreateUnavailable") };
+    }
+    if (!pluginView.commands.some((command) => command.id === id)) {
+      return { ok: false, reason: "error", message: t("app.commandNotDeclared") };
+    }
+    try {
+      const created = await runPluginCommand(id, {
+        pluginId: pluginView.pluginId,
+        target: view.page.metadata.name,
+        input: { ...input },
+        locale: requestedLocale ?? bootstrap.project.requestedLocale
+      });
+      openPendingResource(created, view.page.metadata.name);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, reason: "error", message: errorMessage(error, t) };
+    }
+  };
+  pluginOpenResourceRef.current = async (name) => {
+    if (!name.trim()) {
+      return {
+        ok: false,
+        reason: "not-found",
+        message: t("app.resourceNotFound", { name })
+      };
+    }
+    try {
+      // `pages` is the document-tree projection and intentionally omits plugin resources
+      // such as Ticket. Resolve by metadata.name through the resource API instead.
+      await fetchPage(name, undefined, requestedLocale ?? bootstrap?.project.requestedLocale ?? "ja");
+      if (pluginView?.descriptor.type === "list" && view) {
+        detailOriginRef.current = {
+          ticketName: name,
+          trackerName: view.page.metadata.name,
+          viewId: pluginView.viewId
+        };
+      }
+      navigate(name);
+      return { ok: true };
+    } catch (error) {
+      const notFound = error instanceof ApiError && error.status === 404;
+      return {
+        ok: false,
+        reason: notFound ? "not-found" : "unavailable",
+        message: notFound
+          ? t("app.resourceNotFound", { name })
+          : errorMessage(error, t)
+      };
+    }
+  };
   const pluginRenderContext = useMemo(() => {
     if (!pluginView || !view) return undefined;
     return createRenderContext({
       payload: pluginView,
       locale: view.locale ?? view.baseLocale ?? "ja",
+      targetKind: view.page.kind,
       targetName: view.page.metadata.name,
       targetTitle: view.page.metadata.title,
       targetPath: view.relativePath,
+      onOpenResource: (name) => pluginOpenResourceRef.current(name),
+      onRunCommand: (id, input) => pluginRunCommandRef.current(id, input),
       ...(pendingResource
         ? {
             saveDraft: async (writes: readonly PluginSpecWrite[]) => {
@@ -1245,11 +1315,11 @@ export function App() {
     return (
       <main className="startup-state">
         <p role={bootstrapError ? "alert" : "status"}>
-          {bootstrapError || "Vellymを読み込んでいます…"}
+          {bootstrapError || t("app.bootstrapLoading", { lng: bootstrapLanguage })}
         </p>
         {bootstrapError && (
           <Button onClick={() => void loadBootstrap()}>
-            もう一度試す
+            {t("app.bootstrapRetry", { lng: bootstrapLanguage })}
           </Button>
         )}
       </main>
@@ -1271,20 +1341,20 @@ export function App() {
     return (
       <main className="startup-state config-error">
         <div>
-          <p className={setupStyles["setup-kicker"]}>設定を読み込めません</p>
-          <h1>設定ファイルを確認してください</h1>
-          <p>
-            設定ファイルは存在するため、未初期化として上書きしません。
-            内容を修正してから再読み込みしてください。
-          </p>
-          {bootstrapDiagnostics.map((item) => (
-            <p className={setupStyles["setup-error"]} key={`${item.code}:${item.message}`}>
+          <p className={setupStyles["setup-kicker"]}>{t("app.configErrorKicker", { lng: bootstrapLanguage })}</p>
+          <h1>{t("app.configErrorTitle", { lng: bootstrapLanguage })}</h1>
+          <p>{t("app.configErrorDescription", { lng: bootstrapLanguage })}</p>
+          {bootstrapDiagnostics.map((item, index) => (
+            <p className={setupStyles["setup-error"]} key={`${item.file}:${item.code}:${index}`}>
               <strong>■ {item.code}</strong><br />
-              {item.message}
+              {t(`error.${item.code}`, {
+                defaultValue: resolveLocalizedText(item.message, bootstrapLanguage),
+                lng: bootstrapLanguage
+              })}
             </p>
           ))}
           <Button onClick={() => void loadBootstrap()}>
-            再読み込み
+            {t("app.configErrorReload", { lng: bootstrapLanguage })}
           </Button>
         </div>
       </main>
@@ -1345,6 +1415,9 @@ export function App() {
       }}
     />
   ) : undefined;
+  const treeCommands = (bootstrap.plugins?.documentTreeCommands ?? []).filter(
+    (command, index, commands) => commands.findIndex((item) => item.id === command.id) === index
+  );
 
   return (
     // 種別ごとのアイコンはプラグインが渡したものだけを配る。
@@ -1365,7 +1438,7 @@ export function App() {
         canSearch={bootstrap.capabilities.search}
         canManage={bootstrap.capabilities.structure}
         canConfigure={bootstrap.capabilities.structure}
-        pluginCreateOptions={(bootstrap.plugins?.documentTreeCommands ?? []).map(
+        pluginCreateOptions={treeCommands.map(
           (command) => ({
             id: `${command.pluginId}:${command.id}`,
             commandId: command.id,
@@ -1462,7 +1535,14 @@ export function App() {
             showAll={showAllRows}
             editable={bootstrap.capabilities.editing}
             onToggleShowAll={setShowAllRows}
-            onNavigate={navigate}
+            onNavigate={(name) => {
+              detailOriginRef.current = {
+                ticketName: name,
+                trackerName: view.page.metadata.name,
+                viewId: pluginView.viewId
+              };
+              navigate(name);
+            }}
             onSwitchView={async (viewId) => {
               pendingViewRef.current = { name: view.page.metadata.name, viewId };
               await loadPage(view.page.metadata.name, true);
@@ -1536,8 +1616,8 @@ export function App() {
                 payload={pluginView}
                 uiLocale={bootstrap.project.uiLocale}
                 onBack={(name) => {
-                  // 既定のビュー（一覧）へ戻す。
-                  pendingViewRef.current = undefined;
+                  pendingViewRef.current = returnViewForParent(detailOriginRef.current, selected, name);
+                  detailOriginRef.current = undefined;
                   if (name === selected) {
                     // **同じ資源のビューを変えるだけなので`navigate`では動かない。**
                     // 読み込みは`selected`の変化で起きるため、値が同じだと何も

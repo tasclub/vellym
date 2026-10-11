@@ -5,7 +5,7 @@ import type {
   PluginSpecWrite
 } from "@vellym/plugin-api";
 
-import { fetchPageEdit, isStaticApp, patchPage } from "../shared/api.js";
+import { ApiError, fetchPageEdit, isStaticApp, patchPage } from "../shared/api.js";
 import type { PluginSpecValue } from "../shared/field-input.js";
 import type { PluginViewPayload } from "./plugin-list-view.js";
 
@@ -22,6 +22,7 @@ export function createRenderContext(options: {
   payload: PluginViewPayload;
   locale: string;
   /** 書き込み先。開いているリソースの`metadata.name` */
+  targetKind: string;
   targetName: string;
   targetTitle: string;
   targetPath: string;
@@ -29,6 +30,9 @@ export function createRenderContext(options: {
   saveDraft?(writes: readonly PluginSpecWrite[]): Promise<void>;
   /** 保存が通ったあとに呼ぶ。読み直しは呼ぶ側の仕事 */
   onSaved(): void | Promise<void>;
+  /** metadata.nameでリソースを開く。URL規則は呼び側（host）が吸収する */
+  onOpenResource: PluginRenderContext["openResource"];
+  onRunCommand?: NonNullable<PluginRenderContext["runCommand"]>;
   /** 保存に失敗したときの1行を作る */
   describeError(error: unknown): string;
 }): PluginRenderContext {
@@ -40,6 +44,7 @@ export function createRenderContext(options: {
 
   return {
     locale: options.locale,
+    rendererData: options.payload.descriptor.rendererData,
     // **静的版では`true`になる。** プラグインはこれを見て操作自体を出さない。
     isStatic: isStaticApp(),
     /*
@@ -51,7 +56,9 @@ export function createRenderContext(options: {
      * 実際にそうなった。開いている資源の識別子は呼ぶ側が知っている。
      */
     target: {
-      kind: options.payload.descriptor.kind,
+      // descriptor.kind is the indexed row kind (Ticket for a Kanban), not the
+      // resource hosting the view (TicketTracker).
+      kind: options.targetKind,
       name: options.targetName,
       title: options.payload.target?.title ?? options.targetTitle,
       relativePath: options.payload.target?.relativePath ?? options.targetPath,
@@ -62,18 +69,49 @@ export function createRenderContext(options: {
     // 定義リソースはdescriptorを組み立てるNode側が読む。ブラウザ側では
     // 渡していない。必要になった時点で経路を決める。
     records: () => [],
-    async save(writes: readonly PluginSpecWrite[]): Promise<PluginSaveResult> {
+    openResource(name) {
+      return options.onOpenResource(name);
+    },
+    ...(options.onRunCommand ? { runCommand: options.onRunCommand } : {}),
+    getViewSettings() {
+      try {
+        if (typeof window === "undefined") return undefined;
+        const raw = window.localStorage.getItem(
+          `vellym.plugin-view.${options.payload.pluginId}.${options.payload.viewId}`
+        );
+        return raw === null ? undefined : JSON.parse(raw) as unknown;
+      } catch {
+        return undefined;
+      }
+    },
+    setViewSettings(value) {
+      try {
+        if (typeof window === "undefined") return;
+        window.localStorage.setItem(
+          `vellym.plugin-view.${options.payload.pluginId}.${options.payload.viewId}`,
+          JSON.stringify(value)
+        );
+      } catch {
+        // 個人設定を保存できなくても画面の操作は続けられる。
+      }
+    },
+    async save(
+      writes: readonly PluginSpecWrite[],
+      saveOptions?: { targetName?: string }
+    ): Promise<PluginSaveResult> {
       if (isStaticApp()) {
-        return { ok: false, message: "静的出力では保存できません" };
+        const error = new ApiError("Saving is unavailable in static output.", 405, [], "STATIC_WRITE_UNAVAILABLE");
+        return { ok: false, reason: "error", message: options.describeError(error) };
       }
       try {
-        if (options.saveDraft) {
+        if (options.saveDraft && !saveOptions?.targetName) {
           await options.saveDraft(writes);
           await options.onSaved();
           return { ok: true };
         }
-        const edit = await fetchPageEdit(options.targetName);
-        await patchPage(options.targetName, {
+        const targetName = saveOptions?.targetName ?? options.targetName;
+        const edit = await fetchPageEdit(targetName);
+        await patchPage(targetName, {
           baseHash: edit.data.hash,
           specValues: writes.map((write) => ({
             path: [...write.path],
@@ -83,7 +121,11 @@ export function createRenderContext(options: {
         await options.onSaved();
         return { ok: true };
       } catch (error) {
-        return { ok: false, message: options.describeError(error) };
+        return {
+          ok: false,
+          reason: error instanceof ApiError && error.status === 409 ? "conflict" : "error",
+          message: options.describeError(error)
+        };
       }
     }
   };

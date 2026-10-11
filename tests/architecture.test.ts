@@ -7,7 +7,7 @@ const workspaceRoot = process.cwd();
 function sourceText(packageName: string, exclude: readonly string[] = []): string {
   const sourceRoot = path.join(workspaceRoot, "packages", packageName, "src");
   return readdirSync(sourceRoot)
-    .filter((name) => name.endsWith(".ts") || name.endsWith(".tsx"))
+    .filter((name) => !name.startsWith(".") && (name.endsWith(".ts") || name.endsWith(".tsx")))
     .filter((name) => !exclude.includes(name))
     .sort()
     .map((name) => readFileSync(path.join(sourceRoot, name), "utf8"))
@@ -70,9 +70,38 @@ describe("package boundaries", () => {
     // 公式プラグインが内部モジュールを使えてしまうと、契約が痩せているかを
     // 確認できない。第三者と同じ条件で書く。
     const source = sourceText("plugin-tickets");
-    expect(source).not.toMatch(/@vellym-internal\//);
+    // ticket-engineは公開物へbundleするビュー非依存の実装。Core/UIの内部APIは使わない。
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).toMatch(/@vellym-internal\/ticket-engine/);
     expect(source).not.toMatch(/from ["']node:/);
     expect(packageJson("plugin-tickets").dependencies).toBeUndefined();
+  });
+
+  it("keeps the bundled ticket engine private and on the public contract", () => {
+    const source = sourceText("ticket-engine");
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).not.toMatch(/from ["'](?:node:|react)/);
+    const manifest = packageJson("ticket-engine");
+    expect(manifest.private).toBe(true);
+    expect(manifest.dependencies).toBeUndefined();
+  });
+
+  it("keeps the Kanban plugin independent from tickets and internal host code", () => {
+    const source = sourceText("plugin-kanban");
+    expect(source).not.toMatch(/from ["']@vellym\/tickets/);
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).toMatch(/@vellym-internal\/ticket-engine/);
+    expect(source).not.toMatch(/from ["']node:/);
+    expect(packageJson("plugin-kanban").dependencies).toBeUndefined();
+  });
+
+  it("keeps WBS standalone and independent from both ticket plugins", () => {
+    const source = sourceText("plugin-wbs");
+    expect(source).not.toMatch(/@vellym\/(?:tickets|kanban)/);
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).toMatch(/@vellym-internal\/ticket-engine/);
+    expect(source).not.toMatch(/from ["']node:/);
+    expect(packageJson("plugin-wbs").dependencies).toBeUndefined();
   });
 
   it("keeps core independent from UI, runtime, CLI, and Node.js", () => {

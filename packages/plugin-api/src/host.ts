@@ -240,7 +240,11 @@ export interface PluginSpecWrite {
 export type PluginSaveResult =
   | { ok: true }
   /** 競合や検証の失敗。利用者へ見せる1行を持つ */
-  | { ok: false; message: string };
+  | { ok: false; message: string; reason: "conflict" | "error" };
+
+export type PluginOpenResourceResult =
+  | { ok: true }
+  | { ok: false; message: string; reason: "not-found" | "unavailable" };
 
 /** 索引行1件。**`spec`は持たない。** 一覧の絞り込みと数え上げに使う */
 export interface PluginIndexRow {
@@ -257,15 +261,30 @@ export interface PluginIndexRow {
  * こちらは「宣言では表せない画面」を自分で描くときに使う。
  */
 export interface PluginRenderContext extends PluginViewContext {
+  /** Run a registered view command through the host's draft-creation flow. */
+  runCommand?(id: string, input: Readonly<Record<string, PluginInputValue>>): Promise<PluginSaveResult>;
   /**
    * 開いているリソースの正本へ書き戻す。
    *
    * **Coreの保存経路を通る。** 非破壊往復、realpath境界、hash競合の検出は
    * この経路でも同じく効く。プラグインが独自にファイルへ書く口は開けない。
    *
+   * 書き込み先を省略すると開いているリソースを更新する。別リソースを更新する場合は
+   * `metadata.name`を`options.targetName`へ渡す。パスは指定できない。
+   * ハッシュ競合は`reason: "conflict"`で区別する。
+   *
    * 静的出力では常に失敗する。`isStatic`を見て操作自体を出さないこと。
    */
-  save(writes: readonly PluginSpecWrite[]): Promise<PluginSaveResult>;
+  save(
+    writes: readonly PluginSpecWrite[],
+    options?: { targetName?: string }
+  ): Promise<PluginSaveResult>;
+  /** metadata.nameで別リソースを開く。URLの組み立てはhostが行う。 */
+  openResource(name: string): Promise<PluginOpenResourceResult>;
+  /** このplugin/view固有の個人設定。取得失敗時は`undefined`を返す。 */
+  getViewSettings(): unknown;
+  /** JSON化またはブラウザ保存に失敗しても例外を投げない。 */
+  setViewSettings(value: unknown): void;
   /**
    * 一覧に載る索引行。**使用中の値の件数を数えるために渡す。**
    *
