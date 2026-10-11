@@ -71,11 +71,11 @@ const TABLE_ACTIONS: {
   labelKey: string;
   text: string;
 }[] = [
-  { command: "table-row-add", labelKey: "editor.tableRowAdd", text: "＋行" },
-  { command: "table-row-remove", labelKey: "editor.tableRowRemove", text: "−行" },
-  { command: "table-col-add", labelKey: "editor.tableColAdd", text: "＋列" },
-  { command: "table-col-remove", labelKey: "editor.tableColRemove", text: "−列" },
-  { command: "table-remove", labelKey: "editor.tableRemove", text: "表を削除" }
+  { command: "table-row-add", labelKey: "editor.tableRowAdd", text: "+" },
+  { command: "table-row-remove", labelKey: "editor.tableRowRemove", text: "−" },
+  { command: "table-col-add", labelKey: "editor.tableColAdd", text: "+" },
+  { command: "table-col-remove", labelKey: "editor.tableColRemove", text: "−" },
+  { command: "table-remove", labelKey: "editor.tableRemove", text: "×" }
 ];
 
 function Notices(props: {

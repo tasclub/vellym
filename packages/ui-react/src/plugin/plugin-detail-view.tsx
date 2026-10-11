@@ -152,7 +152,9 @@ export function PluginDetailView({
           <p>{t("plugin.notices")}</p>
           <ul>
             {notices.map((notice) => (
-              <li key={`${notice.code}${notice.path ?? ""}`}>{notice.message}</li>
+              <li key={`${notice.code}${notice.path ?? ""}`}>
+                {resolveLocalizedText(notice.message, locale)}
+              </li>
             ))}
           </ul>
         </div>
