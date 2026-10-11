@@ -243,9 +243,16 @@ export function WorkspaceShell(props: {
         <IconTooltip label={t("nav.documents")}>
           <Button
             className={styles.railButton}
-            aria-label={t("nav.documents")}
+            aria-label={
+              props.area === "documents" && !treeOpen
+                ? t("nav.openDocumentNav")
+                : t("nav.documents")
+            }
             aria-pressed={props.area === "documents"}
-            onPress={() => props.onAreaChange("documents")}
+            onPress={() => {
+              if (props.area !== "documents") props.onAreaChange("documents");
+              if (!treeOpen) setTreeOpen(true);
+            }}
           ><Icon name="documents" size={20} /></Button>
         </IconTooltip>
         {props.canConfigure && (
@@ -281,25 +288,6 @@ export function WorkspaceShell(props: {
               }
             ><Icon name={props.area === "settings" ? "documents" : "settings"} size={18} /></Button>
           )}
-          <IconTooltip
-            label={
-              treeOpen
-                ? t("nav.closeDocumentNav")
-                : t("nav.openDocumentNav")
-            }
-          >
-            <Button
-              className={styles.desktopToggle}
-              aria-label={
-                treeOpen
-                  ? t("nav.closeDocumentNav")
-                  : t("nav.openDocumentNav")
-              }
-              onPress={() => setTreeOpen((current) => !current)}
-            >
-              <Icon name={treeOpen ? "chevronLeft" : "chevronRight"} size={18} />
-            </Button>
-          </IconTooltip>
           <div>
             <strong>Vellym</strong>
             <span>{t("product.workspace")}</span>
@@ -325,6 +313,15 @@ export function WorkspaceShell(props: {
         aria-hidden={!treeOpen}
       >
         <div className={styles.navigationHeader}>
+          <IconTooltip label={t("nav.closeDocumentNav")}>
+            <Button
+              className={styles.desktopToggle}
+              aria-label={t("nav.closeDocumentNav")}
+              onPress={() => setTreeOpen(false)}
+            >
+              <Icon name="chevronLeft" size={18} />
+            </Button>
+          </IconTooltip>
           <h2>{t("nav.documents")}</h2>
           <div>
             <span>{props.navigation.pages.length}</span>
@@ -472,7 +469,7 @@ export function WorkspaceShell(props: {
             onSelectFolder={props.onSelectFolder}
           />
         ) : <div className={styles.breadcrumbPlaceholder} />}
-        {props.area === "documents" && <DocumentOutline
+        {props.area === "documents" && props.headings.length > 0 && <DocumentOutline
           compact
           headings={props.headings}
           pageId={props.selected}
@@ -496,7 +493,7 @@ export function WorkspaceShell(props: {
           )}
         </main>
       </div>
-      {props.area === "documents" && <aside className={styles.outlineColumn}>
+      {props.area === "documents" && props.headings.length > 0 && <aside className={styles.outlineColumn}>
         <DocumentOutline
           headings={props.headings}
           pageId={props.selected}
