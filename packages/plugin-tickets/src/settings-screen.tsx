@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { PluginRenderContext, PluginValueType } from "@vellym/plugin-api";
+import { resolveLocalizedText, type PluginLocalizedText, type PluginRenderContext, type PluginValueType } from "@vellym/plugin-api";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
 import { Button } from "@vellym/plugin-api/ui";
 
@@ -109,8 +109,10 @@ function Screen({ context }: { context: PluginRenderContext }) {
     typeof savedHierarchy.parentField === "string" ? savedHierarchy.parentField : "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const ja = context.locale.startsWith("ja");
-  const text = (japanese: string, english: string) => (ja ? japanese : english);
+  const text = (japanese: string, english: string) => resolveLocalizedText(
+    { ja: japanese, en: english } satisfies PluginLocalizedText,
+    context.locale
+  );
 
   /**
    * 値ごとの使用件数。

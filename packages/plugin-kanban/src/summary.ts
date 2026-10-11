@@ -1,4 +1,4 @@
-import type { PluginIndexRow, PluginIndexValue } from "@vellym/plugin-api";
+import { resolveLocalizedText, type PluginIndexRow, type PluginIndexValue } from "@vellym/plugin-api";
 import type { FieldDefinition } from "@vellym-internal/ticket-engine";
 import { fieldKey } from "@vellym-internal/ticket-engine";
 
@@ -52,8 +52,7 @@ export function summarizeColumn(
     if (valid(field, value)) values.push(value);
     else excluded++;
   }
-  const ja = locale.startsWith("ja");
-  const label = (j: string, e: string) => ja ? j : e;
+  const label = (j: string, e: string) => resolveLocalizedText({ ja: j, en: e }, locale);
   let text: string;
   if (method === "count") text = `${label("件数", "Count")}: ${values.length}`;
   else if (method === "true" || method === "false") {

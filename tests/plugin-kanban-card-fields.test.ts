@@ -13,6 +13,7 @@ describe("Kanban card fields", () => {
     expect(cardFieldValue(field("multiselect"), ["high", "other"], "ja")).toBe("高, other");
     expect(cardFieldValue(field("boolean"), false, "ja")).toBe("□ いいえ");
     expect(cardFieldValue(field("boolean"), true, "en")).toBe("✓ Yes");
+    expect(cardFieldValue(field("boolean"), true, "fr")).toBe("✓ Yes");
     expect(cardFieldValue(field("date"), "2026-10-04", "ja")).toBe("2026-10-04");
     expect(cardFieldValue(field("number"), 0, "ja")).toBe("0");
     expect(cardFieldValue(field("text"), null, "ja")).toBeUndefined();

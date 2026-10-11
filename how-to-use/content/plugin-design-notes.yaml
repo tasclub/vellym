@@ -150,6 +150,21 @@ spec:
         片方だけでも壊れない設計にしておくと、利用者が順に試せる。
         解釈するプラグインが無いkindは、未知の内容として原文のまま保持される。
 
+        ## 表示文言の日英切り替えはホストの型を使う
+
+        UIの言語ごとの文言は`PluginLocalizedText`で宣言し、表示時に
+        `resolveLocalizedText(value, context.locale)`で解決する。プラグイン内で
+        `locale.startsWith("ja")`のように2分岐すると、3言語目を追加したとき
+        未対応の言語が一律に英語へ落ち、ホストのfallback規則も使えない。
+
+        ```ts
+        const label = resolveLocalizedText({ ja: "未設定", en: "Unset" }, locale);
+        ```
+
+        未対応localeではfallback locale、次に最初に定義された文言が使われるため、
+        空欄にならない。`runtime-node`の初期文書本文など、UI文言ではない生成内容は
+        この型の対象ではない。
+
         ## 表示の軸は、定義リソースから読む
 
         「どの項目を列にするか」「どの項目を日付として扱うか」を**コードに埋めない。**

@@ -26,4 +26,9 @@ describe("Kanban summaries", () => {
     expect(summarizeColumn(rows([["a", "b"], ["a"]]),
       { field: field("multiselect"), method: "breakdown" }, "ja").text).toBe("値 内訳: a 2、b 1");
   });
+
+  it("uses a non-empty localized fallback for an unsupported locale", () => {
+    expect(summarizeColumn(rows([true]), { field: field("boolean"), method: "true" }, "fr").text)
+      .toBe("値 True: 1");
+  });
 });

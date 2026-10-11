@@ -1,4 +1,4 @@
-import type { PluginIndexValue } from "@vellym/plugin-api";
+import { resolveLocalizedText, type PluginIndexValue, type PluginLocalizedText } from "@vellym/plugin-api";
 import type { FieldDefinition } from "@vellym-internal/ticket-engine";
 
 /** Interpret the projected field value, never the source Ticket spec. */
@@ -10,8 +10,10 @@ export function cardFieldValue(
   if (value === undefined || value === null || value === "") return undefined;
   if (field.type === "boolean") {
     if (typeof value !== "boolean") return String(value);
-    return value ? (locale.startsWith("ja") ? "✓ はい" : "✓ Yes")
-      : (locale.startsWith("ja") ? "□ いいえ" : "□ No");
+    const label: PluginLocalizedText = value
+      ? { ja: "✓ はい", en: "✓ Yes" }
+      : { ja: "□ いいえ", en: "□ No" };
+    return resolveLocalizedText(label, locale);
   }
   if (field.type === "date" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return value;

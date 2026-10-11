@@ -13,7 +13,7 @@ import { TICKET_ENGINE_VERSION } from "@vellym-internal/ticket-engine";
 import {
   initialTicketSpec,
   readTrackers
-} from "../packages/plugin-tickets/src/definitions.js";
+} from "@vellym-internal/ticket-engine";
 
 function record(
   kind: string,
@@ -122,6 +122,15 @@ function listView(target?: PluginResourceRecord) {
 }
 
 describe("ticket plugin", () => {
+  it("resolves settings UI copy through PluginLocalizedText rather than locale branches", () => {
+    const screen = readFileSync(
+      path.join(process.cwd(), "packages/plugin-tickets/src/settings-screen.tsx"),
+      "utf8"
+    );
+    expect(screen).not.toMatch(/locale\.startsWith\(["']ja["']\)/);
+    expect(screen).toContain("resolveLocalizedText");
+  });
+
   it("ships a manifest that matches what activate registers", () => {
     // manifestは「コードを読まずに分かる必要がある宣言」であり、実装とずれると
     // 利用者は「入れたのに出てこない」理由を知る手段を失う。
