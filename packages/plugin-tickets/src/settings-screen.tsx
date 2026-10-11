@@ -236,7 +236,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
               </select>
             </label>
             <Button
-              
+              icon
               aria-label={text("上へ", "Move up")}
               disabled={index === 0}
               onClick={() => setStatuses(move(statuses, index, -1))}
@@ -244,7 +244,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
               ↑
             </Button>
             <Button
-              
+              icon
               aria-label={text("下へ", "Move down")}
               disabled={index === statuses.length - 1}
               onClick={() => setStatuses(move(statuses, index, 1))}
@@ -378,7 +378,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
                         />
                       </label>
                       <Button
-                        
+                        icon
                         aria-label={text("上へ", "Move up")}
                         disabled={optionIndex === 0}
                         onClick={() =>
@@ -388,7 +388,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
                         ↑
                       </Button>
                       <Button
-                        
+                        icon
                         aria-label={text("下へ", "Move down")}
                         disabled={optionIndex === row.options.length - 1}
                         onClick={() =>

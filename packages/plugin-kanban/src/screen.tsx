@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent } from "react";
 import { resolveLocalizedText, type PluginIndexRow } from "@vellym/plugin-api";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
-import { KindIcon } from "@vellym/plugin-api/ui";
+import { Button, KindIcon } from "@vellym/plugin-api/ui";
 import type { KanbanRendererData } from "./board.js";
 import { buildKanbanColumns } from "./model.js";
 import { cardFieldValue } from "./card-fields.js";
@@ -381,9 +381,9 @@ export function KanbanScreen({ context }: PluginViewProps) {
               </ul>
             ) : null}
             {!context.isStatic && sort.field === manualField && sorted.length > 1 ? (
-              <button type="button" disabled={savingOrder} onClick={() => void renumberColumn(sorted)}>
+              <Button disabled={savingOrder} onClick={() => void renumberColumn(sorted)}>
                 {resolveLocalizedText({ ja: `順序を振り直す (${sorted.length}件)`, en: `Renumber order (${sorted.length})` }, context.locale)}
-              </button>
+              </Button>
             ) : null}
             {column.rows.length ? (
               <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: "0.5rem" }}>
@@ -408,8 +408,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
                     >
                       <KindIcon resourceKind="Ticket" aria-hidden="true" />
                       <div style={{ minWidth: 0, width: "100%" }}>
-                        <button
-                          type="button"
+                        <Button
                           style={cardTitleStyle}
                           aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
                           onKeyDown={(event) => handleCardKeyDown(event, row)}
@@ -420,7 +419,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
                           }}
                         >
                           {row.title}
-                        </button>
+                        </Button>
                         {data.cardFields.length > 0 ? (
                           <dl style={{ margin: "var(--space-1) 0 0", fontSize: "var(--size-ui)" }}>
                             {data.cardFields.map((field) => {
@@ -436,12 +435,12 @@ export function KanbanScreen({ context }: PluginViewProps) {
                       </div>
                       {!context.isStatic && sort.field === manualField ? (
                         <span style={{ display: "flex", flexDirection: "column" }}>
-                          <button type="button" disabled={savingOrder || sorted.indexOf(row) === 0}
+                          <Button icon disabled={savingOrder || sorted.indexOf(row) === 0}
                             aria-label={`${row.title}: ${resolveLocalizedText({ ja: "上へ移動", en: "Move up" }, context.locale)}`}
-                            onClick={() => void moveWithinColumn(sorted, sorted.indexOf(row), -1)}>↑</button>
-                          <button type="button" disabled={savingOrder || sorted.indexOf(row) === sorted.length - 1}
+                            onClick={() => void moveWithinColumn(sorted, sorted.indexOf(row), -1)}>↑</Button>
+                          <Button icon disabled={savingOrder || sorted.indexOf(row) === sorted.length - 1}
                             aria-label={`${row.title}: ${resolveLocalizedText({ ja: "下へ移動", en: "Move down" }, context.locale)}`}
-                            onClick={() => void moveWithinColumn(sorted, sorted.indexOf(row), 1)}>↓</button>
+                            onClick={() => void moveWithinColumn(sorted, sorted.indexOf(row), 1)}>↓</Button>
                         </span>
                       ) : null}
                     </article>
@@ -452,13 +451,13 @@ export function KanbanScreen({ context }: PluginViewProps) {
               <p>{resolveLocalizedText({ ja: "チケットはありません", en: "No tickets" }, context.locale)}</p>
             )}
             {sorted.length > 20 ? (
-              <button type="button" onClick={() => setExpandedColumns((current) =>
+              <Button onClick={() => setExpandedColumns((current) =>
                 current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
               )}>
                 {expanded
                   ? resolveLocalizedText({ ja: "20件に戻す", en: "Show first 20" }, context.locale)
                   : resolveLocalizedText({ ja: `残り${sorted.length - 20}件を表示`, en: `Show ${sorted.length - 20} more` }, context.locale)}
-              </button>
+              </Button>
             ) : null}
           </section>
         );})}

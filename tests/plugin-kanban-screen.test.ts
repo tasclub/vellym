@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PluginRenderContext } from "@vellym/plugin-api";
 
 vi.mock("@vellym/plugin-api/ui", () => ({
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) =>
-    createElement("button", props, children),
+  Button: ({ children, icon, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon?: boolean }) =>
+    createElement("button", { ...props, ...(icon ? { "data-icon": "true" } : {}) }, children),
   KindIcon: () => null
 }));
 
@@ -52,6 +52,25 @@ afterEach(() => {
 });
 
 describe("Kanban screen interactions", () => {
+  it("uses host icon buttons with accessible names for card ordering", () => {
+    const { container, unmount } = renderScreen({
+      locale: "en",
+      rendererData: {
+        statuses,
+        fields: [],
+        cardFields: [],
+        summaries: [],
+        orderField: { id: "rank", label: "Rank", type: "number", required: false, listColumn: false },
+        diagnostics: []
+      }
+    });
+    const moveButtons = [...container.querySelectorAll<HTMLButtonElement>("button[aria-label]")]
+      .filter((button) => button.getAttribute("aria-label")?.includes("Move"));
+    expect(moveButtons).toHaveLength(2);
+    expect(moveButtons.every((button) => button.dataset.icon === "true")).toBe(true);
+    unmount();
+  });
+
   it("selects visible columns in one place, shows excluded counts, and restores the choice", () => {
     let stored: unknown;
     const preference = {
