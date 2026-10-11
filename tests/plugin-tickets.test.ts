@@ -9,6 +9,7 @@ import type {
 import { validatePluginManifest } from "@vellym-internal/core";
 import { pluginResourceRelativePath } from "@vellym-internal/runtime-node";
 import plugin from "@vellym/tickets";
+import { TICKET_ENGINE_VERSION } from "@vellym-internal/ticket-engine";
 import {
   initialTicketSpec,
   readTrackers
@@ -147,7 +148,9 @@ describe("ticket plugin", () => {
   it("puts trackers in the document tree and tickets outside it", () => {
     const { kinds, commands } = activate();
     expect(kinds.get("Ticket")?.showInDocumentTree).toBe(false);
+    expect(kinds.get("Ticket")?.engineVersion).toBe(TICKET_ENGINE_VERSION);
     expect(kinds.get("TicketTracker")?.showInDocumentTree).toBe(true);
+    expect(kinds.get("TicketTracker")?.engineVersion).toBe(TICKET_ENGINE_VERSION);
     expect(kinds.get("TicketTracker")?.hasBlocks).toBe(false);
     // 作成は静的版へ出さない。
     expect(commands.get("ticket.create")?.static).toBe(false);
@@ -487,14 +490,20 @@ describe("ticket plugin", () => {
         path: "/spec/fields/0/options",
         severity: "warning",
         code: "TICKET_FIELD_OPTIONS_MISSING",
-        message: "選択式の項目に選択肢がありません: priority"
+        message: {
+          ja: "選択式の項目に選択肢がありません: priority",
+          en: "Select fields must have options: priority"
+        }
       },
       {
         file: "40-品質/empty-options.yaml",
         path: "/spec/fields/1/options",
         severity: "warning",
         code: "TICKET_FIELD_OPTIONS_MISSING",
-        message: "選択式の項目に選択肢がありません: labels"
+        message: {
+          ja: "選択式の項目に選択肢がありません: labels",
+          en: "Select fields must have options: labels"
+        }
       }
     ]);
 

@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parse, parseDocument } from "yaml";
 import { validateConfig } from "@vellym-internal/core";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import { RuntimeError } from "./errors.js";
 import { isInside } from "./path-utils.js";
 import type { LoadedConfig } from "./types.js";
@@ -162,7 +163,9 @@ export async function loadConfig(
   const result = validateConfig(value, absoluteConfig);
   if (!result.config) {
     throw new RuntimeError(
-      result.diagnostics.map((item) => `${item.path}: ${item.message}`).join("\n"),
+      result.diagnostics
+        .map((item) => `${item.path}: ${resolveLocalizedText(item.message, "ja")}`)
+        .join("\n"),
       400,
       "CONFIG_SCHEMA"
     );

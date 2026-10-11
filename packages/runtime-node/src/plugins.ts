@@ -116,7 +116,7 @@ const CONFIG_FILE = "vellym.config.yaml";
 function diagnostic(
   index: number,
   code: string,
-  message: string
+  message: PluginLocalizedText
 ): Diagnostic {
   return {
     file: CONFIG_FILE,
@@ -168,7 +168,10 @@ export async function loadPlugins(
         diagnostic(
           index,
           "PLUGIN_DUPLICATE_ID",
-          `plugin id "${loaded.id}"が重複しています: ${packageName}`
+          {
+            ja: `plugin id "${loaded.id}"が重複しています: ${packageName}`,
+            en: `Plugin ID "${loaded.id}" is duplicated: ${packageName}`
+          }
         )
       );
       continue;
@@ -207,7 +210,10 @@ export async function loadPlugins(
           diagnostic(
             winner.index,
             "PLUGIN_KIND_VERSION_MISMATCH",
-            `kind "${kind}"は異なるエンジン版で登録されています。${winner.plugin.packageName} (${winner.version})を採用します`
+            {
+              ja: `kind "${kind}"は異なるエンジン版で登録されています。${winner.plugin.packageName} (${winner.version})を採用します`,
+              en: `Kind "${kind}" is registered with different engine versions. Using ${winner.plugin.packageName} (${winner.version}).`
+            }
           )
         );
       }
@@ -217,7 +223,10 @@ export async function loadPlugins(
           diagnostic(
             conflict.index,
             "PLUGIN_KIND_CONFLICT",
-            `kind "${kind}"は${winner.plugin.packageName}が既に解釈します。${conflict.plugin.packageName}の登録は無視します`
+            {
+              ja: `kind "${kind}"は${winner.plugin.packageName}が既に解釈します。${conflict.plugin.packageName}の登録は無視します`,
+              en: `Kind "${kind}" is already interpreted by ${winner.plugin.packageName}. Ignoring the registration from ${conflict.plugin.packageName}.`
+            }
           )
         );
       }
@@ -270,7 +279,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_RESOLVE_FAILED",
-        `プラグインを解決できません: ${packageName}（${reason(error)}）`
+        {
+          ja: `プラグインを解決できません: ${packageName}（${reason(error)}）`,
+          en: `Could not resolve plugin: ${packageName} (${reason(error)})`
+        }
       )
     );
     return undefined;
@@ -282,7 +294,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_MANIFEST_INVALID",
-        `manifest（package.jsonの"${PLUGIN_MANIFEST_FIELD}"）が不正です: ${packageName}（${validated.errors.join("、")}）`
+        {
+          ja: `manifest（package.jsonの"${PLUGIN_MANIFEST_FIELD}"）が不正です: ${packageName}（${validated.errors.join("、")}）`,
+          en: `The manifest (the "${PLUGIN_MANIFEST_FIELD}" field in package.json) is invalid: ${packageName} (${validated.errors.join(", ")})`
+        }
       )
     );
     return undefined;
@@ -295,7 +310,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_VERSION_UNDECLARED",
-        `engines.vellymが宣言されていません: ${packageName}`
+        {
+          ja: `engines.vellymが宣言されていません: ${packageName}`,
+          en: `engines.vellym is not declared: ${packageName}`
+        }
       )
     );
     return undefined;
@@ -306,7 +324,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_VERSION_UNSUPPORTED",
-        `対応するVellymの版域外です: ${packageName}（engines.vellym: ${range}、実行中: ${hostVersion}）`
+        {
+          ja: `対応するVellymの版域外です: ${packageName}（engines.vellym: ${range}、実行中: ${hostVersion}）`,
+          en: `The supported Vellym version range does not include this version: ${packageName} (engines.vellym: ${range}, running: ${hostVersion})`
+        }
       )
     );
     return undefined;
@@ -327,7 +348,10 @@ async function loadOne(
         diagnostic(
           index,
           "PLUGIN_ENTRY_INVALID",
-          `activate(host)をexportしていません: ${packageName}`
+          {
+            ja: `activate(host)をexportしていません: ${packageName}`,
+            en: `activate(host) is not exported: ${packageName}`
+          }
         )
       );
       return undefined;
@@ -338,7 +362,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_LOAD_FAILED",
-        `読み込めません: ${packageName}（${reason(error)}）`
+        {
+          ja: `読み込めません: ${packageName}（${reason(error)}）`,
+          en: `Could not load plugin: ${packageName} (${reason(error)})`
+        }
       )
     );
     return undefined;
@@ -378,7 +405,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_ACTIVATE_FAILED",
-        `activateが失敗しました: ${packageName}（${reason(error)}）`
+        {
+          ja: `activateが失敗しました: ${packageName}（${reason(error)}）`,
+          en: `Plugin activation failed: ${packageName} (${reason(error)})`
+        }
       )
     );
     return undefined;

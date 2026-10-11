@@ -8,6 +8,7 @@ import {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useTranslation } from "react-i18next";
 import type { Root } from "mdast";
 import {
   headingId,
@@ -17,6 +18,7 @@ import {
   type WikiLinkParts,
   type WikiLinkResolution
 } from "@vellym-internal/core";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import { Icon } from "../shared/icon.js";
 import {
   documentPagePath,
@@ -45,6 +47,7 @@ export function DocumentView({
   beforeBody?: ReactNode;
   onNavigatePage?(pageId: string, heading?: string): void;
 }) {
+  const { i18n } = useTranslation();
   const locale = view.locale ?? view.baseLocale;
   // 本文の`[[...]]`は、サーバ／静的builderが解決した結果（view.relations.outgoing）
   // を使って描画する。readerが独自に解決規則を持たないようにする。
@@ -237,7 +240,7 @@ export function DocumentView({
           <ul>
             {diagnostics.map((diagnostic) => (
               <li key={`${diagnostic.blockId}:${diagnostic.target}:${diagnostic.code}`}>
-                {diagnostic.message}
+                {resolveLocalizedText(diagnostic.message, i18n.language)}
               </li>
             ))}
           </ul>

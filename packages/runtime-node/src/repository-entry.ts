@@ -32,6 +32,7 @@ import {
   type SearchProjection,
   type SearchResult
 } from "@vellym-internal/core";
+import type { PluginLocalizedText } from "@vellym/plugin-api";
 import { contentHash } from "./path-utils.js";
 
 export interface SearchHeading {
@@ -301,7 +302,10 @@ export function extractPageEntryWithPage(input: {
       path: "/kind",
       severity: "warning",
       code: "UNKNOWN_RESOURCE_KIND",
-      message: `kind ${validated.kind} を解釈できるプラグインがありません。本文だけを読み取ります`
+      message: {
+        ja: `kind ${validated.kind} を解釈できるプラグインがありません。本文だけを読み取ります`,
+        en: `No plugin can interpret kind ${validated.kind}. Only its content will be read.`
+      }
     });
   }
   const page = validated as Page;
@@ -397,7 +401,7 @@ function duplicateDiagnostic(
   entry: PageEntry,
   path: string,
   code: string,
-  message: string
+  message: PluginLocalizedText
 ): Diagnostic {
   return {
     file: entry.relativePath,
@@ -434,11 +438,15 @@ export function deriveRepositoryEntryIndex(
   const uniquePages: PageEntry[] = [];
   for (const [name, group] of nameGroups) {
     if (group.length > 1) {
-      const message = `Page ID ${name} が重複しています`;
+      const reason = `Page ID ${name} が重複しています`;
+      const message = {
+        ja: reason,
+        en: `The Page ID ${name} is duplicated.`
+      };
       for (const entry of group) {
         entry.readOnly = true;
         const reasons = (entry.readOnlyReasons ??= []);
-        if (!reasons.includes(message)) reasons.push(message);
+        if (!reasons.includes(reason)) reasons.push(reason);
         diagnostics.push(duplicateDiagnostic(
           entry,
           "/metadata/name",
@@ -459,11 +467,15 @@ export function deriveRepositoryEntryIndex(
   }
   for (const [slug, group] of slugGroups) {
     if (group.length < 2) continue;
-    const message = `URL名 ${slug} が重複しています`;
+    const reason = `URL名 ${slug} が重複しています`;
+    const message = {
+      ja: reason,
+      en: `The URL name ${slug} is duplicated.`
+    };
     for (const entry of group) {
       entry.readOnly = true;
         const reasons = (entry.readOnlyReasons ??= []);
-        if (!reasons.includes(message)) reasons.push(message);
+        if (!reasons.includes(reason)) reasons.push(reason);
       diagnostics.push(duplicateDiagnostic(
         entry,
         "/metadata/slug",

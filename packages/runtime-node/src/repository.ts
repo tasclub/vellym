@@ -438,9 +438,14 @@ export async function loadRepository(
           file: ".",
           severity: "warning",
           code: "PLUGIN_PROJECTION_FAILED",
-          message: `kind ${kind}の索引を作れませんでした: ${
-            error instanceof Error ? error.message : String(error)
-          }`
+          message: {
+            ja: `kind ${kind}の索引を作れませんでした: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            en: `Could not create an index for kind ${kind}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          }
         });
       }
     }
@@ -498,7 +503,10 @@ export async function loadRepository(
         path: "/spec/order",
         severity: "error",
         code: "FOLDER_ORDER_MISSING",
-        message: `存在しない子がorderに含まれています: ${item}`
+        message: {
+          ja: `存在しない子がorderに含まれています: ${item}`,
+          en: `The order includes a child that does not exist: ${item}`
+        }
       });
     }
   }

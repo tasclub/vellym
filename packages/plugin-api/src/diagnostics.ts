@@ -1,3 +1,5 @@
+import type { PluginLocalizedText } from "./text.js";
+
 /**
  * プラグインが利用者へ伝える診断。
  *
@@ -15,5 +17,6 @@ export interface PluginDiagnostic {
   severity: PluginDiagnosticSeverity;
   /** プラグインIDを前置した安定コード（例 `TICKET_STATUS_UNDEFINED`） */
   code: string;
-  message: string;
+  /** UI/CLIの言語に合わせて表示できる。既存のstringもそのまま受ける。 */
+  message: PluginLocalizedText;
 }

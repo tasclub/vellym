@@ -1,3 +1,5 @@
+import type { PluginLocalizedText } from "@vellym/plugin-api";
+
 /**
  * HTTP応答と静的データの封筒（apiSchemaVersion/data/diagnostics）の形式の版。
  * 動的APIとstatic builderで必ず同じ値を使う。
@@ -194,7 +196,7 @@ export interface Diagnostic {
   path?: string;
   severity: DiagnosticSeverity;
   code: string;
-  message: string;
+  message: PluginLocalizedText;
 }
 
 export interface PageSummary {

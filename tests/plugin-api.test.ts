@@ -30,11 +30,14 @@ describe("plugin-api contract", () => {
       path: "/spec/status",
       severity: "warning",
       code: "TICKET_STATUS_UNDEFINED",
-      message: "定義に無いステータスです"
+      message: { ja: "定義に無いステータスです", en: "The status is not defined." }
     };
     const asCore: Diagnostic = fromPlugin;
     const backToPlugin: PluginDiagnostic = asCore;
     expect(backToPlugin).toBe(fromPlugin);
+    expect(resolveLocalizedText(backToPlugin.message, "en")).toBe("The status is not defined.");
+    expect(resolveLocalizedText("A legacy string diagnostic", "ja"))
+      .toBe("A legacy string diagnostic");
   });
 
   it("resolves localized text with a fallback that is never empty", () => {
@@ -172,7 +175,10 @@ describe("plugin-api contract", () => {
       isStatic: false,
       records: () => [],
       rows: [],
-      save: async () => ({ ok: true })
+      save: async () => ({ ok: true }),
+      openResource: async () => ({ ok: true }),
+      getViewSettings: () => undefined,
+      setViewSettings: () => {}
     };
     // hostは要素の中身へ触らない。rendererに渡すだけである。
     const element = {} as HTMLElement;
@@ -194,7 +200,10 @@ describe("plugin-api contract", () => {
       isStatic: false,
       records: () => [],
       rows: [],
-      save: async () => ({ ok: true })
+      save: async () => ({ ok: true }),
+      openResource: async () => ({ ok: true }),
+      getViewSettings: () => undefined,
+      setViewSettings: () => {}
     });
     expect(handle.update).toBeUndefined();
   });

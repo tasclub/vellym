@@ -2,6 +2,7 @@ import { useState } from "react";
 import { localeDisplayName, normalizeLocale } from "@vellym-internal/core";
 import { Button, Dialog, Modal, ModalOverlay } from "react-aria-components";
 import { useTranslation } from "react-i18next";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import type { PageEditSession } from "./page-edit-session.js";
 import styles from "./page-language-controls.module.css";
 
@@ -106,7 +107,9 @@ export function PageLanguageControls(props: {
           {props.session.invalidTranslations.map((item) => (
             <div key={item.rawKey}>
               <span>{item.rawKey}</span>
-              <small>{item.diagnostics.map(({ message }) => message).join(" / ")}</small>
+              <small>{item.diagnostics
+                .map(({ message }) => resolveLocalizedText(message, props.uiLocale))
+                .join(" / ")}</small>
               {item.repairable && item.canonicalLocale &&
                 !item.diagnostics.some(({ code }) => code === "DUPLICATE_TRANSLATION_LOCALE") && (
                 <button type="button" onClick={() => props.onRepairInvalid(item.rawKey)}>

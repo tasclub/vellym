@@ -18,6 +18,7 @@ import styles from "./admin-view.module.css";
 import { errorMessage } from "../shared/error-message.js";
 import { SetupWizard } from "../setup/setup-wizard.js";
 import { Button } from "../shared/button.js";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 
 export function AdminView(props: {
   contentRoot: string;
@@ -352,7 +353,7 @@ export function AdminView(props: {
             {props.diagnostics.map((item, index) => (
               <li key={`${item.file}:${item.code}:${index}`}>
                 <strong>■ {item.file}</strong>
-                <span>{item.message}</span>
+                <span>{resolveLocalizedText(item.message, props.language)}</span>
                 <small>{item.code}{item.path ? ` · ${item.path}` : ""}</small>
               </li>
             ))}

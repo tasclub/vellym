@@ -15,6 +15,7 @@ import { API_SCHEMA_VERSION, type Diagnostic } from "@vellym-internal/core";
 import { initializeProject } from "./init-command.js";
 import { buildStatic } from "./static-builder.js";
 import { VELLYM_VERSION } from "./version.js";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import {
   cliLanguageFromArgs,
   getMessages,
@@ -63,7 +64,7 @@ function formatDiagnostics(diagnostics: Diagnostic[]): string {
       const label = messages.diagnosticLabel(item.severity);
       const location =
         item.path && item.path !== "/" ? `${item.file} ${item.path}` : item.file;
-      return `  [${label}] ${location} (${item.code})\n    ${item.message}`;
+      return `  [${label}] ${location} (${item.code})\n    ${resolveLocalizedText(item.message, language)}`;
     })
     .join("\n");
 }
@@ -88,8 +89,15 @@ function output(
   text?: string
 ): void {
   if (json) {
+    const localizedDiagnostics = diagnostics.map((diagnostic) => {
+      if (!diagnostic || typeof diagnostic !== "object" || !("message" in diagnostic)) {
+        return diagnostic;
+      }
+      const item = diagnostic as { message: import("@vellym/plugin-api").PluginLocalizedText };
+      return { ...diagnostic, message: resolveLocalizedText(item.message, language) };
+    });
     process.stdout.write(
-      `${JSON.stringify({ apiSchemaVersion: API_SCHEMA_VERSION, data, diagnostics }, null, 2)}\n`
+      `${JSON.stringify({ apiSchemaVersion: API_SCHEMA_VERSION, data, diagnostics: localizedDiagnostics }, null, 2)}\n`
     );
   } else if (text) {
     process.stdout.write(`${text}\n`);
