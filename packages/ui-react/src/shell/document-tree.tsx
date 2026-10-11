@@ -19,18 +19,25 @@ import {
 } from "react-aria-components";
 import { Icon } from "../shared/icon.js";
 import { KindIcon } from "../shared/kind-icon.js";
+import {
+  allFolderKeys,
+  defaultExpandedKeys,
+  folderKey,
+  persistExpandedKeys,
+  readExpandedKeys
+} from "./document-tree-state.js";
 import styles from "./document-tree.module.css";
 
 function itemKey(node: DocumentNavigationNode): string {
-  return node.kind === "folder" ? `folder:${node.path}` : `page:${node.name}`;
+  return folderKey(node);
 }
 
-function allFolderKeys(nodes: DocumentNavigationNode[]): Key[] {
-  return nodes.flatMap((node) =>
-    node.kind === "folder"
-      ? [itemKey(node), ...allFolderKeys(node.children)]
-      : []
-  );
+function browserStorage(): Storage | undefined {
+  try {
+    return typeof window === "undefined" ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
 }
 
 function findNode(
@@ -140,11 +147,6 @@ function renderNode(
               }
             >
               <Icon name={isExpanded ? "chevronDown" : "chevronRight"} size={14} />
-              <span className="visually-hidden">
-                {isExpanded
-                  ? t("nav.closeDocumentNav")
-                  : t("nav.openDocumentNav")}
-              </span>
             </Button>
             <span className={styles.folderIcon}>
               <Icon name={isExpanded ? "folderOpen" : "folder"} size={15} />
@@ -252,19 +254,32 @@ export function DocumentTree(props: {
   canManage: boolean;
 }) {
   const { t } = useTranslation();
-  // 常時全展開だと大きなツリーを見渡せないため、展開状態を制御して一括展開／
-  // 折りたたみを可能にする。初回に文書が読み込まれた時点で全展開する。
+  // 展開状態は個人設定として保持し、正本YAMLには書き込まない。
   const folderKeys = allFolderKeys(props.nodes);
-  const [expandedKeys, setExpandedKeys] = useState<Set<Key>>(
-    () => new Set(folderKeys)
+  const [expandedKeys, setExpandedKeys] = useState<Set<Key>>(() =>
+    defaultExpandedKeys(props.nodes)
   );
   const initialized = useRef(false);
   useEffect(() => {
     if (!initialized.current && folderKeys.length > 0) {
       initialized.current = true;
-      setExpandedKeys(new Set(folderKeys));
+      setExpandedKeys(readExpandedKeys(
+        folderKeys,
+        props.nodes,
+        browserStorage()
+      ));
     }
   }, [folderKeys]);
+
+  function updateExpandedKeys(keys: Set<Key>) {
+    setExpandedKeys(keys);
+    if (!initialized.current) return;
+    persistExpandedKeys(
+      keys,
+      folderKeys,
+      browserStorage()
+    );
+  }
   const selectedKeys = new Set<Key>(
     props.selected
       ? [`page:${props.selected}`]
@@ -325,13 +340,13 @@ export function DocumentTree(props: {
         <div className={styles.treeToolbar}>
           <Button
             className={styles.treeToolbarButton}
-            onPress={() => setExpandedKeys(new Set(folderKeys))}
+            onPress={() => updateExpandedKeys(new Set(folderKeys))}
           >
             {t("tree.expandAll")}
           </Button>
           <Button
             className={styles.treeToolbarButton}
-            onPress={() => setExpandedKeys(new Set())}
+            onPress={() => updateExpandedKeys(new Set())}
           >
             {t("tree.collapseAll")}
           </Button>
@@ -345,7 +360,7 @@ export function DocumentTree(props: {
         selectionBehavior="replace"
         selectedKeys={selectedKeys}
         expandedKeys={expandedKeys}
-        onExpandedChange={(keys) => setExpandedKeys(new Set(keys))}
+        onExpandedChange={(keys) => updateExpandedKeys(new Set(keys))}
         onSelectionChange={handleSelectionChange}
         dragAndDropHooks={dragAndDropHooks}
         renderEmptyState={() => (
