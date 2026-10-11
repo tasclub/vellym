@@ -50,7 +50,7 @@ await cp(
 // Ticketのspec schemaはプラグインのTypeScript定数を正本とし、ここでは公開用の
 // YAML全体schemaへ埋め込む。site:buildの前にnpm run buildがdistへコンパイルする。
 const { TICKET_SPEC_SCHEMA, TICKET_TRACKER_SPEC_SCHEMA } = await import(
-  pathToFileURL(path.join(root, "packages/plugin-tickets/dist/schemas.js")).href
+  pathToFileURL(path.join(root, "packages/ticket-engine/dist/schemas.js")).href
 );
 const pageSchema = JSON.parse(
   await readFile(path.join(root, "packages/core/schemas/page.schema.json"), "utf8")
