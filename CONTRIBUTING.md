@@ -23,8 +23,9 @@ Run `npm run pack:smoke` for packaging changes and `npm run verify:core` for bro
 ## Changing the UI
 
 A green `npm run typecheck` and `npm test` do not mean a screen is finished.
-Open the affected screen in a browser before proposing the change, and check the
-list below. Each item has caused a real regression.
+Open the affected screen in a browser before proposing the change — see
+*Seeing the screen* at the end of this section for how — and check the list
+below. Each item has caused a real regression.
 
 **Global CSS wins by default.** `packages/ui-react/src/styles.css` contains
 ancestor-plus-element selectors such as `.setup-shell button`. Their specificity
@@ -57,6 +58,63 @@ Accessibility is not optional here: `role="tree"`/`treeitem`/`group`,
 `aria-level`, `aria-expanded`, `aria-checked` (`mixed` for partial), roving
 tabindex, and arrow/Home/End/Space/Enter handling are all verified by
 `tests/setup-tree.test.ts` and `npm run verify:core`.
+
+### Seeing the screen
+
+The dev container publishes no ports, so a browser on the host cannot reach
+`npm run dev` inside it. Drive Chromium **inside the container** instead. One
+time per container:
+
+```bash
+npx playwright install chromium
+sudo npx playwright install-deps chromium
+```
+
+`install-deps` also pulls `fonts-ipafont-gothic` and `fonts-wqy-zenhei`. Without
+them Japanese renders as boxes, which hides the wrapping and truncation problems
+you are looking for — do not skip it and judge the layout from a Latin-only
+screenshot.
+
+Then write a throwaway script that spawns the built CLI and screenshots it. Put
+it at the repository root — importing `@playwright/test` from `/tmp` fails with
+`ERR_MODULE_NOT_FOUND`, because the only `node_modules` is the workspace's. Do
+not add it to `scripts/`; delete it when you are done.
+
+```js
+const server = spawn(process.execPath, [
+  "packages/vellym/dist/cli.mjs", "dev",
+  "--config", configPath, "--port", String(port)
+]);
+// poll GET /api/v1/repository until it answers, then:
+const context = await browser.newContext({
+  locale: "ja-JP", viewport: { width: 1440, height: 900 }
+});
+```
+
+Run `npm run build` first — the script runs `packages/vellym/dist/cli.mjs`, not
+the sources.
+
+**Pick the config that exposes the problem.** `how-to-use/vellym.config.yaml`
+loads the tickets, kanban, and WBS plugins, and is the only way to reach a
+screen that is not a Page. It is a small tree, so density and overflow do not
+show up there — generate a large one with
+`node scripts/bench-fixture.mjs --out /tmp/big --pages 200` and point `--config`
+at the `vellym.config.yaml` it writes. A few dozen pages is enough; the real
+sidebar and outline problems appear well before the 3000-page scale fixture.
+
+**Measure, do not eyeball.** `getBoundingClientRect()` and `getComputedStyle()`
+on the real nodes, printed as JSON. A screenshot showed a cramped table of
+contents; the measurement showed a 28px grid column reserved for a button that
+no longer exists, and a `text-overflow: ellipsis` that could never fire because
+`white-space` was `normal`. Neither is visible by looking.
+
+**The document tree is a `treegrid`.** Its rows are `role="row"`, not
+`role="treeitem"`. A locator written against `treeitem` matches nothing and
+reports no error, so the check silently passes without having run.
+
+**Reload and look again.** State that is held only in React — the tree's
+expanded folders, for one — looks correct for the whole session and resets on
+every reload. One reload at the end of the script catches it.
 
 ## Evolving the document format
 

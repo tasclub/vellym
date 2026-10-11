@@ -38,7 +38,8 @@
     "THIRD-PARTY-NOTICES.md"
   ],
   "dependencies": {
-    "@inquirer/prompts": "^8.5.2"
+    "@inquirer/prompts": "^8.5.2",
+    "@vellym/plugin-api": "*"
   },
   "devDependencies": {
     "@vellym-internal/core": "*",

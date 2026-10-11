@@ -265,6 +265,86 @@ spec:
     expect(rootHtml).toContain('"react":"./assets/vellym-react.js"');
   });
 
+  it("bakes a standalone WBS on a TicketTracker without a WBS resource", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-wbs-"));
+    expect(run(initArgs(root)).status).toBe(0);
+    const config = path.join(root, "vellym.config.yaml");
+    await writeFile(config, (await readFile(config, "utf8"))
+      .replace("plugins: []", 'plugins:\n  - "@vellym/wbs"'));
+    await mkdir(path.join(root, "node_modules/@vellym"), { recursive: true });
+    for (const name of ["wbs", "plugin-api"]) {
+      await symlink(path.join(process.cwd(), `packages/plugin-${name}`),
+        path.join(root, `node_modules/@vellym/${name}`), "dir");
+    }
+    await writeFile(path.join(root, "docs/tracker.yaml"), `apiVersion: vellym.tasclub.com/v1
+kind: TicketTracker
+metadata: { name: build-tracker, title: 計画 }
+spec:
+  statuses:
+    - { id: todo, label: 未着手, category: open }
+  fields:
+    - { id: parent, label: 親, type: reference }
+    - { id: start, label: 開始, type: date }
+  hierarchy: { parentField: parent }
+  wbs: { startField: start }
+`);
+    await mkdir(path.join(root, "docs/+tickets"), { recursive: true });
+    await writeFile(path.join(root, "docs/+tickets/child.yaml"), `apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata: { name: child, title: 子 }
+spec:
+  status: todo
+  fields: { parent: missing, start: "2026-10-01" }
+`);
+    const output = buildDir(config);
+    const dataDir = await staticDataDir(output);
+    const view = JSON.parse(await readFile(path.join(dataDir, "views/build-tracker.json"), "utf8"));
+    expect(view.data.pluginId).toBe("wbs");
+    expect(view.data.descriptor).toMatchObject({ kind: "Ticket", paperWidth: "full",
+      rendererData: { parentField: "parent", startField: "start" } });
+    expect(view.data.rows.map((row: { name: string }) => row.name)).toContain("child");
+    expect(existsSync(path.join(output, "plugins/wbs/index.js"))).toBe(true);
+  });
+
+  it("bakes a standalone Kanban with its indexed cards and browser asset", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-kanban-"));
+    expect(run(initArgs(root)).status).toBe(0);
+    const config = path.join(root, "vellym.config.yaml");
+    await writeFile(config, (await readFile(config, "utf8"))
+      .replace("plugins: []", 'plugins:\n  - "@vellym/kanban"'));
+    await mkdir(path.join(root, "node_modules/@vellym"), { recursive: true });
+    for (const name of ["kanban", "plugin-api"]) {
+      await symlink(path.join(process.cwd(), `packages/plugin-${name}`),
+        path.join(root, `node_modules/@vellym/${name}`), "dir");
+    }
+    await writeFile(path.join(root, "docs/tracker.yaml"), `apiVersion: vellym.tasclub.com/v1
+kind: TicketTracker
+metadata: { name: board-tracker, title: 開発 }
+spec:
+  statuses:
+    - { id: todo, label: 未着手, category: open }
+    - { id: done, label: 完了, category: closed }
+  fields: []
+`);
+    await mkdir(path.join(root, "docs/+tickets"), { recursive: true });
+    await writeFile(path.join(root, "docs/+tickets/task.yaml"), `apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata: { name: task, title: 試験カード }
+spec: { status: todo, fields: {} }
+`);
+    const output = buildDir(config);
+    const dataDir = await staticDataDir(output);
+    const view = JSON.parse(await readFile(path.join(dataDir, "views/board-tracker.json"), "utf8"));
+    expect(view.data.pluginId).toBe("kanban");
+    expect(view.data.descriptor.rendererData.statuses).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "todo" }), expect.objectContaining({ id: "done" })
+    ]));
+    expect(view.data.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "task", title: "試験カード" })
+    ]));
+    expect(existsSync(path.join(output, "plugins/kanban/index.js"))).toBe(true);
+  });
+
   it("initializes, validates, and builds a minimal project", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-"));
     expect(run(initArgs(root)).status).toBe(0);

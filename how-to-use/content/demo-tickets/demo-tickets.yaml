@@ -6,9 +6,18 @@ metadata:
 spec:
   # 先頭が新規作成時の初期値。配列順が表示順。
   statuses:
-    - { id: todo, label: 未着手, category: open }
-    - { id: doing, label: 対応中, category: open }
-    - { id: done, label: 完了, category: closed }
+    - id: todo
+      label: 未着手
+      category: open
+    - id: doing
+      label: 対応中
+      category: open
+    - id: done
+      label: 完了
+      category: open
+    - id: finish
+      label: 終了
+      category: closed
   fields:
     - id: priority
       label: 優先度
@@ -16,17 +25,30 @@ spec:
       required: true
       listColumn: true
       options:
-        - { value: high, label: 高 }
-        - { value: mid, label: 中 }
-        - { value: low, label: 低 }
+        - value: high
+          label: 高
+        - value: mid
+          label: 中
+        - value: low
+          label: 低
     - id: assignee
       label: 担当
       type: text
+      required: false
       listColumn: true
     - id: due
       label: 期限
       type: date
+      required: false
       listColumn: true
     - id: notes
       label: メモ
       type: multiline
+      required: false
+      listColumn: false
+    - { id: parent, label: 親, type: reference }
+    - { id: start, label: 開始, type: date }
+    - { id: sequence, label: 順序, type: number }
+  hierarchy:
+    parentField: parent
+  wbs: { startField: start, endField: due }

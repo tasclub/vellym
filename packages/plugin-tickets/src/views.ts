@@ -19,8 +19,11 @@ import {
 export const LIST_VIEW_ID = "ticket-list";
 export const DETAIL_VIEW_ID = "ticket-detail";
 export const SETTINGS_VIEW_ID = "ticket-tracker-settings";
-export const CREATE_COMMAND_ID = "ticket.create";
-export const CREATE_TRACKER_COMMAND_ID = "ticket.create-tracker";
+export {
+  CREATE_TICKET_COMMAND_ID as CREATE_COMMAND_ID,
+  CREATE_TRACKER_COMMAND_ID
+} from "@vellym-internal/ticket-engine";
+import { CREATE_TICKET_COMMAND_ID } from "@vellym-internal/ticket-engine";
 
 /**
  * ステータスの選択肢。記号は`category`からだけ決める。
@@ -146,7 +149,7 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
       tracker && tracker.statuses.length
         ? {
             message: { ja: "チケットがありません", en: "No tickets yet" },
-            ...(context.isStatic ? {} : { commandId: CREATE_COMMAND_ID })
+            ...(context.isStatic ? {} : { commandId: CREATE_TICKET_COMMAND_ID })
           }
         : {
             message: {

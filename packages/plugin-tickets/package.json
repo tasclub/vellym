@@ -42,7 +42,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api/ui"
+    "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api --external:@vellym/plugin-api/react --external:@vellym/plugin-api/ui"
   },
   "publishConfig": {
     "access": "public"
@@ -52,6 +52,7 @@
     "react": ">=18"
   },
   "devDependencies": {
+    "@vellym-internal/ticket-engine": "*",
     "@vellym/plugin-api": "*",
     "esbuild": "^0.28.1"
   },

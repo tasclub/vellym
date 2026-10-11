@@ -96,13 +96,17 @@ function move<T>(list: readonly T[], index: number, delta: number): T[] {
 }
 
 export function TrackerSettingsScreen({ context }: PluginViewProps) {
-  return <Screen context={context as PluginRenderContext} />;
+  return <Screen context={context} />;
 }
 
 function Screen({ context }: { context: PluginRenderContext }) {
   const spec = context.target?.spec ?? {};
   const [statuses, setStatuses] = useState(() => readStatuses(spec));
   const [fields, setFields] = useState(() => readFields(spec));
+  const savedHierarchy = typeof spec.hierarchy === "object" && spec.hierarchy !== null &&
+    !Array.isArray(spec.hierarchy) ? spec.hierarchy as Record<string, unknown> : {};
+  const [parentField, setParentField] = useState(() =>
+    typeof savedHierarchy.parentField === "string" ? savedHierarchy.parentField : "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const ja = context.locale.startsWith("ja");
@@ -167,7 +171,9 @@ function Screen({ context }: { context: PluginRenderContext }) {
             ? { options: row.options }
             : {})
         }))
-      }
+      },
+      ...(parentField || savedHierarchy.parentField !== undefined
+        ? [{ path: ["hierarchy", "parentField"], value: parentField || null }] : [])
     ]);
     setSaving(false);
     setMessage(result.ok ? text("保存しました", "Saved") : result.message);
@@ -437,6 +443,18 @@ function Screen({ context }: { context: PluginRenderContext }) {
       >
         {text("項目を追加", "Add field")}
       </Button>
+
+      <p>
+        <label>
+          {text("親を指す参照項目", "Parent reference field")}{" "}
+          <select value={parentField} onChange={(event) => setParentField(event.target.value)}>
+            <option value="">{text("指定しない", "None")}</option>
+            {fields.filter((field) => field.type === "reference" && field.id).map((field) => (
+              <option key={field.id} value={field.id}>{field.label || field.id}</option>
+            ))}
+          </select>
+        </label>
+      </p>
 
       <p>
         <Button tone="primary" disabled={saving} onClick={() => void submit()}>

@@ -49,6 +49,11 @@ Trackerを開き、「このチケット管理の設定」からステータス�
 すべて警告として扱う。チケットは読める状態、編集できる状態を保ち、値を勝手に
 削除しない。
 
+親子関係を使う場合は`reference`型の項目を追加し、設定画面の「親を指す参照項目」で
+選ぶ。`@vellym/wbs`を導入すると、その定義に基づく階層をWBS画面で表示できる。
+循環や見つからない親は警告として示し、チケットは消さない。
+親を選ばないTrackerの挙動は変わらない。
+
 ## YAMLで直接書く
 
 チケットの正本はYAMLファイルである。画面を使わず、エディタや外部のAIエージェントから
@@ -82,6 +87,9 @@ spec:
       label: 期限
       type: date
       listColumn: true
+    - { id: parent, label: 親チケット, type: reference }
+  hierarchy:
+    parentField: parent
 ```
 
 - `statuses[]`は`id`／`label`／`category`が必須。`category`は`open`と`closed`の2値だけで、
@@ -109,6 +117,7 @@ spec:
   fields:
     priority: high
     due: 2026-09-05
+    parent: ticket-01m0m000000000000000000001
   blocks:
     - id: description
       type: rich-text
