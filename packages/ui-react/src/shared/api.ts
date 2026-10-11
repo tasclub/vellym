@@ -1,5 +1,7 @@
 import type { PluginViewPayload } from "../plugin/plugin-list-view.js";
 import type { PluginInputValue, PluginPendingResource } from "@vellym/plugin-api";
+import { resolveLocalizedText } from "@vellym/plugin-api";
+import { i18next } from "./i18n.js";
 import type { PluginSpecValue } from "../plugin/plugin-detail-view.js";
 import type {
   Diagnostic,
@@ -274,10 +276,11 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
-    public readonly diagnostics: Diagnostic[]
+    public readonly diagnostics: Diagnostic[],
+    code?: string
   ) {
     super(message);
-    this.code = diagnostics[0]?.code;
+    this.code = code ?? diagnostics[0]?.code;
   }
 }
 
@@ -290,11 +293,13 @@ async function request<T>(
   try {
     result = (await response.json()) as Envelope<T | null>;
   } catch {
-    throw new ApiError("サーバー応答を解析できません", response.status, []);
+    throw new ApiError("サーバー応答を解析できません", response.status, [], "API_RESPONSE_PARSE");
   }
   if (!response.ok || result.data === null) {
     throw new ApiError(
-      result.diagnostics[0]?.message ?? `HTTP ${response.status}`,
+      result.diagnostics[0]
+        ? resolveLocalizedText(result.diagnostics[0].message, i18next.language)
+        : `HTTP ${response.status}`,
       response.status,
       result.diagnostics
     );
@@ -361,11 +366,13 @@ async function fetchStatic<T>(base: string, file: string): Promise<Envelope<T>> 
   try {
     result = (await response.json()) as Envelope<T | null>;
   } catch {
-    throw new ApiError("静的データを解析できません", response.status, []);
+    throw new ApiError("静的データを解析できません", response.status, [], "STATIC_DATA_PARSE");
   }
   if (!response.ok || result.data === null) {
     throw new ApiError(
-      result.diagnostics[0]?.message ?? `HTTP ${response.status}`,
+      result.diagnostics[0]
+        ? resolveLocalizedText(result.diagnostics[0].message, i18next.language)
+        : `HTTP ${response.status}`,
       response.status,
       result.diagnostics
     );
