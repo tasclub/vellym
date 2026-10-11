@@ -7,14 +7,14 @@ import type {
   PluginValueType,
   PluginViewContext
 } from "@vellym/plugin-api";
-import { readTrackers, trackerFor, type Tracker } from "./definitions.js";
+import { readTrackers, trackerFor, type Tracker } from "@vellym-internal/ticket-engine";
 import {
   FIELD_KEY_PREFIX,
   LABELS_KEY,
   STATUS_KEY,
   TRACKERS_KEY,
   fieldKey
-} from "./projection.js";
+} from "@vellym-internal/ticket-engine";
 
 export const LIST_VIEW_ID = "ticket-list";
 export const DETAIL_VIEW_ID = "ticket-detail";
