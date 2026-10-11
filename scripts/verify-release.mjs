@@ -3,7 +3,10 @@ import semver from "semver";
 
 const packagePaths = {
   pluginApi: "packages/plugin-api",
+  ticketEngine: "packages/ticket-engine",
   tickets: "packages/plugin-tickets",
+  kanban: "packages/plugin-kanban",
+  wbs: "packages/plugin-wbs",
   vellym: "packages/vellym"
 };
 const manifests = Object.fromEntries(
@@ -35,16 +38,25 @@ for (const [key, packagePath] of Object.entries(packagePaths)) {
   }
 }
 
-const pluginApiRange = manifests.tickets.peerDependencies?.["@vellym/plugin-api"] ?? "";
-if (!semver.satisfies(manifests.pluginApi.version, pluginApiRange)) {
-  throw new Error(
-    `@vellym/ticketsのpeer dependencyが公開版を満たしません: @vellym/plugin-api@${manifests.pluginApi.version}は${pluginApiRange}の範囲外です`
-  );
+for (const key of ["tickets", "kanban", "wbs"]) {
+  const plugin = manifests[key];
+  const pluginApiRange = plugin.peerDependencies?.["@vellym/plugin-api"] ?? "";
+  if (!semver.satisfies(manifests.pluginApi.version, pluginApiRange)) {
+    throw new Error(
+      `${plugin.name}のpeer dependencyが公開版を満たしません: @vellym/plugin-api@${manifests.pluginApi.version}は${pluginApiRange}の範囲外です`
+    );
+  }
+  const vellymRange = plugin.engines?.vellym ?? "";
+  if (!semver.validRange(vellymRange) || !semver.satisfies(manifests.vellym.version, vellymRange)) {
+    throw new Error(
+      `${plugin.name}のengines.vellymが公開版を満たしません: vellym@${manifests.vellym.version}は${vellymRange}の範囲外です`
+    );
+  }
 }
-const vellymRange = manifests.tickets.engines?.vellym ?? "";
-if (!semver.satisfies(manifests.vellym.version, vellymRange)) {
+const engineApiRange = manifests.ticketEngine.peerDependencies?.["@vellym/plugin-api"] ?? "";
+if (!semver.satisfies(manifests.pluginApi.version, engineApiRange)) {
   throw new Error(
-    `@vellym/ticketsのengines.vellymが公開版を満たしません: vellym@${manifests.vellym.version}は${vellymRange}の範囲外です`
+    `ticket-engineのpeer dependencyが公開版を満たしません: @vellym/plugin-api@${manifests.pluginApi.version}は${engineApiRange}の範囲外です`
   );
 }
 
