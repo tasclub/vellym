@@ -101,6 +101,17 @@ describe("symbol-only host buttons", () => {
     expect(source).toMatch(/<HostButton\s+icon\s+className=\{styles\.close\}/);
     expect(source).toMatch(/aria-label=\{t\("structure\.close"\)\}/);
   });
+
+  it("uses accessible shared icon buttons for editor history and symbol actions", () => {
+    const source = readFileSync(
+      "packages/ui-react/src/editor/editor-workspace.tsx",
+      "utf8"
+    );
+    expect(source).toMatch(/<Button\s+icon\s+aria-label=\{t\("editor\.undo"\)\}/);
+    expect(source).toMatch(/<Button\s+icon\s+aria-label=\{t\("editor\.redo"\)\}/);
+    expect(source).toMatch(/icon=\{action\.command === "bullet-list" \|\| action\.command === "link"\}/);
+    expect(source).not.toMatch(/<button[\s\S]{0,180}aria-label=\{t\("editor\.(?:undo|redo)"\)\}/);
+  });
 });
 
 describe("Button", () => {

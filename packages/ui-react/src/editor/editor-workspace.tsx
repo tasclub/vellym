@@ -382,30 +382,30 @@ export function EditorWorkspace(props: {
         {props.editLanguageControls}
         <div className={styles["edit-toolbar"]} role="toolbar" aria-label={t("editor.toolbarLabel")}>
           <div className={styles["history-actions"]} role="group" aria-label={t("editor.historyGroup")}>
-            <button
-              type="button"
+            <Button
+              icon
               aria-label={t("editor.undo")}
               disabled={!editorState.canUndo}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => runHistory("undo")}
             >
               ↶
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              icon
               aria-label={t("editor.redo")}
               disabled={!editorState.canRedo}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => runHistory("redo")}
             >
               ↷
-            </button>
+            </Button>
           </div>
           <div className={styles["format-actions"]} role="group" aria-label={t("editor.formatGroup")}>
             {PRIMARY_ACTIONS.map((action) => (
-              <button
+              <Button
+                icon={action.command === "bullet-list" || action.command === "link"}
                 key={action.command}
-                type="button"
                 aria-label={t(action.labelKey)}
                 aria-pressed={editorState.activeCommands.includes(
                   action.command
@@ -418,7 +418,7 @@ export function EditorWorkspace(props: {
                 }
               >
                 {action.text}
-              </button>
+              </Button>
             ))}
             <details className={styles["more-actions"]}>
               <summary
