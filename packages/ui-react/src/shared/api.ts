@@ -293,7 +293,7 @@ async function request<T>(
   try {
     result = (await response.json()) as Envelope<T | null>;
   } catch {
-    throw new ApiError("サーバー応答を解析できません", response.status, [], "API_RESPONSE_PARSE");
+    throw new ApiError(i18next.t("error.API_RESPONSE_PARSE"), response.status, [], "API_RESPONSE_PARSE");
   }
   if (!response.ok || result.data === null) {
     throw new ApiError(
@@ -366,7 +366,7 @@ async function fetchStatic<T>(base: string, file: string): Promise<Envelope<T>> 
   try {
     result = (await response.json()) as Envelope<T | null>;
   } catch {
-    throw new ApiError("静的データを解析できません", response.status, [], "STATIC_DATA_PARSE");
+    throw new ApiError(i18next.t("error.STATIC_DATA_PARSE"), response.status, [], "STATIC_DATA_PARSE");
   }
   if (!response.ok || result.data === null) {
     throw new ApiError(
@@ -379,11 +379,12 @@ async function fetchStatic<T>(base: string, file: string): Promise<Envelope<T>> 
   }
   const expectedBuild = window.__VELLYM_STATIC__?.buildId;
   if (expectedBuild && result.buildId !== expectedBuild) {
-    throw new ApiError("静的サイトのHTMLとデータの版が一致しません。再読み込みしてください", 409, [{
+    const message = i18next.t("error.STATIC_BUILD_MISMATCH");
+    throw new ApiError(message, 409, [{
       file: file,
       severity: "error",
       code: "STATIC_BUILD_MISMATCH",
-      message: "静的サイトのHTMLとデータのbuild IDが一致しません"
+      message
     }]);
   }
   return result as Envelope<T>;

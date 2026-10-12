@@ -35,4 +35,18 @@ describe("API diagnostic localization", () => {
       code: "PAGE_INVALID"
     } satisfies Partial<ApiError>);
   });
+
+  it("localizes malformed server responses", async () => {
+    await i18next.changeLanguage("en");
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => { throw new SyntaxError("invalid JSON"); }
+    }) as typeof fetch;
+
+    await expect(fetchPage("page")).rejects.toMatchObject({
+      message: "The server response could not be parsed.",
+      code: "API_RESPONSE_PARSE"
+    } satisfies Partial<ApiError>);
+  });
 });
