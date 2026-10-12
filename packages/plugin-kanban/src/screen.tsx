@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent } from "react";
 import { resolveLocalizedText, type PluginIndexRow } from "@vellym/plugin-api";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
-import { Button, KindIcon } from "@vellym/plugin-api/ui";
+import { Button, ChoiceControl, InputControl, KindIcon } from "@vellym/plugin-api/ui";
 import type { KanbanRendererData } from "./board.js";
 import { buildKanbanColumns } from "./model.js";
 import { cardFieldValue } from "./card-fields.js";
@@ -290,7 +290,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
           <legend>{resolveLocalizedText({ ja: "表示する列を選択", en: "Select visible columns" }, context.locale)}</legend>
           {options.map((column) => (
             <label key={columnKey(column)} style={{ display: "inline-flex", gap: "var(--space-1)", alignItems: "center", overflowWrap: "anywhere" }}>
-              <input
+              <InputControl
                 type="checkbox"
                 checked={selected.has(columnKey(column))}
                 onChange={() => updateSelection(columnKey(column))}
@@ -310,16 +310,17 @@ export function KanbanScreen({ context }: PluginViewProps) {
       <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
         <label>
           {resolveLocalizedText({ ja: "列内の並び順", en: "Sort within columns" }, context.locale)}{" "}
-          <select value={sort.field} onChange={(event) => updateSort(event.target.value, sort.direction)}>
-            {sortOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-          </select>
+          <ChoiceControl mode="select" aria-label={resolveLocalizedText({ ja: "並び替え項目", en: "Sort field" }, context.locale)}
+            value={sort.field} options={sortOptions.map((option) => ({ value: option.id, label: option.label }))}
+            onChange={(value) => updateSort(value, sort.direction)} />
         </label>
         <label>
           {resolveLocalizedText({ ja: "方向", en: "Direction" }, context.locale)}{" "}
-          <select value={sort.direction} onChange={(event) => updateSort(sort.field, event.target.value as "asc" | "desc")}>
-            <option value="asc">{resolveLocalizedText({ ja: "昇順", en: "Ascending" }, context.locale)}</option>
-            <option value="desc">{resolveLocalizedText({ ja: "降順", en: "Descending" }, context.locale)}</option>
-          </select>
+          <ChoiceControl mode="select" aria-label={resolveLocalizedText({ ja: "並び順", en: "Sort direction" }, context.locale)}
+            value={sort.direction} options={[
+              { value: "asc", label: resolveLocalizedText({ ja: "昇順", en: "Ascending" }, context.locale) },
+              { value: "desc", label: resolveLocalizedText({ ja: "降順", en: "Descending" }, context.locale) }
+            ]} onChange={(value) => updateSort(sort.field, value as "asc" | "desc")} />
         </label>
       </div>
       {data.summaries.length > 0 ? <section aria-label={resolveLocalizedText({
@@ -339,7 +340,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
           </li>;
         })}</ul>
       </section> : null}
-      <div style={boardStyle}>
+      <div className="kanban-board" style={boardStyle}>
         {columns.filter((column) => selected.has(columnKey(column))).map((column) => {
           const id = columnKey(column);
           const sorted = sortKanbanRows(column.rows, sort, context.locale);

@@ -1,4 +1,4 @@
-import { createReadStream } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
@@ -95,8 +95,9 @@ try {
     if (errors.length) throw new Error(`${scenario.path} browser errors: ${errors.join("; ")}`);
     await context.close();
   }
-  // Exercise the real static Kanban page, not only its baked JSON. This catches
-  // a descriptor/asset pair that exists on disk but cannot mount in the SPA.
+  // The published guide may not contain TicketTracker fixtures. Always verify
+  // plugin styles load from the real static bootstrap; exercise the board too
+  // when the site has a suitable fixture page.
   const kanbanContext = await browser.newContext({
     locale: "ja-JP",
     viewport: { width: 390, height: 844 }
@@ -107,39 +108,45 @@ try {
   kanbanPage.on("console", (message) => {
     if (message.type() === "error") kanbanErrors.push(message.text());
   });
-  const kanbanResponse = await kanbanPage.goto(`${baseUrl}/pages/demo-tickets/`, {
-    waitUntil: "networkidle"
-  });
-  if (!kanbanResponse?.ok()) throw new Error("static demo Ticket page did not load");
-  await kanbanPage.getByRole("button", { name: "カンバン" }).click();
-  const board = kanbanPage.getByRole("region", { name: "チケットのカンバン" });
-  await board.waitFor();
-  if (await board.locator("article[data-ticket-name]").count() === 0) {
-    throw new Error("static Kanban has no visible cards");
-  }
-  if (await board.getByRole("button", { name: /上へ|下へ|Move up|Move down/ }).count()) {
-    throw new Error("static Kanban exposes ordering controls");
-  }
-  if (await board.locator('[draggable="true"]').count()) {
-    throw new Error("static Kanban exposes draggable cards");
-  }
-  if (await board.getByRole("alert").count()) {
-    throw new Error("static Kanban exposes a definition diagnostic");
-  }
-  const columns = board.locator('input[type="checkbox"]');
-  if (await columns.count() < 2) throw new Error("static Kanban has no column preferences");
-  await board.locator("details > summary").click();
-  const initialColumns = await columns.evaluateAll((items) => items.map((item) => (item).checked));
-  await columns.nth(1).uncheck();
-  await kanbanPage.reload({ waitUntil: "networkidle" });
-  await kanbanPage.getByRole("button", { name: "カンバン" }).click();
-  const restoredBoard = kanbanPage.getByRole("region", { name: "チケットのカンバン" });
-  await restoredBoard.waitFor();
-  await restoredBoard.locator("details > summary").click();
-  const persistedColumns = await restoredBoard.locator('input[type="checkbox"]')
-    .evaluateAll((items) => items.map((item) => (item).checked));
-  if (persistedColumns[1] !== false || initialColumns[1] !== true) {
-    throw new Error("static Kanban did not persist its column selection");
+  const guideResponse = await kanbanPage.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  if (!guideResponse?.ok()) throw new Error("static guide did not load for plugin stylesheet verification");
+  await kanbanPage.locator('link[data-vellym-plugin-style="kanban"]')
+    .waitFor({ state: "attached" });
+  if (existsSync(path.join(root, "pages/demo-tickets/index.html"))) {
+    const kanbanResponse = await kanbanPage.goto(`${baseUrl}/pages/demo-tickets/`, {
+      waitUntil: "networkidle"
+    });
+    if (!kanbanResponse?.ok()) throw new Error("static demo Ticket page did not load");
+    await kanbanPage.getByRole("button", { name: "カンバン" }).click();
+    const board = kanbanPage.getByRole("region", { name: "チケットのカンバン" });
+    await board.waitFor();
+    if (await board.locator("article[data-ticket-name]").count() === 0) {
+      throw new Error("static Kanban has no visible cards");
+    }
+    if (await board.getByRole("button", { name: /上へ|下へ|Move up|Move down/ }).count()) {
+      throw new Error("static Kanban exposes ordering controls");
+    }
+    if (await board.locator('[draggable="true"]').count()) {
+      throw new Error("static Kanban exposes draggable cards");
+    }
+    if (await board.getByRole("alert").count()) {
+      throw new Error("static Kanban exposes a definition diagnostic");
+    }
+    const columns = board.locator('input[type="checkbox"]');
+    if (await columns.count() < 2) throw new Error("static Kanban has no column preferences");
+    await board.locator("details > summary").click();
+    const initialColumns = await columns.evaluateAll((items) => items.map((item) => (item).checked));
+    await columns.nth(1).uncheck();
+    await kanbanPage.reload({ waitUntil: "networkidle" });
+    await kanbanPage.getByRole("button", { name: "カンバン" }).click();
+    const restoredBoard = kanbanPage.getByRole("region", { name: "チケットのカンバン" });
+    await restoredBoard.waitFor();
+    await restoredBoard.locator("details > summary").click();
+    const persistedColumns = await restoredBoard.locator('input[type="checkbox"]')
+      .evaluateAll((items) => items.map((item) => (item).checked));
+    if (persistedColumns[1] !== false || initialColumns[1] !== true) {
+      throw new Error("static Kanban did not persist its column selection");
+    }
   }
   if (kanbanErrors.length) throw new Error(`static Kanban browser errors: ${kanbanErrors.join("; ")}`);
   await kanbanContext.close();

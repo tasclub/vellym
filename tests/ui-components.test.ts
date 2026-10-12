@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DataTable } from "../packages/ui-react/src/shared/table.js";
 import { Button } from "../packages/ui-react/src/shared/button.js";
+import { ChoiceControl } from "../packages/ui-react/src/shared/choice-control.js";
+import { InputControl } from "../packages/ui-react/src/shared/input-control.js";
 import {
   KindIcon,
   KindIconProvider
@@ -100,6 +102,34 @@ describe("Button", () => {
     expect(
       renderToStaticMarkup(createElement(Button, { type: "submit" }, "保存"))
     ).toContain('type="submit"');
+  });
+});
+
+describe("ChoiceControl and InputControl", () => {
+  const options = [{ value: "list", label: "一覧" }, { value: "board", label: "ボード" }];
+
+  it("renders one selected value as an accessible select control", () => {
+    const html = renderToStaticMarkup(createElement(ChoiceControl, {
+      mode: "select", options, value: "board", "aria-label": "表示", onChange: () => undefined
+    }));
+    expect(html).toContain('aria-label="表示"');
+    expect(html).toContain('<option value="board" selected="">ボード</option>');
+  });
+
+  it("renders segmented choices with the selected value announced", () => {
+    const html = renderToStaticMarkup(createElement(ChoiceControl, {
+      mode: "segmented", options, value: "board", "aria-label": "表示", onChange: () => undefined
+    }));
+    expect(html).toContain('role="group" aria-label="表示"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("ボード");
+  });
+
+  it("applies the host input control to checkbox and date inputs", () => {
+    expect(renderToStaticMarkup(createElement(InputControl, { type: "checkbox", "aria-label": "列" })))
+      .toContain('type="checkbox"');
+    expect(renderToStaticMarkup(createElement(InputControl, { type: "date", "aria-label": "開始" })))
+      .toContain('type="date"');
   });
 });
 

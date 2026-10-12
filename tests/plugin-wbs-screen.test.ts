@@ -6,7 +6,16 @@ import type { PluginIndexRow, PluginRenderContext, PluginSaveResult, PluginSpecW
 vi.mock("@vellym/plugin-api/ui", () => ({
   Button: ({ children, tone: _tone, icon: _icon, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
     tone?: string; icon?: boolean
-  }) => createElement("button", props, children)
+  }) => createElement("button", props, children),
+  ChoiceControl: ({ options, onChange, ...props }: {
+    options: Array<{ value: string; label: string }>;
+    onChange(value: string): void;
+    value: string;
+  } & Record<string, unknown>) => createElement("select", {
+    ...props,
+    onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onChange(event.target.value)
+  }, ...options.map((option) => createElement("option", { key: option.value, value: option.value }, option.label))),
+  InputControl: (props: React.InputHTMLAttributes<HTMLInputElement>) => createElement("input", props)
 }));
 import { WBSScreen } from "../packages/plugin-wbs/src/screen.js";
 

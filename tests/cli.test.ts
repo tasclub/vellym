@@ -343,6 +343,12 @@ spec: { status: todo, fields: {} }
       expect.objectContaining({ name: "task", title: "試験カード" })
     ]));
     expect(existsSync(path.join(output, "plugins/kanban/index.js"))).toBe(true);
+    expect(existsSync(path.join(output, "plugins/kanban/kanban.css"))).toBe(true);
+    const bootstrap = JSON.parse(await readFile(path.join(dataDir, "bootstrap.json"), "utf8"));
+    expect(bootstrap.data.plugins.browserEntries).toContainEqual(expect.objectContaining({
+      id: "kanban",
+      styles: ["plugins/kanban/kanban.css"]
+    }));
   });
 
   it("initializes, validates, and builds a minimal project", async () => {

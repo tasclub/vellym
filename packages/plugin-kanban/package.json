@@ -22,7 +22,7 @@
   },
   "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api --external:@vellym/plugin-api/react --external:@vellym/plugin-api/ui"
+    "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api --external:@vellym/plugin-api/react --external:@vellym/plugin-api/ui && node -e \"require('node:fs').copyFileSync('src/kanban.css', 'dist/browser/kanban.css')\""
   },
   "publishConfig": { "access": "public" },
   "peerDependencies": {
@@ -37,6 +37,7 @@
   },
   "vellym": {
     "id": "kanban",
+    "styles": ["kanban.css"],
     "contributes": {
       "kinds": [
         { "kind": "Ticket" },

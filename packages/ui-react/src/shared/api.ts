@@ -39,7 +39,7 @@ export interface BootstrapData {
     /** 実行中のVellym本体の版。ブラウザ側hostへ渡す */
     hostVersion?: string;
     /** ブラウザ側エントリの読み込み先。宣言したプラグインだけが並ぶ */
-    browserEntries?: Array<{ id: string; url: string }>;
+    browserEntries?: Array<{ id: string; url: string; styles?: string[] }>;
     /** 種別ごとのアイコン。プラグインが渡したものだけが入る */
     kindIcons?: Record<string, import("@vellym/plugin-api").PluginKindIcon>;
     documentTreeCommands: Array<{

@@ -1,0 +1,4 @@
+/* All selectors are scoped by the plugin ID to avoid affecting the host or other plugins. */
+.kanban-board {
+  min-width: 0;
+}

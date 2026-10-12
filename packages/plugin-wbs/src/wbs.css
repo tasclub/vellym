@@ -1,0 +1,25 @@
+/* Every selector is prefixed with `wbs-`; plugin CSS must not style other views. */
+.wbs-row {
+  display: grid;
+  grid-template-columns: minmax(19rem, 36%) minmax(36rem, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.wbs-select,
+.wbs-date {
+  max-width: 100%;
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+@media (max-width: 767px) {
+  .wbs-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

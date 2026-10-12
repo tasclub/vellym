@@ -19,6 +19,7 @@ interface FakePlugin {
   engines?: string;
   manifest?: unknown;
   entry?: string;
+  browser?: boolean;
   /** `exports`を持つ実際の公開パッケージの形にする */
   useExports?: boolean;
 }
@@ -35,8 +36,11 @@ async function installPlugin(configDir: string, plugin: FakePlugin): Promise<voi
       type: "module",
       // exportsを持つパッケージは"./package.json"を公開しない。hostはそれでも
       // manifestへ辿り着けなければならない。
-      ...(plugin.useExports
-        ? { exports: { ".": "./index.mjs" } }
+      ...(plugin.useExports || plugin.browser
+        ? { exports: {
+            ".": "./index.mjs",
+            ...(plugin.browser ? { "./browser": "./browser/index.js" } : {})
+          } }
         : { main: "index.mjs" }),
       ...(plugin.engines === undefined ? {} : { engines: { vellym: plugin.engines } }),
       ...(plugin.manifest === undefined ? {} : { vellym: plugin.manifest })
@@ -47,6 +51,10 @@ async function installPlugin(configDir: string, plugin: FakePlugin): Promise<voi
     plugin.entry ??
       `export function activate(host) { host.registerKind({ kind: "Ticket" }); }`
   );
+  if (plugin.browser) {
+    await mkdir(path.join(directory, "browser"), { recursive: true });
+    await writeFile(path.join(directory, "browser/index.js"), "export default { activate() {} };\n");
+  }
 }
 
 async function projectWith(plugins: FakePlugin[]): Promise<string> {
@@ -115,6 +123,25 @@ describe("loadPlugins", () => {
     });
     expect(registry.diagnostics).toEqual([]);
     expect(registry.plugins.map((plugin) => plugin.id)).toEqual(["tickets"]);
+  });
+
+  it("resolves stylesheet declarations relative to the exported browser directory", async () => {
+    const configDir = await projectWith([{
+      name: "@scope/styled",
+      engines: ">=0.3.0-beta.1",
+      manifest: { id: "styled", styles: ["styled.css"] },
+      browser: true
+    }]);
+    const registry = await loadPlugins({
+      configDir,
+      packageNames: ["@scope/styled"],
+      hostVersion: HOST_VERSION
+    });
+    expect(registry.diagnostics).toEqual([]);
+    expect(registry.plugins[0]).toMatchObject({
+      browserEntry: "index.js",
+      browserStyles: ["styled.css"]
+    });
   });
 
   it("keeps the first plugin that claims a kind", async () => {

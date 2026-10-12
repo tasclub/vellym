@@ -18,6 +18,7 @@ import {
 import type { PluginSpecValue } from "../shared/field-input.js";
 import { PluginRendererView } from "./plugin-renderer-view.js";
 import { Button } from "../shared/button.js";
+import { ChoiceControl } from "../shared/choice-control.js";
 import { PluginCommandDialog } from "./plugin-command-dialog.js";
 import styles from "./plugin.module.css";
 
@@ -110,19 +111,23 @@ export function PluginListPage(props: {
         <DocumentView
           view={view}
           onNavigatePage={props.onNavigate}
-          headerActions={[...(payload.siblings ?? [])]
-            .filter((sibling) => sibling.id !== payload.viewId && sibling.label)
-            // Keep mode switches together and settings after them regardless of plugin
-            // activation order (tickets and Kanban are separate plugins).
-            .sort((left, right) => left.id.localeCompare(right.id))
-            .map((sibling) => (
-              <Button
-                key={sibling.id}
-                onClick={() => void props.onSwitchView(sibling.id)}
-              >
-                {resolveLocalizedText(sibling.label!, props.uiLocale)}
-              </Button>
-            ))}
+          headerActions={payload.siblings?.some((sibling) => sibling.label) ? [
+            <ChoiceControl
+              key="plugin-view-switcher"
+              mode="segmented"
+              aria-label={resolveLocalizedText({ ja: "表示", en: "View" }, props.uiLocale)}
+              value={payload.viewId}
+              options={[...(payload.siblings ?? [])]
+                .filter((sibling) => sibling.label)
+                // Keep mode switches together regardless of plugin activation order.
+                .sort((left, right) => left.id.localeCompare(right.id))
+                .map((sibling) => ({
+                  value: sibling.id,
+                  label: resolveLocalizedText(sibling.label!, props.uiLocale)
+                }))}
+              onChange={(id) => void props.onSwitchView(id)}
+            />
+          ] : []}
           beforeBody={body}
         />
       </div>

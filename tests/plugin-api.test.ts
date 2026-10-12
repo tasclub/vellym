@@ -57,6 +57,7 @@ describe("plugin-api contract", () => {
   it("accepts a manifest that declares the four contribution points", () => {
     const manifest: PluginPackageManifest["vellym"] = {
       id: "tickets",
+      styles: ["tickets.css", "theme/tickets.css"],
       contributes: {
         kinds: [
           { kind: "Ticket" },
@@ -90,6 +91,7 @@ describe("plugin-api contract", () => {
   it("rejects manifests the host cannot act on", () => {
     expect(validateManifest({})).toBe(false);
     expect(validateManifest({ id: "Tickets" })).toBe(false);
+    expect(validateManifest({ id: "tickets", styles: ["../global.css"] })).toBe(false);
     expect(validateManifest({ id: "tickets", contributes: { unknown: [] } })).toBe(false);
     // staticの宣言が無いviewは、静的版へ出すかを決められない。
     expect(

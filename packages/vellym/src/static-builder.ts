@@ -284,7 +284,10 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
               .filter((plugin) => plugin.browserEntry)
               .map((plugin) => ({
                 id: plugin.id,
-                url: `plugins/${plugin.id}/${plugin.browserEntry}`
+                url: `plugins/${plugin.id}/${plugin.browserEntry}`,
+                ...(plugin.browserStyles?.length
+                  ? { styles: plugin.browserStyles.map((style) => `plugins/${plugin.id}/${style}`) }
+                  : {})
               })),
             kindIcons: Object.fromEntries(
               plugins.plugins.flatMap((plugin) =>

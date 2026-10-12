@@ -42,6 +42,8 @@ export interface LoadedPlugin {
   browserRoot?: string;
   /** ブラウザ側エントリのファイル名。`browserRoot`からの相対 */
   browserEntry?: string;
+  /** manifestで宣言したstylesheet path。browserRootからの相対 */
+  browserStyles?: readonly string[];
   kinds: PluginKindContribution[];
   views: PluginViewContribution[];
   commands: PluginCommandContribution[];
@@ -382,6 +384,9 @@ async function loadOne(
     ...(typeof packageJson.version === "string" ? { version: packageJson.version } : {}),
     manifest: validated.manifest,
     ...(browser ? { browserRoot: browser.root, browserEntry: browser.entry } : {}),
+    ...(browser && validated.manifest.styles?.length
+      ? { browserStyles: [...validated.manifest.styles] }
+      : {}),
     kinds: [],
     views: [],
     commands: [],

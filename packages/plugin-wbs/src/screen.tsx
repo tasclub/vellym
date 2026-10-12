@@ -1,7 +1,7 @@
 import { useEffect, useState, type DragEvent } from "react";
 import { resolveLocalizedText, type PluginIndexRow, type PluginRenderContext } from "@vellym/plugin-api";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
-import { Button } from "@vellym/plugin-api/ui";
+import { Button, ChoiceControl, InputControl } from "@vellym/plugin-api/ui";
 import { buildTicketHierarchy, fieldKey, type TicketTreeNode, type Tracker } from "@vellym-internal/ticket-engine";
 import { rankForInsert, sortedSiblings } from "./model.js";
 import { buildTimeline, parseDate, timelineBar, MAX_TIMELINE_DAYS, DAY_MS,
@@ -96,13 +96,11 @@ function WBSGroup({ nodes, data, context, all, timeline, depth, busy, movedName,
               event.clientY > rect.top + rect.height / 2);
           }
         } : {};
-        return <li key={row.name} data-ticket-name={row.name} style={{ display: "grid",
-          gridTemplateColumns: "minmax(19rem, 36%) minmax(36rem, 1fr)", gap: "var(--space-3)",
+        return <li key={row.name} data-ticket-name={row.name} className="wbs-row" style={{
           borderBlockStart: dropPosition?.name === row.name && !dropPosition.after
             ? "2px solid var(--accent-default)" : "2px solid transparent",
           borderBlockEnd: dropPosition?.name === row.name && dropPosition.after
-            ? "2px solid var(--accent-default)" : "1px solid var(--border-subtle)",
-          alignItems: "center" }}>
+            ? "2px solid var(--accent-default)" : "1px solid var(--border-subtle)" }}>
           <div style={{ paddingInlineStart: `calc(${depth} * var(--space-5))`,
             paddingBlock: "var(--space-2)", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "var(--space-2)" }}
             {...dropTarget}>
@@ -134,15 +132,13 @@ function WBSGroup({ nodes, data, context, all, timeline, depth, busy, movedName,
           </div>
           {editingParent === row.name && data.parentField ? <div role="group" style={{ gridColumn: "1 / -1",
             background: "var(--surface-sunken)", padding: "var(--space-3)" }}>
-            <label>{label("親を変更", "Change parent", context.locale)}{" "}<select
+            <label>{label("親を変更", "Change parent", context.locale)}{" "}<ChoiceControl mode="select"
               aria-label={`${row.title}: ${label("親", "Parent", context.locale)}`}
-              value={typeof parent === "string" ? parent : ""}
-              disabled={busy}
-              onChange={(event) => { onParent(row, event.target.value); setEditingParent(undefined); }}>
-              <option value="">{label("未設定", "Unset", context.locale)}</option>
-              {all.filter((option) => !descendants.has(option.name)).map((option) =>
-                <option key={option.name} value={option.name}>{option.title}</option>)}
-            </select></label>
+              value={typeof parent === "string" ? parent : ""} disabled={busy}
+              options={[{ value: "", label: label("未設定", "Unset", context.locale) },
+                ...all.filter((option) => !descendants.has(option.name))
+                  .map((option) => ({ value: option.name, label: option.title }))]}
+              onChange={(value) => { onParent(row, value); setEditingParent(undefined); }} /></label>
             <Button onClick={() => setEditingParent(undefined)}>{label("閉じる", "Close", context.locale)}</Button>
           </div> : null}
           {node.children.length ? <WBSGroup nodes={node.children} data={data} context={context}
@@ -317,13 +313,12 @@ export function WBSScreen({ context }: PluginViewProps) {
         ["startField", "date", "開始", "Start"],
         ["endField", "date", "終了", "End"],
         ["orderField", "number", "順序", "Order"] ] as const).map(([setting, type, ja, en]) =>
-        <label key={setting}> {label(ja, en, context.locale)} <select
+        <label key={setting}> {label(ja, en, context.locale)} <ChoiceControl mode="select"
           aria-label={label(ja, en, context.locale)} value={data?.[setting] ?? ""} disabled={busy}
-          onChange={(event) => void configure(setting, event.target.value)}>
-          <option value="">{label("指定しない", "None", context.locale)}</option>
-          {tracker.fields.filter((field) => field.type === type).map((field) =>
-            <option key={field.id} value={field.id}>{field.label}</option>)}
-        </select></label>
+          options={[{ value: "", label: label("指定しない", "None", context.locale) },
+            ...tracker.fields.filter((field) => field.type === type)
+              .map((field) => ({ value: field.id, label: field.label }))]}
+          onChange={(value) => void configure(setting, value)} /></label>
       )}
     </details> : null}
     {!context.isStatic && [...(data?.diagnostics ?? []), ...hierarchy.diagnostics].length > 0 ? (
@@ -336,15 +331,15 @@ export function WBSScreen({ context }: PluginViewProps) {
     ) : null}
     {message ? <p role="status">{message}</p> : null}
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
-      <label>{label("表示開始", "Range start", context.locale)}{" "}<input type="date" aria-label={label("表示開始", "Range start", context.locale)}
+      <label>{label("表示開始", "Range start", context.locale)}{" "}<InputControl type="date" aria-label={label("表示開始", "Range start", context.locale)}
         value={range.from} onChange={(event) => changeRange(event.target.value, range.to || event.target.value)} /></label>
-      <label>{label("表示終了", "Range end", context.locale)}{" "}<input type="date" aria-label={label("表示終了", "Range end", context.locale)}
+      <label>{label("表示終了", "Range end", context.locale)}{" "}<InputControl type="date" aria-label={label("表示終了", "Range end", context.locale)}
         value={range.to} onChange={(event) => changeRange(range.from || event.target.value, event.target.value)} /></label>
-      <label>{label("目盛り", "Scale", context.locale)}{" "}<select aria-label={label("目盛り", "Scale", context.locale)}
-        value={mode} onChange={(event) => changeRange(range.from, range.to, event.target.value as TimelineMode)}>
-        <option value="day">{label("日ごと", "Daily", context.locale)}</option>
-        <option value="week">{label("週ごと", "Weekly", context.locale)}</option>
-      </select></label>
+      <label>{label("目盛り", "Scale", context.locale)}{" "}<ChoiceControl mode="select" aria-label={label("目盛り", "Scale", context.locale)}
+        value={mode} onChange={(value) => changeRange(range.from, range.to, value as TimelineMode)} options={[
+          { value: "day", label: label("日ごと", "Daily", context.locale) },
+          { value: "week", label: label("週ごと", "Weekly", context.locale) }
+        ]} /></label>
     </div>
     {tracker ? <div style={{ overflowX: "auto", marginBlockStart: "var(--space-4)" }}>
       <div style={{ minWidth: `${Math.max(58, 19 + (timeline?.ticks.length ?? 1) * 5)}rem` }}>

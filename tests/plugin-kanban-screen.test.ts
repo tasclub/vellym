@@ -7,6 +7,15 @@ import type { PluginRenderContext } from "@vellym/plugin-api";
 vi.mock("@vellym/plugin-api/ui", () => ({
   Button: ({ children, icon, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon?: boolean }) =>
     createElement("button", { ...props, ...(icon ? { "data-icon": "true" } : {}) }, children),
+  ChoiceControl: ({ options, onChange, ...props }: {
+    options: Array<{ value: string; label: string }>;
+    onChange(value: string): void;
+    value: string;
+  } & Record<string, unknown>) => createElement("select", {
+    ...props,
+    onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onChange(event.target.value)
+  }, ...options.map((option) => createElement("option", { key: option.value, value: option.value }, option.label))),
+  InputControl: (props: React.InputHTMLAttributes<HTMLInputElement>) => createElement("input", props),
   KindIcon: () => null
 }));
 

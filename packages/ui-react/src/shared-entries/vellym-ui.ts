@@ -5,10 +5,12 @@
  */
 export {
   Button,
+  ChoiceControl,
   DataTable,
   Dialog,
   FieldInput,
   Icon,
+  InputControl,
   KindIcon,
   RequiredMark
 } from "../shared/index.js";
