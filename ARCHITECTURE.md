@@ -22,8 +22,41 @@ is private and bundled into each ticket plugin that uses it.
 | `@vellym/plugin-api` | **yes** | The public plugin contract: host API types, record types, view descriptors, manifest schema |
 | `@vellym/tickets` | **yes** | The official ticket management plugin. Not bundled — installed by the project that wants it |
 | `@vellym/kanban` | **yes** | Optional Kanban view plugin for Ticket resources |
+| `@vellym/wbs` | **yes** | Optional WBS view plugin for Ticket resources |
 | `@vellym-internal/ticket-engine` | no | Shared Ticket schemas and projections, bundled into ticket plugins |
 | `@vellym-internal/core` | no | Types, JSON Schema validation, navigation, search projection, editing rules |
+| `@vellym-internal/runtime-node` | no | Filesystem access, repository loading, saving, structure changes, the local HTTP server |
+| `@vellym-internal/ui-react` | no | The browser UI, used by both the dev server and the static build |
+| `vellym` | **yes** | The CLI (`init` / `dev` / `validate` / `build` / `migrate`) and the static site builder |
+
+The ticket plugins depend on the private ticket engine and bundle it into their own
+Node and browser entries. Projects install the public plugins; they do not install or
+resolve the private engine as a separate package.
+
+### Dependency direction
+
+```
+vellym  ──▶  runtime-node  ──▶  core  ──▶  plugin-api
+   │                             ▲            ▲
+   └──────▶  ui-react  ──────────┘            │
+                         ticket plugins ──▶ ticket-engine ──┘
+                              └─────────────────────────────▶ plugin-api
+```
+
+Enforced constraints:
+
+- **`core` depends on nothing of ours, and not on Node.js or React.** It must run in
+  both the browser and Node. No `node:` imports, no `react` imports.
+- **`runtime-node` never imports `ui-react`.** The server serves the built UI as
+  static files; it does not know about components.
+- **`ui-react` never imports `runtime-node`.** It talks to the server over HTTP, and
+  in static mode reads baked JSON instead. This is why the same UI works for both.
+- **`plugin-api` depends on nothing at all**, ours or otherwise. It is the contract;
+  `core` imports it and implements it. Reversing that direction would turn our internals
+  into the public contract. It must not import `core`, Node.js, or React — a plugin's
+  browser entry uses the host's React through an import map, not a dependency.
+- **`ticket-engine` is private domain logic.** Ticket plugins bundle it; neither the host
+  nor project configuration loads it as a separate plugin.
 
 ## Personal view settings
 
@@ -42,31 +75,6 @@ not used because moving the content directory does not change project identity. 
 the project directory does create a new scope. The old project-agnostic v1 keys are
 intentionally not migrated: they cannot be assigned unambiguously to a project or
 resource, so preferences stored under them reset once.
-| `@vellym-internal/runtime-node` | no | Filesystem access, repository loading, saving, structure changes, the local HTTP server |
-| `@vellym-internal/ui-react` | no | The browser UI, used by both the dev server and the static build |
-| `vellym` | **yes** | The CLI (`init` / `dev` / `validate` / `build` / `migrate`) and the static site builder |
-
-### Dependency direction
-
-```
-vellym  ──▶  runtime-node  ──▶  core  ──▶  plugin-api
-   │                             ▲            ▲
-   └──────▶  ui-react  ──────────┘            │
-                                    plugins ──┘
-```
-
-Enforced constraints:
-
-- **`core` depends on nothing of ours, and not on Node.js or React.** It must run in
-  both the browser and Node. No `node:` imports, no `react` imports.
-- **`runtime-node` never imports `ui-react`.** The server serves the built UI as
-  static files; it does not know about components.
-- **`ui-react` never imports `runtime-node`.** It talks to the server over HTTP, and
-  in static mode reads baked JSON instead. This is why the same UI works for both.
-- **`plugin-api` depends on nothing at all**, ours or otherwise. It is the contract;
-  `core` imports it and implements it. Reversing that direction would turn our internals
-  into the public contract. It must not import `core`, Node.js, or React — a plugin's
-  browser entry uses the host's React through an import map, not a dependency.
 
 Inside the workspace, `@vellym/plugin-api` resolves to its TypeScript source through the
 `vellym-source` export condition, so nothing has to be built before `typecheck` or the
@@ -90,6 +98,7 @@ conditions differently for client and SSR).
 | Create / move / reorder / archive | `packages/runtime-node/src/structure.ts` |
 | HTTP endpoints | `packages/runtime-node/src/server.ts` |
 | First-run setup and templates | `packages/runtime-node/src/setup.ts` |
+| Ticket schemas and projections shared by ticket plugins | `packages/ticket-engine/src/` |
 | Screens and interactions | `packages/ui-react/src/` |
 | CLI commands and messages | `packages/vellym/src/cli.ts`, `cli-messages.ts` |
 | Static site output | `packages/vellym/src/static-builder.ts` |
@@ -165,6 +174,7 @@ for a new contract.
 | package `version` | `packages/vellym/package.json` | The released product (semver) | Maintainers |
 | `engines.vellym` | a plugin's `package.json` | Which product versions the plugin supports | Plugin authors |
 | `apiVersion` | Page / Folder YAML | The canonical document format | Users' files |
+| `engineVersion` | a registered plugin kind | The kind's schema / engine contract (semver) | Plugin authors |
 | `schemaVersion` | `vellym.config.yaml` | The config file format | Users' files |
 | `apiSchemaVersion` | HTTP responses and baked static data | The response envelope shape | Server / static builder |
 | `buildSchemaVersion` | `vellym-build.json` | The static build manifest | Static builder |
