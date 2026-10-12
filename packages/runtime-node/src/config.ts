@@ -137,7 +137,8 @@ export async function applyUiLanguage(
 }
 
 export async function loadConfig(
-  configPath = path.resolve(process.cwd(), "vellym.config.yaml")
+  configPath = path.resolve(process.cwd(), "vellym.config.yaml"),
+  locale = "ja"
 ): Promise<LoadedConfig> {
   const absoluteConfig = path.resolve(configPath);
   let source: string;
@@ -164,7 +165,7 @@ export async function loadConfig(
   if (!result.config) {
     throw new RuntimeError(
       result.diagnostics
-        .map((item) => `${item.path}: ${resolveLocalizedText(item.message, "ja")}`)
+        .map((item) => `${item.path}: ${resolveLocalizedText(item.message, locale)}`)
         .join("\n"),
       400,
       "CONFIG_SCHEMA"

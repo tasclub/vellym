@@ -106,7 +106,7 @@ function output(
 
 async function validateCommand(args: string[]): Promise<number> {
   const json = args.includes("--json");
-  const loaded = await loadConfig(resolveConfigPath(args));
+  const loaded = await loadConfig(resolveConfigPath(args), cliLanguageFromArgs(args) ?? "ja");
   if (!cliLanguageFromArgs(args)) setLanguage(loaded.config.ui.language);
   // プラグインの失敗はすべて警告になる。validateをそれで落とさない。
   const plugins = await loadPlugins({

@@ -5,10 +5,12 @@ import path from "node:path";
 import {
   isUnknownKind,
   knownRichTextBlocks,
+  validateKindSpec,
   validatePage,
   validateResource,
   type Page
 } from "../packages/core/src/index.js";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import { extractPageEntry } from "../packages/runtime-node/src/repository-entry.js";
 import {
   loadRepository,
@@ -47,6 +49,19 @@ function extract(source: string, relativePath = "page.yaml") {
 }
 
 describe("kind dispatch", () => {
+  it("localizes fallback messages for uncommon schema keywords", () => {
+    const diagnostics = validateKindSpec(
+      { value: "present" },
+      "ticket.yaml",
+      { type: "object", not: { required: ["value"] } }
+    );
+
+    expect(diagnostics).toHaveLength(1);
+    expect(resolveLocalizedText(diagnostics[0]!.message, "ja"))
+      .toBe("スキーマ検証に失敗しました");
+    expect(resolveLocalizedText(diagnostics[0]!.message, "en")).not.toBe("");
+  });
+
   it("treats kinds without a Core schema as unknown", () => {
     expect(isUnknownKind({ kind: "Ticket" })).toBe(true);
     expect(isUnknownKind({ kind: "Page" })).toBe(false);

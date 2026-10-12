@@ -166,8 +166,13 @@ function messageFromAjv(error: ErrorObject): PluginLocalizedText {
         ja: `形式が不正です（パターン ${String(params.pattern)} に一致しません）`,
         en: `The value does not match pattern ${String(params.pattern)}.`
       };
-    default:
-      return error.message ?? "スキーマ検証に失敗しました";
+    default: {
+      const detail = error.message?.trim();
+      return {
+        ja: "スキーマ検証に失敗しました",
+        en: detail || "Schema validation failed."
+      };
+    }
   }
 }
 

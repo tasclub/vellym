@@ -121,6 +121,57 @@ describe("published CLI shape", () => {
     }
   });
 
+  it("renders validate diagnostics in the selected language without changing codes", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-validate-locale-"));
+    const initialized = run(initArgs(root));
+    expect(initialized.status).toBe(0);
+    await writeFile(path.join(root, "docs", "invalid.yaml"), `apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: invalid-page
+  title: 42
+spec:
+  blocks: []
+`);
+
+    const english = run([
+      "validate", "--config", path.join(root, "vellym.config.yaml"), "--language", "en"
+    ]);
+    expect(english.status).toBe(1);
+    expect(english.stdout).toContain("(PAGE_SCHEMA)");
+    expect(english.stdout).toContain('The value must be of type string.');
+    expect(english.stdout).not.toContain("である必要があります");
+
+    const japanese = run([
+      "validate", "--config", path.join(root, "vellym.config.yaml"), "--language", "ja"
+    ]);
+    expect(japanese.status).toBe(1);
+    expect(japanese.stdout).toContain("(PAGE_SCHEMA)");
+    expect(japanese.stdout).toContain("型が不正です");
+  });
+
+  it("localizes config diagnostics when validate receives an explicit language", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-invalid-config-locale-"));
+    const config = path.join(root, "vellym.config.yaml");
+    await writeFile(config, `schemaVersion: "1.0"
+contentRoot: 42
+outputDir: dist/vellym
+ui:
+  language: ja
+i18n:
+  defaultLocale: ja
+static:
+  publicBaseUrl: https://docs.example.com/
+plugins: []
+`);
+
+    const english = run(["validate", "--config", config, "--language", "en"]);
+    const output = `${english.stdout}${english.stderr}`;
+    expect(english.status).toBe(1);
+    expect(output).toContain("The value must be of type string.");
+    expect(output).not.toContain("型が不正です");
+  });
+
   it("previews and applies an explicit v1 migration", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-migrate-"));
     expect(run(initArgs(root)).status).toBe(0);

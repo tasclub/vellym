@@ -48,6 +48,9 @@ describe("plugin-api contract", () => {
     expect(resolveLocalizedText(label, "fr")).toBe("Priority");
     expect(resolveLocalizedText({ ja: "優先度" }, "fr")).toBe("優先度");
     expect(resolveLocalizedText("Priority", "ja")).toBe("Priority");
+    expect(resolveLocalizedText({ en: "", ja: "優先度" }, "en")).toBe("優先度");
+    expect(resolveLocalizedText({ en: "", ja: " " }, "en")).toBe("（未翻訳）");
+    expect(resolveLocalizedText("", "ja")).toBe("（未翻訳）");
   });
 
   it("resolves a region locale through its base language", () => {
