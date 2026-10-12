@@ -24,6 +24,24 @@ is private and bundled into each ticket plugin that uses it.
 | `@vellym/kanban` | **yes** | Optional Kanban view plugin for Ticket resources |
 | `@vellym-internal/ticket-engine` | no | Shared Ticket schemas and projections, bundled into ticket plugins |
 | `@vellym-internal/core` | no | Types, JSON Schema validation, navigation, search projection, editing rules |
+
+## Personal view settings
+
+Plugin view preferences stay in the user's browser `localStorage`; they are not part of
+the YAML source of truth and are not shared with other users. The key includes the
+normalized absolute `projectRoot` from bootstrap, plugin ID, view ID, and the hosting
+resource's `metadata.name`:
+
+```text
+vellym.user-settings.v2:<encoded-projectRoot>:<pluginId>:<viewId>:<resourceName>
+```
+
+`projectRoot` is used instead of the origin because two projects can run on the same
+port, while changing a port must not reset a project's preferences. `contentRoot` is
+not used because moving the content directory does not change project identity. Moving
+the project directory does create a new scope. The old project-agnostic v1 keys are
+intentionally not migrated: they cannot be assigned unambiguously to a project or
+resource, so preferences stored under them reset once.
 | `@vellym-internal/runtime-node` | no | Filesystem access, repository loading, saving, structure changes, the local HTTP server |
 | `@vellym-internal/ui-react` | no | The browser UI, used by both the dev server and the static build |
 | `vellym` | **yes** | The CLI (`init` / `dev` / `validate` / `build` / `migrate`) and the static site builder |

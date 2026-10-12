@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRenderContext } from "../packages/ui-react/src/plugin/render-context.js";
+import { pluginViewSettingsKey } from "../packages/ui-react/src/plugin/view-settings.js";
 
-function context(overrides: { onOpenResource?: (name: string) => Promise<{ ok: true } | { ok: false; message: string; reason: "not-found" | "unavailable" }> } = {}) {
+function context(overrides: {
+  projectRoot?: string;
+  targetName?: string;
+  onOpenResource?: (name: string) => Promise<{ ok: true } | { ok: false; message: string; reason: "not-found" | "unavailable" }>;
+} = {}) {
   return createRenderContext({
     payload: {
       pluginId: "kanban",
@@ -18,8 +23,9 @@ function context(overrides: { onOpenResource?: (name: string) => Promise<{ ok: t
       commands: []
     },
     locale: "ja",
+    projectRoot: overrides.projectRoot ?? "/workspace/project",
     targetKind: "TicketTracker",
-    targetName: "quality-tickets",
+    targetName: overrides.targetName ?? "quality-tickets",
     targetTitle: "品質チケット",
     targetPath: "40-品質/quality-tickets.yaml",
     onOpenResource: overrides.onOpenResource ?? (async (name) => ({
@@ -41,7 +47,7 @@ describe("plugin render context", () => {
       payload: { pluginId: "wbs", viewId: "wbs-tree", descriptor: {
         type: "list", id: "wbs-tree", kind: "Ticket", title: "WBS", columns: []
       }, rows: [], allRows: [], commands: [] },
-      locale: "ja", targetKind: "TicketTracker", targetName: "tracker", targetTitle: "Tracker",
+      locale: "ja", projectRoot: "/workspace/project", targetKind: "TicketTracker", targetName: "tracker", targetTitle: "Tracker",
       targetPath: "tracker.yaml", onOpenResource: async () => ({ ok: true }),
       onRunCommand: run, onSaved: () => {}, describeError: String
     });
@@ -71,6 +77,7 @@ describe("plugin render context", () => {
         commands: []
       },
       locale: "ja",
+      projectRoot: "/workspace/project",
       targetKind: "TicketTracker",
       targetName: "quality-tickets",
       targetTitle: "品質チケット",
@@ -98,7 +105,7 @@ describe("plugin render context", () => {
     expect(open).toHaveBeenCalledWith("missing");
   });
 
-  it("keeps view settings in the plugin-and-view scoped localStorage key", () => {
+  it("scopes view settings by project, plugin, view, and target resource", () => {
     const values = new Map<string, string>();
     vi.stubGlobal("window", {
       localStorage: {
@@ -106,14 +113,34 @@ describe("plugin render context", () => {
         setItem: (key: string, value: string) => values.set(key, value)
       }
     });
+    values.set("vellym.plugin-view.kanban.ticket-kanban", JSON.stringify({ legacy: true }));
     const renderContext = context();
+
+    expect(renderContext.getViewSettings()).toBeUndefined();
 
     renderContext.setViewSettings({ collapsed: ["defined:todo"] });
 
-    expect(values.get("vellym.plugin-view.kanban.ticket-kanban")).toBe(
+    expect(values.get("vellym.user-settings.v2:%2Fworkspace%2Fproject:kanban:ticket-kanban:quality-tickets")).toBe(
       JSON.stringify({ collapsed: ["defined:todo"] })
     );
     expect(renderContext.getViewSettings()).toEqual({ collapsed: ["defined:todo"] });
+
+    expect(context({ targetName: "other-tracker" }).getViewSettings()).toBeUndefined();
+    expect(context({ projectRoot: "/workspace/other" }).getViewSettings()).toBeUndefined();
+  });
+
+  it("normalizes the project root and encodes each key component without ambiguity", () => {
+    const scope = {
+      projectRoot: "/workspace/project/",
+      pluginId: "tickets",
+      viewId: "tracker.settings",
+      targetName: "tracker:one"
+    };
+    expect(pluginViewSettingsKey(scope)).toBe(
+      "vellym.user-settings.v2:%2Fworkspace%2Fproject:tickets:tracker.settings:tracker%3Aone"
+    );
+    expect(pluginViewSettingsKey({ ...scope, projectRoot: "\\workspace\\project" }))
+      .toBe(pluginViewSettingsKey(scope));
   });
 
   it("treats unavailable localStorage as an optional preference store", () => {

@@ -28,6 +28,8 @@ function markup(paperWidth?: PluginListViewDescriptor["paperWidth"]): string {
   return renderToStaticMarkup(createElement(PluginListPage, {
     payload: { pluginId: "kanban", viewId: "board", descriptor, rows: [], allRows: [], commands: [] },
     view,
+    projectRoot: "/projects/demo",
+    targetName: "board-tracker",
     uiLocale: "ja",
     showAll: false,
     onToggleShowAll: () => {},
@@ -58,7 +60,7 @@ describe("plugin paper width", () => {
       const html = renderToStaticMarkup(createElement(PluginListPage, {
         payload: { pluginId: id, viewId: id, descriptor, rows: [], allRows: [],
           commands: [{ id: "ticket.create", title: "チケットを作成" }] },
-        view, uiLocale: "ja", showAll: false, editable: true,
+        view, projectRoot: "/projects/demo", targetName: "tracker", uiLocale: "ja", showAll: false, editable: true,
         onToggleShowAll: () => {}, onNavigate: () => {}, onSwitchView: () => {},
         onRunCommand: () => {}, onBulkChange: async () => [], onBulkArchive: async () => [],
         renderer: { mount: () => ({ unmount: () => {} }) },

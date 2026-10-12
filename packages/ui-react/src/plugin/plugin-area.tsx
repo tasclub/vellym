@@ -31,6 +31,8 @@ import styles from "./plugin.module.css";
 export function PluginListPage(props: {
   payload: PluginViewPayload;
   view: PageView;
+  projectRoot: string;
+  targetName: string;
   uiLocale: string;
   showAll: boolean;
   onToggleShowAll(value: boolean): void;
@@ -80,6 +82,8 @@ export function PluginListPage(props: {
   ) : (
     <PluginListView
       payload={payload}
+      projectRoot={props.projectRoot}
+      targetName={props.targetName}
       hideTitle
       locale={view.locale ?? view.baseLocale ?? "ja"}
       allRows={payload.allRows}

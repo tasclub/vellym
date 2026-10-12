@@ -281,7 +281,10 @@ export interface PluginRenderContext extends PluginViewContext {
   ): Promise<PluginSaveResult>;
   /** metadata.nameで別リソースを開く。URLの組み立てはhostが行う。 */
   openResource(name: string): Promise<PluginOpenResourceResult>;
-  /** このplugin/view固有の個人設定。取得失敗時は`undefined`を返す。 */
+  /**
+   * ブラウザ内だけに保存する個人設定。keyはprojectRoot・plugin・view・対象resourceで
+   * 分離する。正本YAMLや別ブラウザには同期しない。取得失敗時は`undefined`を返す。
+   */
   getViewSettings(): unknown;
   /** JSON化またはブラウザ保存に失敗しても例外を投げない。 */
   setViewSettings(value: unknown): void;

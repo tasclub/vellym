@@ -12,6 +12,11 @@ import {
 import { PluginCommandDialog } from "./plugin-command-dialog.js";
 import { DataTable, type SortDirection } from "../shared/table.js";
 import { Button } from "../shared/button.js";
+import {
+  pluginViewSettingsKey,
+  readPluginViewSettings,
+  writePluginViewSettings
+} from "./view-settings.js";
 import styles from "./plugin.module.css";
 
 export interface PluginViewRow {
@@ -140,27 +145,6 @@ interface ViewPreference {
   showAll?: boolean;
 }
 
-function preferenceKey(payload: PluginViewPayload): string {
-  return `vellym.plugin-view.${payload.pluginId}.${payload.viewId}`;
-}
-
-function readPreference(key: string): ViewPreference {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as ViewPreference) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writePreference(key: string, value: ViewPreference): void {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // 保存できなくても一覧は使える。個人設定のために操作を止めない。
-  }
-}
-
 /**
  * プラグインが宣言した一覧descriptorを描く汎用レンダラ。
  *
@@ -169,6 +153,8 @@ function writePreference(key: string, value: ViewPreference): void {
  */
 export function PluginListView({
   payload,
+  projectRoot,
+  targetName,
   locale,
   allRows,
   showAll,
@@ -181,6 +167,8 @@ export function PluginListView({
   onBulkArchive
 }: {
   payload: PluginViewPayload;
+  projectRoot: string;
+  targetName: string;
   locale: string;
   /** 既定の絞り込みを外した全件。切替のために別で受け取る */
   allRows?: PluginViewRow[];
@@ -196,14 +184,25 @@ export function PluginListView({
   onBulkArchive?(names: string[]): Promise<string[]>;
 }) {
   const { t } = useTranslation();
-  const key = preferenceKey(payload);
-  const stored = useMemo(() => readPreference(key), [key]);
+  const settingsScope = {
+    projectRoot,
+    pluginId: payload.pluginId,
+    viewId: payload.viewId,
+    targetName
+  };
+  const key = pluginViewSettingsKey(settingsScope);
+  const stored = useMemo(
+    () => readPluginViewSettings<ViewPreference>(settingsScope) ?? {},
+    [key]
+  );
+  const defaultSort = payload.descriptor.type === "list"
+    ? payload.descriptor.defaultSort
+    : undefined;
 
   const [command, setCommand] = useState<PluginViewPayload["commands"][number]>();
   const [filters, setFilters] = useState<Record<string, string>>(stored.filters ?? {});
   const [sort, setSort] = useState<{ columnId: string; direction: "asc" | "desc" } | undefined>(
-    stored.sort ??
-      (payload.descriptor.type === "list" ? payload.descriptor.defaultSort : undefined)
+    stored.sort ?? defaultSort
   );
   // 表示集合と選択集合を分けて持つ。絞り込みを変えても選択は消えない。
   const [selected, setSelected] = useState<string[]>([]);
@@ -216,10 +215,20 @@ export function PluginListView({
     failed: number;
   }>();
   const [busy, setBusy] = useState(false);
+  const [loadedSettingsKey, setLoadedSettingsKey] = useState(key);
 
   useEffect(() => {
-    writePreference(key, { filters, ...(sort ? { sort } : {}), showAll });
-  }, [key, filters, sort, showAll]);
+    if (loadedSettingsKey === key) return;
+    setFilters(stored.filters ?? {});
+    setSort(stored.sort ?? defaultSort);
+    setSelected([]);
+    setLoadedSettingsKey(key);
+  }, [key, loadedSettingsKey, stored, defaultSort]);
+
+  useEffect(() => {
+    if (loadedSettingsKey !== key) return;
+    writePluginViewSettings(settingsScope, { filters, ...(sort ? { sort } : {}), showAll });
+  }, [key, loadedSettingsKey, filters, sort, showAll]);
 
   const descriptor = payload.descriptor.type === "list" ? payload.descriptor : undefined;
   const columns = useMemo(

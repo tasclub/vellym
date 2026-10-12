@@ -708,10 +708,11 @@ export function App() {
     }
   };
   const pluginRenderContext = useMemo(() => {
-    if (!pluginView || !view) return undefined;
+    if (!pluginView || !view || !bootstrap) return undefined;
     return createRenderContext({
       payload: pluginView,
       locale: view.locale ?? view.baseLocale ?? "ja",
+      projectRoot: bootstrap.project.projectRoot,
       targetKind: view.page.kind,
       targetName: view.page.metadata.name,
       targetTitle: view.page.metadata.title,
@@ -746,7 +747,7 @@ export function App() {
     });
     // 読み直しの関数は毎回作り直されるため、依存に含めない。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pluginView, view, pendingResource, title, slug, blocks, t]);
+  }, [pluginView, view, bootstrap, pendingResource, title, slug, blocks, t]);
 
   const missingRequired = useMemo(() => {
     const descriptor = pluginView?.descriptor;
@@ -1531,6 +1532,8 @@ export function App() {
             {...(pluginRenderContext ? { renderContext: pluginRenderContext } : {})}
             payload={pluginView}
             view={view}
+            projectRoot={bootstrap.project.projectRoot}
+            targetName={view.page.metadata.name}
             uiLocale={bootstrap.project.uiLocale}
             showAll={showAllRows}
             editable={bootstrap.capabilities.editing}

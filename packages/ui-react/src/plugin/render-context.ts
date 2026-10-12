@@ -8,6 +8,7 @@ import type {
 import { ApiError, fetchPageEdit, isStaticApp, patchPage } from "../shared/api.js";
 import type { PluginSpecValue } from "../shared/field-input.js";
 import type { PluginViewPayload } from "./plugin-list-view.js";
+import { readPluginViewSettings, writePluginViewSettings } from "./view-settings.js";
 
 /**
  * rendererへ渡す文脈を組み立てる。
@@ -21,6 +22,8 @@ import type { PluginViewPayload } from "./plugin-list-view.js";
 export function createRenderContext(options: {
   payload: PluginViewPayload;
   locale: string;
+  /** Stable project identity supplied by bootstrap, independent of host/port. */
+  projectRoot: string;
   /** 書き込み先。開いているリソースの`metadata.name` */
   targetKind: string;
   targetName: string;
@@ -74,26 +77,20 @@ export function createRenderContext(options: {
     },
     ...(options.onRunCommand ? { runCommand: options.onRunCommand } : {}),
     getViewSettings() {
-      try {
-        if (typeof window === "undefined") return undefined;
-        const raw = window.localStorage.getItem(
-          `vellym.plugin-view.${options.payload.pluginId}.${options.payload.viewId}`
-        );
-        return raw === null ? undefined : JSON.parse(raw) as unknown;
-      } catch {
-        return undefined;
-      }
+      return readPluginViewSettings({
+        projectRoot: options.projectRoot,
+        pluginId: options.payload.pluginId,
+        viewId: options.payload.viewId,
+        targetName: options.targetName
+      });
     },
     setViewSettings(value) {
-      try {
-        if (typeof window === "undefined") return;
-        window.localStorage.setItem(
-          `vellym.plugin-view.${options.payload.pluginId}.${options.payload.viewId}`,
-          JSON.stringify(value)
-        );
-      } catch {
-        // 個人設定を保存できなくても画面の操作は続けられる。
-      }
+      writePluginViewSettings({
+        projectRoot: options.projectRoot,
+        pluginId: options.payload.pluginId,
+        viewId: options.payload.viewId,
+        targetName: options.targetName
+      }, value);
     },
     async save(
       writes: readonly PluginSpecWrite[],
