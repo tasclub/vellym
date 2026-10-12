@@ -25,4 +25,21 @@ describe("public plugin host compatibility", () => {
     expect(source).toContain('wbs: "packages/plugin-wbs"');
     expect(source).toContain('ticketEngine: "packages/ticket-engine"');
   });
+
+  it("publishes the Kanban plugin after plugin-api without publishing the private engine", () => {
+    const workflow = readFileSync(".github/workflows/publish.yml", "utf8");
+    const api = workflow.indexOf("working-directory: packages/plugin-api");
+    const kanban = workflow.indexOf("working-directory: packages/plugin-kanban");
+    const tickets = workflow.indexOf("working-directory: packages/plugin-tickets");
+    expect(api).toBeGreaterThanOrEqual(0);
+    expect(kanban).toBeGreaterThan(api);
+    expect(tickets).toBeGreaterThan(kanban);
+    expect(workflow).not.toContain("working-directory: packages/ticket-engine");
+  });
+
+  it("documents the private ticket engine as bundled into public plugins", () => {
+    const architecture = readFileSync("ARCHITECTURE.md", "utf8");
+    expect(architecture).toContain("@vellym-internal/ticket-engine` | no");
+    expect(architecture).toContain("bundled into ticket plugins");
+  });
 });

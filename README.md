@@ -110,6 +110,8 @@ plugins:
 
 `Ticket` と `TicketTracker` の YAML の書き方、フィールド型、チケット管理の置き場所は
 [`@vellym/tickets` の README](packages/plugin-tickets/README.md) に載せている。
+カンバン表示を追加する [`@vellym/kanban`](packages/plugin-kanban/) も利用できる。
+導入と設定は[パッケージの README](packages/plugin-kanban/README.md)を参照。
 プラグインを作る側の情報は <https://vellym.tasclub.com/pages/developing-plugins/> を参照。
 
 プラグインを外しても、そのプラグインが扱っていた YAML を Vellym が削除・書き換えする
@@ -119,8 +121,9 @@ plugins:
 
 ## 開発
 
-npm workspaces のモノレポ。公開パッケージは `packages/vellym`、その他 `@vellym-internal/*`
-は非公開の内部パッケージで、ビルド時に `vellym` へバンドルされる。
+npm workspaces のモノレポ。`@vellym-internal/*`は非公開の内部パッケージである。
+ホスト内部は`vellym`へ、チケット共有エンジンはそれを使うプラグインへ、それぞれビルド時に
+バンドルされる。
 
 ```bash
 npm ci

@@ -3,7 +3,7 @@ name: Publish
 # GitHub Release を published にすると npm へ provenance 付きで公開する。
 #
 # 認証はnpmのTrusted Publishing（OIDC）を使い、publish用のtokenは保持しない。
-# npm側でpackage @vellym/plugin-api、@vellym/tickets、vellymそれぞれの
+# npm側でpackage @vellym/plugin-api、@vellym/tickets、@vellym/kanban、vellymそれぞれの
 # Trusted Publisherに、このリポジトリとworkflowファイル名publish.ymlを
 # 登録しておくこと（Environmentは未設定）。
 # npm CLIは11.5.1以降が必要で、Node.js 24に同梱される版がこれを満たす。
@@ -66,6 +66,10 @@ jobs:
       - id: plugin_api_publish
         name: Publish @vellym/plugin-api to npm
         working-directory: packages/plugin-api
+        run: bash ../../scripts/publish-package.sh
+      - id: kanban_publish
+        name: Publish @vellym/kanban to npm
+        working-directory: packages/plugin-kanban
         run: bash ../../scripts/publish-package.sh
       - id: tickets_publish
         name: Publish @vellym/tickets to npm

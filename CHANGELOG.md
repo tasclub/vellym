@@ -26,6 +26,10 @@
 - プラグインへ共通の選択・入力コントロールを公開し、ビュー切替も同じ選択部品で描く。
   プラグイン固有CSSはmanifestの`styles`から動的版・静的版へ配信できる。CSS selectorは
   プラグインIDを接頭辞にし、ホストのCSS変数は参照のみとする。
+- `@vellym/kanban`を公開パッケージとしてリリース経路へ追加した。`rendererData`、
+  `save()`の書き込み先、個人設定の読み書き、`openResource()`、`engineVersion`、
+  ビュー版面幅の宣言をプラグインAPIへ追加した。`@vellym-internal/ticket-engine`は
+  非公開のままプラグインbundleへ取り込む。
 
 ### 修正
 
