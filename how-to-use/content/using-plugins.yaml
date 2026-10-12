@@ -28,6 +28,27 @@ spec:
         複数使う場合は同じ配列へ一つずつ並べる。Vellymは設定ファイルの場所を起点に
         パッケージを探すため、そのプロジェクトへインストールする。
 
+        ## カンバンを使う
+
+        チケット管理にカンバン表示を追加するには、同じプロジェクトへ
+        `@vellym/kanban`をインストールし、プラグインに追加する。
+
+        ```bash
+        npm install @vellym/kanban
+        ```
+
+        ```yaml
+        plugins:
+          - "@vellym/tickets" # 一覧も使う場合。カンバンだけなら省略できる
+          - "@vellym/kanban"
+        ```
+
+        新しいリソースは作らない。既存の`TicketTracker`を開くと、カンバンだけなら
+        カンバンが表示され、`@vellym/tickets`も有効なら一覧とカンバンを切り替えられる。
+        Trackerの`spec.kanban`は任意で、カードに出す項目や列ごとの集計、並び順に使う数値項目を
+        指定できる。列はTrackerのstatus定義順で、未設定値・定義外の値も表示する。
+        集計の種類、カード項目、手動並べ替えの設定例は`@vellym/kanban`のREADMEを参照。
+
         設定ファイルのほかの項目は[[configuration|設定ファイル]]を参照。
 
         ## プラグインを外す
@@ -75,6 +96,27 @@ spec:
 
             List each package separately when using more than one. Vellym resolves packages
             from the config file's location, so install them in that project.
+
+            ## Add a Kanban view
+
+            Install `@vellym/kanban` in the same project and list it under `plugins`:
+
+            ```bash
+            npm install @vellym/kanban
+            ```
+
+            ```yaml
+            plugins:
+              - "@vellym/tickets" # Optional; omit this if you only need the Kanban
+              - "@vellym/kanban"
+            ```
+
+            It uses the existing `TicketTracker`; it does not add a separate resource. Opening a
+            tracker shows the Kanban when it is the only ticket plugin. With `@vellym/tickets`
+            enabled, switch between the list and Kanban views. `spec.kanban` is optional and can
+            declare card fields, per-column summaries, and a numeric field for manual ordering.
+            Columns follow the tracker's status order; unset and unknown statuses remain visible.
+            See the `@vellym/kanban` README for summary methods and configuration examples.
 
             See [[configuration|Configuration File]] for the other settings.
 
