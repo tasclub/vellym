@@ -21,6 +21,7 @@ import {
 } from "./folder-edit-session.js";
 import styles from "./structure-dialog.module.css";
 import { errorMessage } from "../shared/error-message.js";
+import { Button as HostButton } from "../shared/button.js";
 
 export type StructureAction =
   | { type: "create-page"; parentPath: string; chooseParent?: boolean }
@@ -276,13 +277,14 @@ export function StructureActionDialog(props: {
               <h2>{action ? t(titleKeys[action.type]) : ""}</h2>
               {isArchive && <p>{t("structure.noRestore")}</p>}
             </div>
-            <Button
+            <HostButton
+              icon
               className={styles.close}
               aria-label={t("structure.close")}
-              onPress={() => props.onOpenChange(false)}
+              onClick={() => props.onOpenChange(false)}
             >
               ×
-            </Button>
+            </HostButton>
           </div>
           <div className={styles.form}>
             {(action?.type === "create-page" ||

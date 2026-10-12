@@ -1,4 +1,5 @@
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DataTable } from "../packages/ui-react/src/shared/table.js";
@@ -88,6 +89,17 @@ describe("DataTable", () => {
 
   it("names the table for anyone who lands inside it", () => {
     expect(table({ caption: "チケット" })).toContain("<caption");
+  });
+});
+
+describe("symbol-only host buttons", () => {
+  it("uses the shared icon dimensions for the structure dialog close button", () => {
+    const source = readFileSync(
+      "packages/ui-react/src/editor/structure-dialog.tsx",
+      "utf8"
+    );
+    expect(source).toMatch(/<HostButton\s+icon\s+className=\{styles\.close\}/);
+    expect(source).toMatch(/aria-label=\{t\("structure\.close"\)\}/);
   });
 });
 
