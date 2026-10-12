@@ -7,6 +7,8 @@ export interface TrackerColumnSettings {
   /** Remember which columns existed so newly defined statuses default to visible. */
   knownColumns: string[];
   sort?: KanbanSort;
+  filters?: Record<string, string>;
+  filtersExpanded?: boolean;
 }
 
 export type KanbanColumnSettings = Record<string, TrackerColumnSettings>;
@@ -32,6 +34,12 @@ export function readColumnSettings(value: unknown): KanbanColumnSettings {
     settings[name] = {
       columns: stringList(entry.columns),
       knownColumns: stringList(entry.knownColumns),
+      ...(typeof entry.filters === "object" && entry.filters !== null && !Array.isArray(entry.filters)
+        ? { filters: Object.fromEntries(Object.entries(entry.filters)
+            .filter((item): item is [string, string] => typeof item[1] === "string")) }
+        : {}),
+      ...(typeof entry.filtersExpanded === "boolean"
+        ? { filtersExpanded: entry.filtersExpanded } : {}),
       ...(typeof entry.sort === "object" && entry.sort !== null &&
         typeof (entry.sort as KanbanSort).field === "string" &&
         ["asc", "desc"].includes((entry.sort as KanbanSort).direction)
@@ -86,6 +94,10 @@ export function toggleColumn(
   return {
     columns: [...selected],
     knownColumns: [...new Set([...(settings?.knownColumns ?? []), ...options.map(columnKey)])],
-    ...(settings?.sort ? { sort: settings.sort } : {})
+    ...(settings?.sort ? { sort: settings.sort } : {}),
+    ...(settings?.filters ? { filters: settings.filters } : {}),
+    ...(settings?.filtersExpanded !== undefined
+      ? { filtersExpanded: settings.filtersExpanded }
+      : {})
   };
 }

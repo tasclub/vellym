@@ -5,6 +5,7 @@ import { Button, ChoiceControl, InputControl, KindIcon } from "@vellym/plugin-ap
 import type { KanbanRendererData } from "./board.js";
 import { buildKanbanColumns } from "./model.js";
 import { cardFieldValue } from "./card-fields.js";
+import { filterKanbanRows } from "./filters.js";
 import { summarizeColumn } from "./summary.js";
 import { fieldKey } from "@vellym-internal/ticket-engine";
 import { DEFAULT_SORT, neighboringRank, sortKanbanRows } from "./order.js";
@@ -87,9 +88,22 @@ export function KanbanScreen({ context }: PluginViewProps) {
         ? { [fieldKey(data.orderField.id)]: orderOverrides[row.name]! } : {})
     }
   }));
-  const columns = buildKanbanColumns(data, rows, context.locale);
   const trackerName = context.target?.kind === "TicketTracker" ? context.target.name : undefined;
   const trackerSettings = trackerName ? settings[trackerName] : undefined;
+  const filterFields = data.fields.filter((field) => field.listColumn);
+  const filterFieldIds = new Set(filterFields.map((field) => field.id));
+  const filterValues = Object.fromEntries(Object.entries(trackerSettings?.filters ?? {})
+    .filter(([id, value]) => filterFieldIds.has(id) && typeof value === "string"));
+  const filtersExpanded = trackerSettings?.filtersExpanded === true;
+  const activeFilterCount = filterFields.filter((field) => Boolean(filterValues[field.id])).length;
+  const filteredRows = filterKanbanRows(rows, filterFields, filterValues);
+  const filteredNames = new Set(filteredRows.map((row) => row.name));
+  // Filter cards within columns rather than deriving columns from filtered rows:
+  // a status with no matches must remain visible as an empty column.
+  const columns = buildKanbanColumns(data, rows, context.locale).map((column) => ({
+    ...column,
+    rows: column.rows.filter((row) => filteredNames.has(row.name))
+  }));
   const manualField = data.orderField ? fieldKey(data.orderField.id) : undefined;
   const sortOptions = [
     ...(manualField ? [{ id: manualField, label: resolveLocalizedText({ ja: "手動順", en: "Manual order" }, context.locale) }] : []),
@@ -151,7 +165,30 @@ export function KanbanScreen({ context }: PluginViewProps) {
       [trackerName]: {
         columns: [...selected],
         knownColumns: [...new Set([...(trackerSettings?.knownColumns ?? []), ...options.map(columnKey)])],
-        sort: { field, direction }
+        sort: { field, direction },
+        ...(Object.keys(filterValues).length ? { filters: filterValues } : {}),
+        ...(trackerSettings?.filtersExpanded !== undefined
+          ? { filtersExpanded: trackerSettings.filtersExpanded } : {})
+      }
+    };
+    setSettings(next);
+    context.setViewSettings(next);
+  }
+
+  function updateFilterSettings(
+    patch: { filters?: Record<string, string>; filtersExpanded?: boolean }
+  ) {
+    if (!trackerName) return;
+    const next = {
+      ...settings,
+      [trackerName]: {
+        columns: [...selected],
+        knownColumns: [...new Set([...(trackerSettings?.knownColumns ?? []), ...options.map(columnKey)])],
+        ...(sort ? { sort } : {}),
+        ...(Object.keys(filterValues).length ? { filters: filterValues } : {}),
+        ...(trackerSettings?.filtersExpanded !== undefined
+          ? { filtersExpanded: trackerSettings.filtersExpanded } : {}),
+        ...patch
       }
     };
     setSettings(next);
@@ -274,6 +311,81 @@ export function KanbanScreen({ context }: PluginViewProps) {
           }, context.locale)}
         </p>
       ) : null}
+      {filterFields.length > 0 ? (
+        <div className="kanban-filters">
+          <span className="kanban-filters-label" aria-hidden="true">FILTER</span>
+          <Button
+            aria-expanded={filtersExpanded}
+            aria-controls="kanban-filter-controls"
+            onClick={() => updateFilterSettings({ filtersExpanded: !filtersExpanded })}
+          >
+            {resolveLocalizedText({
+              ja: `絞り込み（有効 ${activeFilterCount}件）`,
+              en: `Filters (${activeFilterCount} active)`
+            }, context.locale)}
+          </Button>
+          {activeFilterCount > 0 ? (
+            <span role="status">
+              {resolveLocalizedText({
+                ja: `表示 ${filteredRows.length} / ${rows.length}件`,
+                en: `Showing ${filteredRows.length} of ${rows.length}`
+              }, context.locale)}
+            </span>
+          ) : null}
+          <div
+            id="kanban-filter-controls"
+            className="kanban-filter-controls"
+            hidden={!filtersExpanded}
+          >
+            {filterFields.map((field) => {
+              const label = resolveLocalizedText(field.label, context.locale);
+              const options = field.type === "boolean"
+                ? [
+                    { value: "true", label: resolveLocalizedText({ ja: "はい", en: "Yes" }, context.locale) },
+                    { value: "false", label: resolveLocalizedText({ ja: "いいえ", en: "No" }, context.locale) }
+                  ]
+                : (field.options ?? []).map((option) => ({
+                    value: option.value,
+                    label: resolveLocalizedText(option.label, context.locale)
+                  }));
+              return (
+                <label key={field.id}>
+                  <span>{label}</span>
+                  {field.type === "select" || field.type === "multiselect" || field.type === "boolean" ? (
+                    <ChoiceControl
+                      mode="select"
+                      aria-label={label}
+                      value={filterValues[field.id] ?? ""}
+                      options={[
+                        { value: "", label: resolveLocalizedText({ ja: "すべて", en: "Any" }, context.locale) },
+                        ...options
+                      ]}
+                      onChange={(value) => updateFilterSettings({
+                        filters: { ...filterValues, [field.id]: value }
+                      })}
+                    />
+                  ) : (
+                    <InputControl
+                      type="text"
+                      aria-label={label}
+                      placeholder={resolveLocalizedText({ ja: "含む文字", en: "Contains" }, context.locale)}
+                      value={filterValues[field.id] ?? ""}
+                      onChange={(event) => updateFilterSettings({
+                        filters: { ...filterValues, [field.id]: event.target.value }
+                      })}
+                    />
+                  )}
+                </label>
+              );
+            })}
+            {activeFilterCount > 0 ? (
+              <Button onClick={() => updateFilterSettings({ filters: {} })}>
+                {resolveLocalizedText({ ja: "絞り込みを解除", en: "Clear filters" }, context.locale)}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <details style={{ marginBlock: "var(--space-3)" }}>
         <summary style={{ cursor: "pointer", color: "var(--text-primary)" }}>
           {resolveLocalizedText({ ja: "表示する列", en: "Visible columns" }, context.locale)} ({selectedCount}/{options.length})
@@ -328,11 +440,15 @@ export function KanbanScreen({ context }: PluginViewProps) {
       }, context.locale)}>
         <h2>{resolveLocalizedText({ ja: "ボード全体", en: "Whole board" }, context.locale)}</h2>
         <p>{resolveLocalizedText({
-          ja: `全${rows.length}件（非表示の列と20件以降も含む）`,
-          en: `All ${rows.length} tickets (including hidden columns and cards past the first 20)`
+          ja: activeFilterCount > 0
+            ? `${filteredRows.length} / ${rows.length}件（非表示の列と20件以降も含む）`
+            : `全${rows.length}件（非表示の列と20件以降も含む）`,
+          en: activeFilterCount > 0
+            ? `${filteredRows.length} of ${rows.length} tickets (including hidden columns and cards past the first 20)`
+            : `All ${rows.length} tickets (including hidden columns and cards past the first 20)`
         }, context.locale)}</p>
         <ul>{data.summaries.map((definition, index) => {
-          const result = summarizeColumn(rows, definition, context.locale);
+          const result = summarizeColumn(filteredRows, definition, context.locale);
           return <li key={`${definition.field.id}:${definition.method}:${index}`}>
             {result.text}{!context.isStatic && result.excluded > 0 ? ` (${resolveLocalizedText({
               ja: "型が合わず除外", en: "Invalid values excluded"

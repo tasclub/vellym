@@ -118,6 +118,73 @@ describe("Kanban screen interactions", () => {
     other.unmount();
   });
 
+  it("filters cards, keeps empty statuses, recalculates summaries, and restores settings", () => {
+    let stored: unknown;
+    const preference = {
+      getViewSettings: () => stored,
+      setViewSettings: (value: unknown) => { stored = value; }
+    };
+    const priority = {
+      id: "priority", label: "優先度", type: "select" as const, required: false, listColumn: true,
+      options: [{ value: "high", label: "高" }, { value: "low", label: "低" }]
+    };
+    const estimate = {
+      id: "estimate", label: "見積", type: "number" as const, required: false, listColumn: false
+    };
+    const rendererData = {
+      statuses, diagnostics: [], fields: [priority, estimate], cardFields: [], summaries: [
+        { field: estimate, method: "sum" as const }
+      ]
+    };
+    const rows = [
+      { name: "ticket-1", title: "One", values: { status: "todo", "field:priority": "high", "field:estimate": 5 } },
+      { name: "ticket-2", title: "Two", values: { status: "todo", "field:priority": "low", "field:estimate": 3 } },
+      { name: "ticket-3", title: "Three", values: { status: "doing", "field:priority": "low", "field:estimate": 2 } }
+    ];
+    const first = renderScreen({ ...preference, rows, rendererData });
+    const filters = first.container.querySelector<HTMLButtonElement>(
+      'button[aria-controls="kanban-filter-controls"]'
+    )!;
+    expect(filters.getAttribute("aria-expanded")).toBe("false");
+    expect(first.container.querySelector("#kanban-filter-controls")?.hasAttribute("hidden")).toBe(true);
+    expect(filters.textContent).toContain("有効 0件");
+
+    act(() => filters.click());
+    const priorityFilter = first.container.querySelector<HTMLSelectElement>('select[aria-label="優先度"]')!;
+    act(() => {
+      priorityFilter.value = "high";
+      priorityFilter.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const todo = first.container.querySelector('#kanban-defined-todo')?.closest("section")!;
+    const doing = first.container.querySelector('#kanban-defined-doing')?.closest("section")!;
+    const whole = first.container.querySelector('[aria-label="ボード全体の集計"]')!;
+    expect(filters.textContent).toContain("有効 1件");
+    expect(first.container.textContent).toContain("表示 1 / 3件");
+    expect(todo.querySelector("h2")?.textContent).toContain("(1)");
+    expect(todo.textContent).toContain("見積 合計: 5");
+    expect(doing.querySelector("h2")?.textContent).toContain("(0)");
+    expect(doing.textContent).toContain("見積 合計: —");
+    expect(doing.textContent).toContain("チケットはありません");
+    expect(whole.textContent).toContain("1 / 3件");
+    expect(whole.textContent).toContain("見積 合計: 5");
+    expect(stored).toMatchObject({ tracker: {
+      filters: { priority: "high" },
+      filtersExpanded: true
+    } });
+    first.unmount();
+
+    const restored = renderScreen({ ...preference, rows, rendererData });
+    expect(restored.container.querySelector<HTMLButtonElement>(
+      'button[aria-controls="kanban-filter-controls"]'
+    )?.getAttribute("aria-expanded")).toBe("true");
+    expect(restored.container.querySelector<HTMLSelectElement>('select[aria-label="優先度"]')?.value)
+      .toBe("high");
+    expect(restored.container.querySelector('#kanban-defined-doing')?.closest("section")?.textContent)
+      .toContain("チケットはありません");
+    restored.unmount();
+  });
+
   it("allows selection in static output even when preferences cannot be saved", () => {
     const { container, unmount } = renderScreen({ isStatic: true, setViewSettings: () => {} });
     act(() => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
