@@ -1430,6 +1430,54 @@ plugins:
     }
   });
 
+  it("keeps serving the repository when a configured plugin is outside the host range", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-plugin-range-"));
+    const root = path.join(project, "docs/content");
+    const plugin = path.join(project, "node_modules/out-of-range-plugin");
+    await mkdir(root, { recursive: true });
+    await mkdir(plugin, { recursive: true });
+    await writeFile(path.join(root, "page.yaml"), source(), "utf8");
+    await writeFile(path.join(plugin, "package.json"), JSON.stringify({
+      name: "out-of-range-plugin",
+      version: "1.0.0",
+      type: "module",
+      main: "index.mjs",
+      engines: { vellym: ">=9.0.0" },
+      vellym: { id: "unsupported", contributes: { kinds: [{ kind: "Ticket" }] } }
+    }), "utf8");
+    await writeFile(path.join(plugin, "index.mjs"), "export function activate() {}\n", "utf8");
+    const configPath = path.join(project, "vellym.config.yaml");
+    await writeFile(configPath, `schemaVersion: "1.0"
+contentRoot: docs/content
+outputDir: dist/vellym
+ui:
+  language: ja
+plugins:
+  - out-of-range-plugin
+`, "utf8");
+    const ui = await mkdtemp(path.join(tmpdir(), "vellym-plugin-range-ui-"));
+    await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
+    const hostVersion = (JSON.parse(
+      await readFile(path.join(process.cwd(), "packages/vellym/package.json"), "utf8")
+    ) as { version: string }).version;
+    const server = await startDevServer({ configPath, uiRoot: ui, hostVersion, port: 0 });
+    try {
+      const bootstrap = await fetch(`${server.url}/api/v1/bootstrap`);
+      expect(bootstrap.status).toBe(200);
+      expect(await bootstrap.json()).toMatchObject({
+        data: { state: "ready" },
+        diagnostics: [expect.objectContaining({ code: "PLUGIN_VERSION_UNSUPPORTED" })]
+      });
+      const repository = await fetch(`${server.url}/api/v1/repository`);
+      expect(repository.status).toBe(200);
+      expect(await repository.json()).toMatchObject({
+        data: { pages: [expect.objectContaining({ name: "test-page" })] }
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
   it("validates patch structure before touching a page", () => {
     expect(() => parsePagePatch({ baseHash: "short" })).toThrow("baseHash");
     expect(() =>
