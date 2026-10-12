@@ -319,6 +319,7 @@
   "plugin.filterAny": "すべて",
   "plugin.filterClear": "絞り込みを解除",
   "plugin.filterContains": "含む文字",
+  "plugin.filtersToggle": "絞り込み（有効 {{count}}件）",
   "plugin.hasNotices": "注意があります",
   "plugin.moveDown": "下へ",
   "plugin.moveUp": "上へ",

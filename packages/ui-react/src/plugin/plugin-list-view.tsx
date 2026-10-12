@@ -141,6 +141,7 @@ function matchesFilter(
 /** 絞り込みと並び順は個人設定。正本YAMLへ混ぜない */
 interface ViewPreference {
   filters?: Record<string, string>;
+  filtersExpanded?: boolean;
   sort?: { columnId: string; direction: "asc" | "desc" };
   showAll?: boolean;
 }
@@ -201,6 +202,7 @@ export function PluginListView({
 
   const [command, setCommand] = useState<PluginViewPayload["commands"][number]>();
   const [filters, setFilters] = useState<Record<string, string>>(stored.filters ?? {});
+  const [filtersExpanded, setFiltersExpanded] = useState(stored.filtersExpanded ?? false);
   const [sort, setSort] = useState<{ columnId: string; direction: "asc" | "desc" } | undefined>(
     stored.sort ?? defaultSort
   );
@@ -220,6 +222,7 @@ export function PluginListView({
   useEffect(() => {
     if (loadedSettingsKey === key) return;
     setFilters(stored.filters ?? {});
+    setFiltersExpanded(stored.filtersExpanded ?? false);
     setSort(stored.sort ?? defaultSort);
     setSelected([]);
     setLoadedSettingsKey(key);
@@ -227,8 +230,13 @@ export function PluginListView({
 
   useEffect(() => {
     if (loadedSettingsKey !== key) return;
-    writePluginViewSettings(settingsScope, { filters, ...(sort ? { sort } : {}), showAll });
-  }, [key, loadedSettingsKey, filters, sort, showAll]);
+    writePluginViewSettings(settingsScope, {
+      filters,
+      filtersExpanded,
+      ...(sort ? { sort } : {}),
+      showAll
+    });
+  }, [key, loadedSettingsKey, filters, filtersExpanded, sort, showAll]);
 
   const descriptor = payload.descriptor.type === "list" ? payload.descriptor : undefined;
   const columns = useMemo(
@@ -243,6 +251,10 @@ export function PluginListView({
     () => (descriptor?.columns ?? []).filter((column) => column.filterable),
     [descriptor]
   );
+  const activeFilterCount = filterable.filter((column) => Boolean(filters[column.id])).length +
+    (showAll === true
+      ? 0
+      : (descriptor?.defaultFilters ?? []).filter((filter) => filter.toggleLabels).length);
   const editable = useMemo(
     () => (descriptor?.columns ?? []).filter((column) => column.editPath?.length),
     [descriptor]
@@ -352,45 +364,58 @@ export function PluginListView({
               </Button>
             ))
         : null}
-      {filterable.map((column) => {
-        const id = `plugin-filter-${column.id}`;
-        const label = resolveLocalizedText(column.label, locale);
-        return (
-          <label key={column.id} htmlFor={id}>
-            <span>{label}</span>
-            {column.options ? (
-              <select
-                id={id}
-                value={filters[column.id] ?? ""}
-                onChange={(event) =>
-                  setFilters({ ...filters, [column.id]: event.target.value })
-                }
-              >
-                <option value="">{t("plugin.filterAny")}</option>
-                {column.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {resolveLocalizedText(option.label, locale)}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                id={id}
-                value={filters[column.id] ?? ""}
-                placeholder={t("plugin.filterContains")}
-                onChange={(event) =>
-                  setFilters({ ...filters, [column.id]: event.target.value })
-                }
-              />
-            )}
-          </label>
-        );
-      })}
-      {Object.values(filters).some(Boolean) ? (
-        <Button onClick={() => setFilters({})}>
-          {t("plugin.filterClear")}
-        </Button>
-      ) : null}
+      <Button
+        aria-expanded={filtersExpanded}
+        aria-controls="plugin-list-filter-controls"
+        onClick={() => setFiltersExpanded(!filtersExpanded)}
+      >
+        {t("plugin.filtersToggle", { count: activeFilterCount })}
+      </Button>
+      <div
+        id="plugin-list-filter-controls"
+        className={styles["plugin-list-filter-controls"]}
+        hidden={!filtersExpanded}
+      >
+        {filterable.map((column) => {
+          const id = `plugin-filter-${column.id}`;
+          const label = resolveLocalizedText(column.label, locale);
+          return (
+            <label key={column.id} htmlFor={id}>
+              <span>{label}</span>
+              {column.options ? (
+                <select
+                  id={id}
+                  value={filters[column.id] ?? ""}
+                  onChange={(event) =>
+                    setFilters({ ...filters, [column.id]: event.target.value })
+                  }
+                >
+                  <option value="">{t("plugin.filterAny")}</option>
+                  {column.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {resolveLocalizedText(option.label, locale)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id={id}
+                  value={filters[column.id] ?? ""}
+                  placeholder={t("plugin.filterContains")}
+                  onChange={(event) =>
+                    setFilters({ ...filters, [column.id]: event.target.value })
+                  }
+                />
+              )}
+            </label>
+          );
+        })}
+        {Object.values(filters).some(Boolean) ? (
+          <Button onClick={() => setFilters({})}>
+            {t("plugin.filterClear")}
+          </Button>
+        ) : null}
+      </div>
     </div>
   ) : null;
 

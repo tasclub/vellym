@@ -140,6 +140,15 @@
     background: var(--surface-sunken);
     font-size: var(--size-caption);
   }
+  .plugin-list-filter-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .plugin-list-filter-controls[hidden] {
+    display: none;
+  }
   /*
    * 選択中の帯は、輪郭を2倍にして地の色を上げる。塗りではなく線の太さで
    * 「いま効いている」ことを示す。

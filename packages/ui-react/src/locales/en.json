@@ -319,6 +319,7 @@
   "plugin.filterAny": "Any",
   "plugin.filterClear": "Clear filters",
   "plugin.filterContains": "Contains",
+  "plugin.filtersToggle": "Filters ({{count}} active)",
   "plugin.hasNotices": "Has notices",
   "plugin.moveDown": "Move down",
   "plugin.moveUp": "Move up",
