@@ -243,15 +243,18 @@ spec:
 
     // ブラウザ側資産が出力へ含まれている。**外部URLを参照しない。**
     expect(existsSync(path.join(output, "plugins/tickets/index.js"))).toBe(true);
+    expect(existsSync(path.join(output, "plugins/tickets/tickets-settings.css"))).toBe(true);
     // Node側の出力と型定義を混ぜない。専用ディレクトリだけを配る。
     expect(existsSync(path.join(output, "plugins/tickets/node.js"))).toBe(false);
 
     const bootstrap = JSON.parse(
       await readFile(path.join(dataDir, "bootstrap.json"), "utf8")
     );
-    expect(bootstrap.data.plugins.browserEntries).toEqual([
-      { id: "tickets", url: "plugins/tickets/index.js" }
-    ]);
+    expect(bootstrap.data.plugins.browserEntries).toEqual([{
+      id: "tickets",
+      url: "plugins/tickets/index.js",
+      styles: ["plugins/tickets/tickets-settings.css"]
+    }]);
     expect(bootstrap.data.plugins.kindIcons.TicketTracker).toBeDefined();
 
     // 深いページのimport mapが、その深さへ直っていること。相対のままだと

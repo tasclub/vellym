@@ -131,6 +131,16 @@ describe("ticket plugin", () => {
     expect(screen).toContain("resolveLocalizedText");
   });
 
+  it("ships a responsive, plugin-scoped settings grid stylesheet", () => {
+    const stylesheet = readFileSync(
+      path.join(process.cwd(), "packages/plugin-tickets/src/tickets-settings.css"),
+      "utf8"
+    );
+    expect(stylesheet).toContain(".tickets-settings-field-grid");
+    expect(stylesheet).toContain(".tickets-settings-option-grid");
+    expect(stylesheet).toContain("@media (max-width: 760px)");
+  });
+
   it("ships a manifest that matches what activate registers", () => {
     // manifestは「コードを読まずに分かる必要がある宣言」であり、実装とずれると
     // 利用者は「入れたのに出てこない」理由を知る手段を失う。

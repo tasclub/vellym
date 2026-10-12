@@ -187,7 +187,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
   }
 
   return (
-    <div data-plugin="tickets" data-view="tracker-settings">
+    <div className="tickets-settings" data-plugin="tickets" data-view="tracker-settings">
       <h2>{text("ステータス", "Statuses")}</h2>
       <p>
         {text(
@@ -195,6 +195,10 @@ function Screen({ context }: { context: PluginRenderContext }) {
           "The id is permanent. The first row is the initial status."
         )}
       </p>
+      <div className="tickets-settings-header tickets-settings-status-grid" aria-hidden="true">
+        <span>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
+        <span>{text("区分", "Category")}</span><span>{text("操作", "Actions")}</span>
+      </div>
       {statuses.map((row, index) => {
         const inUse = usedBy("status", row.id);
         const patch = (change: Partial<StatusRow>) =>
@@ -204,9 +208,9 @@ function Screen({ context }: { context: PluginRenderContext }) {
             )
           );
         return (
-          <div key={`status-${index}`} data-row="status">
+          <div key={`status-${index}`} className="tickets-settings-status-grid tickets-settings-row" data-row="status">
             <label>
-              {text("ID", "ID")}
+              <span className="tickets-settings-cell-label">{text("ID", "ID")}</span>
               <input
                 type="text"
                 value={row.id}
@@ -214,7 +218,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
               />
             </label>
             <label>
-              {text("表示名", "Label")}
+              <span className="tickets-settings-cell-label">{text("表示名", "Label")}</span>
               <input
                 type="text"
                 value={row.label}
@@ -222,7 +226,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
               />
             </label>
             <label>
-              {text("区分", "Category")}
+              <span className="tickets-settings-cell-label">{text("区分", "Category")}</span>
               <select
                 value={row.category}
                 onChange={(event) =>
@@ -235,32 +239,17 @@ function Screen({ context }: { context: PluginRenderContext }) {
                 <option value="closed">{text("完了", "Closed")}</option>
               </select>
             </label>
-            <Button
-              icon
-              aria-label={text("上へ", "Move up")}
-              disabled={index === 0}
-              onClick={() => setStatuses(move(statuses, index, -1))}
-            >
-              ↑
-            </Button>
-            <Button
-              icon
-              aria-label={text("下へ", "Move down")}
-              disabled={index === statuses.length - 1}
-              onClick={() => setStatuses(move(statuses, index, 1))}
-            >
-              ↓
-            </Button>
-            <Button
-              
-              onClick={() =>
-                setStatuses(statuses.filter((_, position) => position !== index))
-              }
-            >
-              {text("削除", "Remove")}
-            </Button>
+            <div className="tickets-settings-actions">
+              <Button icon aria-label={text("上へ", "Move up")} disabled={index === 0}
+                onClick={() => setStatuses(move(statuses, index, -1))}>↑</Button>
+              <Button icon aria-label={text("下へ", "Move down")} disabled={index === statuses.length - 1}
+                onClick={() => setStatuses(move(statuses, index, 1))}>↓</Button>
+              <Button onClick={() => setStatuses(statuses.filter((_, position) => position !== index))}>
+                {text("削除", "Remove")}
+              </Button>
+            </div>
             {/* 使用中の値は、消す前に件数を出す。消してから気づかせない */}
-            {inUse ? <span role="status">{removalNote(inUse)}</span> : null}
+            <span role="status">{inUse ? removalNote(inUse) : ""}</span>
           </div>
         );
       })}
@@ -274,6 +263,11 @@ function Screen({ context }: { context: PluginRenderContext }) {
       </Button>
 
       <h2>{text("項目", "Fields")}</h2>
+      <div className="tickets-settings-header tickets-settings-field-grid" aria-hidden="true">
+        <span>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
+        <span>{text("型", "Type")}</span><span>{text("必須", "Required")}</span>
+        <span>{text("一覧に出す", "Show in list")}</span><span>{text("操作", "Actions")}</span>
+      </div>
       {fields.map((row, index) => {
         const patch = (change: Partial<FieldRow>) =>
           setFields(
@@ -282,9 +276,9 @@ function Screen({ context }: { context: PluginRenderContext }) {
             )
           );
         return (
-          <div key={`field-${index}`} data-row="field">
+          <div key={`field-${index}`} className="tickets-settings-field-grid tickets-settings-row" data-row="field">
             <label>
-              {text("ID", "ID")}
+              <span className="tickets-settings-cell-label">{text("ID", "ID")}</span>
               <input
                 type="text"
                 value={row.id}
@@ -292,7 +286,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
               />
             </label>
             <label>
-              {text("表示名", "Label")}
+              <span className="tickets-settings-cell-label">{text("表示名", "Label")}</span>
               <input
                 type="text"
                 value={row.label}
@@ -300,7 +294,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
               />
             </label>
             <label>
-              {text("型", "Type")}
+              <span className="tickets-settings-cell-label">{text("型", "Type")}</span>
               <select
                 value={row.type}
                 onChange={(event) =>
@@ -315,7 +309,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
               </select>
             </label>
             <label>
-              {text("必須", "Required")}
+              <span className="tickets-settings-cell-label">{text("必須", "Required")}</span>
               <input
                 type="checkbox"
                 checked={row.required}
@@ -323,21 +317,18 @@ function Screen({ context }: { context: PluginRenderContext }) {
               />
             </label>
             <label>
-              {text("一覧に出す", "Show in list")}
+              <span className="tickets-settings-cell-label">{text("一覧に出す", "Show in list")}</span>
               <input
                 type="checkbox"
                 checked={row.listColumn}
                 onChange={(event) => patch({ listColumn: event.target.checked })}
               />
             </label>
-            <Button
-              
-              onClick={() =>
-                setFields(fields.filter((_, position) => position !== index))
-              }
-            >
-              {text("項目を削除", "Remove field")}
-            </Button>
+            <div className="tickets-settings-actions">
+              <Button onClick={() => setFields(fields.filter((_, position) => position !== index))}>
+                {text("項目を削除", "Remove field")}
+              </Button>
+            </div>
 
             {/*
               **ここが宣言では表せなかった箇所である。**
@@ -347,6 +338,10 @@ function Screen({ context }: { context: PluginRenderContext }) {
             {hasOptions(row.type) ? (
               <fieldset data-options-for={row.id}>
                 <legend>{text("選択肢", "Options")}</legend>
+                <div className="tickets-settings-header tickets-settings-option-grid" aria-hidden="true">
+                  <span>{text("値", "Value")}</span><span>{text("表示名", "Label")}</span>
+                  <span>{text("操作", "Actions")}</span>
+                </div>
                 {row.options.map((option, optionIndex) => {
                   const optionInUse = usedBy(`field:${row.id}`, option.value);
                   const patchOption = (change: Partial<OptionRow>) =>
@@ -356,9 +351,9 @@ function Screen({ context }: { context: PluginRenderContext }) {
                       )
                     });
                   return (
-                    <div key={`option-${optionIndex}`} data-row="option">
+                    <div key={`option-${optionIndex}`} className="tickets-settings-option-grid tickets-settings-row" data-row="option">
                       <label>
-                        {text("値", "Value")}
+                        <span className="tickets-settings-cell-label">{text("値", "Value")}</span>
                         <input
                           type="text"
                           value={option.value}
@@ -368,7 +363,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
                         />
                       </label>
                       <label>
-                        {text("表示名", "Label")}
+                        <span className="tickets-settings-cell-label">{text("表示名", "Label")}</span>
                         <input
                           type="text"
                           value={option.label}
@@ -377,41 +372,16 @@ function Screen({ context }: { context: PluginRenderContext }) {
                           }
                         />
                       </label>
-                      <Button
-                        icon
-                        aria-label={text("上へ", "Move up")}
-                        disabled={optionIndex === 0}
-                        onClick={() =>
-                          patch({ options: move(row.options, optionIndex, -1) })
-                        }
-                      >
-                        ↑
-                      </Button>
-                      <Button
-                        icon
-                        aria-label={text("下へ", "Move down")}
-                        disabled={optionIndex === row.options.length - 1}
-                        onClick={() =>
-                          patch({ options: move(row.options, optionIndex, 1) })
-                        }
-                      >
-                        ↓
-                      </Button>
-                      <Button
-                        
-                        onClick={() =>
-                          patch({
-                            options: row.options.filter(
-                              (_, spot) => spot !== optionIndex
-                            )
-                          })
-                        }
-                      >
-                        {text("削除", "Remove")}
-                      </Button>
-                      {optionInUse ? (
-                        <span role="status">{removalNote(optionInUse)}</span>
-                      ) : null}
+                      <div className="tickets-settings-actions">
+                        <Button icon aria-label={text("上へ", "Move up")} disabled={optionIndex === 0}
+                          onClick={() => patch({ options: move(row.options, optionIndex, -1) })}>↑</Button>
+                        <Button icon aria-label={text("下へ", "Move down")} disabled={optionIndex === row.options.length - 1}
+                          onClick={() => patch({ options: move(row.options, optionIndex, 1) })}>↓</Button>
+                        <Button onClick={() => patch({ options: row.options.filter((_, spot) => spot !== optionIndex) })}>
+                          {text("削除", "Remove")}
+                        </Button>
+                      </div>
+                      <span role="status">{optionInUse ? removalNote(optionInUse) : ""}</span>
                     </div>
                   );
                 })}

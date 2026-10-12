@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const stylesheets = [
+  { id: "tickets", file: "packages/plugin-tickets/src/tickets-settings.css" },
   { id: "kanban", file: "packages/plugin-kanban/src/kanban.css" },
   { id: "wbs", file: "packages/plugin-wbs/src/wbs.css" }
 ];

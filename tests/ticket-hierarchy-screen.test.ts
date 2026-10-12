@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PluginRenderContext, PluginSpecWrite } from "@vellym/plugin-api";
 
 vi.mock("@vellym/plugin-api/ui", () => ({
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) =>
+  Button: ({ children, icon: _icon, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon?: boolean }) =>
     createElement("button", props, children)
 }));
 import { TrackerSettingsScreen } from "../packages/plugin-tickets/src/settings-screen.js";
@@ -20,7 +20,10 @@ describe("Tracker hierarchy settings", () => {
       locale: "ja", isStatic: false, records: () => [],
       target: { kind: "TicketTracker", name: "tracker", title: "Tracker",
         relativePath: "tracker.yaml", readOnly: false,
-        spec: { fields: [{ id: "parent", label: "親", type: "reference" }],
+        spec: { fields: [
+          { id: "parent", label: "親", type: "reference" },
+          { id: "priority", label: "優先度", type: "select", options: [{ value: "high", label: "高" }] }
+        ],
           hierarchy: { parentField: "parent" }, kanban: { card: ["parent"] } } },
       rendererData: {},
       rows: [
@@ -37,6 +40,11 @@ describe("Tracker hierarchy settings", () => {
     expect(container.querySelector('[aria-label="チケットの階層"]')).toBeNull();
     expect(container.textContent).not.toContain("親チケットが見つかりません");
     expect([...container.querySelectorAll("select")].some((select) => select.value === "parent")).toBe(true);
+    expect(container.querySelectorAll(".tickets-settings-header")).toHaveLength(3);
+    expect(container.querySelector('[data-row="option"]')?.classList.contains("tickets-settings-option-grid"))
+      .toBe(true);
+    expect(container.querySelectorAll('[data-row="option"] .tickets-settings-actions button[aria-label]'))
+      .toHaveLength(2);
 
     await act(async () => {
       [...container.querySelectorAll<HTMLButtonElement>("button")]

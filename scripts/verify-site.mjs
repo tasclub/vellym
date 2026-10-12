@@ -112,6 +112,8 @@ try {
   if (!guideResponse?.ok()) throw new Error("static guide did not load for plugin stylesheet verification");
   await kanbanPage.locator('link[data-vellym-plugin-style="kanban"]')
     .waitFor({ state: "attached" });
+  await kanbanPage.locator('link[data-vellym-plugin-style="tickets"]')
+    .waitFor({ state: "attached" });
   if (existsSync(path.join(root, "pages/demo-tickets/index.html"))) {
     const kanbanResponse = await kanbanPage.goto(`${baseUrl}/pages/demo-tickets/`, {
       waitUntil: "networkidle"

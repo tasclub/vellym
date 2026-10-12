@@ -30,6 +30,9 @@
   `save()`の書き込み先、個人設定の読み書き、`openResource()`、`engineVersion`、
   ビュー版面幅の宣言をプラグインAPIへ追加した。`@vellym-internal/ticket-engine`は
   非公開のままプラグインbundleへ取り込む。
+- チケット管理の設定画面を列見出し付きgridにし、ステータス・項目・選択肢の入力列と
+  操作列を揃えた。狭幅では各行のラベルを表示する。使用中注記の場所を確保し、上下移動を
+  iconボタンにした。レイアウトCSSは`@vellym/tickets`のプラグインstylesheetとして配信する。
 
 ### 修正
 
