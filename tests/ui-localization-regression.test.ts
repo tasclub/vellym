@@ -33,12 +33,12 @@ const guardedUiFiles = [
   "packages/ui-react/src/shared/api.ts"
 ];
 const japaneseText = /[ぁ-んァ-ン一-龯]/;
-const editorTableLabels = [
-  "editor.tableRowAdd",
-  "editor.tableRowRemove",
-  "editor.tableColAdd",
-  "editor.tableColRemove",
-  "editor.tableRemove"
+const editorTableLabels: Array<[string, string]> = [
+  ["editor.tableRowAdd", "Add row"],
+  ["editor.tableRowRemove", "Delete row"],
+  ["editor.tableColAdd", "Add column"],
+  ["editor.tableColRemove", "Delete column"],
+  ["editor.tableRemove", "Delete table"]
 ];
 
 function hardCodedJapaneseText(file: string): string[] {
@@ -78,8 +78,9 @@ describe("UI localization regression guard", () => {
       const dictionary = JSON.parse(
         readFileSync(`packages/ui-react/src/locales/${locale}.json`, "utf8")
       ) as Record<string, string>;
-      for (const key of editorTableLabels) {
+      for (const [key, englishLabel] of editorTableLabels) {
         expect(dictionary[key]?.trim(), `${locale}:${key}`).toBeTruthy();
+        if (locale === "en") expect(dictionary[key], key).toBe(englishLabel);
       }
     }
     const source = readFileSync("packages/ui-react/src/editor/editor-workspace.tsx", "utf8");
