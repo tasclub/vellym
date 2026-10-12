@@ -456,9 +456,11 @@ export async function startDevServer(options: {
   let snapshot: RepositorySnapshot | undefined;
   // プラグインが解釈できるkindと、そのうち文書ツリーへ出すもの。
   // 読み込み直すたびに解決し直す。
-  let kindOptions: { knownKinds: ReadonlySet<string>; treeKinds: ReadonlySet<string> } = {
+  let kindOptions: ReturnType<typeof pluginKinds> = {
     knownKinds: new Set<string>(),
-    treeKinds: new Set<string>()
+    treeKinds: new Set<string>(),
+    projections: new Map(),
+    kindSchemas: new Map()
   };
   let pluginDiagnostics: Diagnostic[] = [];
   let pluginRegistry: PluginRegistry | undefined;
@@ -549,7 +551,12 @@ export async function startDevServer(options: {
       : undefined;
     const nextKinds = registry
       ? pluginKinds(registry)
-      : { knownKinds: new Set<string>(), treeKinds: new Set<string>() };
+      : {
+          knownKinds: new Set<string>(),
+          treeKinds: new Set<string>(),
+          projections: new Map(),
+          kindSchemas: new Map()
+        };
     const nextSnapshot = await loadRepository(
       nextConfig.contentRoot,
       undefined,

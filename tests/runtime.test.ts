@@ -1478,6 +1478,66 @@ plugins:
     }
   });
 
+  it("reports plugin spec-schema mismatches as warnings without rejecting resources", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-plugin-schema-"));
+    const root = path.join(project, "docs/content");
+    const plugin = path.join(project, "node_modules/schema-plugin");
+    await mkdir(root, { recursive: true });
+    await mkdir(plugin, { recursive: true });
+    const resource = `apiVersion: vellym.tasclub.com/v1
+kind: Example
+metadata:
+  name: example-resource
+  title: Example resource
+spec:
+  count: not-a-number
+`;
+    await writeFile(path.join(root, "example.yaml"), resource, "utf8");
+    await writeFile(path.join(plugin, "package.json"), JSON.stringify({
+      name: "schema-plugin",
+      version: "1.0.0",
+      type: "module",
+      main: "index.mjs",
+      engines: { vellym: ">=0.5.0-beta" },
+      vellym: { id: "schema-plugin", contributes: { kinds: [{ kind: "Example" }] } }
+    }), "utf8");
+    await writeFile(path.join(plugin, "index.mjs"), `export function activate(host) {
+  host.registerKind({ kind: "Example", specSchema: {
+    type: "object", required: ["count"], properties: { count: { type: "integer" } }
+  } });
+}\n`, "utf8");
+    const configPath = path.join(project, "vellym.config.yaml");
+    await writeFile(configPath, `schemaVersion: "1.0"
+contentRoot: docs/content
+outputDir: dist/vellym
+ui:
+  language: ja
+plugins:
+  - schema-plugin
+`, "utf8");
+    const ui = await mkdtemp(path.join(tmpdir(), "vellym-plugin-schema-ui-"));
+    await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
+    const hostVersion = (JSON.parse(
+      await readFile(path.join(process.cwd(), "packages/vellym/package.json"), "utf8")
+    ) as { version: string }).version;
+    const server = await startDevServer({ configPath, uiRoot: ui, hostVersion, port: 0 });
+    try {
+      const repository = await fetch(`${server.url}/api/v1/repository`);
+      expect(repository.status).toBe(200);
+      expect(await repository.json()).toMatchObject({
+        diagnostics: [expect.objectContaining({
+          severity: "warning",
+          code: "PLUGIN_SPEC_SCHEMA_MISMATCH",
+          file: "example.yaml",
+          path: "/spec/count"
+        })]
+      });
+      expect(await readFile(path.join(root, "example.yaml"), "utf8")).toBe(resource);
+    } finally {
+      await server.close();
+    }
+  });
+
   it("validates patch structure before touching a page", () => {
     expect(() => parsePagePatch({ baseHash: "short" })).toThrow("baseHash");
     expect(() =>

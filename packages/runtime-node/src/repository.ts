@@ -90,6 +90,14 @@ function sameKinds(
   return true;
 }
 
+function kindSchemaSignature(
+  schemas: ReadonlyMap<string, import("@vellym/plugin-api").PluginKindContribution["specSchema"]> | undefined
+): string | undefined {
+  if (!schemas?.size) return undefined;
+  return JSON.stringify([...schemas.entries()]
+    .sort(([left], [right]) => left.localeCompare(right)));
+}
+
 const ignoredDirectories = new Set([
   ".git",
   "_archive",
@@ -304,6 +312,8 @@ export interface LoadRepositoryOptions {
    * チケット本体のように、読めるが木には出さないkindはここへ入れない。
    */
   treeKinds?: ReadonlySet<string>;
+  /** kindごとのプラグイン固有spec schema */
+  kindSchemas?: ReadonlyMap<string, import("@vellym/plugin-api").PluginKindContribution["specSchema"]>;
   /**
    * kindごとの索引行の作り方。プラグインが`registerRecordProjection`で登録する。
    *
@@ -364,7 +374,8 @@ export async function loadRepository(
   const diagnostics: Diagnostic[] = [];
   const knownKindsUnchanged =
     previous === undefined ||
-    sameKinds(previous.knownKinds, options.knownKinds);
+    (sameKinds(previous.knownKinds, options.knownKinds) &&
+      previous.kindSchemaSignature === kindSchemaSignature(options.kindSchemas));
   const loadedFolders = await loadFolderSummaries(
     contentRoot,
     directories,
@@ -405,7 +416,8 @@ export async function loadRepository(
       source,
       mtimeMs: info.mtimeMs,
       size: info.size,
-      ...(options.knownKinds ? { knownKinds: options.knownKinds } : {})
+      ...(options.knownKinds ? { knownKinds: options.knownKinds } : {}),
+      ...(options.kindSchemas ? { kindSchemas: options.kindSchemas } : {})
     });
     diagnostics.push(...extracted.diagnostics);
     if (extracted.kind !== "entry") continue;
@@ -514,6 +526,7 @@ export async function loadRepository(
     contentRoot,
     ...(options.knownKinds ? { knownKinds: options.knownKinds } : {}),
     ...(options.treeKinds ? { treeKinds: options.treeKinds } : {}),
+    ...(options.kindSchemas ? { kindSchemaSignature: kindSchemaSignature(options.kindSchemas) } : {}),
     ...(options.projections?.size ? { definitionSignature: signature } : {}),
     ...(definitionRecords.length ? { definitionRecords } : {}),
     entryIndex,

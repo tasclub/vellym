@@ -18,6 +18,7 @@ import {
   resolvePageReference,
   validatePage,
   validateResource,
+  validateKindSpec,
   type Diagnostic,
   type InternalPageReference,
   type Page,
@@ -32,7 +33,7 @@ import {
   type SearchProjection,
   type SearchResult
 } from "@vellym-internal/core";
-import type { PluginLocalizedText } from "@vellym/plugin-api";
+import type { PluginKindContribution, PluginLocalizedText } from "@vellym/plugin-api";
 import { contentHash } from "./path-utils.js";
 
 export interface SearchHeading {
@@ -251,6 +252,8 @@ export function extractPageEntryWithPage(input: {
   size: number;
   /** 有効なプラグインが解釈できるkind。渡さなければCore組み込みだけを既知とする */
   knownKinds?: ReadonlySet<string>;
+  /** kindごとのプラグイン固有spec schema */
+  kindSchemas?: ReadonlyMap<string, PluginKindContribution["specSchema"]>;
 }): PageEntryWithPageExtraction {
   const diagnostics: Diagnostic[] = [];
   // Source tokens are only needed by the write path. The read index inspects the
@@ -290,6 +293,14 @@ export function extractPageEntryWithPage(input: {
     ? validatePage(value, input.relativePath)
     : validateResource(value, input.relativePath);
   diagnostics.push(...validation.diagnostics);
+  if (!isPage) {
+    const kind = (value as { kind?: unknown }).kind;
+    const schema = typeof kind === "string" ? input.kindSchemas?.get(kind) : undefined;
+    if (schema) {
+      const spec = (value as { spec?: unknown }).spec;
+      diagnostics.push(...validateKindSpec(spec, input.relativePath, schema));
+    }
+  }
   const validated = isPage
     ? (validation as ReturnType<typeof validatePage>).page
     : (validation as ReturnType<typeof validateResource>).resource;

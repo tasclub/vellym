@@ -68,21 +68,24 @@ export function pluginKinds(registry: PluginRegistry): {
   knownKinds: ReadonlySet<string>;
   treeKinds: ReadonlySet<string>;
   projections: ReadonlyMap<string, PluginRecordProjectorFactory>;
+  kindSchemas: ReadonlyMap<string, PluginKindContribution["specSchema"]>;
 } {
   const treeKinds = new Set<string>();
   const projections = new Map<string, PluginRecordProjectorFactory>();
+  const kindSchemas = new Map<string, PluginKindContribution["specSchema"]>();
   for (const plugin of registry.plugins) {
     for (const contribution of plugin.kinds) {
       // 所有するプラグインが1つに決まっているkindだけを対象にする。
       if (registry.kinds.get(contribution.kind) !== plugin) continue;
       if (contribution.showInDocumentTree) treeKinds.add(contribution.kind);
+      if (contribution.specSchema) kindSchemas.set(contribution.kind, contribution.specSchema);
     }
     for (const [kind, create] of plugin.projections) {
       if (registry.kinds.get(kind) !== plugin) continue;
       projections.set(kind, create);
     }
   }
-  return { knownKinds: new Set(registry.kinds.keys()), treeKinds, projections };
+  return { knownKinds: new Set(registry.kinds.keys()), treeKinds, projections, kindSchemas };
 }
 
 export interface LoadPluginsOptions {

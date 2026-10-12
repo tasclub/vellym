@@ -39,6 +39,9 @@ interface Validators {
 }
 
 let validators: Validators | undefined;
+let schemaAjv: InstanceType<typeof Ajv2020> | undefined;
+const kindSpecValidators = new WeakMap<object, ValidateFunction<unknown>>();
+const invalidKindSpecSchemas = new WeakMap<object, string>();
 
 function getValidators(): Validators {
   if (validators) return validators;
@@ -48,6 +51,7 @@ function getValidators(): Validators {
     instance: typeof ajv
   ) => void;
   addFormats(ajv);
+  schemaAjv = ajv;
   validators = {
     page: ajv.compile<Page>(pageSchema),
     resource: ajv.compile<VellymResource>(resourceSchema),
@@ -58,6 +62,49 @@ function getValidators(): Validators {
     config: ajv.compile<VellymConfig>(configSchema)
   };
   return validators;
+}
+
+/** Validate a plugin-owned resource spec without rejecting or rewriting its source. */
+export function validateKindSpec(
+  value: unknown,
+  file: string,
+  schema: Readonly<Record<string, unknown>>
+): Diagnostic[] {
+  getValidators();
+  let validator = kindSpecValidators.get(schema);
+  const cachedFailure = invalidKindSpecSchemas.get(schema);
+  if (cachedFailure) return invalidSchemaDiagnostic(file, cachedFailure);
+  try {
+    if (!validator) {
+      validator = schemaAjv!.compile<unknown>(schema);
+      kindSpecValidators.set(schema, validator);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    invalidKindSpecSchemas.set(schema, message);
+    return invalidSchemaDiagnostic(file, message);
+  }
+  if (validator(value)) return [];
+  return (validator.errors ?? []).map((error) => ({
+    file,
+    path: `/spec${error.instancePath}` || "/spec",
+    severity: "warning",
+    code: "PLUGIN_SPEC_SCHEMA_MISMATCH",
+    message: messageFromAjv(error)
+  }));
+}
+
+function invalidSchemaDiagnostic(file: string, detail: string): Diagnostic[] {
+  return [{
+    file,
+    path: "/spec",
+    severity: "warning",
+    code: "PLUGIN_SPEC_SCHEMA_INVALID",
+    message: {
+      ja: `プラグインが登録したspecSchemaを使用できません: ${detail}`,
+      en: `The plugin's specSchema could not be used: ${detail}`
+    }
+  }];
 }
 
 // AJVの英語メッセージは日本語UI・CLIに技術的な英語文字列を混在させるため、

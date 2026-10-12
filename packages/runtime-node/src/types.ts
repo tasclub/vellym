@@ -50,6 +50,8 @@ export interface RepositorySnapshot {
   knownKinds?: ReadonlySet<string>;
   /** そのうち文書ツリーへ出すkind */
   treeKinds?: ReadonlySet<string>;
+  /** 読み込み時に適用したkind schemaの安定化済み署名 */
+  kindSchemaSignature?: string;
   /** 索引行の元になった定義リソースの顔ぶれ。増分読み込みの妥当性判定に使う */
   definitionSignature?: string;
   /**

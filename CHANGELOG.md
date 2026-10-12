@@ -37,7 +37,9 @@
 - エディタのUndo/Redoと記号のみの書式操作もホスト共通`Button`へ揃え、`icon`寸法と読み上げ名を適用する。
 - `ARCHITECTURE.md`とプラグイン開発ガイドを現在の共有engine/APIへ追随させた。
   `engineVersion`、`rendererData`、`paperWidth`、rendererの保存・遷移・個人設定APIを説明し、
-  未実装の`specSchema`検証警告を案内していた誤記を修正した。
+  `specSchema`検証の警告と原文保持を説明する。
+- 登録された`specSchema`でプラグインkindの`spec`を検証し、不一致をwarning診断として示す。
+  リソースは拒否せず、種別固有の値も原文のまま保持する。
 - ビューの個人設定をプロジェクト・プラグイン・ビュー・対象リソース単位に分離した。
   `projectRoot`を使うためポート変更では維持され、別プロジェクト・別trackerとは混ざらない。
   旧キーはスコープを判別できないため移行せず、保存済みビュー設定は初期化される。

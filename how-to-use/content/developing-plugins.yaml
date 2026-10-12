@@ -262,8 +262,9 @@ spec:
         コードを変更したらプラグインを再ビルドし、必要に応じて動作確認用プロジェクトで
         再インストールしてからVellymを再起動する。
 
-        `npx vellym validate`ではプラグインの読み込み警告を確認できる。
-        `specSchema`は現時点でリソース検証に使われず、不一致の診断も出ない。
+        `npx vellym validate`ではプラグインの読み込み警告と、`specSchema`に合わない
+        リソースの警告を確認できる。どちらもwarningであり、リソースの読み込みや保存を
+        拒否しない。種別固有の値は原文のまま保持する。
         プラグインの失敗だけを理由に`validate`、`build`、開発サーバー全体が停止することはない。
 
         ## manifestの項目
@@ -288,7 +289,7 @@ spec:
 
         | API | 用途 |
         | --- | --- |
-        | `registerKind` | kind、`spec` JSON Schema、`engineVersion`、本文の有無、ツリー表示、16×16アイコンを登録する。`engineVersion`はkind契約のsemver。`specSchema`は現在、リソース検証に適用されない。 |
+        | `registerKind` | kind、`spec` JSON Schema、`engineVersion`、本文の有無、ツリー表示、16×16アイコンを登録する。`engineVersion`はkind契約のsemver。`specSchema`不一致はwarningとして診断し、種別固有の値は原文のまま保持する。 |
         | `registerRecordProjection` | 抽出済みレコードを、一覧と詳細が使う小さな索引行へ変換する。 |
         | `registerView` | 汎用の一覧・詳細descriptor、または文脈からdescriptorを作る関数を登録する。独自renderer向けの`rendererData`と、一覧の`paperWidth`も宣言できる。 |
         | `registerCommand` | 入力項目と処理を登録する。新規リソースは`context.createResource()`で未保存ドラフトとして始める。 |
@@ -682,8 +683,9 @@ spec:
             and saved. After code changes, rebuild the plugin and, when needed, reinstall it in
             the test project before restarting Vellym.
 
-            `npx vellym validate` reports plugin-loading warnings. `specSchema` is not currently
-            applied to resource validation, so schema mismatches do not produce diagnostics.
+            `npx vellym validate` reports plugin-loading warnings and warnings for resources that
+            do not match `specSchema`. These are warnings: they do not reject resource loading or
+            saving, and kind-specific values remain preserved as written.
             A plugin failure alone never stops `validate`, `build`, or the entire development server.
 
             ## Manifest fields
@@ -707,7 +709,7 @@ spec:
 
             | API | Purpose |
             | --- | --- |
-            | `registerKind` | Registers a kind, its `spec` JSON Schema, `engineVersion`, body behavior, tree visibility, and optional 16×16 icon. `engineVersion` is the kind contract's semver. `specSchema` is not currently applied to resource validation. |
+            | `registerKind` | Registers a kind, its `spec` JSON Schema, `engineVersion`, body behavior, tree visibility, and optional 16×16 icon. `engineVersion` is the kind contract's semver. A `specSchema` mismatch is a warning; kind-specific values remain preserved as written. |
             | `registerRecordProjection` | Reduces extracted records to small index rows used by lists and details. |
             | `registerView` | Registers a generic list/detail descriptor, or a function that creates one from context. Descriptors may include `rendererData` for a custom renderer and `paperWidth` for list views. |
             | `registerCommand` | Registers inputs and behavior. Start a resource as an unsaved draft with `context.createResource()`. |
