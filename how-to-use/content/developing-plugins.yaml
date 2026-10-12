@@ -353,6 +353,10 @@ spec:
         `mount`は同期でhandleを返し、timerや購読は`unmount`で同期的に解除する。
         書き戻しはrendererへ渡る`context.save()`を使い、静的版では`context.isStatic`を
         見て保存操作を表示しない。ブラウザ資産はES moduleとしてbundleする。
+        ビュー固有の個人設定には`context.getViewSettings()`と`setViewSettings()`を使う。
+        値はブラウザのlocalStorageに保存され、プロジェクト・プラグイン・ビュー・対象resource
+        ごとに分かれる。他の利用者やYAMLとは共有しない。プロジェクトのrootを移動すると
+        別スコープになり、旧バージョンのスコープなし設定は引き継がれない。
 
         Reactを使う場合は`@vellym/plugin-api/react`の`reactRenderer`でcomponentを包む。
         `react`、`react-dom`、`react/jsx-runtime`、`@vellym/plugin-api/ui`はbundleへ
@@ -765,6 +769,11 @@ spec:
             `mount` returns a handle synchronously. Stop timers and subscriptions synchronously
             in `unmount`. Write through `context.save()` and hide saving controls when
             `context.isStatic` is true. Bundle browser assets as ES modules.
+            Store view-specific personal preferences with `context.getViewSettings()` and
+            `setViewSettings()`. Values remain in the browser's localStorage and are scoped by
+            project, plugin, view, and target resource. They are not shared with other users or
+            written to YAML. Moving the project root creates a new scope; legacy unscoped values
+            are not migrated.
 
             For React, wrap a component with `reactRenderer` from
             `@vellym/plugin-api/react`. Mark `react`, `react-dom`, `react/jsx-runtime`, and
