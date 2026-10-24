@@ -16,7 +16,7 @@
     "@milkdown/core": "^7.21.3",
     "@milkdown/plugin-history": "^7.21.3",
     "@milkdown/plugin-listener": "^7.21.3",
-    "@milkdown/preset-commonmark": "^7.21.3",
+    "@milkdown/preset-commonmark": "^7.22.1",
     "@milkdown/preset-gfm": "^7.21.3",
     "@milkdown/prose": "^7.21.3",
     "cmdk": "^1.1.1",
