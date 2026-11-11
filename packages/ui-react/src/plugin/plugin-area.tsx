@@ -56,6 +56,10 @@ export function PluginListPage(props: {
    * 知らせが出ると思い込むと、ここだけ黙って何も出なくなる。実際にそうなった。
    */
   notice?: string;
+  /** 読み込めなかった文書の件数。診断本文はここへ渡さない。 */
+  diagnosticsNotice?: string;
+  diagnosticsAction?: string;
+  onOpenDiagnostics?(): void;
 }) {
   const { payload, view } = props;
   const [command, setCommand] = useState<PluginViewPayload["commands"][number]>();
@@ -105,6 +109,14 @@ export function PluginListPage(props: {
         <p className="notice warning" role="status">
           {props.notice}
         </p>
+      ) : null}
+      {props.diagnosticsNotice ? (
+        <div className="notice warning" role="status">
+          <span>{props.diagnosticsNotice}</span>
+          {props.diagnosticsAction && props.onOpenDiagnostics ? (
+            <Button onClick={props.onOpenDiagnostics}>{props.diagnosticsAction}</Button>
+          ) : null}
+        </div>
       ) : null}
       <div
         className="document-paper"

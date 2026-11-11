@@ -27,6 +27,10 @@ export function createTicketCommand(): PluginCommandContribution {
       const title =
         typeof context.input?.title === "string" ? context.input.title.trim() : "";
       const initial = initialTicketSpec(tracker);
+      const template = tracker?.ticketTemplate;
+      const description = typeof template === "string" ? template : template
+        ? template[context.locale === "ja" ? "ja" : "en"] ?? Object.values(template)[0] ?? ""
+        : "";
       const fields = { ...initial.fields };
       const parent = context.input?.parent;
       const parentField = context.input?.parentField;
@@ -49,7 +53,7 @@ export function createTicketCommand(): PluginCommandContribution {
         spec: {
           ...initial,
           ...(Object.keys(fields).length ? { fields } : {}),
-          blocks: [{ id: "description", type: "rich-text", content: "" }]
+          blocks: [{ id: "description", type: "rich-text", content: description }]
         }
       });
     }

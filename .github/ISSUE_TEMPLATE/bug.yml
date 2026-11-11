@@ -5,7 +5,7 @@ labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: Never attach private project documents. Replace content with a minimal example.
+      value: Japanese or English is fine. Never attach private project documents. Replace content with a minimal example.
   - type: input
     id: version
     attributes:

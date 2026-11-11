@@ -6,6 +6,7 @@
    */
   .document-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-4);
@@ -15,7 +16,9 @@
   .document-header-main { min-width: 0; }
   .document-header-actions {
     display: flex;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;

@@ -3,6 +3,9 @@ description: Propose a new or improved setup template.
 title: "template: "
 labels: [templates]
 body:
+  - type: markdown
+    attributes:
+      value: Japanese or English is fine.
   - type: input
     id: audience
     attributes:

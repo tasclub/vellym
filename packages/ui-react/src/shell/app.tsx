@@ -98,10 +98,31 @@ function currentDocumentLocation() {
   });
 }
 
+const UNREADABLE_DOCUMENT_CODES = new Set([
+  "READ_ERROR",
+  "YAML_PARSE",
+  "YAML_CONVERSION",
+  "PAGE_SCHEMA",
+  "RESOURCE_SCHEMA"
+]);
+
+/** Count files rejected before they can contribute an entry to the repository index. */
+export function countUnreadableDocumentFiles(
+  diagnostics: readonly Diagnostic[]
+): number {
+  return new Set(
+    diagnostics
+      .filter((item) =>
+        item.severity === "error" && UNREADABLE_DOCUMENT_CODES.has(item.code)
+      )
+      .map((item) => item.file)
+  ).size;
+}
+
 type PendingLeave =
   | { kind: "navigate"; page: string; heading?: string }
   | { kind: "folder"; folderPath: string }
-  | { kind: "settings" }
+  | { kind: "settings"; focusProblems?: boolean }
   | { kind: "cancel" }
   | { kind: "reload" };
 
@@ -271,6 +292,7 @@ export function App() {
   const [selected, setSelected] = useState<string>();
   const [selectedFolder, setSelectedFolder] = useState<string>();
   const [area, setArea] = useState<"documents" | "settings">("documents");
+  const [focusProblems, setFocusProblems] = useState(false);
   const [view, setView] = useState<PageView>();
   // プラグインが登録したビュー。開いたリソースのkindに対応するものがあれば、
   // 本文の代わりにこれを描く。無ければ通常の文書表示のままにする。
@@ -366,6 +388,14 @@ export function App() {
     Boolean(pendingResource) ||
     specChanges.length > 0 ||
     (editSession ? pageEditSessionDirty(editSession) : legacyUnsavedChanges);
+
+  useEffect(() => {
+    if (!focusProblems || area !== "settings") return;
+    const heading = document.getElementById("problems-title");
+    heading?.scrollIntoView({ block: "start" });
+    heading?.focus({ preventScroll: true });
+    setFocusProblems(false);
+  }, [area, focusProblems]);
 
   async function loadBootstrap(signal?: AbortSignal) {
     try {
@@ -1020,6 +1050,7 @@ export function App() {
     } else if (action.kind === "settings") {
       setSelectedFolder(undefined);
       setArea("settings");
+      if (action.focusProblems) setFocusProblems(true);
     } else if (action.kind === "reload") {
       void loadPage(view.page.metadata.name, true);
     }
@@ -1422,6 +1453,18 @@ export function App() {
   const treeCommands = (bootstrap.plugins?.documentTreeCommands ?? []).filter(
     (command, index, commands) => commands.findIndex((item) => item.id === command.id) === index
   );
+  const unreadableDocumentCount = countUnreadableDocumentFiles(diagnostics);
+
+  function openUnreadableDocuments() {
+    const action: PendingLeave = { kind: "settings", focusProblems: true };
+    if (hasUnsavedChanges) {
+      setPendingLeave(action);
+      return;
+    }
+    setSelectedFolder(undefined);
+    setArea("settings");
+    setFocusProblems(true);
+  }
 
   return (
     // 種別ごとのアイコンはプラグインが渡したものだけを配る。
@@ -1525,20 +1568,21 @@ export function App() {
           />
         ) : !editing && pluginView && pluginView.descriptor.type === "list" && view ? (
           <PluginListPage
-            notice={
-              message ||
-              pluginRendererMessage ||
-              (diagnostics.some((item) => item.severity === "error")
-                ? t("app.diagnosticsMessage")
-                : "")
-            }
+            notice={message || pluginRendererMessage || ""}
+            uiLocale={bootstrap.project.uiLocale}
+            diagnosticsNotice={unreadableDocumentCount > 0
+              ? t("app.unreadableDocumentsMessage", { count: unreadableDocumentCount })
+              : undefined}
+            diagnosticsAction={unreadableDocumentCount > 0
+              ? t("app.unreadableDocumentsAction")
+              : undefined}
+            onOpenDiagnostics={openUnreadableDocuments}
             renderer={pluginRenderers.byViewId.get(pluginView.viewId)}
             {...(pluginRenderContext ? { renderContext: pluginRenderContext } : {})}
             payload={pluginView}
             view={view}
             projectRoot={bootstrap.project.projectRoot}
             targetName={view.page.metadata.name}
-            uiLocale={bootstrap.project.uiLocale}
             showAll={showAllRows}
             editable={bootstrap.capabilities.editing}
             onToggleShowAll={setShowAllRows}

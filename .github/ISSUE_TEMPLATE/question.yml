@@ -1,0 +1,28 @@
+name: Question
+description: Ask a question about using Vellym.
+title: "question: "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: Japanese or English is fine.
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      description: Describe what you want to achieve with Vellym.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: Include relevant commands or a minimal example, if applicable.
+    validations:
+      required: false
+  - type: textarea
+    id: question
+    attributes:
+      label: What would you like to know?
+    validations:
+      required: true

@@ -340,7 +340,7 @@ export function AdminView(props: {
       <section className={styles.panel} aria-labelledby="problems-title">
         <div className={styles.panelHeading}>
           <div>
-            <h2 id="problems-title">{t("admin.problemsTitle")}</h2>
+            <h2 id="problems-title" tabIndex={-1}>{t("admin.problemsTitle")}</h2>
             <p>
               {props.diagnostics.length === 0
                 ? t("admin.problemsNone")

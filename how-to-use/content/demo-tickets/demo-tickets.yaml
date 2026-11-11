@@ -4,6 +4,11 @@ metadata:
   name: demo-tickets
   title: デモ：チケット管理
 spec:
+  ticketTemplate: |
+    ## 目的
+
+    ## 完了条件
+
   # 先頭が新規作成時の初期値。配列順が表示順。
   statuses:
     - id: todo
@@ -52,3 +57,5 @@ spec:
   hierarchy:
     parentField: parent
   wbs: { startField: start, endField: due }
+  summary:
+    - { field: priority, method: breakdown }

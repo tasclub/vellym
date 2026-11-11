@@ -1,3 +1,4 @@
+import { SUMMARY_METHODS, type SummaryMethod } from "@vellym/plugin-api";
 import type {
   PluginDiagnostic,
   PluginDefinitionContext,
@@ -36,6 +37,8 @@ export interface Tracker {
   folder: string;
   statuses: StatusDefinition[];
   fields: FieldDefinition[];
+  ticketTemplate?: string | Record<string, string>;
+  summary?: { field: FieldDefinition; method: SummaryMethod }[];
   /** Tracker-selected reference field; never a fixed Ticket.spec.parent. */
   parentField?: string;
 }
@@ -57,6 +60,14 @@ function asArray(value: unknown): unknown[] {
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function readTemplate(value: unknown): string | Record<string, string> | undefined {
+  if (typeof value === "string") return value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value);
+  if (!entries.length || entries.some(([, text]) => typeof text !== "string")) return undefined;
+  return Object.fromEntries(entries) as Record<string, string>;
 }
 
 /** `a/b/c.yaml` → `a/b`。content root直下は`""` */
@@ -129,6 +140,7 @@ function readTracker(record: PluginResourceRecord): Tracker {
   const parentField = typeof hierarchy.parentField === "string" &&
     fields.some((field) => field.id === hierarchy.parentField && field.type === "reference")
     ? hierarchy.parentField : undefined;
+  const ticketTemplate = readTemplate(record.spec.ticketTemplate);
 
   return {
     name: record.name,
@@ -136,6 +148,14 @@ function readTracker(record: PluginResourceRecord): Tracker {
     folder: folderOf(record.relativePath),
     statuses,
     fields,
+    ...(Array.isArray(record.spec.summary) ? { summary: record.spec.summary.flatMap((raw) => {
+      if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
+      const entry = raw as Record<string, unknown>;
+      const field = fields.find((item) => item.id === entry.field);
+      return field && typeof entry.method === "string" && SUMMARY_METHODS[field.type].includes(entry.method as SummaryMethod)
+        ? [{ field, method: entry.method as SummaryMethod }] : [];
+    }) } : {}),
+    ...(ticketTemplate !== undefined ? { ticketTemplate } : {}),
     ...(parentField ? { parentField } : {})
   };
 }
@@ -162,7 +182,26 @@ export function trackerDefinitionDiagnostics(
 ): PluginDiagnostic[] {
   const diagnostics: PluginDiagnostic[] = [];
   for (const record of records) {
+    if (record.spec.ticketTemplate !== undefined && readTemplate(record.spec.ticketTemplate) === undefined) {
+      diagnostics.push({ file: record.relativePath, path: "/spec/ticketTemplate", severity: "warning",
+        code: "TICKET_TEMPLATE_INVALID", message: {
+          ja: "本文テンプレートには文字列または言語別の文字列を指定してください",
+          en: "The ticket template must be a string or a map of localized strings."
+        } });
+    }
     const fields = asArray(record.spec.fields);
+    if (record.spec.summary !== undefined) {
+      if (!Array.isArray(record.spec.summary)) {
+        diagnostics.push({ file: record.relativePath, path: "/spec/summary", severity: "warning", code: "TICKET_SUMMARY_INVALID", message: { ja: "集計は項目と方式の配列で指定してください", en: "Summaries must be an array of fields and methods." } });
+      } else record.spec.summary.forEach((raw, index) => {
+        const entry = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+        const field = fields.find((value) => typeof value === "object" && value !== null && (value as Record<string, unknown>).id === entry.field) as Record<string, unknown> | undefined;
+        const type = field?.type as PluginValueType;
+        if (!field || !VALUE_TYPES.includes(type) || typeof entry.method !== "string" || !SUMMARY_METHODS[type].includes(entry.method as SummaryMethod)) {
+          diagnostics.push({ file: record.relativePath, path: `/spec/summary/${index}`, severity: "warning", code: "TICKET_SUMMARY_UNSUPPORTED", message: { ja: `集計の項目または方式を確認してください: ${String(entry.field ?? "")}`, en: `Check the summary field and method: ${String(entry.field ?? "")}` } });
+        }
+      });
+    }
     const hierarchy = record.spec.hierarchy;
     if (typeof hierarchy === "object" && hierarchy !== null && !Array.isArray(hierarchy)) {
       const parentField = (hierarchy as Record<string, unknown>).parentField;

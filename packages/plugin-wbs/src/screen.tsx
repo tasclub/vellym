@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
-import { resolveLocalizedText, type PluginIndexRow, type PluginRenderContext } from "@vellym/plugin-api";
+import { resolveLocalizedText, summarizeRows, type PluginIndexRow, type PluginRenderContext } from "@vellym/plugin-api";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
 import { Button, ChoiceControl, InputControl } from "@vellym/plugin-api/ui";
 import { buildTicketHierarchy, fieldKey } from "@vellym-internal/ticket-engine";
@@ -580,6 +580,15 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
         onChange={(value) => { setStrategy(value as RowRendering); setLoaded(100); if (scrollRef.current) scrollRef.current.scrollTop = 0;
           setViewport((current) => ({ ...current, top: 0 })); }} /></label>
     </div>
+    {data.tracker?.summary?.length ? <section className="wbs-summary" aria-live="polite"
+      aria-label={label("表示中のチケットの集計", "Visible tickets summary", context.locale)}>
+      <ul>{data.tracker.summary.map(({ field, method }, index) => {
+        const result = summarizeRows(rows, fieldKey(field.id), field.type, method, context.locale);
+        return <li key={`${field.id}-${method}-${index}`}>
+          {field.label} {result.text}{result.excluded ? ` (${label("型が合わず除外", "Invalid values excluded", context.locale)}: ${result.excluded})` : ""}
+        </li>;
+      })}</ul>
+    </section> : null}
     <div ref={scrollRef} className="wbs-scroll" style={{ "--wbs-left-width": `${width}px` } as CSSProperties}
       onScroll={(event) => { const top = event.currentTarget.scrollTop;
         setViewport((current) => ({ ...current, top })); }}>

@@ -121,6 +121,9 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
     kind: "Ticket",
     title: tracker?.title ?? { ja: "チケット", en: "Tickets" },
     columns,
+    ...(tracker?.summary?.length ? { summary: tracker.summary.map(({ field, method }) => ({
+      valueKey: fieldKey(field.id), type: field.type, method, label: field.label
+    })) } : {}),
     defaultSort: { columnId: "title", direction: "asc" },
     // 他の工程のチケットを混ぜない。これは利用者が外せない。
     // 子フォルダに別のチケット管理があっても、そこのチケットはここにも出る。

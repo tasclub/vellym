@@ -86,8 +86,29 @@ function mount() {
 }
 
 describe("plugin list filters", () => {
+  it("summarizes all filtered rows and reports invalid values", () => {
+    const rows = Array.from({ length: 105 }, (_, i) => ({
+      name: String(i), title: String(i), relativePath: `${i}.yaml`,
+      values: { priority: i < 2 ? "high" : "low", amount: i === 0 ? "invalid" : 1 }
+    }));
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    act(() => root!.render(createElement(PluginListView, {
+      payload: { ...payload, rows, allRows: rows, descriptor: { ...descriptor,
+        summary: [{ valueKey: "amount", type: "number", method: "sum", label: { ja: "見積", en: "Estimate" } }] } },
+      projectRoot: scope.projectRoot, targetName: scope.targetName, locale: "en"
+    })));
+    expect(container.textContent).toContain("Estimate Sum: 104");
+    expect(container.textContent).toContain("Invalid values excluded: 1");
+    const priority = container.querySelector<HTMLSelectElement>("#plugin-filter-priority")!;
+    act(() => { priority.value = "high"; priority.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(container.textContent).toContain("Estimate Sum: 1");
+    expect(container.textContent).toContain("Invalid values excluded: 1");
+  });
   it("starts collapsed while keeping the default toggle and active count visible", () => {
     const view = mount();
+    expect(view.querySelector("section[aria-live]")).toBeNull();
     const filtersButton = view.querySelector<HTMLButtonElement>("button[aria-controls]")!;
     const defaultToggle = [...view.querySelectorAll("button")]
       .find((button) => button.textContent === "未完了のみ");

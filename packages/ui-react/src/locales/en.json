@@ -57,6 +57,8 @@
   "app.commandCreateUnavailable": "Resources can't be created here.",
   "app.commandNotDeclared": "This command isn't available in this view.",
   "app.diagnosticsMessage": "Some documents couldn't be loaded. Run validate for details.",
+  "app.unreadableDocumentsMessage": "{{count}} documents couldn't be loaded.",
+  "app.unreadableDocumentsAction": "View in settings",
   "app.draftCopied": "Copied your draft to the clipboard",
   "app.draftKept": "Kept your draft — saving will replace the YAML version",
   "app.leaveReload": "Reload from YAML",

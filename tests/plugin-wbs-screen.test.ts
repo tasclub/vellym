@@ -60,6 +60,28 @@ function editParent(container: HTMLElement, name: string) {
 }
 
 describe("WBS screen", () => {
+  it("summarizes all rows including folded and review groups in live and static views", () => {
+    for (const isStatic of [false, true]) for (const locale of ["ja", "en"]) {
+      const { context, container, root } = fixture(isStatic, [
+        { name: "root", title: "Root", values: { "field:rank": 1 } },
+        { name: "child", title: "Child", values: { "field:parent": "root", "field:rank": 2 } },
+        { name: "orphan", title: "Orphan", values: { "field:parent": "missing", "field:rank": 3 } },
+        { name: "a", title: "A", values: { "field:parent": "b", "field:rank": 4 } },
+        { name: "b", title: "B", values: { "field:parent": "a", "field:rank": "bad" } }
+      ]);
+      expect(container.querySelector('.wbs-summary')).toBeNull();
+      const data = context.rendererData as { tracker: Record<string, unknown> };
+      act(() => root.render(createElement(WBSScreen, { context: { ...context, locale,
+        rendererData: { ...data, tracker: { ...data.tracker, summary: [{ field: { id: "rank", label: "Rank", type: "number" }, method: "sum" }] } }
+      } })));
+      const summary = container.querySelector('.wbs-summary')!;
+      expect(summary.textContent).toContain(locale === "ja" ? "Rank 合計: 10 (型が合わず除外: 1)" : "Rank Sum: 10 (Invalid values excluded: 1)");
+      act(() => container.querySelector<HTMLButtonElement>(`[aria-label="Root: ${locale === "ja" ? "展開・折りたたみ" : "Toggle children"}"]`)!.click());
+      expect(container.querySelector('[data-ticket-name="child"]')).toBeNull();
+      expect(summary.textContent).toContain(locale === "ja" ? "合計: 10" : "Sum: 10");
+      act(() => root.unmount());
+    }
+  });
   it("projects only valid raw status symbols through rendererData for list and static views", () => {
     for (const isStatic of [false, true]) {
       const descriptor = wbsView({ locale: "ja", isStatic, records: () => [], target: {

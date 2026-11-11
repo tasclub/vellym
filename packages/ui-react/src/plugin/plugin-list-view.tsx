@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   resolveLocalizedText,
+  summarizeRows,
   type PluginColumnDescriptor,
   type PluginCommandInput,
   type PluginIndexValue,
@@ -520,6 +521,19 @@ export function PluginListView({
     <>
       {hideTitle ? null : <h1>{resolveLocalizedText(descriptor.title, locale)}</h1>}
       {toolbar}
+      {descriptor.summary?.length ? (
+        <section aria-live="polite" aria-label={resolveLocalizedText({
+          ja: "表示中の行の集計", en: "Visible rows summary"
+        }, locale)}>
+          <ul>{descriptor.summary.map((definition, index) => {
+            const result = summarizeRows(rows, definition.valueKey, definition.type, definition.method, locale);
+            return <li key={`${definition.valueKey}-${definition.method}-${index}`}>
+              {resolveLocalizedText(definition.label, locale)} {result.text}
+              {result.excluded ? ` (${resolveLocalizedText({ ja: "型が合わず除外", en: "Invalid values excluded" }, locale)}: ${result.excluded})` : ""}
+            </li>;
+          })}</ul>
+        </section>
+      ) : null}
       {filterBar}
       {bulkBar}
       {bulkReport}

@@ -9,6 +9,8 @@ spec:
     - id: using-plugins
       type: rich-text
       content: |
+        Trackerの `spec.summary` に `{ field: priority, method: breakdown }` を配列で指定する。一覧では絞り込み後の全行を集計し、型が合わない値は除外件数を示す。WBSでは折りたたみ中・要確認を含む表示対象の全チケットを集計する。静的出力でも表示する。`spec.kanban.summary` があればカンバンではそちらを優先する。
+
         ## プラグインを追加する
 
         Vellymプロジェクトのルートで、使いたいプラグインをnpmパッケージとして
@@ -67,6 +69,7 @@ spec:
 
         ## 関連
 
+        - 公式プラグイン一覧 → [[official-plugins|公式プラグイン]]
         - 公式チケット管理 → [[ticket-management|チケット管理]]
         - プラグイン開発の入口 → [[developing-plugins|プラグインを作る]]
         - 設計で迷う点 → [[plugin-design-notes|プラグイン設計で迷う点]]
@@ -78,6 +81,8 @@ spec:
         - id: using-plugins
           type: rich-text
           content: |
+            Configure `spec.summary` as an array, e.g. `{ field: priority, method: breakdown }`. The list summarizes all filtered rows and reports invalid values, including in static output. WBS summarizes all its tickets, including collapsed and attention-needed rows. Kanban prefers `spec.kanban.summary` when present.
+
             ## Add a plugin
 
             From the Vellym project root, install the plugin as an npm package. For the
@@ -136,6 +141,7 @@ spec:
 
             ## Related
 
+            - Official plugin list → [[official-plugins|Official Plugins]]
             - Official ticket management → [[ticket-management|Ticket Management]]
             - Start developing a plugin → [[developing-plugins|Developing Plugins]]
             - Design decisions and pitfalls → [[plugin-design-notes|Plugin Design Notes]]

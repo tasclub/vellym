@@ -1,16 +1,27 @@
 # 変更履歴
 
+
+- Share summary calculations through plugin-api and support Tracker `spec.summary`, with Kanban overrides.
 このファイルは [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に従い、
 バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従う。
 
-1.0.0 未満の期間は、マイナー版の間でも互換性のない変更が入りうる。
-正本YAMLの形式を変更する場合は、`vellym migrate` による明示的な移行手段を用意し、
-既存ファイルを暗黙に書き換えない。
+beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入りうる。
+文書形式を変更する場合は、`vellym migrate` による明示的な移行手段を用意し、
+既存ファイルを暗黙に書き換えず、変更内容をこの変更履歴に記載する。
+使い方が安定した段階で正式版（1.0）をリリースする。
 
 ## [Unreleased]
 
+- WBSに折りたたみ中・要確認の行を含む全チケットの集計を表示し、静的出力にも対応した。
+- Ticket一覧に絞り込み後の全行の集計を表示し、静的出力にも対応した。
+- 一覧・カンバン・WBSで、読み込めない文書のファイル数を知らせ、設定の問題一覧へ1操作で移れるようにした。
+
+- 狭い画面でビュー切替ボタンを折り返し、選択時に文書全体が横へずれる問題を修正した。
+
 ### 追加
 
+- GitHub Pages公開用の固定版Actionワークフロー例を公開ガイドに追加し、`build --json`の出力先をartifactへ渡す。
+- Trackerの`spec.ticketTemplate`に本文の雛形を指定し、新規チケットへ自動で入れられる。
 - WBSに月曜始まりの14・35・91・182日と日／週の二段目盛りを追加した。日程の欠落・逆転・
   範囲外と範囲をまたぐバーを文字と形で区別し、未解決の親と循環は末尾の理由別グループへ
   件数付きでまとめる。状態記号はTrackerの定義を優先し、静的版では診断の本文を出さない。

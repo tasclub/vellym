@@ -19,6 +19,12 @@ export const TICKET_SPEC_SCHEMA = {
 export const TICKET_TRACKER_SPEC_SCHEMA = {
   type: "object",
   properties: {
+    ticketTemplate: {
+      anyOf: [
+        { type: "string" },
+        { type: "object", minProperties: 1, additionalProperties: { type: "string" } }
+      ]
+    },
     statuses: {
       type: "array",
       items: {

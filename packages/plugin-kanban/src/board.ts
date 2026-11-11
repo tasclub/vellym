@@ -110,6 +110,7 @@ export function resolveKanbanDefinition(context: PluginViewContext): KanbanRende
       }
     }
   }
+  if (kanban.summary === undefined) summaries.push(...(tracker?.summary ?? []));
   if (kanban.summary !== undefined) {
     if (!Array.isArray(kanban.summary)) {
       diagnostics.push(warning(context, "/spec/kanban/summary", "KANBAN_SUMMARY_INVALID", {

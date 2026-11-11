@@ -1,67 +1,207 @@
 # @vellym/tickets
 
-Official ticket management plugin for [Vellym](https://vellym.tasclub.com/).
+[English](#english) | [日本語](#日本語)
 
-Vellymの文書階層へチケット管理を追加する。開発、テスト、リリース準備など、
-工程ごとに別のチケット管理を置き、それぞれ異なるステータスと項目を使える。
+## English
 
-## インストール
+Official ticket-management plugin for [Vellym](https://vellym.tasclub.com/en/).
 
-Vellymプロジェクトのルートで実行する。
+Add ticket management to Vellym's document tree. You can keep separate trackers for development, testing, release preparation, and other workflows, each with its own statuses and fields.
+
+Configure `spec.summary` on a tracker to display summaries of all currently filtered list rows, including in static output. For example: `summary: [{ field: priority, method: breakdown }]`. Invalid values are counted separately.
+
+## Installing
+
+Run this from the root of your Vellym project:
 
 ```sh
 npm install @vellym/tickets
 ```
 
-peer dependencyの`@vellym/plugin-api`はnpmによって自動的にインストールされる。
+The peer dependency `@vellym/plugin-api` is installed automatically by npm.
 
-## 設定
+## Configuration
 
-`vellym.config.yaml`の`plugins`へパッケージ名を追加する。
+Add the package name to `plugins` in `vellym.config.yaml`:
 
 ```yaml
 plugins:
   - "@vellym/tickets"
 ```
 
-`vellym dev`を起動し、文書ツリーの追加メニューから「チケット管理」を選ぶ。
+Start `vellym dev`, then choose **Ticket tracker** from the document tree's add menu.
 
-## チケット管理を置く場所
+## Where to put ticket management
 
-`TicketTracker`は、置いたフォルダとその子孫にあるチケットを管理する。たとえば
-`30-実装/`へ置けば実装工程を、`40-品質/`へ置けば品質工程を別々に管理できる。
+A `TicketTracker` manages tickets in the folder where it is placed and its descendants. For example, place one in `30-implementation/` to manage implementation work and another in `40-quality/` for quality work.
 
-チケットの所属はYAMLの項目ではなく置き場所で決まる。上位に複数の
-`TicketTracker`がある場合、最も近い祖先のTrackerがそのチケットを所有し、
-ステータスと項目の定義を与える。チケットは、さらに上位にあるTrackerの一覧にも
-表示される。
+Ticket ownership is determined by its location, not by a YAML field. If multiple `TicketTracker`s are ancestors of a ticket, the nearest one owns it and defines its statuses and fields. The ticket also appears in the lists of any higher-level trackers.
 
-画面から作成した新しいチケットは、既定で
-`<Trackerのフォルダ>/+tickets/`へ保存される。`+`で始まるフォルダは文書ツリーには
-出ないが、チケット一覧、全文検索、内部リンクでは利用できる。
+New tickets created in the UI are saved by default under `<tracker-folder>/+tickets/`. Folders whose names start with `+` are hidden from the document tree, but their contents remain available in ticket lists, full-text search, and internal links.
 
-## ステータスと項目
+## Statuses and fields
 
-Trackerを開き、「このチケット管理の設定」からステータスと項目を定義する。
-工程ごとに必要な流れや、優先度、担当、期限などを設定できる。
+Open a tracker and choose **Configure this tracker** to define statuses and fields. Configure the workflow and fields such as priority, assignee, and due date for each process.
 
-定義を変更した結果、既存チケットのステータスや項目と食い違っても、Vellymは
-すべて警告として扱う。チケットは読める状態、編集できる状態を保ち、値を勝手に
-削除しない。
+If a definition change makes existing ticket values inconsistent, Vellym reports warnings. Tickets remain readable and editable, and values are never silently deleted.
 
-親子関係を使う場合は`reference`型の項目を追加し、設定画面の「親を指す参照項目」で
-選ぶ。`@vellym/wbs`を導入すると、その定義に基づく階層をWBS画面で表示できる。
-循環や見つからない親は警告として示し、チケットは消さない。
-親を選ばないTrackerの挙動は変わらない。
+To use parent-child relationships, add a field of type `reference` and select it under **Parent reference field** in the settings. Installing `@vellym/wbs` displays that hierarchy in the WBS view. Circular references and missing parents are reported as warnings; tickets are not removed. Trackers that do not select a parent field behave as before.
 
-## YAMLで直接書く
+## Writing YAML directly
 
-チケットの正本はYAMLファイルである。画面を使わず、エディタや外部のAIエージェントから
-直接書いても、画面から作ったものと区別されない。
+YAML files are the source of truth for tickets. You can write them with an editor or an external AI agent; Vellym treats them the same as tickets created in the UI.
 
 ### TicketTracker
 
-フォルダ直下へ1ファイル置く。ファイル名は自由に決めてよい。
+Place one file directly in the tracker folder. The filename is up to you.
+
+```yaml
+apiVersion: vellym.tasclub.com/v1
+kind: TicketTracker
+metadata:
+  name: dev-tickets
+  title: Development tickets
+spec:
+  statuses:
+    - { id: todo, label: To do, category: open }
+    - { id: doing, label: In progress, category: open }
+    - { id: done, label: Done, category: closed }
+  fields:
+    - id: priority
+      label: Priority
+      type: select
+      required: true
+      listColumn: true
+      options:
+        - { value: high, label: High }
+        - { value: low, label: Low }
+    - id: due
+      label: Due date
+      type: date
+      listColumn: true
+    - { id: parent, label: Parent ticket, type: reference }
+  hierarchy:
+    parentField: parent
+```
+
+- `statuses[]` requires `id`, `label`, and `category`. The only valid `category` values are `open` and `closed`; entries with another value are skipped.
+- **The first status is the initial value for new tickets**, and the array order is also the display order. There is no separate initial-value key; reorder the array to change it.
+- `fields[]` requires `id`, `label`, and `type`. `required` and `listColumn` default to `false` when omitted.
+- `required` enforces input **only when creating a new ticket in the UI**. It does not block editing existing tickets or writing YAML by hand.
+
+### Ticket
+
+Place a ticket in the tracker folder or one of its descendants. The default save location is `<tracker-folder>/+tickets/`.
+
+```yaml
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-01m0mt7tx3dm5qe6xv0265ftqc
+  title: Keep heading nesting to three levels
+  labels:
+    area: editor
+spec:
+  status: doing
+  fields:
+    priority: high
+    due: 2026-09-05
+    parent: ticket-01m0m000000000000000000001
+  blocks:
+    - id: description
+      type: rich-text
+      content: |
+        The outline is too deep, making the heading list on the right hard to read.
+```
+
+- `spec.status` refers to an ID in the owning tracker's `statuses[].id`.
+- `spec.fields` is a **map keyed by `fields[].id`**, not an array like the tracker's `fields`.
+- `spec.blocks` has the same shape as a Page; put the ticket body here.
+- `metadata.labels` provides classification independent of `kind` and can be used to filter lists. It is separate from the tracker's `fields`.
+- `metadata.name` uses lowercase letters, digits, and hyphens. Tickets created in the UI use `ticket-<lowercase ULID>`; use the same value for the filename. Matching them for hand-written tickets also keeps files roughly in creation order and makes Git diffs easier to read.
+
+### Field types and values
+
+| `type` | YAML value |
+| --- | --- |
+| `text` | String |
+| `multiline` | String; use a YAML block scalar for multiple lines |
+| `number` | Number; a string such as `"3"` produces a type-mismatch warning |
+| `boolean` | `true` / `false` |
+| `date` | String in `2026-09-05` format; other formats produce a warning |
+| `select` | String matching one of the `options[].value` values |
+| `multiselect` | Array of strings |
+| `reference` | String |
+
+The identifier is **`multiselect`**, not `multi-select`.
+
+Values that do not match their declared type are reported as warnings, not deleted. This prevents a single definition change from making many tickets impossible to edit.
+
+For machine validation, use these JSON Schemas:
+
+- <https://vellym.tasclub.com/schemas/v1/ticket.schema.json>
+- <https://vellym.tasclub.com/schemas/v1/ticket-tracker.schema.json>
+
+## Removing the plugin
+
+Removing `@vellym/tickets` from `plugins` in `vellym.config.yaml` hides the ticket list and its dedicated settings screen. The `Ticket` and `TicketTracker` YAML files are neither changed nor deleted. Their content remains loaded and available through full-text search and internal links. Vellym does not treat an unrecognized `kind` as an error.
+
+## License
+
+MIT
+
+## 日本語
+
+Trackerの `spec.summary`（例: `summary: [{ field: priority, method: breakdown }]`）で、一覧に絞り込み後の全行の集計を表示します。静的出力にも表示し、型の合わない値は除外件数を示します。
+
+[Vellym](https://vellym.tasclub.com/)の公式チケット管理プラグインです。
+
+Vellymの文書階層へチケット管理を追加します。開発、テスト、リリース準備など、工程ごとに別のチケット管理を置き、それぞれ異なるステータスと項目を使えます。
+
+## インストール
+
+Vellymプロジェクトのルートで実行します。
+
+```sh
+npm install @vellym/tickets
+```
+
+peer dependencyの`@vellym/plugin-api`はnpmによって自動的にインストールされます。
+
+## 設定
+
+`vellym.config.yaml`の`plugins`へパッケージ名を追加します。
+
+```yaml
+plugins:
+  - "@vellym/tickets"
+```
+
+`vellym dev`を起動し、文書ツリーの追加メニューから「チケット管理」を選びます。
+
+## チケット管理を置く場所
+
+`TicketTracker`は、置いたフォルダとその子孫にあるチケットを管理します。たとえば`30-実装/`へ置けば実装工程を、`40-品質/`へ置けば品質工程を別々に管理できます。
+
+チケットの所属はYAMLの項目ではなく置き場所で決まります。上位に複数の`TicketTracker`がある場合、最も近い祖先のTrackerがそのチケットを所有し、ステータスと項目の定義を与えます。チケットは、さらに上位にあるTrackerの一覧にも表示されます。
+
+画面から作成した新しいチケットは、既定で`<Trackerのフォルダ>/+tickets/`へ保存されます。`+`で始まるフォルダは文書ツリーには出ませんが、チケット一覧、全文検索、内部リンクでは利用できます。
+
+## ステータスと項目
+
+Trackerを開き、「このチケット管理の設定」からステータスと項目を定義します。工程ごとに必要な流れや、優先度、担当、期限などを設定できます。
+
+定義を変更した結果、既存チケットのステータスや項目と食い違っても、Vellymはすべて警告として扱います。チケットは読める状態、編集できる状態を保ち、値を勝手に削除しません。
+
+親子関係を使う場合は`reference`型の項目を追加し、設定画面の「親を指す参照項目」で選びます。`@vellym/wbs`を導入すると、その定義に基づく階層をWBS画面で表示できます。循環や見つからない親は警告として示し、チケットは消しません。親を選ばないTrackerの挙動は変わりません。
+
+## YAMLで直接書く
+
+チケットの正本はYAMLファイルです。画面を使わず、エディタや外部のAIエージェントから直接書いても、画面から作ったものと区別されません。
+
+### TicketTracker
+
+フォルダ直下へ1ファイル置きます。ファイル名は自由に決めて構いません。
 
 ```yaml
 apiVersion: vellym.tasclub.com/v1
@@ -92,17 +232,14 @@ spec:
     parentField: parent
 ```
 
-- `statuses[]`は`id`／`label`／`category`が必須。`category`は`open`と`closed`の2値だけで、
-  他の値を書いたその要素は読み飛ばされる。
-- **配列の先頭が新規作成時の初期値**になり、配列順がそのまま表示順になる。初期値を指定する
-  キーは無い。並べ替えて変える。
-- `fields[]`は`id`／`label`／`type`が必須。`required`と`listColumn`は省略すると`false`。
-- `required`は**画面から新しく作るときだけ**入力を強制する。既存チケットの編集も、手書きの
-  YAMLも止めない。
+- `statuses[]`は`id`／`label`／`category`が必須です。`category`は`open`と`closed`の2値だけで、他の値を書いたその要素は読み飛ばされます。
+- **配列の先頭が新規作成時の初期値**になり、配列順がそのまま表示順になります。初期値を指定するキーはありません。並べ替えて変えます。
+- `fields[]`は`id`／`label`／`type`が必須です。`required`と`listColumn`は省略すると`false`です。
+- `required`は**画面から新しく作るときだけ**入力を強制します。既存チケットの編集も、手書きのYAMLも止めません。
 
 ### Ticket
 
-Trackerのフォルダか、その子孫へ置く。既定の保存先は`<Trackerのフォルダ>/+tickets/`。
+Trackerのフォルダか、その子孫へ置きます。既定の保存先は`<Trackerのフォルダ>/+tickets/`です。
 
 ```yaml
 apiVersion: vellym.tasclub.com/v1
@@ -125,13 +262,11 @@ spec:
         アウトラインが深くなりすぎて、右の見出し一覧が読みにくい。
 ```
 
-- `spec.status`は所有Trackerの`statuses[].id`を指す。
-- `spec.fields`は**`fields[].id`をキーにしたmap**である。Trackerのような配列ではない。
-- `spec.blocks`はPageと同じ形で、本文をここへ書く。
-- `metadata.labels`は`kind`に依存しない分類軸で、一覧の絞り込みに使える。Trackerの
-  `fields`とは別のものである。
-- `metadata.name`は小文字英数と`-`。画面が作るチケットは`ticket-<小文字ULID>`で、ファイル名も
-  同じにする。手書きでも揃えておくと、ファイルがおおよそ作成順に並び、Gitの差分が読みやすい。
+- `spec.status`は所有Trackerの`statuses[].id`を指します。
+- `spec.fields`は**`fields[].id`をキーにしたmap**です。Trackerのような配列ではありません。
+- `spec.blocks`はPageと同じ形で、本文をここへ書きます。
+- `metadata.labels`は`kind`に依存しない分類軸で、一覧の絞り込みに使えます。Trackerの`fields`とは別のものです。
+- `metadata.name`は小文字英数と`-`を使います。画面が作るチケットは`ticket-<小文字ULID>`で、ファイル名も同じにします。手書きでも揃えるとファイルがおおよそ作成順に並び、Gitの差分が読みやすくなります。
 
 ### 項目の型と値の書き方
 
@@ -146,23 +281,21 @@ spec:
 | `multiselect` | 文字列の配列 |
 | `reference` | 文字列 |
 
-識別子は**`multiselect`であり、`multi-select`ではない**。
+識別子は**`multiselect`であり、`multi-select`ではありません**。
 
-型に合わない値も、Vellymは削除せず警告として表示する。定義を1つ変えただけで大量のチケットが
-編集不能になるのを避けるためである。
+型に合わない値も、Vellymは削除せず警告として表示します。定義を1つ変えただけで大量のチケットが編集不能になるのを避けるためです。
 
-機械検証には次のJSON Schemaを使える。
+機械検証には次のJSON Schemaを使えます。
 
 - <https://vellym.tasclub.com/schemas/v1/ticket.schema.json>
 - <https://vellym.tasclub.com/schemas/v1/ticket-tracker.schema.json>
 
 ## プラグインを外す
 
-`vellym.config.yaml`の`plugins`から`@vellym/tickets`を外すと、チケット一覧と
-専用の設定画面は表示されなくなる。`Ticket`と`TicketTracker`のYAMLは変更も削除も
-されず、本文は引き続き読み込まれ、全文検索と内部リンクから利用できる。Vellymが
-その`kind`を解釈できないことはエラーにはならない。
+`vellym.config.yaml`の`plugins`から`@vellym/tickets`を外すと、チケット一覧と専用の設定画面は表示されなくなります。`Ticket`と`TicketTracker`のYAMLは変更も削除もされず、本文は引き続き読み込まれ、全文検索と内部リンクから利用できます。Vellymがその`kind`を解釈できないことはエラーにはなりません。
 
-## License
+## ライセンス
 
 MIT
+
+[English user guide](https://vellym.tasclub.com/en/) | [日本語の利用ガイド](https://vellym.tasclub.com/)

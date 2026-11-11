@@ -9,6 +9,7 @@ import type {
 import { validatePluginManifest } from "@vellym-internal/core";
 import { pluginResourceRelativePath } from "@vellym-internal/runtime-node";
 import plugin from "@vellym/tickets";
+import { ticketListView } from "../packages/plugin-tickets/src/views.js";
 import { TICKET_ENGINE_VERSION } from "@vellym-internal/ticket-engine";
 import {
   initialTicketSpec,
@@ -63,6 +64,18 @@ const defects = record("TicketTracker", "defect-tickets", "40-品質/defect-tick
 });
 
 const trackers = [unitTests, defects];
+
+it("passes tracker summary definitions to the generic list descriptor", () => {
+  const tracker = record("TicketTracker", "summary", "summary.yaml", {
+    statuses: [{ id: "open", label: "Open", category: "open" }],
+    fields: [{ id: "points", label: "Points", type: "number" }],
+    summary: [{ field: "points", method: "sum" }]
+  });
+  expect(ticketListView(context([tracker], tracker)).summary).toEqual([
+    { valueKey: "field:points", type: "number", method: "sum", label: "Points" }
+  ]);
+  expect(ticketListView(context([unitTests], unitTests)).summary).toBeUndefined();
+});
 
 function context(
   definitions: PluginResourceRecord[],

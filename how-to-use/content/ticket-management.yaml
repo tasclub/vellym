@@ -101,6 +101,20 @@ spec:
         - `required`は**画面から新しく作るときだけ**入力を強制する。既存チケットの編集も、
           手書きのYAMLも止めない。正本がファイルである以上、書き込みを塞ぐ手段は無い。
 
+        ### 本文テンプレート
+
+        Trackerの`spec.ticketTemplate`にCommonMark文字列を一つ指定すると、新規チケットの
+        本文にコピーされる。省略時は空。言語別に書く場合、作成時の言語を選び、
+        該当言語がなければ最初の値を使う。既存チケットは変更されない。
+
+        ```yaml
+        ticketTemplate:
+          ja: "## 目的\n\n## 完了条件\n"
+          en: "## Purpose\n\n## Acceptance criteria\n"
+        ```
+
+        言語別の代わりに`ticketTemplate: "## 目的"`のように文字列でも指定できる。
+
         ### Ticket
 
         Trackerのフォルダか、その子孫へ置く。既定の保存先は`<Trackerのフォルダ>/+tickets/`。
@@ -265,6 +279,20 @@ spec:
             - `required` is enforced **only when creating from the screen**. It blocks neither
               editing an existing ticket nor hand-written YAML. While files are the canonical
               form, there is no way to prevent a write.
+
+            ### Body template
+
+            Set one CommonMark string in the Tracker's `spec.ticketTemplate` to copy it into
+            each new ticket's body. Without it the body is empty. A localized map selects the
+            creation language, falling back to its first value; existing tickets are unchanged.
+
+            ```yaml
+            ticketTemplate:
+              ja: "## 目的\n\n## 完了条件\n"
+              en: "## Purpose\n\n## Acceptance criteria\n"
+            ```
+
+            A single string such as `ticketTemplate: "## Purpose"` also works.
 
             ### Ticket
 

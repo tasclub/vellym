@@ -1,6 +1,7 @@
 import type { PluginDiagnostic } from "./diagnostics.js";
 import type { PluginIndexValue, PluginResourceRecord } from "./records.js";
 import type { PluginLocalizedText } from "./text.js";
+import type { SummaryMethod } from "./summary.js";
 
 /**
  * 汎用レンダラが扱える値の型。
@@ -115,6 +116,8 @@ export interface PluginListViewDescriptor {
   rendererData?: Readonly<Record<string, unknown>>;
   title: PluginLocalizedText;
   columns: readonly PluginColumnDescriptor[];
+  /** Aggregations over all currently visible index rows. */
+  summary?: readonly { valueKey: string; type: PluginValueType; method: SummaryMethod; label: PluginLocalizedText }[];
   defaultSort?: PluginSortDescriptor;
   /**
    * この一覧に出る集合そのものを決める絞り込み。**利用者が外せない。**

@@ -368,4 +368,61 @@ async function verify() {
   }
 }
 
+async function verifyNarrowTicketViews() {
+  const port = await availablePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const server = spawn(process.execPath, [path.resolve("packages/vellym/dist/cli.mjs"), "dev", "--config", "how-to-use/vellym.config.yaml", "--port", String(port)], { stdio: ["ignore", "pipe", "pipe"] });
+  let output = "";
+  server.stdout.on("data", (chunk) => { output += chunk; });
+  server.stderr.on("data", (chunk) => { output += chunk; });
+  let browser;
+  try {
+    await waitUntilReady(baseUrl, () => output);
+    browser = await chromium.launch();
+    for (const width of [390, 1280]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 }, locale: "ja-JP" });
+      await page.goto(`${baseUrl}/ja/pages/demo-tickets/`);
+      for (const name of ["カンバン", "チケット一覧", "WBS"]) {
+        const button = page.getByRole("button", { name, exact: true });
+        await button.waitFor();
+        const check = async () => {
+          const doc = await page.evaluate(() => ({ width: document.scrollingElement.scrollWidth, client: document.scrollingElement.clientWidth, left: document.scrollingElement.scrollLeft }));
+          assert(doc.width <= doc.client && doc.left === 0, `${width}px ${name}: document overflow ${JSON.stringify(doc)}`);
+        };
+        await check();
+        await button.click();
+        if (name === "WBS") await page.locator(".wbs-row[data-ticket-name] .wbs-left").first().waitFor();
+        await check();
+      }
+      const measure = async () => page.evaluate(() => {
+        const left = document.querySelector(".wbs-row[data-ticket-name] .wbs-left").getBoundingClientRect();
+        const row = document.querySelector(".wbs-row[data-ticket-name]").getBoundingClientRect();
+        const buttons = [...document.querySelectorAll("button")].filter((b) => ["カンバン", "チケット一覧", "このチケット管理の設定", "WBS"].includes(b.textContent.trim())).map((b) => b.getBoundingClientRect().toJSON());
+        const header = document.querySelector('[class*="document-header_"]').getBoundingClientRect();
+        return { left: left.toJSON(), row: row.toJSON(), buttons, header: header.toJSON(), scroll: document.scrollingElement.scrollLeft };
+      });
+      const checkWbs = async () => {
+        const m = await measure();
+        assert(m.left.left >= 0 && m.left.right <= width && m.left.width === (width === 390 ? 168 : 400), `WBS left ${JSON.stringify(m)}`);
+        assert(m.row.height === (width === 390 ? 44 : 36) && m.scroll === 0, `WBS row ${JSON.stringify(m)}`);
+        assert(m.buttons.length === 4 && m.buttons.every((r) => r.height === 34 && r.left >= m.header.left && r.right <= m.header.right), `view buttons ${JSON.stringify(m)}`);
+        if (width === 1280) assert(new Set(m.buttons.map((r) => r.top)).size === 1, "desktop buttons wrapped");
+      };
+      await checkWbs();
+      await page.locator(".wbs-scroll").evaluate((el) => { el.scrollLeft = 400; el.scrollTop = 100; });
+      await checkWbs();
+      await page.reload();
+      await page.getByRole("button", { name: "WBS", exact: true }).click();
+      await page.locator(".wbs-row[data-ticket-name] .wbs-left").first().waitFor();
+      await checkWbs();
+      await page.close();
+    }
+    console.log("- ticket views: narrow overflow, WBS scrolling and desktop geometry");
+  } finally {
+    if (browser) await browser.close();
+    if (server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }
+  }
+}
+
 await verify();
+await verifyNarrowTicketViews();

@@ -13,9 +13,12 @@ spec:
       content: |
         ## 現在の互換性段階
 
-        `vellym.tasclub.com/v1`はbeta以降の既定生成形式である。1.0 RCで凍結するまでは
-        変更され得る。`vellym.tasclub.com/v1alpha1`はalphaの既定生成形式で、
-        読み込み・編集・検索は引き続き利用できる。
+        beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入ることがある。
+        文書形式を変更するときは`vellym migrate`による移行手段を用意し、変更履歴に記載する。
+        使い方が安定した段階で正式版（1.0）をリリースする。
+
+        `vellym.tasclub.com/v1`はbeta以降の既定生成形式である。`vellym.tasclub.com/v1alpha1`は
+        alphaの既定生成形式で、読み込み・編集・検索は引き続き利用できる。
         Vellymは文書を自動migrationしない。`v1`へ移す場合は`vellym migrate --to v1`を
         明示的に実行する。
 
@@ -66,10 +69,6 @@ spec:
         migrationはsource hashを検査し、temporary file経由で書き、途中失敗時は書込済みfileを戻す。
         Git操作は行わないため、適用前に利用者がcommitまたはbackupする。
 
-        ## 1.0の公開安定境界
-
-        v1 YAML、config schema 1.0、公開CLIのcommand／option／exit code、公開JSON envelopeを対象とする。
-        内部workspace package、browser-server HTTP endpoint、生成SPA data、CSS／DOMは公開APIに含めない。
   translations:
     en:
       visibility: published
@@ -81,8 +80,12 @@ spec:
           content: |
             ## Current compatibility stage
 
-            `vellym.tasclub.com/v1` is the default format generated from beta onward, and may
-            change until it is frozen for the 1.0 release candidate.
+            While Vellym is in beta, breaking changes to the document format, CLI, and Plugin API
+            may occur. When the document format changes, Vellym will provide a migration path with
+            `vellym migrate` and document the change in the changelog. Vellym will release 1.0 once
+            usage has stabilized.
+
+            `vellym.tasclub.com/v1` is the default format generated from beta onward.
             `vellym.tasclub.com/v1alpha1` was the default during alpha and remains readable,
             editable, and searchable. Vellym never migrates documents automatically; run
             `vellym migrate --to v1` explicitly to move them.
@@ -142,9 +145,3 @@ spec:
             Review `vellym migrate --to v1 --plan` before running `vellym migrate --to v1`.
             Migration checks source hashes, writes through temporary files, and restores written
             files after a partial failure. It does not run Git, so commit or back up the project first.
-
-            ## Planned 1.0 stability boundary
-
-            The stability contract covers v1 Page and Folder YAML, config schema 1.0, public CLI
-            commands, options and exit codes, and public JSON envelopes. Internal workspace packages,
-            browser-server HTTP endpoints, generated SPA data, CSS, and DOM are not public APIs.

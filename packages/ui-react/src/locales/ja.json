@@ -57,6 +57,8 @@
   "app.commandCreateUnavailable": "ここでは作成できません。",
   "app.commandNotDeclared": "このビューで使えるコマンドではありません。",
   "app.diagnosticsMessage": "読み込めない文書があります。validateで詳細を確認してください。",
+  "app.unreadableDocumentsMessage": "読み込めない文書が{{count}}件あります。",
+  "app.unreadableDocumentsAction": "設定で確認",
   "app.draftCopied": "編集中の内容をクリップボードへコピーしました",
   "app.draftKept": "編集中の版を選びました。保存するとYAMLの版を置き換えます",
   "app.leaveReload": "YAMLから再読み込み",

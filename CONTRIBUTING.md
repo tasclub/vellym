@@ -2,7 +2,7 @@
 
 ## Before opening a change
 
-- Use an issue form for reproducible bugs, user problems, or template proposals.
+- Use an issue form for usage questions, reproducible bugs, feature requests, or template proposals. Japanese or English is fine.
 - Do not attach private project documents. Reduce YAML to a synthetic fixture.
 - Discuss breaking YAML, CLI, config, or JSON-output changes before implementation.
 

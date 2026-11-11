@@ -1,5 +1,7 @@
 /* Plugin-owned selectors only. One scroller owns both axes and both cells. */
 .wbs-toolbar { display: flex; align-items: center; gap: var(--space-3); margin-block: var(--space-3); flex-wrap: wrap; white-space: nowrap; }
+.wbs-summary { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.wbs-summary ul { margin-block: var(--space-2); padding-inline-start: 1.5em; }
 .wbs-scroll {
   overflow: auto;
   max-height: 65vh;

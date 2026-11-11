@@ -14,6 +14,8 @@ spec:
         このページでは、独自の`ReadingItem`リソースを文書ツリーへ追加し、URL、
         読了状態、本文を編集できる最小プラグインを作る。
 
+        `@vellym/plugin-api` の `summarizeRows(rows, key, type, method, locale)` は `{ text, excluded }` を返す。型ごとの方式は `SUMMARY_METHODS` を参照する。
+
         ## 開発に必要なもの
 
         - Node.js 22.12.0以上
@@ -433,6 +435,8 @@ spec:
         - id: developing-plugins
           type: rich-text
           content: |
+            `summarizeRows(rows, key, type, method, locale)` from `@vellym/plugin-api` returns `{ text, excluded }`. Use `SUMMARY_METHODS` for supported methods by type.
+
             A Vellym plugin is an npm package. Depend only on the public
             `@vellym/plugin-api` contract; do not import Vellym's internal packages. This page
             builds a minimal plugin that adds a `ReadingItem` resource to the document tree and
