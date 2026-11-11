@@ -9,6 +9,7 @@ export interface WBSRendererData extends Readonly<Record<string, unknown>> {
   startField?: string;
   endField?: string;
   orderField?: string;
+  statusSymbols?: Readonly<Record<string, string>>;
   diagnostics: readonly PluginDiagnostic[];
 }
 
@@ -42,6 +43,10 @@ export function wbsView(context: PluginViewContext): PluginListViewDescriptor {
     ...(startField ? { startField } : {}),
     ...(endField ? { endField } : {}),
     ...(orderField ? { orderField } : {}),
+    statusSymbols: Object.fromEntries((Array.isArray(context.target?.spec.statuses) ? context.target.spec.statuses : [])
+      .filter((value): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value))
+      .filter((value) => typeof value.id === "string" && typeof value.symbol === "string" && value.symbol.trim())
+      .map((value) => [value.id as string, value.symbol as string])),
     diagnostics
   };
   return {

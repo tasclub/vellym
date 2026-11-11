@@ -235,6 +235,8 @@ function renderNode(
 
 export function DocumentTree(props: {
   nodes: DocumentNavigationNode[];
+  /** 展開状態の個人設定をプロジェクト単位で分けるための絶対パス。 */
+  projectRoot: string;
   selected?: string;
   selectedFolder?: string;
   onSelect(name: string): void;
@@ -266,6 +268,7 @@ export function DocumentTree(props: {
       setExpandedKeys(readExpandedKeys(
         folderKeys,
         props.nodes,
+        props.projectRoot,
         browserStorage()
       ));
     }
@@ -277,6 +280,7 @@ export function DocumentTree(props: {
     persistExpandedKeys(
       keys,
       folderKeys,
+      props.projectRoot,
       browserStorage()
     );
   }

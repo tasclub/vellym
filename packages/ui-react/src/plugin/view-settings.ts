@@ -1,3 +1,8 @@
+import {
+  normalizedProjectRoot,
+  userSettingsKey
+} from "../shared/user-settings.js";
+
 /** Scope shared by declarative and custom plugin views for local-only preferences. */
 export interface PluginViewSettingsScope {
   /** Absolute project root from bootstrap; independent of the dev-server origin/port. */
@@ -8,23 +13,17 @@ export interface PluginViewSettingsScope {
   targetName: string;
 }
 
-function normalizedProjectRoot(projectRoot: string): string {
-  const normalized = projectRoot.replaceAll("\\", "/").replace(/\/+$/, "");
-  return normalized || "/";
-}
-
 /**
  * Personal preferences stay in localStorage, scoped by project, plugin, view and
  * resource. v2 intentionally does not read the old project-agnostic key.
  */
 export function pluginViewSettingsKey(scope: PluginViewSettingsScope): string {
-  const parts = [
+  return userSettingsKey(
     normalizedProjectRoot(scope.projectRoot),
     scope.pluginId,
     scope.viewId,
     scope.targetName
-  ];
-  return `vellym.user-settings.v2:${parts.map((part) => encodeURIComponent(part)).join(":")}`;
+  );
 }
 
 export function readPluginViewSettings<T>(scope: PluginViewSettingsScope): T | undefined {

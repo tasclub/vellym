@@ -29,6 +29,7 @@ describe("DocumentTree", () => {
     const html = renderToStaticMarkup(
       createElement(DocumentTree, {
         nodes: navigation.tree,
+        projectRoot: "/workspace/project",
         selected: "architecture",
         canManage: true,
         onSelect: () => undefined,
@@ -61,6 +62,7 @@ describe("DocumentTree", () => {
     const html = renderToStaticMarkup(
       createElement(DocumentTree, {
         nodes: navigation.tree,
+        projectRoot: "/workspace/project",
         selected: "architecture",
         canManage: false,
         onSelect: () => undefined,

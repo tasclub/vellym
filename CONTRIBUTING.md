@@ -62,8 +62,10 @@ tabindex, and arrow/Home/End/Space/Enter handling are all verified by
 ### Seeing the screen
 
 The dev container publishes no ports, so a browser on the host cannot reach
-`npm run dev` inside it. Drive Chromium **inside the container** instead. One
-time per container:
+`npm run dev` inside it. Drive Chromium **inside the container** instead. The
+dev container already has it: the `development` image installs Chromium's
+system libraries, and `postCreateCommand` downloads the browser. Outside the
+dev container, install them once:
 
 ```bash
 npx playwright install chromium
@@ -73,7 +75,8 @@ sudo npx playwright install-deps chromium
 `install-deps` also pulls `fonts-ipafont-gothic` and `fonts-wqy-zenhei`. Without
 them Japanese renders as boxes, which hides the wrapping and truncation problems
 you are looking for — do not skip it and judge the layout from a Latin-only
-screenshot.
+screenshot. When you bump `@playwright/test`, bump `PLAYWRIGHT_VERSION` in the
+`Dockerfile` with it.
 
 Then write a throwaway script that spawns the built CLI and screenshots it. Put
 it at the repository root — importing `@playwright/test` from `/tmp` fails with

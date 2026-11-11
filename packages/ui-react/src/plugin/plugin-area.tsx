@@ -85,7 +85,7 @@ export function PluginListPage(props: {
       projectRoot={props.projectRoot}
       targetName={props.targetName}
       hideTitle
-      locale={view.locale ?? view.baseLocale ?? "ja"}
+      locale={props.uiLocale}
       allRows={payload.allRows}
       showAll={props.showAll}
       onToggleShowAll={props.onToggleShowAll}
@@ -148,6 +148,8 @@ export function PluginListPage(props: {
 export function PluginDetailPanel(props: {
   payload: PluginViewPayload;
   view: PageView;
+  /** 画面の文字列を選ぶUI言語。`view.locale`は文書の要求言語なので使わない */
+  uiLocale: string;
   editing: boolean;
   /** プラグインが自分で描くrenderer。あれば宣言の詳細の代わりにこれを描く */
   renderer?: PluginViewRenderer;
@@ -155,7 +157,7 @@ export function PluginDetailPanel(props: {
   onChange(changes: Array<{ path: string[]; value: PluginSpecValue }>): void;
   onSave(changes: Array<{ path: string[]; value: PluginSpecValue }>): Promise<void>;
 }): ReactNode {
-  const { payload, view } = props;
+  const { payload } = props;
   if (payload.descriptor.type !== "detail") return undefined;
   if (props.renderer && props.renderContext) {
     return (
@@ -169,7 +171,7 @@ export function PluginDetailPanel(props: {
   return (
     <PluginDetailView
       payload={payload}
-      locale={view.locale ?? view.baseLocale ?? "ja"}
+      locale={props.uiLocale}
       mode={
         payload.descriptor.body === "none"
           ? "settings"

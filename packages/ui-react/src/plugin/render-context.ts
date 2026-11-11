@@ -21,6 +21,10 @@ import { readPluginViewSettings, writePluginViewSettings } from "./view-settings
  */
 export function createRenderContext(options: {
   payload: PluginViewPayload;
+  /**
+   * 画面の文字列を選ぶUI言語（`bootstrap.project.uiLocale`）。
+   * 文書の要求言語（`view.locale`）ではない。
+   */
   locale: string;
   /** Stable project identity supplied by bootstrap, independent of host/port. */
   projectRoot: string;

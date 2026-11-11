@@ -13,7 +13,7 @@ spec:
       content: |
         ## 概要
 
-        現在のCLIは、`init`・`dev`・`validate`・`build`の4コマンドを提供する。
+        現在のCLIは、`init`・`dev`・`validate`・`build`・`migrate`の5コマンドを提供する。
         以下は生成済みCLIを直接呼ぶ例で示す。
 
         ```bash

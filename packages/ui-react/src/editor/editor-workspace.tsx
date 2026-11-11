@@ -561,8 +561,14 @@ export function EditorWorkspace(props: {
             </div>
           </div>
         )}
+        {/*
+          `localeDrafts`が無いのは、作成直後のように編集セッションが無い下書きである。
+          その既定の面は要求言語（正本の言語）として作る。`"base"`という定数にすると、
+          下の「正本の言語の面にだけ項目を出す」条件と照合されて偽になり、
+          プラグインの項目がどこにも出なくなる。
+        */}
         {(props.localeDrafts ?? [{
-          locale: props.editLocale ?? "base",
+          locale: props.editLocale ?? props.view?.baseLocale ?? "base",
           title: props.title,
           blocks: props.blocks
         }]).map((localeDraft) => {

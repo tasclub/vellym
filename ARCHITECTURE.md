@@ -58,23 +58,52 @@ Enforced constraints:
 - **`ticket-engine` is private domain logic.** Ticket plugins bundle it; neither the host
   nor project configuration loads it as a separate plugin.
 
-## Personal view settings
+## Personal settings
 
-Plugin view preferences stay in the user's browser `localStorage`; they are not part of
-the YAML source of truth and are not shared with other users. The key includes the
-normalized absolute `projectRoot` from bootstrap, plugin ID, view ID, and the hosting
-resource's `metadata.name`:
+Personal preferences — anything one user chooses for their own screen, such as tree
+width, expanded folders, a view's visible columns or filters — stay in the user's
+browser `localStorage`. They are not part of the YAML source of truth and are not
+shared with other users. Putting them in YAML would make one person's choice everyone's.
+
+Every personal setting, from the host or from a plugin, uses one key shape. Each
+component is `encodeURIComponent`-encoded, so a `:` inside a component cannot be
+mistaken for a separator:
 
 ```text
-vellym.user-settings.v2:<encoded-projectRoot>:<pluginId>:<viewId>:<resourceName>
+vellym.user-settings.v2:<scope>:<owner>:<setting>[:<resourceName>]
 ```
 
-`projectRoot` is used instead of the origin because two projects can run on the same
-port, while changing a port must not reset a project's preferences. `contentRoot` is
-not used because moving the content directory does not change project identity. Moving
-the project directory does create a new scope. The old project-agnostic v1 keys are
-intentionally not migrated: they cannot be assigned unambiguously to a project or
-resource, so preferences stored under them reset once.
+| Component | Value |
+| --- | --- |
+| `scope` | The normalized absolute `projectRoot` from bootstrap when the value names or depends on project content (folder paths, resource names, field values, filters). `_device` when it does not (a width, whether a panel is open). |
+| `owner` | The plugin ID for a plugin, `_host` for the host. Plugin IDs match `^[a-z0-9]+(?:-[a-z0-9]+)*$`, so neither `_host` nor `_device` can collide with one. |
+| `setting` | For a plugin view, the view ID. For the host, a stable dotted ID such as `navigation.expanded`. |
+| `resourceName` | The hosting resource's `metadata.name`, when the setting belongs to one resource (for example one TicketTracker). Omitted otherwise. |
+
+A plugin view's key is therefore
+`vellym.user-settings.v2:<projectRoot>:<pluginId>:<viewId>:<resourceName>`.
+
+Why these choices:
+
+- **`projectRoot`, not the origin.** Two projects can run on the same port, and changing
+  a port must not reset a project's preferences. `contentRoot` is not used because
+  moving the content directory does not change project identity. Moving the project
+  directory does create a new scope.
+- **When in doubt, scope to the project.** A device-scoped value that turns out to
+  contain project content leaks between projects; a project-scoped value that could have
+  been device-wide only costs the user one extra choice per project.
+- **The value is JSON, and reading it may fail.** A missing, unparseable, or unavailable
+  entry falls back to the default, and a failed write is ignored. Personal settings must
+  never block a screen. A reader also drops stored entries that no longer match the
+  project (for example a folder that was removed).
+- **Raise the `v2` segment only when existing keys would be misread.** Adding a new
+  setting needs no new version. Old keys are migrated only when they can be assigned to
+  exactly one new key; otherwise they are ignored and the preference resets once, with a
+  `CHANGELOG` entry. The project-agnostic v1 plugin keys are not migrated for this reason:
+  they cannot be assigned unambiguously to a project or resource.
+- **One place builds keys.** Both plugin view keys and host settings build their
+  keys through `userSettingsKey` in `packages/ui-react/src/shared/user-settings.ts`,
+  never through hand-written strings.
 
 Inside the workspace, `@vellym/plugin-api` resolves to its TypeScript source through the
 `vellym-source` export condition, so nothing has to be built before `typecheck` or the

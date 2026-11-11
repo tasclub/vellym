@@ -711,7 +711,10 @@ export function App() {
     if (!pluginView || !view || !bootstrap) return undefined;
     return createRenderContext({
       payload: pluginView,
-      locale: view.locale ?? view.baseLocale ?? "ja",
+      // プラグインの画面の文字列は**UI言語**で選ぶ。`view.locale`は文書の
+      // 要求言語なので、`/en/`のページでUIを日本語にしているときに日本語が
+      // 残る（逆に`/ja/`でUIを英語にすると日本語が残った）。
+      locale: bootstrap.project.uiLocale,
       projectRoot: bootstrap.project.projectRoot,
       targetKind: view.page.kind,
       targetName: view.page.metadata.name,
@@ -1428,6 +1431,7 @@ export function App() {
         navigation={navigation}
         pages={pages}
         folders={folders}
+        projectRoot={bootstrap.project.projectRoot}
         selected={selectedFolder !== undefined ? undefined : selected}
         selectedFolder={selectedFolder}
         area={area}
@@ -1583,6 +1587,7 @@ export function App() {
               <PluginDetailPanel
                 payload={pluginView}
                 view={view}
+                uiLocale={bootstrap.project.uiLocale}
                 editing={editing}
                 renderer={pluginRenderers.byViewId.get(pluginView.viewId)}
                 {...(pluginRenderContext ? { renderContext: pluginRenderContext } : {})}

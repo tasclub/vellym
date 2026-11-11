@@ -354,6 +354,10 @@ spec:
         `mount`は同期でhandleを返し、timerや購読は`unmount`で同期的に解除する。
         書き戻しはrendererへ渡る`context.save()`を使い、静的版では`context.isStatic`を
         見て保存操作を表示しない。ブラウザ資産はES moduleとしてbundleする。
+        **rendererへ渡る`context.locale`はUI言語**（設定画面の「表示言語を変更」で
+        決まる値、静的版では`ui.language`）である。ボタン・見出し・案内文・選択肢・
+        `aria-label`と診断の本文はこれで選ぶ。Node側の`registerView`と`registerCommand`の
+        `context.locale`は文書の要求言語のままで、並び順と、作成するYAMLの既定の題名に使う。
         `save(writes, { targetName })`はmetadata.nameで指定した別リソースへ保存できる。
         `openResource(name)`は別リソースを開き、結果を返す。`getViewSettings()` /
         `setViewSettings()`はブラウザ内の個人設定を読む・保存する。
@@ -774,6 +778,12 @@ spec:
             `mount` returns a handle synchronously. Stop timers and subscriptions synchronously
             in `unmount`. Write through `context.save()` and hide saving controls when
             `context.isStatic` is true. Bundle browser assets as ES modules.
+            **The `context.locale` a renderer receives is the UI language** (the value chosen by
+            "Change display language" in the settings screen, and `ui.language` in static
+            output). Buttons, headings, guidance text, options, `aria-label` values and
+            diagnostic messages use it. The `context.locale` handed to Node-side `registerView`
+            and `registerCommand` stays the document request language, used for sorting and for
+            default content such as a new ticket's title.
             Use `save(writes, { targetName })` to save another resource by `metadata.name`,
             `openResource(name)` to navigate to one and inspect the result, and
             `getViewSettings()` / `setViewSettings()` for browser-local personal preferences.

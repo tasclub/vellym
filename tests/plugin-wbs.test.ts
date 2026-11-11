@@ -5,7 +5,7 @@ import { resolveLocalizedText } from "@vellym/plugin-api";
 import type { TicketTreeNode } from "../packages/ticket-engine/src/hierarchy.js";
 import { validatePluginManifest } from "@vellym-internal/core";
 import plugin from "../packages/plugin-wbs/src/node.js";
-import { rankForMove, sortedSiblings } from "../packages/plugin-wbs/src/model.js";
+import { excludedParents, rankForAppend, rankForInsert, flattenRows, rowWindow, rankForMove, sortedSiblings } from "../packages/plugin-wbs/src/model.js";
 import { wbsView } from "../packages/plugin-wbs/src/view.js";
 import { createTicketCommand } from "../packages/ticket-engine/src/commands.js";
 
@@ -27,6 +27,30 @@ const context = (target = tracker): PluginViewContext => ({ locale: "ja", isStat
   records: (kind) => kind === "TicketTracker" ? [target] : [] });
 
 describe("WBS as a TicketTracker view", () => {
+  it("flattens sorted hierarchies and folds children without dropping the parent", () => {
+    const child: TicketTreeNode = { row: { name: "child", title: "Child", values: {} }, children: [] };
+    const parent: TicketTreeNode = { row: { name: "parent", title: "Parent", values: {} }, children: [child] };
+    expect(flattenRows([parent], undefined, "en", new Set()).map((item) => [item.node.row.name, item.depth]))
+      .toEqual([["parent", 0], ["child", 1]]);
+    expect(flattenRows([parent], undefined, "en", new Set(["parent"])).map((item) => item.node.row.name))
+      .toEqual(["parent"]);
+  });
+  it("windows only vertically with exactly ten overscan rows on either side", () => {
+    expect(rowWindow(200, "virtual", 36 * 50, 36 * 10, 36, 100)).toEqual({ start: 40, end: 70 });
+    expect(rowWindow(200, "virtual", 44 * 50, 44 * 10, 44, 100)).toEqual({ start: 40, end: 70 });
+    expect(rowWindow(5, "virtual", 0, 360, 36, 100)).toEqual({ start: 0, end: 5 });
+    expect(rowWindow(200, "all", 1800, 360, 36, 100)).toEqual({ start: 0, end: 200 });
+    expect(rowWindow(200, "incremental", 1800, 360, 36, 100)).toEqual({ start: 0, end: 100 });
+  });
+  it("keeps the name and date header sticky and switches columns only in CSS", () => {
+    const css = readFileSync("packages/plugin-wbs/src/wbs.css", "utf8");
+    expect(css).toMatch(/\.wbs-left\s*\{[^}]*position: sticky/);
+    expect(css).toMatch(/\.wbs-header\s*\{[^}]*position: sticky/);
+    expect(css).toContain("@media (width < 767px)");
+    const source = readFileSync("packages/plugin-wbs/src/screen.tsx", "utf8");
+    expect(source).not.toMatch(/matchMedia|innerWidth|calc\(\$\{depth\}/);
+    expect(source.match(/className="wbs-scroll"/g)).toHaveLength(1);
+  });
   it("starts a child Ticket draft with the declared parent reference", async () => {
     const createResource = vi.fn(async (draft: import("@vellym/plugin-api").PluginResourceDraft) => ({
       ok: true as const, name: draft.name ?? "new-ticket", draft: { ...draft, name: draft.name ?? "new-ticket", relativePath: "draft.yaml" }
@@ -81,5 +105,19 @@ describe("WBS as a TicketTracker view", () => {
     expect(sortedSiblings([...nodes].reverse(), "sequence", "ja").map((item) => item.row.name))
       .toEqual(["a", "b", "c"]);
     expect(rankForMove(nodes.map((node) => node.row), 0, 1, "sequence")).toBe(3);
+  });
+
+  it("guards raw cyclic descendants and appends after tied finite ranks without rewriting siblings", () => {
+    const rows = [
+      { name: "a", title: "A", values: { "field:parent": "b", "field:sequence": 4 } },
+      { name: "b", title: "B", values: { "field:parent": "a", "field:sequence": 4 } },
+      { name: "c", title: "C", values: { "field:parent": "b", "field:sequence": 4 } }
+    ];
+    expect([...excludedParents(rows, "a", "parent")].sort()).toEqual(["a", "b", "c"]);
+    expect(rankForAppend(rows, "sequence")).toBe(5);
+    expect(rankForAppend([{ name: "unset", title: "Unset", values: {} }], "sequence")).toBeUndefined();
+    expect(rankForAppend([{ name: "max", title: "Max", values: { "field:sequence": Number.MAX_VALUE } }], "sequence")).toBeUndefined();
+    expect(rankForInsert(rows, 0, 1, "sequence")).toBeUndefined();
+    expect(rows.map((row) => row.values["field:sequence"])).toEqual([4, 4, 4]);
   });
 });

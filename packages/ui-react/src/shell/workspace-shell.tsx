@@ -33,23 +33,66 @@ import {
   StructureActionDialog,
   type StructureAction
 } from "../editor/structure-dialog.js";
+import {
+  DEVICE_SCOPE,
+  HOST_OWNER,
+  userSettingsKey
+} from "../shared/user-settings.js";
 import styles from "./workspace-shell.module.css";
 
 const DEFAULT_TREE_WIDTH = 268;
 const MIN_TREE_WIDTH = 220;
 const MAX_TREE_WIDTH = 420;
-const TREE_WIDTH_KEY = "vellym.navigation.width";
-const TREE_OPEN_KEY = "vellym.navigation.open";
+const TREE_WIDTH_KEY = userSettingsKey(DEVICE_SCOPE, HOST_OWNER, "navigation.width");
+const TREE_OPEN_KEY = userSettingsKey(DEVICE_SCOPE, HOST_OWNER, "navigation.open");
+const LEGACY_TREE_WIDTH_KEY = "vellym.navigation.width";
+const LEGACY_TREE_OPEN_KEY = "vellym.navigation.open";
 
-function storedTreeWidth(): number {
-  const value = Number(window.localStorage.getItem(TREE_WIDTH_KEY));
-  return Number.isFinite(value)
-    ? Math.min(MAX_TREE_WIDTH, Math.max(MIN_TREE_WIDTH, value))
-    : DEFAULT_TREE_WIDTH;
+function navigationStorage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> | undefined {
+  try {
+    return typeof window === "undefined" ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
 }
 
-function storedTreeOpen(): boolean {
-  return window.localStorage.getItem(TREE_OPEN_KEY) !== "false";
+// 規則より前の鍵。幅と開閉はプロジェクトの内容を含まないので、値は端末単位の
+// 新しい鍵へ1対1で移せる。旧鍵は掃除し、以降読まない。
+function migrateLegacyNavigationValue(
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem">,
+  legacyKey: string,
+  newKey: string
+): void {
+  const legacy = storage.getItem(legacyKey);
+  if (legacy !== null && storage.getItem(newKey) === null) {
+    storage.setItem(newKey, legacy);
+  }
+  storage.removeItem(legacyKey);
+}
+
+export function storedTreeWidth(): number {
+  const storage = navigationStorage();
+  if (!storage) return DEFAULT_TREE_WIDTH;
+  try {
+    migrateLegacyNavigationValue(storage, LEGACY_TREE_WIDTH_KEY, TREE_WIDTH_KEY);
+    const value = Number(storage.getItem(TREE_WIDTH_KEY));
+    return Number.isFinite(value)
+      ? Math.min(MAX_TREE_WIDTH, Math.max(MIN_TREE_WIDTH, value))
+      : DEFAULT_TREE_WIDTH;
+  } catch {
+    return DEFAULT_TREE_WIDTH;
+  }
+}
+
+export function storedTreeOpen(): boolean {
+  const storage = navigationStorage();
+  if (!storage) return true;
+  try {
+    migrateLegacyNavigationValue(storage, LEGACY_TREE_OPEN_KEY, TREE_OPEN_KEY);
+    return storage.getItem(TREE_OPEN_KEY) !== "false";
+  } catch {
+    return true;
+  }
 }
 
 // アイコンのみのボタンは意味が伝わりにくいので、ホバー／フォーカスでラベルを出す
@@ -102,6 +145,8 @@ export function WorkspaceShell(props: {
   navigation: DocumentNavigation;
   pages: PageSummary[];
   folders: FolderSummary[];
+  /** 展開状態の個人設定をプロジェクト単位で分けるための絶対パス。 */
+  projectRoot: string;
   selected?: string;
   selectedFolder?: string;
   area: "documents" | "settings";
@@ -163,11 +208,19 @@ export function WorkspaceShell(props: {
     selectedFolder?.path ?? selectedPage?.breadcrumbs.join("/") ?? "";
 
   useEffect(() => {
-    window.localStorage.setItem(TREE_OPEN_KEY, String(treeOpen));
+    try {
+      navigationStorage()?.setItem(TREE_OPEN_KEY, String(treeOpen));
+    } catch {
+      // 個人設定を保存できなくてもツリーの操作は続けられる。
+    }
   }, [treeOpen]);
 
   useEffect(() => {
-    window.localStorage.setItem(TREE_WIDTH_KEY, String(treeWidth));
+    try {
+      navigationStorage()?.setItem(TREE_WIDTH_KEY, String(treeWidth));
+    } catch {
+      // 個人設定を保存できなくてもツリーの操作は続けられる。
+    }
   }, [treeWidth]);
 
   useEffect(() => {
@@ -378,6 +431,7 @@ export function WorkspaceShell(props: {
         </div>
         <DocumentTree
           nodes={props.navigation.tree}
+          projectRoot={props.projectRoot}
           selected={props.selected}
           selectedFolder={props.selectedFolder}
           canManage={props.canManage}
@@ -520,6 +574,7 @@ export function WorkspaceShell(props: {
             </div>
             <DocumentTree
               nodes={props.navigation.tree}
+              projectRoot={props.projectRoot}
               selected={props.selected}
               selectedFolder={props.selectedFolder}
               canManage={props.canManage}

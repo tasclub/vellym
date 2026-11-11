@@ -1,7 +1,22 @@
 import type { Key } from "react-aria-components";
 import type { DocumentNavigationNode } from "@vellym-internal/core";
+import {
+  HOST_OWNER,
+  normalizedProjectRoot,
+  userSettingsKey
+} from "../shared/user-settings.js";
 
-export const EXPANDED_FOLDERS_KEY = "vellym.navigation.expanded";
+/** Key used before the personal-settings rule; its paths cannot be assigned to a project. */
+const LEGACY_EXPANDED_FOLDERS_KEY = "vellym.navigation.expanded";
+
+/** Expanded folders name project paths, so the key is scoped to the project. */
+export function expandedFoldersKey(projectRoot: string): string {
+  return userSettingsKey(
+    normalizedProjectRoot(projectRoot),
+    HOST_OWNER,
+    "navigation.expanded"
+  );
+}
 
 export function folderKey(node: DocumentNavigationNode): string {
   return node.kind === "folder" ? `folder:${node.path}` : `page:${node.name}`;
@@ -24,10 +39,13 @@ export function defaultExpandedKeys(nodes: DocumentNavigationNode[]): Set<Key> {
 export function readExpandedKeys(
   folderKeys: readonly Key[],
   nodes: DocumentNavigationNode[],
-  storage?: Pick<Storage, "getItem">
+  projectRoot: string,
+  storage?: Pick<Storage, "getItem" | "removeItem">
 ): Set<Key> {
   try {
-    const stored = storage?.getItem(EXPANDED_FOLDERS_KEY);
+    // 旧鍵はどのプロジェクトのものか決められないので読まず、掃除だけする。
+    storage?.removeItem(LEGACY_EXPANDED_FOLDERS_KEY);
+    const stored = storage?.getItem(expandedFoldersKey(projectRoot));
     if (stored == null) return defaultExpandedKeys(nodes);
     const value: unknown = JSON.parse(stored);
     if (!Array.isArray(value)) return defaultExpandedKeys(nodes);
@@ -43,12 +61,13 @@ export function readExpandedKeys(
 export function persistExpandedKeys(
   keys: Set<Key>,
   folderKeys: readonly Key[],
+  projectRoot: string,
   storage?: Pick<Storage, "setItem">
 ): void {
   try {
     const available = new Set(folderKeys.map(String));
     storage?.setItem(
-      EXPANDED_FOLDERS_KEY,
+      expandedFoldersKey(projectRoot),
       JSON.stringify([...keys].map(String).filter((key) => available.has(key)))
     );
   } catch {

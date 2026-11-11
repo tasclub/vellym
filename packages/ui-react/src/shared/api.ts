@@ -419,14 +419,28 @@ function fetchStaticPluginViewIndex(base: string): Promise<StaticPluginViewIndex
   return entry.value;
 }
 
-export function fetchBootstrap(
+export async function fetchBootstrap(
   signal?: AbortSignal,
   locale?: string
 ): Promise<Envelope<BootstrapData>> {
   const base = staticBase();
-  if (base) return fetchStatic<BootstrapData>(base, "bootstrap.json");
   const query = locale ? `?locale=${encodeURIComponent(locale)}` : "";
-  return request(`/api/v1/bootstrap${query}`, { signal });
+  const result = base
+    ? await fetchStatic<BootstrapData>(base, "bootstrap.json")
+    : await request<BootstrapData>(`/api/v1/bootstrap${query}`, { signal });
+  // The API's `uiLocale` currently follows the requested document locale when
+  // the URL has a /ja/ or /en/ prefix. Product UI language is configured
+  // independently, so browser/plugin UI must use the configured `language`.
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      project: {
+        ...result.data.project,
+        uiLocale: result.data.project.language
+      }
+    }
+  };
 }
 
 export function fetchSetupCatalog(

@@ -4,7 +4,7 @@ metadata:
   name: ticket-01m0m000000000000000000003
   title: 英語版の言い回しを揃える
 spec:
-  status: todo
+  status: doing
   fields:
     priority: low
     assignee: 翻訳担当

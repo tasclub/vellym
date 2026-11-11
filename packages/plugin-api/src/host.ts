@@ -133,6 +133,14 @@ export interface PluginCommandContribution {
 }
 
 export interface PluginCommandContext extends PluginDefinitionContext {
+  /**
+   * 文書の要求locale。ブラウザのUI言語ではない。
+   *
+   * **作成するリソースの内容に使う。** `ticket-engine`の「チケットを作成」は
+   * これを見て既定の題名（`新しいチケット`／`New ticket`）を選ぶ。题名は文書の
+   * 内容なので、要求言語側で決めるのが正しい。ボタンや案内文の言語は
+   * ブラウザ側の`PluginRenderContext.locale`（UI言語）が既に決めている。
+   */
   locale: string;
   /**
    * `inputs`で宣言した項目に、利用者が入れた値。IDから値への対応。
@@ -261,6 +269,20 @@ export interface PluginIndexRow {
  * こちらは「宣言では表せない画面」を自分で描くときに使う。
  */
 export interface PluginRenderContext extends PluginViewContext {
+  /*
+   * `locale`の意味は、この文脈を組み立てる場所が決める。
+   *
+   * - **ブラウザの`mount`・`update`へ渡す版はUI言語**を入れる。画面の文字列
+   *   （ボタン・見出し・案内文・選択肢・`aria-label`）と診断の本文はこれで選ぶ。
+   *   設定画面の「表示言語を変更」で切り替わる値であり、URLの`/ja/`・`/en/`は
+   *   関係ない。
+   * - **静的出力も同じ**で、`ui.language`で決まった言語が入る。
+   * - Node側がdescriptorを組み立てる`PluginViewContext`と、コマンドの
+   *   `PluginCommandContext`は、今までどおり文書の要求言語が入る。
+   *
+   * 自前rendererでも`context.locale`で`resolveLocalizedText`を使っていれば、
+   * この規則がそのまま効く。
+   */
   /** Run a registered view command through the host's draft-creation flow. */
   runCommand?(id: string, input: Readonly<Record<string, PluginInputValue>>): Promise<PluginSaveResult>;
   /**

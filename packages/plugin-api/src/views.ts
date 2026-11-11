@@ -240,7 +240,14 @@ export interface PluginDefinitionContext {
 
 /** descriptorを組み立てるときにCoreが渡す文脈 */
 export interface PluginViewContext extends PluginDefinitionContext {
-  /** 表示locale */
+  /**
+   * 文書の要求locale。Node側で決まる。
+   *
+   * descriptorの並び順（`localeCompare`）や、生成する内容の言語に使う。
+   * 画面に出す文字列の言語は、ブラウザ側が渡す`PluginRenderContext.locale`
+   * （UI言語）が既に決めている。ここで要求言語を入れるのは、プラグインが
+   * 作成する文書の内容と並び順が文書の言語に揃うべきだからである。
+   */
   locale: string;
   /** 静的出力の生成中か。`true`のとき編集系の宣言は出力されない */
   isStatic: boolean;
