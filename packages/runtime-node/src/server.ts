@@ -19,6 +19,7 @@ import {
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
 import { readGitHistory } from "./git-history.js";
+import { readGitChanges, writeGitChanges, readChangeDiff } from "./git-changes.js";
 import {
   createPluginResource,
   parsePluginResourceDraft,
@@ -806,6 +807,22 @@ export async function startDevServer(options: {
             skipped: plan.files.filter((file) => file.status === "skip")
           })
         );
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/v1/git/status") {
+        json(response, 200, envelope(await readGitChanges(requireReady().loadedConfig.contentRoot)));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/v1/git/change-diff") {
+        json(response, 200, envelope(await readChangeDiff(requireReady().loadedConfig.contentRoot, url.searchParams.get("path") ?? "")));
+        return;
+      }
+      if (request.method === "POST" && /^\/api\/v1\/git\/(commit|push)$/.test(url.pathname)) {
+        const body = await readJson(request);
+        if (!body || typeof body !== "object") throw new RuntimeError("Invalid request", 400, "INVALID_NAME");
+        const result = await writeGitChanges(requireReady().loadedConfig.contentRoot, url.pathname.endsWith("/commit") ? "commit" : "push", body);
+        if (result.ok) publishChange("git-write");
+        json(response, 200, envelope(result));
         return;
       }
       if (request.method === "GET" && /^\/api\/v1\/git\/(history|diff|content|recent)$/.test(url.pathname)) {

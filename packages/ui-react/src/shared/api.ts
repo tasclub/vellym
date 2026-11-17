@@ -60,6 +60,17 @@ export function fetchGitRecent(limit = 50, signal?: AbortSignal, offset = 0): Pr
   return fetchGit("recent", { limit: String(limit), offset: String(offset) }, signal);
 }
 
+export interface GitChange { path: string; status: string; oldPath?: string; title?: string }
+export type GitStatus = { available: false } | { available: true; branch: string; upstream: string; ahead: number; files: GitChange[] };
+export type GitWriteResult = { ok: true; hash?: string } | { ok: false; code: string; details?: string };
+export function fetchGitStatus(signal?: AbortSignal): Promise<Envelope<GitStatus>> {
+  if (isStaticApp()) return Promise.resolve({ apiSchemaVersion: API_SCHEMA_VERSION, data: { available: false }, diagnostics: [] });
+  return request("/api/v1/git/status", { signal });
+}
+export function fetchChangeDiff(path: string, signal?: AbortSignal) { return fetchGit<{ diff: string }>("change-diff", { path }, signal); }
+export function writeGit(operation: "commit" | "push", body: { message?: string; paths?: string[] }): Promise<Envelope<GitWriteResult>> {
+  return request(`/api/v1/git/${operation}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+}
 
 export interface BootstrapData {
   state: "setup" | "config-error" | "ready";

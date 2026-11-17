@@ -149,7 +149,8 @@ export function WorkspaceShell(props: {
   projectRoot: string;
   selected?: string;
   selectedFolder?: string;
-  area: "documents" | "settings";
+  area: "documents" | "changes" | "settings";
+  gitChanges?: { uncommitted: number; ahead: number };
   diagnosticCount: number;
   headings: DocumentHeading[];
   structureAvailable: boolean;
@@ -163,7 +164,7 @@ export function WorkspaceShell(props: {
   currentLocale: string;
   onSelect(name: string): void;
   onSelectFolder(path: string): void;
-  onAreaChange(area: "documents" | "settings"): void;
+  onAreaChange(area: "documents" | "changes" | "settings"): void;
   onNavigate(name: string, headingId?: string): void;
   onHeadingSelect(id: string): void;
   onMoveTreeItem(
@@ -280,7 +281,7 @@ export function WorkspaceShell(props: {
 
   return (
     <div
-      className={`${styles.shell} ${props.area === "settings" ? styles.adminShell : ""}`}
+      className={`${styles.shell} ${props.area !== "documents" ? styles.adminShell : ""}`}
       style={
         {
           "--navigation-width":
@@ -308,6 +309,11 @@ export function WorkspaceShell(props: {
             }}
           ><Icon name="documents" size={20} /></Button>
         </IconTooltip>
+        {props.gitChanges && <IconTooltip label={t("changes.title")}>
+            <Button className={styles.railButton} aria-label={t("changes.rail", { count: props.gitChanges.uncommitted, ahead: props.gitChanges.ahead })} aria-pressed={props.area === "changes"} onPress={() => props.onAreaChange("changes")}>
+              <span aria-hidden="true">⇅{(props.gitChanges.uncommitted > 0 || props.gitChanges.ahead > 0) && <span> •</span>}</span>
+            </Button>
+        </IconTooltip>}
         {props.canConfigure && (
           <IconTooltip label={t("nav.settings")}>
             <Button
@@ -321,6 +327,7 @@ export function WorkspaceShell(props: {
       </aside>
       <header className={styles.header}>
         <div className={styles.headerLeading}>
+          {props.gitChanges && <Button className={styles.mobileMenu} aria-label={t("changes.rail", { count: props.gitChanges.uncommitted, ahead: props.gitChanges.ahead })} onPress={() => props.onAreaChange("changes")}>⇅</Button>}
           <Button
             className={styles.mobileMenu}
             aria-label={t("nav.openDocumentNav")}

@@ -46,7 +46,7 @@ spec:
 
         ## 画面の構成
 
-        - **プロダクトレール**（左端）: 「文書」と「設定」を切り替える。
+        - **プロダクトレール**（左端）: 「文書」「変更」（Git利用時）と「設定」を切り替える。
         - **文書ナビゲーション**: 文書ツリーを開閉・幅調整できる。ツリーからページを選ぶ。
         - **アウトライン**: 表示中ページの見出し一覧。
         - **パンくず**: 現在位置の階層を示す。
@@ -76,6 +76,23 @@ spec:
           見比べて対応できる。
         - 未保存の変更があるまま画面を離れようとすると、確認ダイアログで下書きの保持や
           破棄を選べる。
+
+        ## Gitの変更・コミット・プッシュ
+
+        Gitがあり、コンテンツフォルダ内に追跡されたファイルがある動的版では、レールの「変更」を開ける。
+        点の印と読み上げラベルで未コミット・未プッシュの件数を示す。文書の「コミットしていない変更があります」からも開ける。
+        一覧の題名と相対パス、行差分を確かめ、コミットするファイルを選び、メッセージを入力して「コミット」を押す。
+        既定ではすべて選択される。「保存」はファイルへの書き込みであり、コミットとは別の操作である。未保存の編集はコミットされない。
+        content rootの外や選んでいないステージ済みファイルはコミットに含めない。Gitの作者はコマンドラインで
+        `git config user.name`と`git config user.email`を設定する。
+        上流があり、未プッシュのコミットがあれば「プッシュ」を押せる。プッシュは現在のブランチ全体が対象で、
+        Vellym以外で作ったコミットも含む。最初のプッシュ、pull、マージ、ブランチ操作はコマンドラインで行う。
+        認証はPCのGit設定を使い、Vellymは認証情報を保存しない。失敗の出力は「詳細」を開いて確認する。
+        「最近の変更」は30件ずつ表示し、展開した文書の題名からその版の履歴へ移動できる。
+        768px未満では一覧と差分の閲覧だけで、コミット・プッシュは表示しない。静的版とGitなしでは入口を表示しない。
+
+        **注意**: `--host`で外から開けるようにした起動では、画面を開ける人がコミット・プッシュもできる。
+        このサーバーに認証はない。信頼できる環境だけで公開する。
 
         ## 言語の追加と編集
 
@@ -157,7 +174,7 @@ spec:
 
             ## Layout
 
-            - **Product rail** (far left): switch between "Documents" and "Settings".
+            - **Product rail** (far left): switch between Documents, Changes (when Git is available), and Settings.
             - **Document navigation**: open/close and resize the document tree; pick a page.
             - **Outline**: the heading list of the current page.
             - **Breadcrumbs**: the hierarchy of your current location.
@@ -180,6 +197,22 @@ spec:
 
             Open **full-text search** ("Search documents") to find text across page bodies.
             (Full-text search is a dynamic-mode feature and is not in the static build.)
+
+            ## Git changes, commits, and push
+
+            In the dynamic app, Changes appears in the rail when Git is available and the content root contains tracked files.
+            A dot and accessible label report uncommitted and unpushed counts. The document's uncommitted-change notice also opens this area.
+            Check titles, relative paths, and line diffs, select files (all selected by default), enter a message, and choose Commit.
+            Saving writes files; committing is separate. Unsaved edits are not committed. Files outside the content root and
+            unrelated staged files are excluded. Set the author with `git config user.name` and `git config user.email` on the command line.
+            Push appears only with an upstream and unpushed commits. It pushes the whole current branch, including commits made outside Vellym.
+            Use the command line for the first push, pull, merges, and branch operations. Authentication uses your PC's Git settings;
+            Vellym does not store credentials. Expand Details to inspect Git's error output.
+            Recent changes loads 30 commits at a time; expand a commit and choose a document title to open its history at that revision.
+            Below 768px, lists and diffs remain available but Commit and Push are hidden. Static sites and non-Git projects have no entry.
+
+            **Warning:** when started with `--host` for external access, anyone who can open the app can also commit and push.
+            The server has no authentication. Expose it only in a trusted environment.
 
             ## Editing and saving
 

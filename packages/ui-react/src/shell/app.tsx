@@ -34,6 +34,8 @@ import {
   type StructurePlan
 } from "../shared/api.js";
 import { AdminView } from "./admin-view.js";
+import { GitChanges } from "./git-changes.js";
+import { fetchGitStatus, type GitStatus } from "../shared/api.js";
 import { EditorWorkspace } from "../editor/editor-workspace.js";
 import { resolveLocalizedText } from "@vellym/plugin-api";
 import { DocumentView } from "../editor/view.js";
@@ -120,7 +122,7 @@ export function countUnreadableDocumentFiles(
 }
 
 type PendingLeave =
-  | { kind: "navigate"; page: string; heading?: string }
+  | { kind: "navigate"; page: string; heading?: string; historyHash?: string }
   | { kind: "folder"; folderPath: string }
   | { kind: "settings"; focusProblems?: boolean }
   | { kind: "cancel" }
@@ -291,7 +293,23 @@ export function App() {
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [selected, setSelected] = useState<string>();
   const [selectedFolder, setSelectedFolder] = useState<string>();
-  const [area, setArea] = useState<"documents" | "settings">("documents");
+  const [area, setArea] = useState<"documents" | "changes" | "settings">("documents");
+  const [gitStatus, setGitStatus] = useState<GitStatus>({ available: false });
+  const [changePath, setChangePath] = useState<string>();
+  async function refreshGit() {
+    try {
+      const { data } = await fetchGitStatus();
+      // Optional capability: an old/incompatible response must not take down the workspace.
+      if (data.available && (!Array.isArray(data.files) || typeof data.ahead !== "number" || typeof data.upstream !== "string")) return;
+      setGitStatus(data);
+    } catch { /* Git is optional. */ }
+  }
+  useEffect(() => {
+    if (bootstrap?.state !== "ready" || !bootstrap.capabilities.live) return;
+    void refreshGit();
+    const timer = window.setInterval(() => void refreshGit(), 5000);
+    return () => window.clearInterval(timer);
+  }, [bootstrap?.state, bootstrap?.capabilities.live, area]);
   const [focusProblems, setFocusProblems] = useState(false);
   const [view, setView] = useState<PageView>();
   // プラグインが登録したビュー。開いたリソースのkindに対応するものがあれば、
@@ -950,6 +968,12 @@ export function App() {
     commitNavigation(name, heading);
   }
 
+  function navigateHistory(name: string, hash: string) {
+    commitNavigation(name);
+    const url = new URL(window.location.href); url.searchParams.set("history", ""); url.searchParams.set("commit", hash);
+    window.history.replaceState(null, "", url); window.dispatchEvent(new PopStateEvent("popstate"));
+  }
+
   function acceptStructureResult(
     plan: StructurePlan,
     result: StructureApplyResult
@@ -1046,7 +1070,8 @@ export function App() {
   function leaveTo(action: PendingLeave) {
     if (!view) return;
     if (action.kind === "navigate") {
-      commitNavigation(action.page, action.heading);
+      if (action.historyHash) navigateHistory(action.page, action.historyHash);
+      else commitNavigation(action.page, action.heading);
     } else if (action.kind === "folder") {
       setSelectedFolder(action.folderPath);
       setArea("documents");
@@ -1481,6 +1506,7 @@ export function App() {
         selected={selectedFolder !== undefined ? undefined : selected}
         selectedFolder={selectedFolder}
         area={area}
+        gitChanges={gitStatus.available ? { uncommitted: gitStatus.files.length, ahead: gitStatus.ahead } : undefined}
         diagnosticCount={diagnostics.length}
         headings={headings}
         structureAvailable={
@@ -1539,6 +1565,14 @@ export function App() {
           void loadList();
         }}
       >
+        {area === "changes" && gitStatus.available && (
+          <GitChanges status={gitStatus} pages={pages} unsaved={hasUnsavedChanges} initialPath={changePath} refresh={refreshGit} onHistory={(page, hash) => {
+            if (hasUnsavedChanges) { setPendingLeave({ kind: "navigate", page: page.name, historyHash: hash }); return; }
+            navigateHistory(page.name, hash);
+          }} />
+        )}
+        {/* Keep the editor alive while inspecting changes: its pending Markdown callbacks and undo state belong to the unsaved draft. */}
+        <div hidden={area === "changes"}>
         {area === "settings" ? (
           <AdminView
             projectRoot={bootstrap.project.projectRoot}
@@ -1627,6 +1661,7 @@ export function App() {
           />
         ) : (
         <EditorWorkspace
+          onOpenChanges={view && gitStatus.available && gitStatus.files.some((f) => f.path === view.relativePath) ? () => { setChangePath(view.relativePath); setArea("changes"); } : undefined}
           view={view}
           onNavigatePage={navigate}
           beforeBody={
@@ -1817,6 +1852,7 @@ export function App() {
           }}
         />
         )}
+        </div>
       </WorkspaceShell>
       <AppOverlays
         unsavedChanges={{
