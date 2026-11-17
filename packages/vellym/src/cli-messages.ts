@@ -9,6 +9,11 @@ export interface CliMessages {
   initHelp(): string;
   devHelp(): string;
   validateHelp(): string;
+  listHelp(): string;
+  listKindRequired(): string;
+  listKindInvalid(kind: string, available: string[]): string;
+  listWhereInvalid(): string;
+  listSummary(count: number): string;
   buildHelp(): string;
   migrateHelp(): string;
   diagnosticLabel(severity: "error" | "warning"): string;
@@ -20,6 +25,11 @@ export interface CliMessages {
   languageInvalid(): string;
   unknownCommand(command: string): string;
   initCancelled(): string;
+  initMissing(missing: string[]): string;
+  initUnknownPlugin(name: string): string;
+  initConflict(paths: string): string;
+  initComplete(target: string, created: number, skipped: number): string;
+  initNext(): string;
   migrationTargetInvalid(): string;
   migrationPlanSummary(files: number, diagnostics: number): string;
   migrationSummary(files: number): string;
@@ -31,7 +41,8 @@ const ja: CliMessages = {
 Usage:
   vellym init [directory] --size <size> --method <method> --language <ja|en> [--content-root <path>]
   vellym dev [--config <path>] [--host <address>] [--port <number>]
-  vellym validate [--config <path>] [--json]
+  vellym validate [--config <path>] [--json] [--strict]
+  vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]
   vellym build [--config <path>] [--json]
   vellym migrate --to v1 [--config <path>] [--plan] [--json]
 
@@ -45,6 +56,7 @@ Options:
   --size <value>        personal | small-team | medium-large
   --method <value>      agile | hybrid | waterfall
   --language <ja|en>    初期生成言語
+  --plugins <list>      tickets,kanban,wbs（任意）
   --content-root <path> project rootからのcontent root相対path（既定: docs）
 
 例:
@@ -69,11 +81,24 @@ content root内のYAMLを検証し、診断を表示します。
 Options:
   --config <path>    設定ファイルpath（既定: vellym.config.yaml）
   --json             機械可読なJSONで出力（各診断の詳細を含む）
+  --strict           警告も終了コード1にする
+
+通常はエラーがあれば終了コード1、それ以外は0です。--strictでは警告も対象です。
 
 例:
   vellym validate
   vellym validate --json
+  vellym validate --strict --json  # AI・CI向け
 `,
+  listHelp: () => `vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]
+
+索引行を読み取り専用で一覧します。--whereは完全一致、複数指定はANDです。
+--jsonは診断を含むJSONを出力します。
+`,
+  listKindRequired: () => "--kindを指定してください",
+  listKindInvalid: (kind, available) => `不明なkind: ${kind}。指定可能: ${available.join(", ")}`,
+  listWhereInvalid: () => "--whereはkey=valueで指定してください",
+  listSummary: (count) => `${count}件`,
   buildHelp: () => `vellym build [options]
 
 静的サイトを生成します。
@@ -108,6 +133,11 @@ Options:
   languageInvalid: () => "--languageはjaまたはenを指定してください",
   unknownCommand: (command) => `不明なコマンドです: ${command}`,
   initCancelled: () => "初期化をキャンセルしました",
+  initMissing: (missing) => `必須オプションが不足しています: ${missing.join(", ")}\n指定できる値: --size personal|small-team|medium-large, --method agile|hybrid|waterfall, --language ja|en\n例: vellym init my-project --size small-team --method hybrid --language ja --plugins tickets,kanban`,
+  initUnknownPlugin: (name) => `不明なプラグイン: ${name} (tickets, kanban, wbs)`,
+  initConflict: (paths) => `既存ファイルと競合しています: ${paths}`,
+  initComplete: (target, created, skipped) => `初期化しました: ${target}\n作成: ${created}件、skip: ${skipped}件`,
+  initNext: () => "次のコマンド:",
   migrationTargetInvalid: () => "--to v1を指定してください",
   migrationPlanSummary: (files, diagnostics) =>
     `migration予定: ${files}ファイル、診断${diagnostics}件`,
@@ -120,7 +150,8 @@ const en: CliMessages = {
 Usage:
   vellym init [directory] --size <size> --method <method> --language <ja|en> [--content-root <path>]
   vellym dev [--config <path>] [--host <address>] [--port <number>]
-  vellym validate [--config <path>] [--json]
+  vellym validate [--config <path>] [--json] [--strict]
+  vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]
   vellym build [--config <path>] [--json]
   vellym migrate --to v1 [--config <path>] [--plan] [--json]
 
@@ -134,6 +165,7 @@ Options:
   --size <value>        personal | small-team | medium-large
   --method <value>      agile | hybrid | waterfall
   --language <ja|en>    Language for generated documents
+  --plugins <list>      tickets,kanban,wbs (optional)
   --content-root <path> Content root relative to the project root (default: docs)
 
 Examples:
@@ -158,11 +190,24 @@ Validates the YAML under the content root and reports diagnostics.
 Options:
   --config <path>    Config file path (default: vellym.config.yaml)
   --json             Emit machine-readable JSON (includes each diagnostic's details)
+  --strict           Exit 1 for warnings as well
+
+Normally exits 1 for errors and 0 otherwise. With --strict, warnings also cause exit 1.
 
 Examples:
   vellym validate
   vellym validate --json
+  vellym validate --strict --json  # For AI and CI
 `,
+  listHelp: () => `vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]
+
+List index rows without modifying resources. --where matches exactly; repeated filters use AND.
+--json emits JSON including diagnostics.
+`,
+  listKindRequired: () => "--kind is required",
+  listKindInvalid: (kind, available) => `Unknown kind: ${kind}. Available: ${available.join(", ")}`,
+  listWhereInvalid: () => "--where must be key=value",
+  listSummary: (count) => `${count} row(s)`,
   buildHelp: () => `vellym build [options]
 
 Builds the static site.
@@ -197,6 +242,11 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   languageInvalid: () => "--language must be ja or en",
   unknownCommand: (command) => `Unknown command: ${command}`,
   initCancelled: () => "Initialization cancelled",
+  initMissing: (missing) => `Missing required options: ${missing.join(", ")}\nAvailable values: --size personal|small-team|medium-large, --method agile|hybrid|waterfall, --language ja|en\nExample: vellym init my-project --size small-team --method hybrid --language en --plugins tickets,kanban`,
+  initUnknownPlugin: (name) => `Unknown plugin: ${name} (tickets, kanban, wbs)`,
+  initConflict: (paths) => `init: already exists (existing_file): ${paths}`,
+  initComplete: (target, created, skipped) => `Vellym workspace created: ${target}\nCreated: ${created}, skipped: ${skipped}`,
+  initNext: () => "Next commands:",
   migrationTargetInvalid: () => "Specify --to v1",
   migrationPlanSummary: (files, diagnostics) =>
     `Migration plan: ${files} file(s), ${diagnostics} diagnostic(s)`,

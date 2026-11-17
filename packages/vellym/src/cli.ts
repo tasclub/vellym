@@ -48,6 +48,8 @@ function commandHelp(command: string): string {
       return messages.devHelp();
     case "validate":
       return messages.validateHelp();
+    case "list":
+      return messages.listHelp();
     case "build":
       return messages.buildHelp();
     case "migrate":
@@ -106,9 +108,10 @@ function output(
 
 async function validateCommand(args: string[]): Promise<number> {
   const json = args.includes("--json");
+  const strict = args.includes("--strict");
   const loaded = await loadConfig(resolveConfigPath(args), cliLanguageFromArgs(args) ?? "ja");
   if (!cliLanguageFromArgs(args)) setLanguage(loaded.config.ui.language);
-  // プラグインの失敗はすべて警告になる。validateをそれで落とさない。
+  // プラグインの失敗は警告。strictでは警告も失敗にする。
   const plugins = await loadPlugins({
     configDir: path.dirname(loaded.configPath),
     packageNames: loaded.config.plugins,
@@ -122,7 +125,39 @@ async function validateCommand(args: string[]): Promise<number> {
       ? `${summary}\n${formatDiagnostics(diagnostics)}`
       : summary;
   output(json, { pages: pageSummaries(repository) }, diagnostics, text);
-  return diagnostics.some((item) => item.severity === "error") ? 1 : 0;
+  return diagnostics.some((item) => item.severity === "error" || (strict && item.severity === "warning")) ? 1 : 0;
+}
+
+async function listCommand(args: string[]): Promise<number> {
+  const kind = option(args, "--kind");
+  if (!kind) throw new UsageError(messages.listKindRequired());
+  const filters: Array<[string, string]> = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] !== "--where") continue;
+    const value = args[++i];
+    if (!value || value.startsWith("--")) throw new UsageError(messages.optionNeedsValue("--where"));
+    const equals = value.indexOf("=");
+    if (equals < 0) throw new UsageError(messages.listWhereInvalid());
+    filters.push([value.slice(0, equals), value.slice(equals + 1)]);
+  }
+  const languageValue = option(args, "--language");
+  if (languageValue && languageValue !== "ja" && languageValue !== "en") throw new UsageError(messages.languageInvalid());
+  const loaded = await loadConfig(resolveConfigPath(args), cliLanguageFromArgs(args) ?? "ja");
+  if (!cliLanguageFromArgs(args)) setLanguage(loaded.config.ui.language);
+  const plugins = await loadPlugins({ configDir: path.dirname(loaded.configPath), packageNames: loaded.config.plugins, hostVersion: VELLYM_VERSION });
+  const kinds = pluginKinds(plugins);
+  const available = ["Page", ...[...kinds.knownKinds].filter((item) => item !== "Page").sort()];
+  if (!available.includes(kind)) throw new UsageError(messages.listKindInvalid(kind, available));
+  const repository = await loadRepository(loaded.contentRoot, undefined, kinds);
+  const rows = repository.pages.filter((entry) => entry.kind === kind).map((entry) => ({
+    name: entry.name, title: entry.title, relativePath: entry.relativePath, values: entry.indexRow ?? {}
+  })).filter((row) => filters.every(([key, value]) => {
+    const actual = row.values[key];
+    return Array.isArray(actual) ? actual.includes(value) : actual === value;
+  })).sort((a, b) => a.relativePath < b.relativePath ? -1 : a.relativePath > b.relativePath ? 1 : 0);
+  const text = [...rows.map((row) => `${row.relativePath}\t${row.title}${row.values.status !== undefined ? `\t${row.values.status}` : ""}`), messages.listSummary(rows.length)].join("\n");
+  output(args.includes("--json"), { kind, rows }, [...repository.diagnostics, ...plugins.diagnostics], text);
+  return 0;
 }
 
 async function buildCommand(args: string[]): Promise<number> {
@@ -210,7 +245,7 @@ async function main(args = process.argv.slice(2)): Promise<void> {
     return;
   }
   if (
-    ["init", "dev", "validate", "build", "migrate"].includes(command) &&
+    ["init", "dev", "validate", "list", "build", "migrate"].includes(command) &&
     args.slice(1).includes("--help")
   ) {
     process.stdout.write(commandHelp(command));
@@ -218,12 +253,12 @@ async function main(args = process.argv.slice(2)): Promise<void> {
   }
   if (command === "init") {
     const initArgs = args.slice(1);
-    const allowed = new Set(["--size", "--method", "--language", "--content-root"]);
+    const allowed = new Set(["--size", "--method", "--language", "--content-root", "--plugins"]);
     const unsupported = initArgs.find(
       (item) => item.startsWith("--") && !allowed.has(item)
     );
     if (unsupported) {
-      throw new UsageError(`initでは${unsupported}を使用できません`);
+      throw new UsageError(language === "en" ? `Unsupported init option: ${unsupported}` : `initでは${unsupported}を使用できません`);
     }
     const languageValue = option(initArgs, "--language");
     if (languageValue && languageValue !== "ja" && languageValue !== "en") {
@@ -231,11 +266,11 @@ async function main(args = process.argv.slice(2)): Promise<void> {
     }
     const sizeValue = option(initArgs, "--size");
     if (sizeValue && !["personal", "small-team", "medium-large"].includes(sizeValue)) {
-      throw new UsageError("--sizeはpersonal、small-team、medium-largeから指定してください");
+      throw new UsageError(language === "en" ? "--size must be personal, small-team, or medium-large" : "--sizeはpersonal、small-team、medium-largeから指定してください");
     }
     const methodValue = option(initArgs, "--method");
     if (methodValue && !["agile", "hybrid", "waterfall"].includes(methodValue)) {
-      throw new UsageError("--methodはagile、hybrid、waterfallから指定してください");
+      throw new UsageError(language === "en" ? "--method must be agile, hybrid, or waterfall" : "--methodはagile、hybrid、waterfallから指定してください");
     }
     await initializeProject(
       args[1] && !args[1].startsWith("--") ? args[1] : undefined,
@@ -243,13 +278,18 @@ async function main(args = process.argv.slice(2)): Promise<void> {
         size: sizeValue as import("@vellym-internal/runtime-node").ProjectSize | undefined,
         method: methodValue as import("@vellym-internal/runtime-node").DevelopmentMethod | undefined,
         language: languageValue as "ja" | "en" | undefined,
-        contentRoot: option(initArgs, "--content-root")
+        contentRoot: option(initArgs, "--content-root"),
+        plugins: option(initArgs, "--plugins")
       }
     );
     return;
   }
   if (command === "validate") {
     process.exitCode = await validateCommand(args.slice(1));
+    return;
+  }
+  if (command === "list") {
+    process.exitCode = await listCommand(args.slice(1));
     return;
   }
   if (command === "build") {

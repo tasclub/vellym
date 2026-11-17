@@ -278,6 +278,36 @@ describe("ticket plugin", () => {
     expect(codes({ status: "open", fields: {} })).toEqual(["TICKET_FIELD_REQUIRED_MISSING"]);
   });
 
+  it("checks options only for correctly typed defined fields with options", () => {
+    const tracker = record("TicketTracker", "options-tracker", "opts/tracker.yaml", {
+      statuses: [{ id: "open", label: "Open", category: "open" }],
+      fields: [
+        { id: "one", label: "One", type: "select", options: [{ value: "yes", label: "Yes" }] },
+        { id: "many", label: "Many", type: "multiselect", options: [{ value: "yes", label: "Yes" }] },
+        { id: "empty", label: "Empty", type: "select", options: [] },
+        { id: "absent", label: "Absent", type: "multiselect" }
+      ]
+    });
+    const result = project([tracker], record("Ticket", "t", "opts/t.yaml", {
+      status: "open", fields: { one: "no", many: ["yes", "no", "other"], empty: "x", absent: ["x"], extra: "x" }
+    }));
+    const options = result?.diagnostics?.filter((d) => d.code === "TICKET_FIELD_OPTION_UNDEFINED") ?? [];
+    expect(options.map((d) => d.path)).toEqual(["/spec/fields/one", "/spec/fields/many"]);
+    for (const d of options) {
+      expect(d.severity).toBe("warning");
+      expect(JSON.stringify(d.message)).toContain(d.path!.split("/").at(-1));
+    }
+    expect(JSON.stringify(options[1]?.message)).toContain("no");
+    expect(JSON.stringify(options[1]?.message)).toContain("other");
+    expect(result?.values["field:many"]).toEqual(["yes", "no", "other"]);
+    const mismatch = project([tracker], record("Ticket", "t", "opts/t.yaml", {
+      status: "open", fields: { one: 1, many: ["bad", 2] }
+    }));
+    expect(mismatch?.diagnostics?.map((d) => d.code)).toEqual([
+      "TICKET_FIELD_TYPE_MISMATCH", "TICKET_FIELD_TYPE_MISMATCH"
+    ]);
+  });
+
   it("says a ticket outside every tracker is not lost, only unlisted", () => {
     const projection = project(
       trackers,

@@ -13,7 +13,7 @@ spec:
       content: |
         ## 概要
 
-        現在のCLIは、`init`・`dev`・`validate`・`build`・`migrate`の5コマンドを提供する。
+        現在のCLIは、`init`・`dev`・`validate`・`list`・`build`・`migrate`を提供する。
         以下は生成済みCLIを直接呼ぶ例で示す。
 
         ```bash
@@ -42,8 +42,23 @@ spec:
         | `--method <value>` | `agile`、`hybrid`、`waterfall`のいずれか。 |
         | `--language ja\|en` | UIと初期文書の言語。 |
         | `--content-root <path>` | 正本を置くディレクトリ（project rootからの相対path）。 |
+        | `--plugins <list>` | 公式プラグインの短縮名をカンマ区切り（例`tickets,kanban,wbs`）。設定ファイルと`package.json`の依存に公式パッケージを追加する。未知の名前は候補を一覧にして終了コード`1`。 |
         CLIは対話選択を行わず、指定した規模と開発方式の厳格構成を一括生成する。
         個別候補の追加・除外はブラウザの初期セットアップまたは設定画面で行う。
+
+        **必須引数の候補表示**
+
+        `--size`・`--method`・`--language`のどれかが無い場合は、足りないオプションと
+        指定できる値、実行例を一覧表示して終了コード`1`で終わる。`--language`が未指定なら
+        候補は日英の両方で表示される。値を決められる側（AIエージェントを含む）は、
+        一覧から選んで必要なオプションをすべて指定し直して実行する。
+
+        **公式プラグインの導入**
+
+        `--plugins`は公式パッケージを`vellym.config.yaml`の`plugins`と`package.json`の
+        `dependencies`に書き込むだけで、`npm install`は実行しない。生成されたプロジェクトの
+        ルートで`npm install`してから`vellym dev`を起動する。公式プラグインの導入は
+        [[using-plugins|プラグインを使う]]を参照。
 
         **安全な初期化**
 
@@ -65,14 +80,20 @@ spec:
 
         設定ファイルが無いディレクトリで起動すると、ブラウザの初期セットアップを表示する。
 
+        ## list — 索引の一覧
+
+        `vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]`はリソースを変更せず索引行を表示する。`--where`は完全一致、配列は要素の一致、複数条件はAND。`--json`は`data: { kind, rows }`と診断を出す。診断があっても終了コードは0、kind省略・未知のkind・不正な条件は2。検証は`validate`を使う。
+
         ## validate — 検証
 
         ```bash
-        vellym validate [--json] [--config <path>]
+        vellym validate [--json] [--strict] [--config <path>]
         ```
 
         正本を読み込み、ページ数と診断（エラー・警告）を表示する。エラーが1件でもあれば
-        終了コードは`1`になる。`--json`で機械可読な出力にできる。
+        終了コードは`1`になり、それ以外は`0`。`--strict`では警告も終了コード`1`の対象になる。
+        `--json`で機械可読な出力にでき、AI・CIでは`vellym validate --strict --json`を使える。
+        JSONの診断の重大度は変わらない。
 
         ## build — 静的サイト生成
 
@@ -111,7 +132,7 @@ spec:
           content: |
             ## Overview
 
-            The CLI provides four commands: `init`, `dev`, `validate`, and `build`.
+            The CLI provides `init`, `dev`, `validate`, `list`, `build`, and `migrate`.
             The examples below invoke the built CLI directly.
 
             ```bash
@@ -141,9 +162,25 @@ spec:
             | `--method <value>` | One of `agile`, `hybrid`, or `waterfall`. |
             | `--language ja\|en` | Language of the UI and initial documents. |
             | `--content-root <path>` | Directory that holds the source (relative to project root). |
+            | `--plugins <list>` | Official plugin short names, comma-separated (example: `tickets,kanban,wbs`). Adds the official packages to the config file and to `package.json` dependencies. An unknown name lists the candidates and exits with code `1`. |
             The CLI is non-interactive and creates the strict structure for the selected size
             and development method. Add or remove individual candidates in the browser setup
             or later from Settings.
+
+            **Candidate list for missing options**
+
+            If `--size`, `--method`, or `--language` is missing, the CLI lists the missing
+            options, the values they accept, and example commands, then exits with code `1`.
+            When `--language` itself is unset, the candidates appear in both Japanese and
+            English. Whoever chooses the values (an AI agent included) picks from that list
+            and reruns with every required option.
+
+            **Official plugin installation**
+
+            `--plugins` only writes the official packages into `plugins` in
+            `vellym.config.yaml` and `dependencies` in `package.json`; it never runs
+            `npm install`. Run `npm install` in the generated project root, then start
+            `vellym dev`. See [[using-plugins|Using Plugins]] for the official plugins.
 
             **Safe initialization**
 
@@ -169,15 +206,21 @@ spec:
 
             Started in a directory with no config file, it shows the in-browser setup.
 
+            ## list — index rows
+
+            `vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]` lists index rows without modifying resources. `--where` matches exactly, including array elements; repeated conditions are ANDed. `--json` emits `data: { kind, rows }` and diagnostics. Diagnostics do not change exit code 0; missing or unknown kind and invalid filters exit 2. Use `validate` to check resources.
+
             ## validate — validate
 
             ```bash
-            vellym validate [--json] [--config <path>]
+            vellym validate [--json] [--strict] [--config <path>]
             ```
 
             Loads the source and reports the page count and diagnostics (errors / warnings).
-            If there is at least one error the exit code is `1`. Use `--json` for
-            machine-readable output.
+            If there is at least one error the exit code is `1`, otherwise `0`. With
+            `--strict`, warnings also cause exit code `1`. Use `--json` for machine-readable
+            output; AI and CI can use `vellym validate --strict --json`. Diagnostic severities
+            in JSON remain unchanged.
 
             ## build — static site
 

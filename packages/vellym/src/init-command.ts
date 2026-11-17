@@ -1,4 +1,6 @@
 import path from "node:path";
+import { PLUGIN_VERSIONS } from "./version.js";
+import { getMessages } from "./cli-messages.js";
 import {
   applyProjectSetup,
   planProjectSetup,
@@ -12,6 +14,7 @@ export interface InitializeOptions {
   method?: DevelopmentMethod;
   contentRoot?: string;
   language?: SetupLanguage;
+  plugins?: string;
 }
 
 export async function initializeProject(
@@ -23,8 +26,15 @@ export async function initializeProject(
   if (!options.method) missing.push("--method");
   if (!options.language) missing.push("--language");
   if (missing.length) {
-    throw new Error(`initには次の引数が必要です: ${missing.join(" ")}`);
+    const detail = (lang: SetupLanguage) => getMessages(lang).initMissing(missing);
+    throw new Error(options.language ? detail(options.language) : `${detail("ja")}\n\n${detail("en")}`);
   }
+  const messages = getMessages(options.language!);
+  const names = options.plugins === undefined ? [] : [...new Set(options.plugins.split(",").map((name) => name.trim()))];
+  for (const name of names) {
+    if (!Object.hasOwn(PLUGIN_VERSIONS, name)) throw new Error(messages.initUnknownPlugin(name));
+  }
+  const pluginPackages = names.map((name) => ({ name: `@vellym/${name}`, version: PLUGIN_VERSIONS[name]! }));
 
   const target = path.resolve(targetArgument ?? ".");
   const baseOptions = {
@@ -33,6 +43,7 @@ export async function initializeProject(
     method: options.method!,
     level: "strict" as const,
     contentRoot: options.contentRoot ?? "docs",
+    pluginPackages,
     language: options.language!
   };
   let plan = await planProjectSetup(target, baseOptions);
@@ -51,14 +62,12 @@ export async function initializeProject(
     });
   }
 
+  const conflicts = plan.files.filter((file) => file.status === "conflict");
+  if (conflicts.length) throw new Error(messages.initConflict(conflicts.map((file) => file.relativePath).join(", ")));
   await applyProjectSetup(plan);
   const created = plan.files.filter((file) => file.status === "create");
   const skipped = plan.files.filter((file) => file.status === "skip");
-  process.stdout.write(
-    `初期化しました: ${target}\n` +
-      `作成: ${created.length}件、skip: ${skipped.length}件\n`
-  );
-  for (const file of skipped) {
-    process.stdout.write(`skip: ${file.relativePath}\n`);
-  }
+  process.stdout.write(`${messages.initComplete(target, created.length, skipped.length)}\n`);
+  for (const file of skipped) process.stdout.write(`skip: ${file.relativePath}\n`);
+  process.stdout.write(`${messages.initNext()}\n${pluginPackages.length ? "  npm install\n" : ""}  npx vellym dev\n`);
 }

@@ -4,6 +4,8 @@
 
 ## English
 
+Ticket index keys are `status`, `tracker`, `trackers`, `labels`, and `field:<id>`. Query without writing: `vellym list --kind Ticket --where status=ready --json` or `vellym list --kind Ticket --where field:priority=high`.
+
 Official ticket-management plugin for [Vellym](https://vellym.tasclub.com/en/).
 
 Add ticket management to Vellym's document tree. You can keep separate trackers for development, testing, release preparation, and other workflows, each with its own statuses and fields.
@@ -44,6 +46,7 @@ New tickets created in the UI are saved by default under `<tracker-folder>/+tick
 Open a tracker and choose **Configure this tracker** to define statuses and fields. Configure the workflow and fields such as priority, assignee, and due date for each process.
 
 If a definition change makes existing ticket values inconsistent, Vellym reports warnings. Tickets remain readable and editable, and values are never silently deleted.
+Values outside defined `select` or `multiselect` options are warned about and retained.
 
 To use parent-child relationships, add a field of type `reference` and select it under **Parent reference field** in the settings. Installing `@vellym/wbs` displays that hierarchy in the WBS view. Circular references and missing parents are reported as warnings; tickets are not removed. Trackers that do not select a parent field behave as before.
 
@@ -152,6 +155,8 @@ MIT
 
 ## 日本語
 
+Ticketの索引キーは`status`、`tracker`、`trackers`、`labels`、`field:<項目ID>`。読み取り専用の例: `vellym list --kind Ticket --where status=ready --json`、`vellym list --kind Ticket --where field:priority=high`。
+
 Trackerの `spec.summary`（例: `summary: [{ field: priority, method: breakdown }]`）で、一覧に絞り込み後の全行の集計を表示します。静的出力にも表示し、型の合わない値は除外件数を示します。
 
 [Vellym](https://vellym.tasclub.com/)の公式チケット管理プラグインです。
@@ -192,6 +197,7 @@ plugins:
 Trackerを開き、「このチケット管理の設定」からステータスと項目を定義します。工程ごとに必要な流れや、優先度、担当、期限などを設定できます。
 
 定義を変更した結果、既存チケットのステータスや項目と食い違っても、Vellymはすべて警告として扱います。チケットは読める状態、編集できる状態を保ち、値を勝手に削除しません。
+`select`や`multiselect`の選択肢にない値も警告され、保持されます。
 
 親子関係を使う場合は`reference`型の項目を追加し、設定画面の「親を指す参照項目」で選びます。`@vellym/wbs`を導入すると、その定義に基づく階層をWBS画面で表示できます。循環や見つからない親は警告として示し、チケットは消しません。親を選ばないTrackerの挙動は変わりません。
 

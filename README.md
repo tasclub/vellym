@@ -33,6 +33,8 @@ cd myproject
 npx vellym@beta dev
 ```
 
+For ticket management, add `--plugins tickets,kanban` to `init`, then run `npm install` in the project before `npx vellym dev`. Create your first tracker in the UI or follow the [AI setup guide](https://vellym.tasclub.com/en/#page=getting-started).
+
 `dev` binds to `127.0.0.1` by default. Run `vellym dev --host 0.0.0.0` only when you need to connect from outside the container. Then open `http://127.0.0.1:4173` in a browser.
 
 Vellym has no authentication. Anyone who can reach a server started with `--host 0.0.0.0` can read and edit documents and change their structure. Use it only on a trusted network. With the default loopback binding, the `Host` header is restricted to `localhost`, `127.0.0.1`, and `[::1]`.
@@ -169,6 +171,8 @@ Word や Notion は AI エージェントが構造的に扱いにくく、素の
 ## クイックスタート
 
 必須環境は Node.js 22.12 以降と npm（Active LTS の 22・24 で動作確認）。22.12 未満では JSON モジュールを安定して読み込めないため、動作対象外とする。
+
+Ticket管理には`init`に`--plugins tickets,kanban`を付け、プロジェクト内で`npm install`を実行する。最初のTrackerは画面または[導入ガイド](https://vellym.tasclub.com/#page=getting-started)で作成する。
 
 ```bash
 # CLI で初期化してからブラウザで起動

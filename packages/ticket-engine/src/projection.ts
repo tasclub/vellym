@@ -203,6 +203,19 @@ export function projectTicket(
           }
         )
       );
+      continue;
+    }
+    if ((definition.type === "select" || definition.type === "multiselect") && definition.options?.length) {
+      const allowed = new Set(definition.options.map((option) => option.value));
+      const selected = Array.isArray(value) ? value as string[] : [value as string];
+      const undefinedValues = selected.filter((item) => !allowed.has(item));
+      if (undefinedValues.length) {
+        const list = JSON.stringify(undefinedValues);
+        diagnostics.push(warn(record, `/spec/fields/${id}`, "TICKET_FIELD_OPTION_UNDEFINED", {
+          ja: `項目の選択肢に無い値です: ${id}: ${list}`,
+          en: `Field has undefined option values: ${id}: ${list}`
+        }));
+      }
     }
   }
 

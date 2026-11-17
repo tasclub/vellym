@@ -10,6 +10,7 @@ const packageManifest = JSON.parse(
   await readFile(path.join(root, "packages/vellym/package.json"), "utf8")
 );
 const version = packageManifest.version;
+const pluginVersions = Object.fromEntries(await Promise.all(["tickets", "kanban", "wbs"].map(async (name) => [name, JSON.parse(await readFile(path.join(root, `packages/plugin-${name}/package.json`), "utf8")).version])));
 
 await rm(output, { recursive: true, force: true });
 await mkdir(path.join(output, "schemas"), { recursive: true });
@@ -25,7 +26,8 @@ await build({
   conditions: ["vellym-source", "module"],
   target: "node22",
   define: {
-    __VELLYM_VERSION__: JSON.stringify(version)
+    __VELLYM_VERSION__: JSON.stringify(version),
+    __VELLYM_PLUGIN_VERSIONS__: JSON.stringify(pluginVersions)
   },
   banner: {
     js: "#!/usr/bin/env node\nimport { createRequire as __vellymCreateRequire } from 'node:module';\nconst require = __vellymCreateRequire(import.meta.url);"

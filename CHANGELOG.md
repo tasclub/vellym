@@ -1,5 +1,7 @@
 # 変更履歴
 
+- Add read-only `vellym list` for querying plugin index rows.
+
 
 - Share summary calculations through plugin-api and support Tracker `spec.summary`, with Kanban overrides.
 このファイルは [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に従い、
@@ -15,6 +17,9 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 - Trackerの集計で`groupBy`による値別集計に対応した。
 
+- `init --plugins tickets,kanban,wbs`で公式プラグイン依存を生成し、初期化メッセージの日英切替と次のコマンドの案内に対応した。
+
+- `validate --strict`で警告も失敗にでき、Ticketの選択肢にない値を保持したまま警告する。
 
 - WBSに折りたたみ中・要確認の行を含む全チケットの集計を表示し、静的出力にも対応した。
 - Ticket一覧に絞り込み後の全行の集計を表示し、静的出力にも対応した。

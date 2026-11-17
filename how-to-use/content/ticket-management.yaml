@@ -9,6 +9,8 @@ spec:
     - id: ticket-management
       type: rich-text
       content: |
+        CLIのTicket索引キーは`status`・`tracker`・`trackers`・`labels`・`field:<項目ID>`。`vellym list --kind Ticket --where status=ready --json`や`vellym list --kind Ticket --where field:priority=high`で読み取り専用に検索できる。`_`配下はTracker一覧から除外されるが、CLIは読み込んだ全Ticketを出す。`_`配下は索引行がなく`values`は空、その他の所属のないTicketは`values.tracker`が空文字列となる。
+
         ## はじめる
 
         先に`@vellym/tickets`をインストールして有効にする。手順は
@@ -166,6 +168,7 @@ spec:
 
         型に合わない値も、Vellymは削除せず警告として表示する。定義を1つ変えただけで
         大量のチケットが編集不能になるのを避けるためである。
+        `select`や`multiselect`の選択肢にない値も警告され、値は保持される。
 
         機械検証には
         <https://vellym.tasclub.com/schemas/v1/ticket.schema.json> と
@@ -183,6 +186,8 @@ spec:
         - id: ticket-management
           type: rich-text
           content: |
+            Ticket index keys are `status`, `tracker`, `trackers`, `labels`, and `field:<id>`. Query read-only with `vellym list --kind Ticket --where status=ready --json` or `vellym list --kind Ticket --where field:priority=high`. Tickets under `_` are excluded from tracker lists but the CLI includes all loaded tickets; these have empty `values`, while other tickets without an owner have an empty `values.tracker`.
+
             ## Get started
 
             Install and enable `@vellym/tickets` first. See
@@ -346,6 +351,8 @@ spec:
 
             Values that do not match the type are reported as warnings, never removed. This
             keeps one edit to a definition from making a large number of tickets uneditable.
+            Values outside the defined `select` or `multiselect` options also produce warnings
+            and are retained.
 
             For machine validation, use
             <https://vellym.tasclub.com/schemas/v1/ticket.schema.json> and
