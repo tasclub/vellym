@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import styles from "./table.module.css";
 
@@ -56,8 +57,26 @@ export function DataTable<Row>(props: {
   caption?: string;
 }) {
   const { selection } = props;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [overflow, setOverflow] = useState(false);
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+    const measure = () => setOverflow(scroll.scrollWidth > scroll.clientWidth);
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroll);
+    if (scroll.firstElementChild) observer.observe(scroll.firstElementChild);
+    return () => observer.disconnect();
+  });
   return (
-    <div className={styles.scroll}>
+    <div ref={scrollRef} className={styles.scroll} tabIndex={overflow ? 0 : undefined}
+      role={overflow && props.caption ? "region" : undefined}
+      aria-label={overflow ? props.caption : undefined}>
       <table className={styles.table}>
         {props.caption ? (
           <caption className="visually-hidden">{props.caption}</caption>

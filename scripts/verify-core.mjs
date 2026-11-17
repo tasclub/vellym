@@ -391,6 +391,35 @@ async function verifyNarrowTicketViews() {
         };
         await check();
         await button.click();
+        if (name === "チケット一覧" && width === 390) {
+          const table = page.locator("table").first();
+          await table.waitFor();
+          const region = table.locator("..");
+          await page.waitForFunction((el) => el.getAttribute("tabindex") === "0", await region.elementHandle());
+          const caption = await table.locator("caption").textContent();
+          assert(await region.getAttribute("role") === "region" && await region.getAttribute("aria-label") === caption, "表のスクロール領域に名前がありません");
+          await page.evaluate(() => document.activeElement.blur());
+          let reached = false;
+          for (let i = 0; i < 200; i++) {
+            await page.keyboard.press("Tab");
+            if (await region.evaluate((el) => el === document.activeElement)) { reached = true; break; }
+          }
+          assert(reached, "表のスクロール領域へTabで到達できません");
+          const outline = await region.evaluate((el) => getComputedStyle(el).outlineStyle);
+          assert(outline !== "none", "表のフォーカスの輪がありません");
+          for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowRight");
+          await page.waitForTimeout(300);
+          const visible = await region.evaluate((el) => {
+            const regionRect = el.getBoundingClientRect();
+            const last = el.querySelector("thead th:last-child").getBoundingClientRect();
+            return el.scrollLeft > 0 && last.left >= regionRect.left - 1 && last.right <= regionRect.right + 1;
+          });
+          assert(visible, "右矢印で最後の列に到達できません");
+          await page.setViewportSize({ width: 1280, height: 900 });
+          await page.waitForFunction((el) => el.scrollWidth <= el.clientWidth && !el.hasAttribute("tabindex"), await region.elementHandle());
+          await page.setViewportSize({ width, height: 900 });
+          await page.waitForFunction((el) => el.getAttribute("tabindex") === "0", await region.elementHandle());
+        }
         if (name === "WBS") await page.locator(".wbs-row[data-ticket-name] .wbs-left").first().waitFor();
         await check();
       }
