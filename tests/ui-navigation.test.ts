@@ -8,6 +8,8 @@ import { AdminView } from "../packages/ui-react/src/shell/admin-view.js";
 import { LanguageSwitcher } from "../packages/ui-react/src/shell/language-switcher.js";
 import { FolderLanguageControls } from "../packages/ui-react/src/editor/folder-language-controls.js";
 import { createFolderEditSession } from "../packages/ui-react/src/editor/folder-edit-session.js";
+import ja from "../packages/ui-react/src/locales/ja.json";
+import en from "../packages/ui-react/src/locales/en.json";
 
 describe("DocumentTree", () => {
   it("renders physical folders and document titles as an accessible tree", () => {
@@ -125,6 +127,17 @@ describe("DocumentTree", () => {
     expect(html).toContain("設定・管理詳細");
     expect(html).toContain("broken.yaml");
     expect(html).toContain("他の文書は利用できます");
+    expect(html).toContain(ja["admin.projectRootHelp"]);
+    expect(html).toContain(ja["admin.configFileHelp"]);
+    expect(html).toContain(ja["admin.contentRootRelativeHelp"]);
+    expect(html).toContain(ja["admin.resolvedContentRootHelp"]);
+    expect(html).toContain(ja["admin.saveMethodHelp"]);
+    expect(html).toMatch(/<summary>\s*<span[^>]*aria-hidden="true"[^>]*>▶<\/span>/);
+  });
+
+  it("keeps settings translation keys in sync", () => {
+    const keys = (dict: object) => Object.keys(dict).filter((key) => key.startsWith("admin.")).sort();
+    expect(keys(ja)).toEqual(keys(en));
   });
 
   it("renders only the current Page's published locales using self names", () => {

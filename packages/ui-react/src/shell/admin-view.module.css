@@ -11,6 +11,7 @@
 .panel dl div { display:grid; grid-template-columns:minmax(140px,1fr) 2fr; gap:var(--space-4); padding:var(--space-3) 0; border-top:1px solid var(--border-subtle); }
 .panel dt { color:var(--text-muted); }
 .panel dd { margin:0; overflow-wrap:anywhere; }
+.panel dd p { margin-top:var(--space-1); font-size:var(--size-caption); }
 .panelHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-4); }
 .panelHeading p { margin-top:var(--space-1); }
 /* ボタンの見た目は共通部品が持つ。**ここで作り直さない。** */
@@ -21,8 +22,10 @@
 .configField input { min-height:40px; padding:var(--space-2) var(--space-3); border:1px solid var(--border-strong); }
 .configPreview { display:grid; gap:var(--space-1); margin-top:var(--space-4); padding:var(--space-3); background:var(--surface-sunken); }
 .configActions { margin-top:var(--space-4); }
-.advancedPanel > summary { display:flex; align-items:center; gap:var(--space-2); cursor:pointer; font-size:var(--size-h3); font-weight:600; list-style:revert; }
-.advancedPanel > summary::-webkit-details-marker { display:revert; }
+.advancedPanel > summary { display:flex; align-items:center; gap:var(--space-2); cursor:pointer; font-size:var(--size-h3); font-weight:600; list-style:none; }
+.advancedPanel > summary::-webkit-details-marker { display:none; }
+.advancedMarker { display:inline-block; flex:none; font-size:.75em; }
+.advancedPanel[open] .advancedMarker { transform:rotate(90deg); }
 .advancedPanel[open] > summary { margin-bottom:var(--space-2); }
 .advancedSummaryNote { color:var(--text-muted); font-weight:400; font-size:var(--size-caption); }
 .archivedEmpty { margin-top:var(--space-4); color:var(--text-muted); }

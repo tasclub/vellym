@@ -193,11 +193,11 @@ export function AdminView(props: {
       <section className={styles.panel} aria-labelledby="source-title">
         <h2 id="source-title">{t("admin.sourceTitle")}</h2>
         <dl>
-          <div><dt>{t("admin.projectRoot")}</dt><dd><code>{props.projectRoot}</code></dd></div>
-          <div><dt>{t("admin.configFile")}</dt><dd><code>{props.configPath}</code></dd></div>
-          <div><dt>{t("admin.contentRootRelative")}</dt><dd><code>{props.contentRoot}</code></dd></div>
-          <div><dt>{t("admin.resolvedContentRoot")}</dt><dd><code>{props.resolvedContentRoot}</code></dd></div>
-          <div><dt>{t("admin.saveMethod")}</dt><dd>{t("admin.saveMethodValue")}</dd></div>
+          <div><dt>{t("admin.projectRoot")}</dt><dd><code>{props.projectRoot}</code><p>{t("admin.projectRootHelp")}</p></dd></div>
+          <div><dt>{t("admin.configFile")}</dt><dd><code>{props.configPath}</code><p>{t("admin.configFileHelp")}</p></dd></div>
+          <div><dt>{t("admin.contentRootRelative")}</dt><dd><code>{props.contentRoot}</code><p>{t("admin.contentRootRelativeHelp")}</p></dd></div>
+          <div><dt>{t("admin.resolvedContentRoot")}</dt><dd><code>{props.resolvedContentRoot}</code><p>{t("admin.resolvedContentRootHelp")}</p></dd></div>
+          <div><dt>{t("admin.saveMethod")}</dt><dd>{t("admin.saveMethodValue")}<p>{t("admin.saveMethodHelp")}</p></dd></div>
         </dl>
       </section>
       <section className={styles.panel} aria-labelledby="language-title">
@@ -269,6 +269,7 @@ export function AdminView(props: {
           既定で折りたたんでおく。 */}
       <details className={`${styles.panel} ${styles.advancedPanel}`}>
         <summary>
+          <span className={styles.advancedMarker} aria-hidden="true">▶</span>
           {t("admin.slugMigrationTitle")}
           <span className={styles.advancedSummaryNote}>
             {t("admin.advancedLabel")}
