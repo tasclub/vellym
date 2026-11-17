@@ -118,7 +118,7 @@ export function DocumentView({
       window.history.replaceState(
         null,
         "",
-        documentPagePath(route.locale, route.page, targetId)
+        documentPagePath(route.locale, route.page) + window.location.search + `#${encodeURIComponent(targetId)}`
       );
     } else {
       const params = new URLSearchParams(window.location.hash.slice(1));

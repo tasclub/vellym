@@ -22,6 +22,7 @@ import type {
 } from "./save-state.js";
 import { draftCopyText } from "./save-state.js";
 import { DocumentView } from "./view.js";
+import { HistoryDocument } from "./git-history.js";
 import { errorMessage } from "../shared/error-message.js";
 import { Button } from "../shared/button.js";
 import styles from "./editor-workspace.module.css";
@@ -225,6 +226,7 @@ export function EditorWorkspace(props: {
   beforeBody?: ReactNode;
   /** 紙の外、いちばん上に出すもの。一覧へ戻る導線のように紙の内容でないもの */
   aboveSurface?: ReactNode;
+  onOpenChanges?(): void;
   view?: PageView;
   draft?: PageView;
   conflictView?: PageView;
@@ -353,10 +355,12 @@ export function EditorWorkspace(props: {
         {props.aboveSurface}
         <Notices {...props} view={props.view} draft={props.draft} />
         <div className="document-paper">
-          <DocumentView
+          <HistoryDocument
+            key={props.view.relativePath}
             view={props.view}
             onNavigatePage={props.onNavigatePage}
             beforeBody={props.beforeBody}
+            onOpenChanges={props.onOpenChanges}
             headerActions={
               props.languageSwitcher || props.canEdit ? (
                 <div className={styles["document-actions"]}>

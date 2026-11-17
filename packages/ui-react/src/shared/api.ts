@@ -12,6 +12,7 @@ import type {
   PageView,
   SearchProjection
 } from "@vellym-internal/core";
+import { API_SCHEMA_VERSION } from "@vellym-internal/core";
 
 export interface Envelope<T> {
   /** HTTP応答と静的データの封筒形式の版。 */
@@ -20,6 +21,45 @@ export interface Envelope<T> {
   data: T;
   diagnostics: Diagnostic[];
 }
+
+export interface GitCommit {
+  hash: string;
+  date: string;
+  author: string;
+  subject: string;
+}
+export interface GitHistoryData {
+  commits: Array<GitCommit & { rename?: { from: string; to: string } }>;
+  /** Index tracking and worktree/index changes (including non-ignored untracked files). */
+  tracked: boolean;
+  uncommitted: boolean;
+  nextOffset: number | null;
+}
+export type GitResult<T> =
+  | { available: false; reason: "unavailable" }
+  | ({ available: true; shallow: boolean; boundaryTruncated?: boolean } & T);
+
+function fetchGit<T>(operation: string, params: Record<string, string>, signal?: AbortSignal): Promise<Envelope<GitResult<T>>> {
+  if (isStaticApp()) return Promise.resolve({ apiSchemaVersion: API_SCHEMA_VERSION, data: { available: false, reason: "unavailable" }, diagnostics: [] });
+  return request(`/api/v1/git/${operation}?${new URLSearchParams(params)}`, { signal });
+}
+
+export function fetchGitHistory(filePath: string, limit = 50, signal?: AbortSignal, offset = 0): Promise<Envelope<GitResult<GitHistoryData>>> {
+  return fetchGit("history", { path: filePath, limit: String(limit), offset: String(offset) }, signal);
+}
+/** Omit revisions for last commit → worktree; from="" uses empty content.
+ * context="all" includes every unchanged line for client-side folding/expansion. */
+export function fetchGitDiff(filePath: string, from?: string, to?: string, signal?: AbortSignal, context: number | "all" = 3): Promise<Envelope<GitResult<{ diff: string }>>> {
+  return fetchGit("diff", { path: filePath, ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}), context: String(context) }, signal);
+}
+/** Raw YAML, interpreted by the same Core parser as current documents. */
+export function fetchGitContent(filePath: string, revision: string, signal?: AbortSignal): Promise<Envelope<GitResult<{ source: string }>>> {
+  return fetchGit("content", { path: filePath, revision }, signal);
+}
+export function fetchGitRecent(limit = 50, signal?: AbortSignal, offset = 0): Promise<Envelope<GitResult<{ nextOffset: number | null; commits: Array<GitCommit & { files: Array<{ path: string; status: string; title?: string }> }> }>>> {
+  return fetchGit("recent", { limit: String(limit), offset: String(offset) }, signal);
+}
+
 
 export interface BootstrapData {
   state: "setup" | "config-error" | "ready";

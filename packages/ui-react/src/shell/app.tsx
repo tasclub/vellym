@@ -515,7 +515,10 @@ export function App() {
     if (!route.legacy && route.locale && route.page) {
       const canonical = documentPagePath(route.locale, route.page, route.heading);
       if (`${window.location.pathname}${window.location.hash}` !== canonical) {
-        window.history.replaceState(null, "", canonical);
+        // Document subviews (such as ?history) are independent of path normalization.
+        const canonicalUrl = new URL(canonical, window.location.href);
+        canonicalUrl.search = window.location.search;
+        window.history.replaceState(null, "", canonicalUrl);
       }
     }
     void loadBootstrap(controller.signal);

@@ -18,6 +18,7 @@ import {
   type ContentRootPlan
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
+import { readGitHistory } from "./git-history.js";
 import {
   createPluginResource,
   parsePluginResourceDraft,
@@ -502,7 +503,7 @@ export async function startDevServer(options: {
     const activeWatcher = watch(loadedConfig.contentRoot, {
       ignoreInitial: true,
       followSymlinks: false,
-      ignored: /(^|[/\\])\.[^/\\]*\.vellym-[^/\\]*\.tmp$/
+      ignored: [/(^|[/\\])\.[^/\\]*\.vellym-[^/\\]*\.tmp$/, /(^|[/\\])\.git([/\\]|$)/]
     });
     watcher = activeWatcher;
     activeWatcher.once("ready", () => {
@@ -805,6 +806,13 @@ export async function startDevServer(options: {
             skipped: plan.files.filter((file) => file.status === "skip")
           })
         );
+        return;
+      }
+      if (request.method === "GET" && /^\/api\/v1\/git\/(history|diff|content|recent)$/.test(url.pathname)) {
+        const ready = requireReady();
+        json(response, 200, envelope(await readGitHistory(
+          ready.loadedConfig.contentRoot, url.pathname.split("/").at(-1)!, url.searchParams
+        )));
         return;
       }
       if (

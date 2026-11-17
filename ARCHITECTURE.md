@@ -192,6 +192,25 @@ comes from being local:
 If you add an endpoint, it inherits the header and origin handling from the shared
 helpers — but the path boundary check is per-operation and must be written explicitly.
 
+## Read-only Git endpoints (dynamic server only)
+
+`GET /api/v1/git/history?path=…&limit=50` returns newest-first commits
+(`hash`, `date`, `author`, `subject`). `content?path=…&revision=<hash>` returns raw
+YAML as `source`; `diff?path=…&from=<hash>&to=<hash>` returns unified `diff`.
+Omitting `to` compares with the working file; omitting both revisions compares
+the last commit with the working file. `recent?limit=50` returns content-root
+commits and their changed `files` (`path`, `status`). Limits are 1–100.
+All use the existing envelope. Data has `available: false` when Git/history is
+unavailable, otherwise `available: true`, `shallow`, and operation-specific data.
+File operations also return `boundaryTruncated` when rename following stops at
+the content-root boundary. They follow the first-parent history from HEAD;
+revisions must be ancestors of HEAD. A rename outside the root terminates the
+chain permanently, even if older history re-enters the root. Historical symlinks
+and submodules are not read. Request paths use the write path's realpath boundary
+check; historical paths are checked in the Git tree, not today's filesystem.
+No Git paths outside the content root are returned. This independent read path
+does not alter repository loading, writing, bootstrap or static output.
+
 ## Version identifiers
 
 Several independent contracts carry their own version. They are **not** meant to move

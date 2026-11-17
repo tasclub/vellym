@@ -102,10 +102,13 @@ describe("shared parts", () => {
      * 並べ替え・`aria-sort`・横スクロール・選択列を各画面で書き直すと、
      * 必ず品質が落ちる。
      *
-     * `view.tsx`だけは例外である。**利用者が本文に書いた表**を描く場所で、
+     * `view.tsx`は例外である。**利用者が本文に書いた表**を描く場所で、
      * 列と行のモデルを持たないため`DataTable`が当てはまらない。
+     * `git-diff.tsx`もデータ一覧ではなくソースコードの行差分である。
+     * 仕様上の行番号th・畳み込みのcolspan・左右/1列表示はDataTableの
+     * 選択/並べ替え/スクロール契約とは異なるため専用のtableを使う。
      */
-    const allowed = new Set([path.join("packages", "ui-react", "src", "editor", "view.tsx")]);
+    const allowed = new Set(["view.tsx", "git-diff.tsx"].map((file) => path.join("packages", "ui-react", "src", "editor", file)));
     const offenders = files(".tsx")
       .filter((file) => !file.includes(`${path.sep}shared${path.sep}`))
       .filter((file) => /<table/.test(readFileSync(file, "utf8")))

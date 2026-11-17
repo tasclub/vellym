@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -455,3 +455,120 @@ async function verifyNarrowTicketViews() {
 
 await verify();
 await verifyNarrowTicketViews();
+await verifyGitHistory();
+
+async function verifyGitHistory() {
+  const fixture = await createFixture();
+  const git = (...args) => execFileSync("git", args, { cwd: fixture.root, stdio: "pipe" });
+  const original = path.join(fixture.root, "docs/content/section-0/page-000.yaml");
+  const moved = path.join(fixture.root, "docs/content/section-0/moved.yaml");
+  git("init"); git("config", "user.name", "History test"); git("config", "user.email", "history@example.invalid");
+  git("add", "."); git("commit", "-m", "Initial document");
+  await writeFile(original, pageYaml(0).replace("検証本文-000", "Committed second version"));
+  git("add", "."); git("commit", "-m", "Second version");
+  git("mv", "docs/content/section-0/page-000.yaml", "docs/content/section-0/moved.yaml");
+  git("commit", "-m", "Move document");
+  await writeFile(moved, pageYaml(0).replace("検証本文-000", "Working version " + "長い行".repeat(120)));
+  const port = await availablePort(), baseUrl = `http://127.0.0.1:${port}`;
+  const server = spawn(process.execPath, [path.resolve("packages/vellym/dist/cli.mjs"), "dev", "--config", fixture.configPath, "--port", String(port)], { stdio: ["ignore", "pipe", "pipe"] });
+  let output = "", browser;
+  server.stdout.on("data", (chunk) => { output += chunk; }); server.stderr.on("data", (chunk) => { output += chunk; });
+  try {
+    await waitUntilReady(baseUrl, () => output);
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({ locale: "ja-JP" });
+    for (const width of [390, 1024, 1280]) {
+      const page = await context.newPage();
+      page.on("pageerror", (error) => console.error("Git browser error:", error));
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${baseUrl}/ja/pages/page-000/`);
+      await page.getByRole("heading", { name: "検証ページ 000", exact: true }).waitFor();
+      const gitData = await timedJson(`${baseUrl}/api/v1/git/history?path=section-0%2Fmoved.yaml&limit=50`);
+      assert(gitData.body.data.available, `Git fixture unavailable: ${JSON.stringify(gitData.body)}`);
+      await page.getByRole("button", { name: "履歴", exact: true }).click();
+      await page.getByRole("listbox").waitFor();
+      assert(await page.getByRole("option").count() === 4, "未コミット+コミット3件がありません");
+      await page.getByText("移動: section-0/page-000.yaml → section-0/moved.yaml", { exact: true }).waitFor();
+      await page.getByRole("table").waitFor();
+      assert(await page.getByRole("option").first().evaluate((el) => el === document.activeElement), "履歴一覧へ焦点が移っていません");
+      await page.keyboard.press("ArrowDown");
+      await page.getByText("この2つの版に違いはありません。", { exact: true }).waitFor();
+      await page.getByRole("button", { name: "今との差分", exact: true }).click();
+      await page.getByRole("table").waitFor();
+      const overflow = await page.evaluate(() => [...document.querySelectorAll(".document-paper, main"), document.documentElement].map((el) => ({ width: el.clientWidth, scroll: el.scrollWidth })));
+      assert(overflow.every((m) => m.scroll <= m.width), `Git履歴overflow ${width}: ${JSON.stringify(overflow)}`);
+      await assertA11y(page, `Git履歴 ${width}`);
+      await page.getByRole("button", { name: "この版を表示", exact: true }).click();
+      await page.getByText("Committed second version", { exact: true }).waitFor();
+      assert(await page.getByRole("button", { name: "編集", exact: true }).count() === 0, "過去版に編集が出ています");
+      await page.getByRole("button", { name: "この版と今の差分", exact: true }).click();
+      await page.getByRole("table").waitFor();
+      await page.reload();
+      await page.getByRole("listbox").waitFor();
+      assert(new URL(page.url()).searchParams.has("history"), "再読み込みで履歴URLが消えました");
+      await page.getByRole("button", { name: "文書に戻る", exact: true }).click();
+      assert(await page.getByRole("button", { name: "履歴", exact: true }).evaluate((el) => el === document.activeElement), "履歴入口へ焦点が戻りません");
+      await page.goBack(); await page.getByRole("listbox").waitFor();
+      await page.goBack(); await page.getByRole("button", { name: "履歴", exact: true }).waitFor();
+      await page.close();
+    }
+    console.log("- Git history: three commits, rename, working diff, previous/current, historical rendering, reload/back, a11y and widths 390/1024/1280");
+    // Deterministic UI-only edge cases, alongside the real Git integration above.
+    const envelope = (await timedJson(`${baseUrl}/api/v1/git/history?path=section-0%2Fmoved.yaml`)).body;
+    const commits = Array.from({ length: 51 }, (_, i) => ({ hash: i.toString(16).padStart(40, "0"), date: "2026-11-10T12:00:00Z", author: "UI fixture", subject: `Commit ${i}` }));
+    let state = "pages", fail = false;
+    const edge = await context.newPage();
+    await edge.setViewportSize({ width: 1280, height: 900 });
+    await edge.route("**/api/v1/git/**", async (route) => {
+      const url = new URL(route.request().url());
+      if (fail) return route.fulfill({ status: 500, json: { error: { code: "INTERNAL", message: "failure" } } });
+      let data;
+      if (url.pathname.endsWith("history")) {
+        const offset = Number(url.searchParams.get("offset") ?? 0);
+        data = state === "unavailable" ? { available: false, reason: "unavailable" } : {
+          available: true, shallow: true, tracked: state !== "untracked", uncommitted: state === "new",
+          commits: state === "pages" ? commits.slice(offset, offset + 50) : [], nextOffset: state === "pages" && offset === 0 ? 50 : null
+        };
+      } else if (url.pathname.endsWith("content")) data = { available: true, shallow: false, source: "[broken" };
+      else data = { available: true, shallow: false, diff: state === "pages" ? `@@ -1,22 +1,22 @@\n${" context\n".repeat(10)}-old\n+new\n${" context\n".repeat(10)}` : "" };
+      await route.fulfill({ json: { ...envelope, data } });
+    });
+    await edge.goto(`${baseUrl}/ja/pages/page-000/?history`);
+    await edge.getByRole("listbox").waitFor();
+    assert(await edge.getByRole("option").count() === 50, "履歴は最初の50件ではありません");
+    await edge.getByRole("button", { name: "さらに表示", exact: true }).click();
+    await edge.getByText("これより前の履歴は、このリポジトリに含まれていません（shallow clone）。", { exact: true }).waitFor();
+    assert(await edge.getByRole("option").count() === 51, "履歴の続きを追加できません");
+    await edge.getByRole("button", { name: "7行の変更なし", exact: true }).first().click();
+    assert(await edge.getByRole("button", { name: "7行の変更なし", exact: true }).count() === 1, "差分を展開できません");
+    await edge.getByRole("button", { name: "1列", exact: true }).click();
+    await edge.reload();
+    await edge.getByRole("table").waitFor();
+    assert(await edge.getByRole("button", { name: "1列", exact: true }).getAttribute("aria-pressed") === "true", "差分の個人設定が保持されません");
+    await edge.setViewportSize({ width: 390, height: 900 });
+    assert(!await edge.getByRole("button", { name: "左右", exact: true }).isVisible(), "狭幅に差分レイアウト切替が出ています");
+    await edge.getByRole("button", { name: "この版を表示", exact: true }).click();
+    await edge.getByText("この版は表示できません。差分は見られます。", { exact: true }).waitFor();
+    state = "new";
+    await edge.reload();
+    await edge.getByText("このファイルはまだコミットされていません。", { exact: true }).waitFor();
+    await edge.getByText("この2つの版に違いはありません。", { exact: true }).waitFor();
+    fail = true; await edge.reload();
+    await edge.getByRole("alert").waitFor();
+    fail = false;
+    await edge.getByRole("button", { name: "再試行", exact: true }).click();
+    await edge.getByRole("listbox").waitFor();
+    for (state of ["unavailable", "untracked"]) {
+      await edge.goto(`${baseUrl}/ja/pages/page-000/`);
+      await edge.getByRole("heading", { name: "検証ページ 000", exact: true }).waitFor();
+      await edge.waitForLoadState("networkidle");
+      assert(await edge.getByRole("button", { name: "履歴", exact: true }).count() === 0, `${state}に履歴入口が出ています`);
+    }
+    await edge.close();
+    console.log("- Git history edge states: 50+1 pagination, shallow, folding, layout persistence, unreadable YAML, new file, failure/retry, unavailable/untracked");
+  } finally {
+    if (browser) await browser.close();
+    if (server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+}
