@@ -44,6 +44,34 @@ spec:
         | `i18n.displayNames` | いいえ | 文字列の対応表 | 言語切り替えに表示するlocale名を上書きする。 |
         | `static.publicBaseUrl` | いいえ | `/`で終わるHTTPS URL | 静的HTMLのcanonicalとhreflangに使う公開URL。未指定時はそれらを出力しない。 |
         | `plugins` | はい | 文字列の配列 | 読み込むプラグインのnpmパッケージ名。追加・削除の手順は[[using-plugins|プラグインを使う]]を参照。 |
+        | `assets.root` | いいえ | 文字列 | 画像フォルダ。設定ファイルからの相対パスか絶対パス。既定は同じ階層の`assets/`。 |
+        | `assets.maxBytes` | いいえ | 正の整数 | 保存できる画像の最大バイト数。既定は10485760（10MB）。 |
+
+        ## 画像の置き場所と参照
+
+        ```yaml
+        assets:
+          root: assets
+          maxBytes: 10485760
+        ```
+
+        PCごとの置き場所は環境変数`VELLYM_ASSETS_DIR`で上書きでき、`assets.root`より優先する。
+        相対パスはどちらも設定ファイルのあるフォルダを基準にする。NASなど外部のフォルダも指定できる。
+        外部フォルダはcontent rootのファイル監視に追加しない。
+
+        本文は置き場所によらない参照を使う。例（CommonMark）:
+
+        ```markdown
+        ![構成図](asset:2026/11/example.png)
+        ```
+
+        `asset:`の後ろは画像フォルダ内の相対パス（区切りは`/`）。`..`やフォルダ外への
+        シンボリックリンクは使えない。PNG・JPEG・GIF・WebP・AVIFに対応し、SVGには対応しない。
+        現時点では`dev`で表示でき、編集画面からの挿入と静的出力へのコピーは別の作業で対応する。
+        `validate`は参照切れをエラーにする。フォルダ自体に届かない場合は、確認できない旨の警告にする。
+
+        **プロジェクト外の画像はGitの履歴に入らない。** 別PCへcloneしても画像はコピーされない。
+        同じ外部フォルダへのアクセスや別途バックアップが必要。VellymはGitへの追加・commitを自動では行わない。
 
         ## outputDirと生成先
 
@@ -106,6 +134,36 @@ spec:
             | `i18n.displayNames` | no | string map | Overrides locale names shown in the language switcher. |
             | `static.publicBaseUrl` | no | HTTPS URL ending in `/` | Public URL used for static canonical and hreflang links. They are omitted when this setting is absent. |
             | `plugins` | yes | array of strings | npm package names of plugins to load. See [[using-plugins|Using Plugins]] for adding and removing them. |
+            | `assets.root` | no | string | Image folder: absolute or relative to the config file. Defaults to `assets/` beside the config. |
+            | `assets.maxBytes` | no | positive integer | Maximum image upload size in bytes. Defaults to 10485760 (10MB). |
+
+            ## Image storage and references
+
+            ```yaml
+            assets:
+              root: assets
+              maxBytes: 10485760
+            ```
+
+            Set `VELLYM_ASSETS_DIR` to override `assets.root` on each PC. Relative paths in either
+            setting resolve from the config file's directory. External folders such as NAS mounts are supported
+            and are not added to the content-root file watcher.
+
+            Use a storage-independent reference in the body (CommonMark):
+
+            ```markdown
+            ![Architecture](asset:2026/11/example.png)
+            ```
+
+            The part after `asset:` is a path inside the image folder, separated by `/`. Traversal
+            with `..` and symlinks escaping the folder are rejected. PNG, JPEG, GIF, WebP and AVIF are
+            supported; SVG is not. Images currently display in `dev`; editor insertion and copying images
+            into static output are separate follow-up work. `validate` reports broken references as errors,
+            but warns that references cannot be checked if the whole folder is unavailable.
+
+            **Images outside the project do not enter its Git history.** Cloning to another PC does not
+            copy them. Arrange access to the same external folder and back it up separately. Vellym does
+            not automatically add files to Git or commit them.
 
             ## outputDir and generated output
 

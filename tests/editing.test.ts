@@ -52,10 +52,14 @@ describe("rich-text editing support", () => {
   });
 
   it("reports genuinely unsupported syntax instead of silently normalizing it", () => {
-    const result = assessRichTextEditing([block("![diagram](diagram.png)")]);
+    const result = assessRichTextEditing([block("![diagram][pic]\n\n[pic]: diagram.png")]);
 
     expect(result.supported).toBe(false);
-    expect(result.reasons).toEqual(["画像を含む本文はリッチ編集できません"]);
+    expect(result.reasons).toEqual(["参照形式の画像を含む本文はリッチ編集できません", "リンク定義を含む本文はリッチ編集できません"]);
+  });
+
+  it("allows inline images, including portable asset references, to be re-edited", () => {
+    expect(assessPageEditing(view("![diagram](asset:2026/11/example.png) ![external](https://example.org/a.png)"))).toMatchObject({ supported: true, reasons: [], blocks: [{ supported: true }] });
   });
 
   it("keeps HTML, horizontal rules and tables editable rather than locking", () => {
@@ -82,7 +86,7 @@ describe("rich-text editing support", () => {
   it("marks only the offending block uneditable in a mixed page", () => {
     const editable = block("編集できる本文");
     editable.id = "intro";
-    const locked = block("![diagram](diagram.png)");
+    const locked = block("![diagram][pic]\n\n[pic]: diagram.png");
     locked.id = "raw";
     const sample = view("placeholder");
     sample.page.spec.blocks = [editable, locked];
@@ -95,7 +99,7 @@ describe("rich-text editing support", () => {
       {
         id: "raw",
         supported: false,
-        reasons: ["画像を含む本文はリッチ編集できません"]
+        reasons: ["参照形式の画像を含む本文はリッチ編集できません", "リンク定義を含む本文はリッチ編集できません"]
       }
     ]);
   });

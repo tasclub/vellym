@@ -7,6 +7,7 @@ import {
   type ReactNode
 } from "react";
 import ReactMarkdown from "react-markdown";
+import { assetUrlTransform } from "./asset-url.js";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
 import type { Root } from "mdast";
@@ -150,6 +151,7 @@ export function DocumentView({
       {view.knownBlocks.map((block) => (
         <section className={styles["rich-text"]} key={block.id} data-block-id={block.id}>
           <ReactMarkdown
+            urlTransform={assetUrlTransform}
             remarkPlugins={[remarkGfm, remarkWikiLinks]}
             components={{
               h1: heading(1),

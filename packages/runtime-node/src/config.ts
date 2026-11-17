@@ -205,6 +205,8 @@ export async function loadConfig(
     configPath: absoluteConfig,
     projectRoot,
     contentRoot,
-    outputDir
+    outputDir,
+    assetsRoot: path.resolve(projectRoot, process.env.VELLYM_ASSETS_DIR || result.config.assets?.root || "assets"),
+    assetsMaxBytes: result.config.assets?.maxBytes ?? 10 * 1024 * 1024
   };
 }

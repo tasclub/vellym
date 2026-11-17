@@ -13,6 +13,8 @@ export interface LoadedConfig {
   projectRoot: string;
   contentRoot: string;
   outputDir: string;
+  assetsRoot: string;
+  assetsMaxBytes: number;
 }
 
 export type LoadedPage = PageEntry;

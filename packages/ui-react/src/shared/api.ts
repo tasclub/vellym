@@ -335,6 +335,16 @@ export class ApiError extends Error {
   }
 }
 
+/** Raw image body: the server owns MIME/signature and configured size validation. */
+export function uploadImage(file: File, signal?: AbortSignal): Promise<Envelope<{ path: string; url: string }>> {
+  return request("/api/v1/assets", {
+    method: "POST",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+    signal
+  });
+}
+
 async function request<T>(
   input: string,
   init?: RequestInit

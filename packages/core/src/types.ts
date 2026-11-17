@@ -112,6 +112,7 @@ export interface VellymConfig {
   outputDir: string;
   ui: { language: "ja" | "en"; [key: string]: unknown };
   i18n?: I18nConfig;
+  assets?: { root?: string; maxBytes?: number; [key: string]: unknown };
   static?: { publicBaseUrl?: string; [key: string]: unknown };
   plugins: string[];
   [key: string]: unknown;

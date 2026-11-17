@@ -18,6 +18,7 @@ import {
   type ContentRootPlan
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
+import { readAsset, saveAsset } from "./assets.js";
 import { readGitHistory } from "./git-history.js";
 import { readGitChanges, writeGitChanges, readChangeDiff } from "./git-changes.js";
 import {
@@ -442,6 +443,8 @@ export async function startDevServer(options: {
   uiRoot: string;
   host?: string;
   port: number;
+  /** Embedders may disable image writes independently of read access. */
+  editorPolicy?: { images: boolean };
   /**
    * 実行中のVellym本体のversion。`engines.vellym`の判定に使う。
    * 省略するとプラグインを読み込まない。
@@ -501,6 +504,8 @@ export async function startDevServer(options: {
   const startWatcher = () => {
     if (!loadedConfig || watcher) return;
     watcherState = "connecting";
+    // External asset stores (including NAS mounts) are intentionally not watched.
+    // Only files below contentRoot participate in repository invalidation.
     const activeWatcher = watch(loadedConfig.contentRoot, {
       ignoreInitial: true,
       followSymlinks: false,
@@ -648,6 +653,27 @@ export async function startDevServer(options: {
         request.headers.origin,
         request.headers.host
       );
+      if (url.pathname === "/api/v1/assets" && request.method === "GET") {
+        const { loadedConfig: config } = requireReady();
+        const asset = await readAsset(config.assetsRoot, url.searchParams.get("path") ?? "");
+        response.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": asset.mime, "Content-Length": asset.body.length });
+        response.end(asset.body);
+        return;
+      }
+      if (url.pathname === "/api/v1/assets" && request.method === "POST") {
+        const { loadedConfig: config } = requireReady();
+        if (options.editorPolicy?.images === false) throw new RuntimeError("Image writes are disabled", 403, "ASSET_DISABLED");
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const chunk of request) {
+          size += chunk.length;
+          if (size > config.assetsMaxBytes) throw new RuntimeError("Image is too large", 413, "ASSET_LIMIT");
+          chunks.push(Buffer.from(chunk));
+        }
+        const saved = await saveAsset(config, Buffer.concat(chunks), (request.headers["content-type"] ?? "").split(";")[0]!.trim());
+        json(response, 201, envelope(saved));
+        return;
+      }
       if (
         url.pathname === "/api/v1/bootstrap" &&
         request.method === "GET"

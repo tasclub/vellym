@@ -1,3 +1,6 @@
+import { assetUrlTransform } from "./asset-url.js";
+import imageStyles from "./image-editor.module.css";
+
 export type EditorCommand =
   | "strong"
   | "emphasis"
@@ -51,6 +54,8 @@ export interface VellymEditorAdapter {
    * link markではなくテキストとして挿入する。
    */
   insertText(text: string): boolean;
+  /** Captures a position that follows edits until insertion/cancellation. */
+  imageTarget(position?: number): { insert(src: string, alt: string): void; cancel(): void };
   destroy(): Promise<void>;
 }
 
@@ -61,17 +66,20 @@ export async function createEditorAdapter(
     onChange(value: string): void;
     onFocus(): void;
     onStateChange(state: EditorStateSnapshot): void;
+    onFiles?(files: File[], position?: number): void;
+    imageAltLabel?: string;
   }
 ): Promise<VellymEditorAdapter> {
   const [
-    { Editor, defaultValueCtx, editorStateCtx, editorViewCtx, rootCtx },
+    { Editor, defaultValueCtx, editorStateCtx, editorViewCtx, rootCtx, prosePluginsCtx },
     preset,
     gfm,
     { listener, listenerCtx },
     historyPlugin,
     proseHistory,
     proseCommands,
-    proseTables
+    proseTables,
+    { Plugin }
   ] = await Promise.all([
     import("@milkdown/core"),
     import("@milkdown/preset-commonmark"),
@@ -80,7 +88,8 @@ export async function createEditorAdapter(
     import("@milkdown/plugin-history"),
     import("@milkdown/prose/history"),
     import("@milkdown/prose/commands"),
-    import("@milkdown/prose/tables")
+    import("@milkdown/prose/tables"),
+    import("@milkdown/prose/state")
   ]);
 
   let currentValue = options.value;
@@ -142,10 +151,68 @@ export async function createEditorAdapter(
     options.onStateChange(editorState);
   };
 
+  const targets = new Set<{ position: number }>();
+  let destroyed = false;
+  const imagePlugin = new Plugin({
+    state: {
+      init: () => null,
+      apply: (tr) => {
+        for (const target of targets) target.position = tr.mapping.map(target.position, 1);
+        return null;
+      }
+    },
+    props: {
+      handlePaste: (_view, event) => {
+        const files = Array.from(event.clipboardData?.files ?? []);
+        if (!files.length || !options.onFiles) return false;
+        options.onFiles(files);
+        return true;
+      },
+      handleDrop: (view, event) => {
+        const files = Array.from(event.dataTransfer?.files ?? []);
+        if (!files.length || !options.onFiles) return false;
+        event.preventDefault();
+        options.onFiles(files, view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos);
+        return true;
+      },
+      nodeViews: {
+        image: (node, view, getPos) => {
+          const dom = document.createElement("span");
+          dom.className = imageStyles["image-node"]!;
+          dom.contentEditable = "false";
+          const image = document.createElement("img");
+          const alt = document.createElement("input");
+          alt.setAttribute("aria-label", options.imageAltLabel ?? "Image alternative text");
+          alt.title = options.imageAltLabel ?? "Image alternative text";
+          const update = (value: typeof node) => {
+            image.src = assetUrlTransform(String(value.attrs.src), "src");
+            image.alt = String(value.attrs.alt ?? "");
+            alt.value = image.alt;
+          };
+          update(node);
+          alt.addEventListener("input", () => {
+            const pos = getPos();
+            if (typeof pos !== "number") return;
+            const current = view.state.doc.nodeAt(pos);
+            if (current) view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, alt: alt.value }));
+          });
+          dom.append(image, alt);
+          return {
+            dom,
+            update: (next) => { if (next.type !== node.type) return false; update(next); return true; },
+            stopEvent: (event) => event.target === alt,
+            ignoreMutation: () => true
+          };
+        }
+      }
+    }
+  });
+
   editor = await Editor.make()
     .config((ctx) => {
       ctx.set(rootCtx, root);
       ctx.set(defaultValueCtx, options.value);
+      ctx.update(prosePluginsCtx, (plugins) => [...plugins, imagePlugin]);
       ctx.get(listenerCtx)
         .markdownUpdated((_ctx, markdown) => {
           if (markdown === currentValue) return;
@@ -245,6 +312,19 @@ export async function createEditorAdapter(
   };
 
   return {
+    imageTarget: (position) => {
+      const view = readyEditor.action((ctx) => ctx.get(editorViewCtx));
+      const target = { position: position ?? view.state.selection.from };
+      targets.add(target);
+      return {
+        cancel: () => { targets.delete(target); },
+        insert: (src, alt) => {
+          if (destroyed || !targets.delete(target)) return;
+          view.dispatch(view.state.tr.insert(target.position, view.state.schema.nodes.image!.create({ src, alt })));
+          notifyState();
+        }
+      };
+    },
     getValue: () => currentValue,
     focus: () => {
       readyEditor.action((ctx) => ctx.get(editorViewCtx).focus());
@@ -290,6 +370,8 @@ export async function createEditorAdapter(
     },
     state: () => editorState,
     destroy: async () => {
+      destroyed = true;
+      targets.clear();
       await readyEditor.destroy();
     }
   };

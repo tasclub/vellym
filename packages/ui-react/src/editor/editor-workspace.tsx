@@ -6,6 +6,7 @@ import type {
   RichTextBlock
 } from "@vellym-internal/core";
 import ReactMarkdown from "react-markdown";
+import { assetUrlTransform } from "./asset-url.js";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -618,7 +619,7 @@ export function EditorWorkspace(props: {
                         {t("editor.blockReadOnly", { reasons: assessment.reasons.join("、") })}
                       </p>
                       <div className="document-paper">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content}</ReactMarkdown>
+                        <ReactMarkdown urlTransform={assetUrlTransform} remarkPlugins={[remarkGfm]}>{block.content}</ReactMarkdown>
                       </div>
                     </section>
                   );
