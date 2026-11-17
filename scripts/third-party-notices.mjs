@@ -6,6 +6,37 @@ import path from "node:path";
 
 const LICENSE_FILE = /^(licen[cs]e|copying|notice)(\..*)?$/i;
 
+// These published tarballs omit their LICENSE files. Keep the package version in
+// the key so an upgrade requires review instead of silently reusing old terms.
+const LICENSE_TEXT_OVERRIDES = new Map([
+  ["client-only@0.0.1", { license: "MIT", copyright: "Facebook, Inc. and its affiliates." }],
+  ["react-remove-scroll-bar@2.3.8", { license: "MIT", copyright: "Anton Korzunov <thekashey@gmail.com>" }]
+]);
+
+function mitLicenseText(copyright) {
+  return `MIT License
+
+Copyright (c) ${copyright}
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`;
+}
+
 async function licenseText(packageDirectory) {
   let entries;
   try {
@@ -49,7 +80,13 @@ export async function generateThirdPartyNotices(root, outputFile) {
   const missing = [];
   const sections = [];
   for (const item of packages) {
-    const text = await licenseText(item.directory);
+    const publishedText = await licenseText(item.directory);
+    const override = LICENSE_TEXT_OVERRIDES.get(`${item.name}@${item.version}`);
+    const text = publishedText ?? (
+      override && override.license === item.license
+        ? mitLicenseText(override.copyright)
+        : undefined
+    );
     if (!text) missing.push(item.name);
     const heading = `## ${item.name} ${item.version}`.trimEnd();
     const declared = item.license ? `\nLicense: ${item.license}\n` : "\n";
@@ -59,6 +96,12 @@ export async function generateThirdPartyNotices(root, outputFile) {
           ? `\`\`\`\n${text.replaceAll("```", "'''")}\n\`\`\``
           : "License text was not published with this package. See the package registry entry for the full terms."
       }\n`
+    );
+  }
+
+  if (missing.length) {
+    throw new Error(
+      `THIRD-PARTY-NOTICES: ライセンス本文が見つからないpackage ${missing.length}件: ${missing.join(", ")}`
     );
   }
 
