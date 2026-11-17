@@ -14,6 +14,8 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 ## [Unreleased]
 
+- セキュリティ: 未importだった`@milkdown/components`をui-reactから削除し、本番依存の既知脆弱性4件（dompurify・vue・@vue/server-renderer・source-map-js）を解消した。prosemirror-viewは1.42.2でpaste時のXSS（GHSA-c8x8-7fp4-3x9w）を抱えていたため、Milkdownを7.23へ更新し、ルートpackage.jsonのoverridesでprosemirror-view（^1.42.9）とfast-uri（^3.1.9）を固定してWorkspace・公開tarballの導入環境の両方で`npm audit --omit=dev --audit-level=high`が0件になった。貼り付けたHTMLのイベントハンドラ属性等が本文へ残らないことを確認する回帰テストを追加した。
+
 - 動的版のレールに「変更」を追加。content root内の未コミット差分の確認、選択したファイルだけのコミット、設定済み上流への現在ブランチのプッシュ、30件ずつの最近の変更を利用できる。保存とコミットは別操作とし、768px未満と静的版には書き込み操作を出さない。`--host`公開時の注意を日英ガイドに記載した。
 
 - 本文編集で画像の貼り付け・ドロップ・ファイル選択による保存と`asset:`参照の挿入、代替テキストの編集に対応した。

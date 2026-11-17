@@ -136,11 +136,11 @@ describe("package boundaries", () => {
       "@vellym-internal/core": "*"
     });
     expect(dependencies).toMatchObject({
-      "@milkdown/core": "^7.21.3",
-      "@milkdown/plugin-history": "^7.21.3",
-      "@milkdown/plugin-listener": "^7.21.3",
-      "@milkdown/prose": "^7.21.3",
-      "@milkdown/preset-commonmark": "^7.21.3"
+      "@milkdown/core": "^7.23.0",
+      "@milkdown/plugin-history": "^7.23.0",
+      "@milkdown/plugin-listener": "^7.23.0",
+      "@milkdown/prose": "^7.23.0",
+      "@milkdown/preset-commonmark": "^7.23.0"
     });
     expect(dependencies).not.toHaveProperty("@milkdown/kit");
     expect(dependencies).not.toHaveProperty("@milkdown/crepe");
