@@ -41,6 +41,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run verify:core
       - run: npm run verify:scale
+      - run: npm run verify:scale:tickets
       # 公開サイトの成果物は、これまでデプロイ時にしか検証していなかった。
       # そのため静的出力だけで起きる回帰（相対URLの再解決、焼き込みJSONの欠落）を
       # PRで止められず、デプロイの直前まで気づけなかった。chromiumはこのjobが
