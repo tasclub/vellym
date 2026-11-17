@@ -1,6 +1,6 @@
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, readFile, realpath, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { createServer, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
 import {
@@ -139,7 +139,10 @@ function availableProjectLocales(
   ])];
 }
 
-async function readJson(request: AsyncIterable<Uint8Array>): Promise<unknown> {
+async function readJson(request: IncomingMessage): Promise<unknown> {
+  if ((request.headers["content-type"] ?? "").split(";")[0]!.trim().toLowerCase() !== "application/json") {
+    throw new RuntimeError("Expected application/json", 415, "INVALID_JSON");
+  }
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of request) {
@@ -846,6 +849,9 @@ export async function startDevServer(options: {
       if (request.method === "POST" && /^\/api\/v1\/git\/(commit|push)$/.test(url.pathname)) {
         const body = await readJson(request);
         if (!body || typeof body !== "object") throw new RuntimeError("Invalid request", 400, "INVALID_NAME");
+        if (url.pathname.endsWith("/push") && (Array.isArray(body) || Object.keys(body).length !== 0)) {
+          throw new RuntimeError("Push accepts no parameters", 400, "INVALID_NAME");
+        }
         const result = await writeGitChanges(requireReady().loadedConfig.contentRoot, url.pathname.endsWith("/commit") ? "commit" : "push", body);
         if (result.ok) publishChange("git-write");
         json(response, 200, envelope(result));
@@ -1534,7 +1540,10 @@ export async function startDevServer(options: {
         }
         let assetBody: Buffer;
         try {
-          assetBody = await readFile(assetFile);
+          const root = await realpath(owner.browserRoot);
+          const resolved = await realpath(assetFile);
+          if (!isInside(root, resolved)) throw new Error("Outside plugin root");
+          assetBody = await readFile(resolved);
         } catch {
           throw new RuntimeError("Not found", 404, "NOT_FOUND");
         }

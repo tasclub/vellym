@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { readGitChanges, readChangeDiff, writeGitChanges, gitFailure } from "../packages/runtime-node/src/git-changes.js";
 import { readGitHistory } from "../packages/runtime-node/src/git-history.js";
 import { startDevServer } from "../packages/runtime-node/src/server.js";
+import { request as httpRequest } from "node:http";
 
 const exec = promisify(execFile);
 const dirs: string[] = [];
@@ -121,6 +122,35 @@ describe("content-root Git writes", () => {
       expect((await fetch(`${server.url}/api/v1/git/status`)).status).toBe(200);
       const response = await fetch(`${server.url}/api/v1/git/commit`, { method: "POST", headers: { Origin: server.url, "Content-Type": "application/json" }, body: JSON.stringify({ message: "safe", paths: ["one.yaml"] }) });
       expect(response.status).toBe(200); expect(await response.json()).toMatchObject({ data: { ok: true } });
+    } finally { await server.close(); }
+  });
+  it("rejects cross-origin, null-origin, hostile host and spoofed content types for every write route", async () => {
+    const { repo, root } = await fixture();
+    await writeFile(path.join(root, "page.yaml"), 'apiVersion: vellym.tasclub.com/v1\nkind: Page\nmetadata:\n  name: security-page\n  title: Security\nspec:\n  blocks: []\n');
+    const configPath = path.join(repo, "vellym.config.yaml");
+    await writeFile(configPath, 'schemaVersion: "1.0"\ncontentRoot: content\noutputDir: dist\nui:\n  language: en\nplugins: []\n');
+    const server = await startDevServer({ configPath, uiRoot: repo, port: 0 });
+    const routes = [
+      ["/api/v1/git/commit", "POST", "application/json", '{}'],
+      ["/api/v1/git/push", "POST", "application/json", '{}'],
+      ["/api/v1/assets", "POST", "image/png", '<html>'],
+      ["/api/v1/pages/security-page", "PATCH", "application/json", '{}']
+    ];
+    try {
+      for (const [route, method, contentType, body] of routes) {
+        for (const origin of ["https://evil.example", "null"]) {
+          expect((await fetch(`${server.url}${route}`, { method, headers: { Origin: origin!, "Content-Type": contentType! }, body })).status).toBe(403);
+        }
+        const status = await new Promise<number | undefined>((resolve, reject) => {
+          const req = httpRequest(`${server.url}${route}`, { method, headers: { Host: "evil.example", "Content-Type": contentType! } }, res => { res.resume(); resolve(res.statusCode); });
+          req.on("error", reject); req.end(body);
+        });
+        expect(status).toBe(403);
+        expect((await fetch(`${server.url}${route}`, { method, headers: { "Content-Type": route === "/api/v1/assets" ? "image/png" : "text/plain" }, body })).status).toBe(415);
+      }
+      for (const attack of [{ remote: "evil" }, { url: "file:///tmp/evil" }, { args: ["--force"] }]) {
+        expect((await fetch(`${server.url}/api/v1/git/push`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(attack) })).status).toBe(400);
+      }
     } finally { await server.close(); }
   });
 });

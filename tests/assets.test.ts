@@ -152,6 +152,21 @@ spec:
     expect(response.status).toBe(413);
   });
 
+  it("never uses attacker-supplied traversal or absolute paths as upload destinations", async () => {
+    const server = await startDevServer({ configPath, uiRoot: directory, port: 0 });
+    close = server.close;
+    for (const target of ["../escape.png", "/escape.png"]) {
+      const response = await fetch(`${server.url}/api/v1/assets?path=${encodeURIComponent(target)}`, {
+        method: "POST", headers: { "Content-Type": "image/png" }, body: png
+      });
+      expect(response.status).toBe(201);
+      const saved = (await response.json()).data.path as string;
+      expect(saved).toMatch(/^\d{4}\/\d{2}\/[0-9a-hjkmnp-tv-z]{26}\.png$/);
+      expect(saved).not.toBe(target);
+    }
+    await expect(readFile(path.join(directory, "escape.png"))).rejects.toBeDefined();
+  });
+
   it("exposes asset diagnostics and exit codes through the built validate CLI", async () => {
     await writeFile(path.join(directory, "content/page.yaml"), `apiVersion: vellym.tasclub.com/v1\nkind: Page\nmetadata:\n  name: page\n  title: Image\nspec:\n  blocks:\n    - id: body\n      type: rich-text\n      content: '![x](asset:missing.png)'\n`);
     const args = ["packages/vellym/dist/cli.mjs", "validate", "--config", configPath, "--json"];

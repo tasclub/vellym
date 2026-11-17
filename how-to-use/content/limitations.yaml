@@ -51,7 +51,7 @@ spec:
 
         - 静的サイトは`file://`では表示できない。必ずHTTPで配信する（[[self-hosting|静的配信と自己ホスト]]）。
         - `dev`は既定で`127.0.0.1`にバインドする。Vellymに認証はないため、
-          `--host 0.0.0.0`で起動したサーバーへ到達できる相手は、文書の閲覧・編集・構成変更ができる。
+          `--host 0.0.0.0`で起動したサーバーへ到達できる相手は、文書の閲覧・編集・構成変更に加え、画像保存やGitのコミット・設定済み上流へのプッシュができる。
           信頼できるネットワークだけで使用する。
         - Dockerイメージのレジストリ公開・バージョン固定・更新手順は未確定。
         - 新規文書は`v1`で生成する。既存の`v1alpha1`はそのまま利用でき、明示的なmigrationも
@@ -118,7 +118,8 @@ spec:
             - A static site cannot be served over `file://`; always serve it over HTTP
               ([[self-hosting|Static Publishing and Self-Hosting]]).
             - `dev` binds to `127.0.0.1` by default. Vellym has no authentication, so anyone who
-              can reach a `--host 0.0.0.0` server can read, edit, and restructure your documents.
+              can reach a `--host 0.0.0.0` server can read, edit, and restructure documents,
+              save images, commit, and push to the configured Git upstream.
               Use it only on a trusted network.
             - Registry publishing, version pinning, and update procedures for the Docker image
               are not finalized.

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile, symlink, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ import {
   localizedPageSummaries,
   parsePagePatch,
   savePage,
+  startDevServer,
   unknownKindGroups
 } from "@vellym-internal/runtime-node";
 
@@ -66,6 +67,23 @@ async function projectWith(plugins: FakePlugin[]): Promise<string> {
 const ticketManifest = { id: "tickets", contributes: { kinds: [{ kind: "Ticket" }] } };
 
 describe("loadPlugins", () => {
+  it("serves only real files inside the browser asset directory", async () => {
+    const dir = await projectWith([{ name: "safe-plugin", engines: ">=0.3.0-beta.1", manifest: { id: "safe-plugin" }, browser: true }]);
+    const browser = path.join(dir, "node_modules/safe-plugin/browser");
+    await mkdir(path.join(dir, "content"));
+    await writeFile(path.join(dir, "secret.js"), "secret");
+    await symlink(path.join(dir, "secret.js"), path.join(browser, "link.js"));
+    await symlink(dir, path.join(browser, "outside"));
+    const configPath = path.join(dir, "vellym.config.yaml");
+    await writeFile(configPath, 'schemaVersion: "1.0"\ncontentRoot: content\noutputDir: dist\nui:\n  language: en\nplugins:\n  - safe-plugin\n');
+    const server = await startDevServer({ configPath, uiRoot: dir, port: 0, hostVersion: HOST_VERSION });
+    try {
+      expect((await fetch(`${server.url}/plugins/safe-plugin/index.js`)).status).toBe(200);
+      for (const file of ["link.js", "outside/secret.js", "%2e%2e%2fsecret.js", "%2fsecret.js"]) {
+        expect((await fetch(`${server.url}/plugins/safe-plugin/${file}`)).status).toBe(404);
+      }
+    } finally { await server.close(); await rm(dir, { recursive: true, force: true }); }
+  });
   it("activates a plugin resolved from the project directory", async () => {
     const configDir = await projectWith([
       { name: "vellym-plugin-tickets", engines: ">=0.3.0-beta.1", manifest: ticketManifest }
