@@ -30,6 +30,8 @@ export interface SummaryResult {
   text: string;
   /** Incorrect non-empty values skipped from the calculation. */
   excluded: number;
+  groups?: { value: string | null; label: string; text: string; excluded: number }[];
+  multiCounted?: boolean;
 }
 
 /** Calculate from all projected rows; the 20-card rendering limit is unrelated. */
@@ -38,8 +40,34 @@ export function summarizeRows(
   key: string,
   type: PluginValueType,
   method: SummaryMethod,
-  locale: string
+  locale: string,
+  options?: { groupBy?: { key: string; type: PluginValueType; order?: readonly string[]; labelOf?: (value: string) => string } }
 ): SummaryResult {
+  if (options?.groupBy) {
+    const groupBy = options.groupBy;
+    const buckets = new Map<string | null, PluginIndexRow[]>();
+    for (const row of rows) {
+      const raw = row.values[groupBy.key];
+      const entries = groupBy.type === "multiselect" && Array.isArray(raw)
+        ? [...new Set(raw.filter((value): value is string => typeof value === "string" && value !== ""))]
+        : typeof raw === "string" && raw !== "" ? [raw] : [];
+      for (const value of entries.length ? entries : [null]) {
+        const bucket = buckets.get(value) ?? [];
+        bucket.push(row);
+        buckets.set(value, bucket);
+      }
+    }
+    const groups = [...buckets].sort(([a], [b]) => {
+      if (a === null) return b === null ? 0 : 1;
+      if (b === null) return -1;
+      const ai = groupBy.order?.indexOf(a) ?? -1, bi = groupBy.order?.indexOf(b) ?? -1;
+      if (ai !== bi && (ai >= 0 || bi >= 0)) return ai < 0 ? 1 : bi < 0 ? -1 : ai - bi;
+      return a.localeCompare(b, locale);
+    }).map(([value, bucket]) => ({ value, label: value === null
+      ? resolveLocalizedText({ ja: "（未設定）", en: "(Not set)" }, locale)
+      : groupBy.labelOf?.(value) ?? value, ...summarizeRows(bucket, key, type, method, locale) }));
+    return { ...summarizeRows(rows, key, type, method, locale), groups, ...(groupBy.type === "multiselect" ? { multiCounted: true } : {}) };
+  }
   const values: PluginIndexValue[] = [];
   let excluded = 0;
   for (const row of rows) {

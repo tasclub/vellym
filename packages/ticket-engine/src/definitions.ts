@@ -38,7 +38,7 @@ export interface Tracker {
   statuses: StatusDefinition[];
   fields: FieldDefinition[];
   ticketTemplate?: string | Record<string, string>;
-  summary?: { field: FieldDefinition; method: SummaryMethod }[];
+  summary?: { field: FieldDefinition; method: SummaryMethod; groupBy?: FieldDefinition }[];
   /** Tracker-selected reference field; never a fixed Ticket.spec.parent. */
   parentField?: string;
 }
@@ -152,8 +152,9 @@ function readTracker(record: PluginResourceRecord): Tracker {
       if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
       const entry = raw as Record<string, unknown>;
       const field = fields.find((item) => item.id === entry.field);
-      return field && typeof entry.method === "string" && SUMMARY_METHODS[field.type].includes(entry.method as SummaryMethod)
-        ? [{ field, method: entry.method as SummaryMethod }] : [];
+      const groupBy = fields.find((item) => item.id === entry.groupBy && ["select", "multiselect", "reference", "text"].includes(item.type));
+      return field && (entry.groupBy === undefined || groupBy) && typeof entry.method === "string" && SUMMARY_METHODS[field.type].includes(entry.method as SummaryMethod)
+        ? [{ field, method: entry.method as SummaryMethod, ...(groupBy ? { groupBy } : {}) }] : [];
     }) } : {}),
     ...(ticketTemplate !== undefined ? { ticketTemplate } : {}),
     ...(parentField ? { parentField } : {})
@@ -197,7 +198,8 @@ export function trackerDefinitionDiagnostics(
         const entry = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
         const field = fields.find((value) => typeof value === "object" && value !== null && (value as Record<string, unknown>).id === entry.field) as Record<string, unknown> | undefined;
         const type = field?.type as PluginValueType;
-        if (!field || !VALUE_TYPES.includes(type) || typeof entry.method !== "string" || !SUMMARY_METHODS[type].includes(entry.method as SummaryMethod)) {
+        const group = fields.find((value) => typeof value === "object" && value !== null && (value as Record<string, unknown>).id === entry.groupBy) as Record<string, unknown> | undefined;
+        if (!field || !VALUE_TYPES.includes(type) || typeof entry.method !== "string" || !SUMMARY_METHODS[type].includes(entry.method as SummaryMethod) || (entry.groupBy !== undefined && (!group || !["select", "multiselect", "reference", "text"].includes(String(group.type))))) {
           diagnostics.push({ file: record.relativePath, path: `/spec/summary/${index}`, severity: "warning", code: "TICKET_SUMMARY_UNSUPPORTED", message: { ja: `集計の項目または方式を確認してください: ${String(entry.field ?? "")}`, en: `Check the summary field and method: ${String(entry.field ?? "")}` } });
         }
       });

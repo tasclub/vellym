@@ -61,6 +61,13 @@ afterEach(() => {
 });
 
 describe("Kanban screen interactions", () => {
+  it("renders grouped whole-board summaries", () => {
+    const field = { id: "estimate", label: "Estimate", type: "number", required: false, listColumn: false };
+    const groupBy = { id: "sprint", label: "Sprint", type: "text", required: false, listColumn: false };
+    const { container, unmount } = renderScreen({ locale: "en", rendererData: { statuses, fields: [field, groupBy], cardFields: [], summaries: [{ field, method: "sum", groupBy }], diagnostics: [] }, rows: [{ name: "a", title: "A", values: { status: "todo", "field:estimate": 3, "field:sprint": "S1" } }] });
+    expect(container.querySelector('[aria-label="Whole board summary"]')?.textContent).toContain("S1: Sum: 3");
+    unmount();
+  });
   it("uses host icon buttons with accessible names for card ordering", () => {
     const { container, unmount } = renderScreen({
       locale: "en",

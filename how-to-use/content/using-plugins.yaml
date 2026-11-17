@@ -11,6 +11,8 @@ spec:
       content: |
         Trackerの `spec.summary` に `{ field: priority, method: breakdown }` を配列で指定する。一覧では絞り込み後の全行を集計し、型が合わない値は除外件数を示す。WBSでは折りたたみ中・要確認を含む表示対象の全チケットを集計する。静的出力でも表示する。`spec.kanban.summary` があればカンバンではそちらを優先する。
 
+        `{ field: estimate, method: sum, groupBy: sprint }` のように値ごとの集計もできる。`groupBy` は select・multiselect・reference・text の項目ID。未設定はまとめ、multiselect は各値に重複計上する。
+
         ## プラグインを追加する
 
         Vellymプロジェクトのルートで、使いたいプラグインをnpmパッケージとして
@@ -82,6 +84,8 @@ spec:
           type: rich-text
           content: |
             Configure `spec.summary` as an array, e.g. `{ field: priority, method: breakdown }`. The list summarizes all filtered rows and reports invalid values, including in static output. WBS summarizes all its tickets, including collapsed and attention-needed rows. Kanban prefers `spec.kanban.summary` when present.
+
+            Group an aggregate by a field with `{ field: estimate, method: sum, groupBy: sprint }`. The group field must be select, multiselect, reference, or text. Missing values form one group; multiselect values count in every matching group.
 
             ## Add a plugin
 

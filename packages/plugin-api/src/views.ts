@@ -117,7 +117,7 @@ export interface PluginListViewDescriptor {
   title: PluginLocalizedText;
   columns: readonly PluginColumnDescriptor[];
   /** Aggregations over all currently visible index rows. */
-  summary?: readonly { valueKey: string; type: PluginValueType; method: SummaryMethod; label: PluginLocalizedText }[];
+  summary?: readonly { valueKey: string; type: PluginValueType; method: SummaryMethod; label: PluginLocalizedText; groupBy?: { valueKey: string; type: PluginValueType; order?: readonly string[] } }[];
   defaultSort?: PluginSortDescriptor;
   /**
    * この一覧に出る集合そのものを決める絞り込み。**利用者が外せない。**

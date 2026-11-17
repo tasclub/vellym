@@ -72,6 +72,15 @@ afterEach(() => {
 });
 afterAll(async () => { if (directory) await rm(directory, { recursive: true, force: true }); });
 
+it("renders grouped list summaries", () => {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  const grouped = { ...payload, descriptor: { ...payload.descriptor, summary: [{ valueKey: "field:estimate", type: "number" as const, method: "sum" as const, label: "Estimate", groupBy: { valueKey: "field:owner", type: "text" as const } }] } };
+  act(() => root!.render(createElement(PluginListView, { payload: grouped, projectRoot: directory, targetName: "summary-tracker", locale: "en" })));
+  expect(container.querySelector('section[aria-live]')?.textContent).toContain("keep: Sum: 2");
+});
+
 it.each([
   ["ja", "Estimate(h) 合計: 105", "Estimate(h) 合計: 2", "Estimate(h) 合計: —"],
   ["en", "Estimate(h) Sum: 105", "Estimate(h) Sum: 2", "Estimate(h) Sum: —"]

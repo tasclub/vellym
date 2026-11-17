@@ -526,10 +526,13 @@ export function PluginListView({
           ja: "表示中の行の集計", en: "Visible rows summary"
         }, locale)}>
           <ul>{descriptor.summary.map((definition, index) => {
-            const result = summarizeRows(rows, definition.valueKey, definition.type, definition.method, locale);
+            const groupBy = definition.groupBy;
+            const result = summarizeRows(rows, definition.valueKey, definition.type, definition.method, locale, groupBy ? { groupBy: { key: groupBy.valueKey, type: groupBy.type, order: groupBy.order, labelOf: groupBy.type === "reference" ? (value) => (allRows ?? payload.rows).find((row) => row.name === value)?.title ?? value : undefined } } : undefined);
             return <li key={`${definition.valueKey}-${definition.method}-${index}`}>
               {resolveLocalizedText(definition.label, locale)} {result.text}
               {result.excluded ? ` (${resolveLocalizedText({ ja: "型が合わず除外", en: "Invalid values excluded" }, locale)}: ${result.excluded})` : ""}
+              {result.multiCounted ? <span> {resolveLocalizedText({ ja: "複数の値に重複計上", en: "Counted in multiple groups" }, locale)}</span> : null}
+              {result.groups ? <ul>{result.groups.map((group) => <li key={group.value ?? "__unset"}>{group.label}: {group.text}{group.excluded ? ` (${resolveLocalizedText({ ja: "型が合わず除外", en: "Invalid values excluded" }, locale)}: ${group.excluded})` : ""}</li>)}</ul> : null}
             </li>;
           })}</ul>
         </section>

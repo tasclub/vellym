@@ -54,8 +54,11 @@ spec:
     - { id: parent, label: 親, type: reference }
     - { id: start, label: 開始, type: date }
     - { id: sequence, label: 順序, type: number }
+    - { id: sprint, label: スプリント, type: text }
+    - { id: estimate, label: 見積, type: number }
   hierarchy:
     parentField: parent
   wbs: { startField: start, endField: due }
   summary:
     - { field: priority, method: breakdown }
+    - { field: estimate, method: sum, groupBy: sprint }

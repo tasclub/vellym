@@ -60,6 +60,13 @@ function editParent(container: HTMLElement, name: string) {
 }
 
 describe("WBS screen", () => {
+  it("renders grouped WBS summaries", () => {
+    const { context, container, root } = fixture(false, [{ name: "a", title: "A", values: { "field:rank": 3, "field:sprint": "S1" } }]);
+    const data = context.rendererData as { tracker: Record<string, unknown> };
+    act(() => root.render(createElement(WBSScreen, { context: { ...context, locale: "en", rendererData: { ...data, tracker: { ...data.tracker, summary: [{ field: { id: "rank", label: "Rank", type: "number" }, method: "sum", groupBy: { id: "sprint", type: "text" } }] } } } })));
+    expect(container.querySelector('.wbs-summary')?.textContent).toContain("S1: Sum: 3");
+    act(() => root.unmount());
+  });
   it("summarizes all rows including folded and review groups in live and static views", () => {
     for (const isStatic of [false, true]) for (const locale of ["ja", "en"]) {
       const { context, container, root } = fixture(isStatic, [

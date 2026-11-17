@@ -121,8 +121,9 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
     kind: "Ticket",
     title: tracker?.title ?? { ja: "チケット", en: "Tickets" },
     columns,
-    ...(tracker?.summary?.length ? { summary: tracker.summary.map(({ field, method }) => ({
-      valueKey: fieldKey(field.id), type: field.type, method, label: field.label
+    ...(tracker?.summary?.length ? { summary: tracker.summary.map(({ field, method, groupBy }) => ({
+      valueKey: fieldKey(field.id), type: field.type, method, label: field.label,
+      ...(groupBy ? { groupBy: { valueKey: fieldKey(groupBy.id), type: groupBy.type, ...(groupBy.type === "select" ? { order: groupBy.options?.map((option) => option.value) } : {}) } } : {})
     })) } : {}),
     defaultSort: { columnId: "title", direction: "asc" },
     // 他の工程のチケットを混ぜない。これは利用者が外せない。

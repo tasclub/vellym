@@ -448,11 +448,13 @@ export function KanbanScreen({ context }: PluginViewProps) {
             : `All ${rows.length} tickets (including hidden columns and cards past the first 20)`
         }, context.locale)}</p>
         <ul>{data.summaries.map((definition, index) => {
-          const result = summarizeColumn(filteredRows, definition, context.locale);
+          const result = summarizeColumn(filteredRows, definition, context.locale, rows);
           return <li key={`${definition.field.id}:${definition.method}:${index}`}>
             {result.text}{!context.isStatic && result.excluded > 0 ? ` (${resolveLocalizedText({
               ja: "型が合わず除外", en: "Invalid values excluded"
             }, context.locale)}: ${result.excluded})` : ""}
+            {result.multiCounted ? <span> {resolveLocalizedText({ ja: "複数の値に重複計上", en: "Counted in multiple groups" }, context.locale)}</span> : null}
+            {result.groups ? <ul>{result.groups.map((group) => <li key={group.value ?? "__unset"}>{group.label}: {group.text}{group.excluded ? ` (${resolveLocalizedText({ ja: "型が合わず除外", en: "Invalid values excluded" }, context.locale)}: ${group.excluded})` : ""}</li>)}</ul> : null}
           </li>;
         })}</ul>
       </section> : null}

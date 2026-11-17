@@ -49,6 +49,8 @@ Fields marked `listColumn: true` in the tracker can be used to filter tickets th
 
 Set `spec.summary` on the Tracker, for example `[{ field: priority, method: breakdown }]`. When present, `spec.kanban.summary` takes precedence; existing configurations remain supported.
 
+Use `{ field: estimate, method: sum, groupBy: sprint }` in `spec.summary` to group by a select, multiselect, reference, or text field. Missing values are grouped together; multiselect values contribute to each group.
+
 ## 日本語
 
 `TicketTracker`のチケットをカンバンで表示するVellymプラグインです。`@vellym/tickets`とは独立して導入できます。カンバン専用のリソースは作らず、チケット管理を開いて一覧とカンバンを切り替えます。
@@ -96,3 +98,5 @@ Trackerで一覧列（`listColumn: true`）に指定した項目は、FILTERか�
 
 
 Trackerの `spec.summary` に `[{ field: priority, method: breakdown }]` を指定できます。`spec.kanban.summary` がある場合はそちらを優先し、既存の設定も引き続き使えます。
+
+`spec.summary` に `{ field: estimate, method: sum, groupBy: sprint }` と書くと、select・multiselect・reference・text の値ごとに集計します。未設定はまとめ、multiselect は各値に重複計上します。

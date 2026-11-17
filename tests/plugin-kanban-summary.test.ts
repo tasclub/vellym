@@ -38,6 +38,22 @@ import { trackerDefinitionDiagnostics, readTrackers } from "../packages/ticket-e
 import { resolveKanbanDefinition } from "../packages/plugin-kanban/src/board.js";
 
 describe("shared summaries", () => {
+  it("groups in defined order, counts multiselect in each group, and resolves references", () => {
+    const data: PluginIndexRow[] = [
+      { name: "a", title: "Alpha", values: { v: 2, g: ["b", "a"] } },
+      { name: "b", title: "Beta", values: { v: 3, g: ["a"] } },
+      { name: "c", title: "C", values: { v: 4, g: [] } }
+    ];
+    const result = summarizeRows(data, "v", "number", "sum", "en", { groupBy: { key: "g", type: "multiselect", order: ["b", "a"] } });
+    expect(result.multiCounted).toBe(true);
+    expect(result.groups?.map(g => [g.label, g.text])).toEqual([["b", "Sum: 2"], ["a", "Sum: 5"], ["(Not set)", "Sum: 4"]]);
+    const refs = [{ name: "x", title: "X", values: { v: 1, g: "a" } }];
+    expect(summarizeRows(refs, "v", "number", "sum", "ja", { groupBy: { key: "g", type: "reference", labelOf: v => data.find(r => r.name === v)?.title ?? v } }).groups?.[0]?.label).toBe("Alpha");
+  });
+  it("warns for undefined and unsupported group fields", () => {
+    const target = record({ fields: [{ id: "value", type: "number" }], summary: [{ field: "value", method: "sum", groupBy: "missing" }, { field: "value", method: "sum", groupBy: "value" }] });
+    expect(trackerDefinitionDiagnostics([target]).map(d => d.code)).toEqual(["TICKET_SUMMARY_UNSUPPORTED", "TICKET_SUMMARY_UNSUPPORTED"]);
+  });
   const spec = { fields: [{ id: "value", label: "Value", type: "number" }], summary: [{ field: "value", method: "sum" }] };
   const record = (s: Record<string, unknown>): PluginResourceRecord => ({ kind: "TicketTracker", name: "t", title: "T", relativePath: "t.yaml", readOnly: false, spec: s });
   const context = (target: PluginResourceRecord): PluginViewContext => ({ locale: "en", isStatic: false, target, records: () => [target] });

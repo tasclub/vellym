@@ -8,6 +8,8 @@ spec:
   fields:
     priority: high
     assignee: 編集チーム
+    sprint: sprint-1
+    estimate: 3
     start: "2026-09-01"
     due: 2026-09-05
     notes: |
