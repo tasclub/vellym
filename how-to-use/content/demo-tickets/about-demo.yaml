@@ -1,0 +1,33 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: about-demo
+  title: デモの見どころ
+spec:
+  locale: ja
+  blocks:
+    - id: introduction
+      type: rich-text
+      content: |
+        このフォルダの[[demo-tickets|デモ：チケット管理]]は、公開ガイドの改善を題材にした架空の作業です。公開サイトでは閲覧のみできます。
+
+        - 一覧では、状態や優先度で絞り込み、優先度の内訳とスプリント別の見積合計を見られます。
+        - カンバンでは、状態ごとの列に並ぶチケットを見比べられます。
+        - WBSでは、親子の階層と開始日・期限を確認できます。日付のない作業もあります。
+
+        ビュー切替を使って、同じデータをそれぞれの視点で眺めてみてください。
+  translations:
+    en:
+      visibility: published
+      title: Explore the demo
+      blocks:
+        - id: introduction
+          type: rich-text
+          content: |
+            [[demo-tickets|The demo tracker]] contains fictional work to improve a public guide. The published site is read-only.
+
+            - In the list, filter by status or priority and explore the priority breakdown and estimate totals by sprint.
+            - In Kanban, compare tickets in columns for each status.
+            - In WBS, explore the parent-child hierarchy and start and due dates. Some work has no dates.
+
+            Switch views to see the same data from different perspectives.

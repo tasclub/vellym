@@ -1,0 +1,18 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-01m0m000000000000000000010
+  title: 公開前のリンクを確認する
+spec:
+  status: todo
+  fields:
+    priority: mid
+    estimate: 2
+    sprint: sprint-2
+    parent: ticket-01m0m000000000000000000005
+    due: "2026-09-28"
+  blocks:
+    - id: description
+      type: rich-text
+      content: |
+        公開ガイドを改善するためのサンプル作業です。
