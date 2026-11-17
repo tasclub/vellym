@@ -18,7 +18,7 @@ npm run typecheck
 npm test
 ```
 
-Run `npm run pack:smoke` for packaging changes and `npm run verify:core` for browser, accessibility, and 100-page verification. Pull requests must describe YAML read/write and compatibility impact.
+Run `npm run pack:smoke` for packaging changes, `npm run verify:core` for browser, accessibility, and 100-page verification, and `npm run verify:browser` for all `tests/*.browser.mjs` checks (including Git commit/push and image upload). The browser checks require Playwright Chromium; see *Seeing the screen* below. Pull requests must describe YAML read/write and compatibility impact.
 
 ## Changing the UI
 

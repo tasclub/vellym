@@ -29,7 +29,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag || github.event.release.tag_name }}
       # registry-urlは指定しない。指定するとsetup-nodeが
@@ -37,7 +37,7 @@ jobs:
       # NODE_AUTH_TOKENへダミー値を設定する。npmはそれを認証情報とみなして
       # OIDCの交換を行わず、publishが404になる。
       # registryの既定値はhttps://registry.npmjs.org/のため指定は不要。
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -48,6 +48,7 @@ jobs:
       - run: npm run pack:smoke
       - run: npx playwright install --with-deps chromium
       - run: npm run verify:core
+      - run: npm run verify:browser
       # OIDCへ乗る前提条件を失敗前に確認する。
       # npm 11.5.1以降と、id-token: writeによるOIDC要求URLの両方が必要。
       - name: Show npm auth configuration
