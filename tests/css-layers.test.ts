@@ -12,6 +12,6 @@ describe("cascade layer order", () => {
     const firstStylesheet = html.search(/<link[^>]+stylesheet/);
     if (firstStylesheet >= 0) expect(html.indexOf(declared![0])).toBeLessThan(firstStylesheet);
     const styles = readFileSync("packages/ui-react/src/styles.css", "utf8").match(/^@layer ([^;{]+);/m);
-    expect(declared![1].replace(/\s+/g, " ").trim()).toBe(styles![1].replace(/\s+/g, " ").trim());
+    expect(declared![1]!.replace(/\s+/g, " ").trim()).toBe(styles![1]!.replace(/\s+/g, " ").trim());
   });
 });
