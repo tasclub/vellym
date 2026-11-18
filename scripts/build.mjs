@@ -1,4 +1,4 @@
-import { chmod, cp, mkdir, readFile, rm } from "node:fs/promises";
+import { chmod, cp, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { build } from "esbuild";
 import { generateThirdPartyNotices } from "./third-party-notices.mjs";
@@ -10,7 +10,15 @@ const packageManifest = JSON.parse(
   await readFile(path.join(root, "packages/vellym/package.json"), "utf8")
 );
 const version = packageManifest.version;
-const pluginVersions = Object.fromEntries(await Promise.all(["tickets", "kanban", "wbs"].map(async (name) => [name, JSON.parse(await readFile(path.join(root, `packages/plugin-${name}/package.json`), "utf8")).version])));
+// The official plugins `init --plugins` accepts: published packages/plugin-* with a vellym.id.
+const officialPlugins = {};
+for (const entry of (await readdir(path.join(root, "packages"), { withFileTypes: true }))
+  .filter((item) => item.isDirectory() && item.name.startsWith("plugin-"))) {
+  const manifest = JSON.parse(await readFile(path.join(root, "packages", entry.name, "package.json"), "utf8"));
+  if (manifest.private || manifest.publishConfig?.access !== "public" || typeof manifest.vellym?.id !== "string") continue;
+  officialPlugins[manifest.vellym.id] = { name: manifest.name, version: manifest.version };
+}
+const sortedOfficialPlugins = Object.fromEntries(Object.entries(officialPlugins).sort(([a], [b]) => a.localeCompare(b)));
 
 await rm(output, { recursive: true, force: true });
 await mkdir(path.join(output, "schemas"), { recursive: true });
@@ -27,7 +35,7 @@ await build({
   target: "node22",
   define: {
     __VELLYM_VERSION__: JSON.stringify(version),
-    __VELLYM_PLUGIN_VERSIONS__: JSON.stringify(pluginVersions)
+    __VELLYM_OFFICIAL_PLUGINS__: JSON.stringify(sortedOfficialPlugins)
   },
   banner: {
     js: "#!/usr/bin/env node\nimport { createRequire as __vellymCreateRequire } from 'node:module';\nconst require = __vellymCreateRequire(import.meta.url);"

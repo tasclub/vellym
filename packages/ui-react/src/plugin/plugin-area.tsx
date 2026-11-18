@@ -67,7 +67,8 @@ export function PluginListPage(props: {
     <>
       <div className={styles["plugin-list-toolbar"]}>
         <span className={styles["plugin-list-count"]}>{resolveLocalizedText({
-          ja: `${payload.allRows.length}件`, en: `${payload.allRows.length} tickets`
+          ja: `${payload.allRows.length}件`,
+          en: payload.allRows.length === 1 ? "1 item" : `${payload.allRows.length} items`
         }, props.uiLocale)}</span>
         {props.editable ? payload.commands.map((item) => <Button key={item.id} onClick={() => {
           if (item.inputs?.length) setCommand(item);

@@ -746,8 +746,8 @@ export function App() {
       await fetchPage(name, undefined, requestedLocale ?? bootstrap?.project.requestedLocale ?? "ja");
       if (pluginView?.descriptor.type === "list" && view) {
         detailOriginRef.current = {
-          ticketName: name,
-          trackerName: view.page.metadata.name,
+          detailName: name,
+          hostName: view.page.metadata.name,
           viewId: pluginView.viewId
         };
       }
@@ -1636,8 +1636,8 @@ export function App() {
             onToggleShowAll={setShowAllRows}
             onNavigate={(name) => {
               detailOriginRef.current = {
-                ticketName: name,
-                trackerName: view.page.metadata.name,
+                detailName: name,
+                hostName: view.page.metadata.name,
                 viewId: pluginView.viewId
               };
               navigate(name);

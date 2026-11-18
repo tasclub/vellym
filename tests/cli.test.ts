@@ -8,7 +8,7 @@ import {
   symlink,
   writeFile
 } from "node:fs/promises";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -21,6 +21,16 @@ function run(args: string[]) {
   return spawnSync(process.execPath, [cli, ...args], {
     encoding: "utf8"
   });
+}
+
+/** The same rule as scripts/build.mjs: public packages/plugin-* with a vellym.id, by id. */
+function officialPluginIds(): string[] {
+  return readdirSync(path.resolve("packages"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith("plugin-"))
+    .map((entry) => JSON.parse(readFileSync(path.resolve("packages", entry.name, "package.json"), "utf8")))
+    .filter((manifest) => !manifest.private && manifest.publishConfig?.access === "public" && typeof manifest.vellym?.id === "string")
+    .map((manifest) => manifest.vellym.id as string)
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function initArgs(root: string, extra: string[] = []): string[] {
@@ -676,8 +686,20 @@ spec:
     const result = run(initArgs(root, ["--language", "en", "--plugins", "tickets,bogus"]));
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Unknown plugin: bogus");
-    expect(result.stderr).toContain("tickets, kanban, wbs");
+    expect(result.stderr).toContain(`(${officialPluginIds().join(", ")})`);
     await expect(access(path.join(root, "vellym.config.yaml"))).rejects.toThrow();
+  });
+
+  it("lists exactly the published packages/plugin-* with a vellym.id in init help and errors", () => {
+    // ticket-01m7nxtafpw05vjnsa0j85nqpx: one list, collected at build time; no hard-coded names.
+    const ids = officialPluginIds();
+    expect(ids).toEqual(expect.arrayContaining(["kanban", "tickets", "wbs"]));
+    for (const language of ["ja", "en"]) {
+      const help = run(["init", "--help", "--language", language]);
+      expect(help.stdout.split("\n").find((line) => line.includes("--plugins <list>"))).toContain(ids.join(","));
+    }
+    const error = run(initArgs(path.join(tmpdir(), "vellym-cli-init-nope"), ["--language", "en", "--plugins", "nope"]));
+    expect(error.stderr).toContain(`Unknown plugin: nope (${ids.join(", ")})`);
   });
 
   it("validates a plugin project with the guide TicketTracker at zero diagnostics", async () => {

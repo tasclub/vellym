@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { returnViewForParent } from "../packages/ui-react/src/plugin/return-view.js";
 
 describe("return to a plugin list view", () => {
-  it("restores the Kanban view when returning from its card to its tracker", () => {
+  it("restores the list view when returning from a detail to the resource that hosts the list", () => {
     expect(returnViewForParent({
-      ticketName: "ticket-1",
-      trackerName: "tracker",
-      viewId: "ticket-kanban"
-    }, "ticket-1", "tracker")).toEqual({ name: "tracker", viewId: "ticket-kanban" });
+      detailName: "detail-1",
+      hostName: "host",
+      viewId: "board-view"
+    }, "detail-1", "host")).toEqual({ name: "host", viewId: "board-view" });
   });
 
-  it("does not reuse an origin for another ticket, tracker, or a direct visit", () => {
-    const origin = { ticketName: "ticket-1", trackerName: "tracker", viewId: "ticket-kanban" };
-    expect(returnViewForParent(origin, "ticket-2", "tracker")).toBeUndefined();
-    expect(returnViewForParent(origin, "ticket-1", "other-tracker")).toBeUndefined();
-    expect(returnViewForParent(undefined, "ticket-1", "tracker")).toBeUndefined();
+  it("does not reuse an origin for another detail, another host, or a direct visit", () => {
+    const origin = { detailName: "detail-1", hostName: "host", viewId: "board-view" };
+    expect(returnViewForParent(origin, "detail-2", "host")).toBeUndefined();
+    expect(returnViewForParent(origin, "detail-1", "other-host")).toBeUndefined();
+    expect(returnViewForParent(undefined, "detail-1", "host")).toBeUndefined();
   });
 });

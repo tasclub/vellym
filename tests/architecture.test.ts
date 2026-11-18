@@ -14,6 +14,20 @@ function sourceText(packageName: string, exclude: readonly string[] = []): strin
     .join("\n");
 }
 
+/** Every .ts/.tsx file under packages/<name>/src, comments removed, with its path. */
+function sourceFilesWithoutComments(packageName: string): Array<{ file: string; lines: string[] }> {
+  const sourceRoot = path.join(workspaceRoot, "packages", packageName, "src");
+  return (readdirSync(sourceRoot, { recursive: true }) as string[])
+    .filter((name) => /\.tsx?$/.test(name) && !name.endsWith(".d.ts"))
+    .sort()
+    .map((name) => {
+      const text = readFileSync(path.join(sourceRoot, name), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, " "))
+        .replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
+      return { file: `packages/${packageName}/src/${name}`, lines: text.split("\n") };
+    });
+}
+
 function packageJson(packageName: string): {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -160,5 +174,16 @@ describe("package boundaries", () => {
     expect(dependencies).not.toHaveProperty("@milkdown/crepe");
     expect(dependencies).not.toHaveProperty("@milkdown/react");
     expect(source).not.toMatch(/@milkdown\/(?:kit|crepe|react)/);
+  });
+});
+
+describe("host stays plugin-agnostic", () => {
+  it("keeps ticket, tracker, kanban and WBS words out of core, runtime-node and ui-react code", () => {
+    // ticket-01m7nxtafpw05vjnsa0j85nqpx: the host must not know plugin kinds. Comments may explain them.
+    const words = [/\b(tickets?|trackers?|kanban|wbs)\b/i, /\b(Ticket|TicketTracker)\b/];
+    const hits = ["core", "runtime-node", "ui-react"].flatMap((name) => sourceFilesWithoutComments(name)
+      .flatMap(({ file, lines }) => lines.flatMap((line, index) =>
+        words.some((word) => word.test(line)) ? [`${file}:${index + 1}: ${line.trim()}`] : [])));
+    expect(hits).toEqual([]);
   });
 });

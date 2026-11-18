@@ -1,5 +1,5 @@
 import path from "node:path";
-import { PLUGIN_VERSIONS } from "./version.js";
+import { OFFICIAL_PLUGINS } from "./version.js";
 import { getMessages } from "./cli-messages.js";
 import {
   applyProjectSetup,
@@ -32,9 +32,9 @@ export async function initializeProject(
   const messages = getMessages(options.language!);
   const names = options.plugins === undefined ? [] : [...new Set(options.plugins.split(",").map((name) => name.trim()))];
   for (const name of names) {
-    if (!Object.hasOwn(PLUGIN_VERSIONS, name)) throw new Error(messages.initUnknownPlugin(name));
+    if (!Object.hasOwn(OFFICIAL_PLUGINS, name)) throw new Error(messages.initUnknownPlugin(name, Object.keys(OFFICIAL_PLUGINS)));
   }
-  const pluginPackages = names.map((name) => ({ name: `@vellym/${name}`, version: PLUGIN_VERSIONS[name]! }));
+  const pluginPackages = names.map((name) => ({ name: OFFICIAL_PLUGINS[name]!.name, version: OFFICIAL_PLUGINS[name]!.version }));
 
   const target = path.resolve(targetArgument ?? ".");
   const baseOptions = {

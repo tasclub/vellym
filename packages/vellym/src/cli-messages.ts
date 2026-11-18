@@ -2,7 +2,11 @@
 // --language／ui.languageに応じて同じフラグで日英どちらの出力も得られる。
 // initは候補選択を持たず、規模・開発方式・言語から厳格案を生成する。
 
+import { OFFICIAL_PLUGINS } from "./version.js";
+
 export type CliLanguage = "ja" | "en";
+
+const officialPluginList = (): string => Object.keys(OFFICIAL_PLUGINS).join(",");
 
 export interface CliMessages {
   usage(): string;
@@ -26,7 +30,7 @@ export interface CliMessages {
   unknownCommand(command: string): string;
   initCancelled(): string;
   initMissing(missing: string[]): string;
-  initUnknownPlugin(name: string): string;
+  initUnknownPlugin(name: string, available: readonly string[]): string;
   initConflict(paths: string): string;
   initComplete(target: string, created: number, skipped: number): string;
   initNext(): string;
@@ -56,7 +60,7 @@ Options:
   --size <value>        personal | small-team | medium-large
   --method <value>      agile | hybrid | waterfall
   --language <ja|en>    初期生成言語
-  --plugins <list>      tickets,kanban,wbs（任意）
+  --plugins <list>      ${officialPluginList()}（任意）
   --content-root <path> project rootからのcontent root相対path（既定: docs）
 
 例:
@@ -134,7 +138,7 @@ Options:
   unknownCommand: (command) => `不明なコマンドです: ${command}`,
   initCancelled: () => "初期化をキャンセルしました",
   initMissing: (missing) => `必須オプションが不足しています: ${missing.join(", ")}\n指定できる値: --size personal|small-team|medium-large, --method agile|hybrid|waterfall, --language ja|en\n例: vellym init my-project --size small-team --method hybrid --language ja --plugins tickets,kanban`,
-  initUnknownPlugin: (name) => `不明なプラグイン: ${name} (tickets, kanban, wbs)`,
+  initUnknownPlugin: (name, available) => `不明なプラグイン: ${name} (${available.join(", ")})`,
   initConflict: (paths) => `既存ファイルと競合しています: ${paths}`,
   initComplete: (target, created, skipped) => `初期化しました: ${target}\n作成: ${created}件、skip: ${skipped}件`,
   initNext: () => "次のコマンド:",
@@ -165,7 +169,7 @@ Options:
   --size <value>        personal | small-team | medium-large
   --method <value>      agile | hybrid | waterfall
   --language <ja|en>    Language for generated documents
-  --plugins <list>      tickets,kanban,wbs (optional)
+  --plugins <list>      ${officialPluginList()} (optional)
   --content-root <path> Content root relative to the project root (default: docs)
 
 Examples:
@@ -243,7 +247,7 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   unknownCommand: (command) => `Unknown command: ${command}`,
   initCancelled: () => "Initialization cancelled",
   initMissing: (missing) => `Missing required options: ${missing.join(", ")}\nAvailable values: --size personal|small-team|medium-large, --method agile|hybrid|waterfall, --language ja|en\nExample: vellym init my-project --size small-team --method hybrid --language en --plugins tickets,kanban`,
-  initUnknownPlugin: (name) => `Unknown plugin: ${name} (tickets, kanban, wbs)`,
+  initUnknownPlugin: (name, available) => `Unknown plugin: ${name} (${available.join(", ")})`,
   initConflict: (paths) => `init: already exists (existing_file): ${paths}`,
   initComplete: (target, created, skipped) => `Vellym workspace created: ${target}\nCreated: ${created}, skipped: ${skipped}`,
   initNext: () => "Next commands:",
