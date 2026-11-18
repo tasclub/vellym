@@ -60,6 +60,8 @@ export const TICKET_TRACKER_SPEC_SCHEMA = {
           },
           required: { type: "boolean" },
           listColumn: { type: "boolean" },
+          filter: { type: "boolean" },
+          sort: { type: "boolean" },
           options: {
             type: "array",
             items: {
@@ -75,6 +77,15 @@ export const TICKET_TRACKER_SPEC_SCHEMA = {
         },
         additionalProperties: true
       }
+    },
+    defaultSort: {
+      type: "object",
+      required: ["field"],
+      properties: {
+        field: { type: "string", minLength: 1 },
+        direction: { enum: ["asc", "desc"] }
+      },
+      additionalProperties: true
     }
   },
   additionalProperties: true

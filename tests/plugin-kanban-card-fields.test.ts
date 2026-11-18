@@ -3,7 +3,7 @@ import type { FieldDefinition } from "@vellym-internal/ticket-engine";
 import { cardFieldValue } from "../packages/plugin-kanban/src/card-fields.js";
 
 const field = (type: FieldDefinition["type"]): FieldDefinition => ({
-  id: "test", label: "Test", type, required: false, listColumn: false,
+  id: "test", label: "Test", type, required: false, listColumn: false, filter: false, sort: false,
   options: [{ value: "high", label: "高" }]
 });
 

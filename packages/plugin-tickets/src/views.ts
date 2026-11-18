@@ -84,18 +84,23 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
       editPath: ["status"]
     });
   }
-  // 列にするのは`listColumn`を宣言した項目だけ。項目が増えても一覧が
-  // 横に伸び続けないようにする。宣言の無い項目は詳細で読む。
+  // 列に出すのは`listColumn`を宣言した項目だけ。項目が増えても一覧が
+  // 横に伸び続けないようにするためである。`filter`・`sort`だけの項目は
+  // `hidden`の列として作り、表には出さず絞り込みと並べ替えにだけ使う。
+  // 宣言の無い項目は詳細で読む。
   for (const field of tracker?.fields ?? []) {
-    if (!field.listColumn) continue;
+    if (!field.listColumn && !field.filter && !field.sort) continue;
     columns.push({
       id: fieldKey(field.id),
       label: field.label,
       type: field.type,
       ...(field.options ? { options: field.options } : {}),
-      sortable: true,
-      filterable: true,
-      ...(field.type === "select" ? { editPath: ["fields", field.id] } : {})
+      ...(field.listColumn ? {} : { hidden: true }),
+      sortable: field.sort,
+      filterable: field.filter,
+      // まとめて変えられる列は、表に出ている単一選択だけ。隠れた列を
+      // 一括編集に混ぜると、見えない行が変わる。
+      ...(field.listColumn && field.type === "select" ? { editPath: ["fields", field.id] } : {})
     });
   }
   // 既定で隠すのは完了だけとする。未設定も定義外も「まだ終わっていないもの」であり、
@@ -125,7 +130,10 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
       valueKey: fieldKey(field.id), type: field.type, method, label: field.label,
       ...(groupBy ? { groupBy: { valueKey: fieldKey(groupBy.id), type: groupBy.type, ...(groupBy.type === "select" ? { order: groupBy.options?.map((option) => option.value) } : {}) } } : {})
     })) } : {}),
-    defaultSort: { columnId: "title", direction: "asc" },
+    // `spec.defaultSort`が解決できていればそれを、無ければタイトル昇順。
+    defaultSort: tracker?.defaultSort
+      ? { columnId: fieldKey(tracker.defaultSort.field.id), direction: tracker.defaultSort.direction }
+      : { columnId: "title", direction: "asc" },
     // 他の工程のチケットを混ぜない。これは利用者が外せない。
     // 子フォルダに別のチケット管理があっても、そこのチケットはここにも出る。
     scopeFilters: [

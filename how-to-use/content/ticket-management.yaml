@@ -102,6 +102,14 @@ spec:
           `false`。
         - `required`は**画面から新しく作るときだけ**入力を強制する。既存チケットの編集も、
           手書きのYAMLも止めない。正本がファイルである以上、書き込みを塞ぐ手段は無い。
+        - 一覧への参加は列（`listColumn`）・絞り込み（`filter`）・並べ替え（`sort`）を
+          別々に宣言する。`filter`と`sort`を省略すると`listColumn`と同じになる。
+          `listColumn`なしで`filter`か`sort`を宣言した項目は、表に列を出さないまま、
+          絞り込みと並べ替えの選択だけに使える。
+        - `spec.defaultSort: { field: <項目ID>, direction: asc|desc }`は一覧を開いたときの
+          並べ替え。列に出していない項目でも、並べ替えを有効にしていれば指定できる。
+          `direction`の省略時は`asc`。存在しない項目や並べ替えが無効な項目を指すと警告になり、
+          一覧は今までどおりタイトルの昇順で開く。個人設定で並べ替えを変えた場合はそちらが優先される。
 
         ### 本文テンプレート
 
@@ -284,6 +292,15 @@ spec:
             - `required` is enforced **only when creating from the screen**. It blocks neither
               editing an existing ticket nor hand-written YAML. While files are the canonical
               form, there is no way to prevent a write.
+            - Joining the list view is declared per axis: column (`listColumn`), filter
+              (`filter`), and sort (`sort`). Omitting `filter` or `sort` follows `listColumn`.
+              A field with `filter` or `sort` but no `listColumn` stays out of the table while
+              the filter and sort selectors offer it.
+            - `spec.defaultSort: { field: <field-id>, direction: asc|desc }` sets the sort used
+              when the list opens. A field outside the columns works as long as its sorting is
+              enabled. `direction` defaults to `asc`. An unknown field or one with sorting
+              disabled raises a warning, and the list opens sorted by title as before. Personal
+              settings override the default.
 
             ### Body template
 

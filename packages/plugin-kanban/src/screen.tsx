@@ -90,7 +90,9 @@ export function KanbanScreen({ context }: PluginViewProps) {
   }));
   const trackerName = context.target?.kind === "TicketTracker" ? context.target.name : undefined;
   const trackerSettings = trackerName ? settings[trackerName] : undefined;
-  const filterFields = data.fields.filter((field) => field.listColumn);
+  // 絞り込みの対象は実効の`filter`。列に出さない項目も、`filter: true`
+  // ならカンバンの絞り込みに出る。
+  const filterFields = data.fields.filter((field) => field.filter);
   const filterFieldIds = new Set(filterFields.map((field) => field.id));
   const filterValues = Object.fromEntries(Object.entries(trackerSettings?.filters ?? {})
     .filter(([id, value]) => filterFieldIds.has(id) && typeof value === "string"));

@@ -26,7 +26,22 @@ export interface FieldDefinition {
   required: boolean;
   /** 一覧に列として出すか。宣言が無ければ列にしない */
   listColumn: boolean;
+  /**
+   * 絞り込みの対象にするか。**実効値**であり、宣言を省略した場合は
+   * `listColumn`と同じになる（列に出す項目は絞り込みにも出てしかるべき、
+   * という既定である）。
+   */
+  filter: boolean;
+  /** 並べ替えの対象にするか。実効値で、省略時は`listColumn`と同じ */
+  sort: boolean;
   options?: { value: string; label: string }[];
+}
+
+/** 一覧を開いたときの並べ替え。`TicketTracker`の`spec.defaultSort` */
+export interface DefaultSortDefinition {
+  /** 解決済みの項目定義。存在しない項目や`sort`が無効な項目は入らない */
+  field: FieldDefinition;
+  direction: "asc" | "desc";
 }
 
 /** チケット管理1式。`TicketTracker`1ファイルから読み取る */
@@ -39,6 +54,13 @@ export interface Tracker {
   fields: FieldDefinition[];
   ticketTemplate?: string | Record<string, string>;
   summary?: { field: FieldDefinition; method: SummaryMethod; groupBy?: FieldDefinition }[];
+  /**
+   * 一覧を開いたときの既定の並べ替え。`spec.defaultSort`。
+   *
+   * 定義から解決できたときだけ入る。存在しない項目や`sort`が無効な項目は
+   * 入らず、定義の不整合として警告する（一覧は今までどおり開く）。
+   */
+  defaultSort?: DefaultSortDefinition;
   /** Tracker-selected reference field; never a fixed Ticket.spec.parent. */
   parentField?: string;
 }
@@ -108,31 +130,14 @@ function readTracker(record: PluginResourceRecord): Tracker {
   const fields: FieldDefinition[] = [];
   for (const entry of asArray(record.spec.fields)) {
     if (typeof entry !== "object" || entry === null) continue;
-    const item = entry as Record<string, unknown>;
-    const id = asString(item.id);
-    const type = item.type;
-    if (!id || typeof type !== "string" || !VALUE_TYPES.includes(type as PluginValueType)) {
-      continue;
-    }
-    const options: { value: string; label: string }[] = [];
-    for (const option of asArray(item.options)) {
-      if (typeof option !== "object" || option === null) continue;
-      const value = asString((option as Record<string, unknown>).value);
-      if (value === undefined) continue;
-      options.push({
-        value,
-        label: asString((option as Record<string, unknown>).label) ?? value
-      });
-    }
-    fields.push({
-      id,
-      label: asString(item.label) ?? id,
-      type: type as PluginValueType,
-      required: item.required === true,
-      listColumn: item.listColumn === true,
-      ...(options.length ? { options } : {})
-    });
+    const field = parseFieldDefinition(entry as Record<string, unknown>);
+    if (field) fields.push(field);
   }
+
+  const rawDefaultSort = record.spec.defaultSort;
+  const defaultSort = typeof rawDefaultSort === "object" && rawDefaultSort !== null && !Array.isArray(rawDefaultSort)
+    ? resolveDefaultSort(rawDefaultSort as Record<string, unknown>, fields)
+    : undefined;
 
   const rawHierarchy = record.spec.hierarchy;
   const hierarchy = typeof rawHierarchy === "object" && rawHierarchy !== null && !Array.isArray(rawHierarchy)
@@ -157,8 +162,63 @@ function readTracker(record: PluginResourceRecord): Tracker {
         ? [{ field, method: entry.method as SummaryMethod, ...(groupBy ? { groupBy } : {}) }] : [];
     }) } : {}),
     ...(ticketTemplate !== undefined ? { ticketTemplate } : {}),
+    ...(defaultSort ? { defaultSort } : {}),
     ...(parentField ? { parentField } : {})
   };
+}
+
+/**
+ * `spec.fields`の1項目を読む。
+ *
+ * `filter`と`sort`はここで**実効値**を決める（宣言を省略すれば`listColumn`と同じ）。
+ * 項目を使う側が既定を繰り返すと、片方だけ直された状態が生まれるため、
+ * 判定は definitions.ts の中に閉じる。
+ */
+function parseFieldDefinition(item: Record<string, unknown>): FieldDefinition | undefined {
+  const id = asString(item.id);
+  const type = item.type;
+  if (!id || typeof type !== "string" || !VALUE_TYPES.includes(type as PluginValueType)) {
+    return undefined;
+  }
+  const listColumn = item.listColumn === true;
+  const options: { value: string; label: string }[] = [];
+  for (const option of asArray(item.options)) {
+    if (typeof option !== "object" || option === null) continue;
+    const value = asString((option as Record<string, unknown>).value);
+    if (value === undefined) continue;
+    options.push({
+      value,
+      label: asString((option as Record<string, unknown>).label) ?? value
+    });
+  }
+  return {
+    id,
+    label: asString(item.label) ?? id,
+    type: type as PluginValueType,
+    required: item.required === true,
+    listColumn,
+    filter: typeof item.filter === "boolean" ? item.filter : listColumn,
+    sort: typeof item.sort === "boolean" ? item.sort : listColumn,
+    ...(options.length ? { options } : {})
+  };
+}
+
+/**
+ * `spec.defaultSort`を項目定義に解決する。項目が存在しない、`sort`が無効、
+ * 方式がasc/descでない場合は`undefined`（警告は`trackerDefinitionDiagnostics`）。
+ * 宣言の時点では項目IDの文字列なので、解決済み定義を載せる場所への変換もここで行う。
+ */
+function resolveDefaultSort(
+  item: Record<string, unknown>,
+  fields: FieldDefinition[]
+): DefaultSortDefinition | undefined {
+  const fieldId = asString(item.field);
+  if (!fieldId) return undefined;
+  const field = fields.find((candidate) => candidate.id === fieldId);
+  if (!field || !field.sort) return undefined;
+  if (item.direction === undefined) return { field, direction: "asc" };
+  if (item.direction !== "asc" && item.direction !== "desc") return undefined;
+  return { field, direction: item.direction };
 }
 
 /**
@@ -203,6 +263,22 @@ export function trackerDefinitionDiagnostics(
           diagnostics.push({ file: record.relativePath, path: `/spec/summary/${index}`, severity: "warning", code: "TICKET_SUMMARY_UNSUPPORTED", message: { ja: `集計の項目または方式を確認してください: ${String(entry.field ?? "")}`, en: `Check the summary field and method: ${String(entry.field ?? "")}` } });
         }
       });
+    }
+    if (record.spec.defaultSort !== undefined) {
+      const raw = record.spec.defaultSort;
+      const parsedFields = fields.flatMap((entry) =>
+        typeof entry === "object" && entry !== null ? [parseFieldDefinition(entry as Record<string, unknown>)] : []
+      ).filter((field): field is FieldDefinition => field !== undefined);
+      const resolved = typeof raw === "object" && raw !== null && !Array.isArray(raw)
+        ? resolveDefaultSort(raw as Record<string, unknown>, parsedFields)
+        : undefined;
+      if (!resolved) {
+        diagnostics.push({ file: record.relativePath, path: "/spec/defaultSort", severity: "warning",
+          code: "TICKET_DEFAULT_SORT_INVALID", message: {
+            ja: "既定の並べ替えには、sortを有効にした定義済みの項目とascまたはdescを指定してください",
+            en: "The default sort must name a defined field with sorting enabled, with asc or desc."
+          } });
+      }
     }
     const hierarchy = record.spec.hierarchy;
     if (typeof hierarchy === "object" && hierarchy !== null && !Array.isArray(hierarchy)) {

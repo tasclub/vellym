@@ -53,6 +53,15 @@ export interface PluginColumnDescriptor {
    */
   secondary?: boolean;
   /**
+   * 表の列にも行内の副次情報にも出さない列。省略時は`false`。
+   *
+   * 列として見せないが、絞り込みと並べ替えに使える項目のためにある。
+   * **`filterable`・`sortable`の指定どおりにだけ効く。** 隠すことと
+   * 使えなくすることは別のことなので、`hidden`の列も絞り込み欄と
+   * 並べ替えの選択には出る。
+   */
+  hidden?: boolean;
+  /**
    * 選んだ行へまとめて書き込むときの`spec`内の位置。宣言した列だけが
    * 一括編集の対象になる。
    *

@@ -60,6 +60,19 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
+/**
+ * テキスト入力へ値を設定してonChangeを発火させる。
+ * Reactは入力要素に値のトラッカーを付けていて、`.value`へ直接代入すると
+ * 「値が変わっていない」と判定されてonChangeが抑止される。原生のsetterで
+ * トラッカーを迂回し、inputイベントをたてる（selectのchangeとは別イベント）。
+ */
+function setInputValue(input: HTMLInputElement, value: string) {
+  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  if (!setValue) throw new Error("HTMLInputElementのvalue setterが見つかりません");
+  setValue.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 describe("Kanban screen interactions", () => {
   it("renders grouped whole-board summaries", () => {
     const field = { id: "estimate", label: "Estimate", type: "number", required: false, listColumn: false };
@@ -133,10 +146,12 @@ describe("Kanban screen interactions", () => {
     };
     const priority = {
       id: "priority", label: "優先度", type: "select" as const, required: false, listColumn: true,
+      filter: true, sort: true,
       options: [{ value: "high", label: "高" }, { value: "low", label: "低" }]
     };
     const estimate = {
-      id: "estimate", label: "見積", type: "number" as const, required: false, listColumn: false
+      id: "estimate", label: "見積", type: "number" as const, required: false, listColumn: false,
+      filter: false, sort: false
     };
     const rendererData = {
       statuses, diagnostics: [], fields: [priority, estimate], cardFields: [], summaries: [
@@ -190,6 +205,35 @@ describe("Kanban screen interactions", () => {
     expect(restored.container.querySelector('#kanban-defined-doing')?.closest("section")?.textContent)
       .toContain("チケットはありません");
     restored.unmount();
+  });
+
+  it("offers filter controls for fields with filter enabled even outside the list columns", () => {
+    const sprint = {
+      id: "sprint", label: "スプリント", type: "text" as const,
+      required: false, listColumn: false, filter: true, sort: false
+    };
+    const off = {
+      id: "draft", label: "下書き", type: "text" as const,
+      required: false, listColumn: false, filter: false, sort: false
+    };
+    const { container, unmount } = renderScreen({
+      rendererData: { statuses, diagnostics: [], fields: [sprint, off], cardFields: [], summaries: [] },
+      rows: [
+        { name: "ticket-1", title: "One", values: { status: "todo", "field:sprint": "S1" } },
+        { name: "ticket-2", title: "Two", values: { status: "todo", "field:sprint": "S2" } }
+      ]
+    });
+    act(() => container.querySelector<HTMLButtonElement>(
+      'button[aria-controls="kanban-filter-controls"]'
+    )!.click());
+    const sprintFilter = container.querySelector<HTMLInputElement>('input[aria-label="スプリント"]')!;
+    act(() => {
+      setInputValue(sprintFilter, "S2");
+    });
+    expect(container.textContent).toContain("表示 1 / 2件");
+    // `filter`が無効な項目は、列宣言の有無にかかわらず絞り込みに出ない
+    expect(container.querySelector('[aria-label="下書き"]')).toBeNull();
+    unmount();
   });
 
   it("allows selection in static output even when preferences cannot be saved", () => {

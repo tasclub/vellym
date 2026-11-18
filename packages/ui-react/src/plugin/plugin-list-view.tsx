@@ -13,6 +13,7 @@ import {
 import { PluginCommandDialog } from "./plugin-command-dialog.js";
 import { DataTable, type SortDirection } from "../shared/table.js";
 import { Button } from "../shared/button.js";
+import { ChoiceControl } from "../shared/choice-control.js";
 import {
   pluginViewSettingsKey,
   readPluginViewSettings,
@@ -240,16 +241,23 @@ export function PluginListView({
   }, [key, loadedSettingsKey, filters, filtersExpanded, sort, showAll]);
 
   const descriptor = payload.descriptor.type === "list" ? payload.descriptor : undefined;
+  // `hidden`の列は表にも副次情報にも出さない。絞り込みと並べ替えには
+  // `filterable`・`sortable`の指定どおりにだけ残る（隠すことと使えなく
+  // することは別のこと）。
   const columns = useMemo(
-    () => (descriptor?.columns ?? []).filter((column) => !column.secondary),
+    () => (descriptor?.columns ?? []).filter((column) => !column.secondary && !column.hidden),
     [descriptor]
   );
   const secondary = useMemo(
-    () => (descriptor?.columns ?? []).filter((column) => column.secondary),
+    () => (descriptor?.columns ?? []).filter((column) => column.secondary && !column.hidden),
     [descriptor]
   );
   const filterable = useMemo(
     () => (descriptor?.columns ?? []).filter((column) => column.filterable),
+    [descriptor]
+  );
+  const sortable = useMemo(
+    () => (descriptor?.columns ?? []).filter((column) => column.sortable),
     [descriptor]
   );
   const activeFilterCount = filterable.filter((column) => Boolean(filters[column.id])).length +
@@ -334,7 +342,7 @@ export function PluginListView({
     </div>
   );
 
-  const filterBar = filterable.length ? (
+  const filterBar = filterable.length || sortable.length ? (
     <div className={styles["plugin-list-filters"]}>
       <span className={styles["plugin-band-label"]} aria-hidden="true">
         FILTER
@@ -411,6 +419,52 @@ export function PluginListView({
             </label>
           );
         })}
+        {/*
+          並べ替えの選択。列見出しのクリックと同じ状態を変えるため、
+          ここと見出しは必ず同じ並び順指す。選択肢は`sortable`の列すべてで、
+          表に隠れた列（`hidden`）も含める。
+        */}
+        {sortable.length ? (
+          <div className={styles["plugin-list-sort"]}>
+            <ChoiceControl
+              mode="select"
+              aria-label={t("plugin.sortColumn")}
+              value={sort?.columnId ?? ""}
+              options={[
+                ...(sort ? [] : [{ value: "", label: t("plugin.sortColumn") }]),
+                ...sortable.map((column) => ({
+                  value: column.id,
+                  label: resolveLocalizedText(column.label, locale)
+                }))
+              ]}
+              onChange={(columnId) =>
+                // 見出しクリックと同じ作法。列を替えたときは昇順から始める。
+                setSort(columnId
+                  ? {
+                      columnId,
+                      direction:
+                        sort?.columnId === columnId ? sort.direction : "asc"
+                    }
+                  : undefined)
+              }
+            />
+            <ChoiceControl
+              mode="segmented"
+              aria-label={t("plugin.sortDirection")}
+              value={sort?.direction ?? "asc"}
+              disabled={!sort}
+              options={[
+                { value: "asc", label: t("plugin.sortAsc") },
+                { value: "desc", label: t("plugin.sortDesc") }
+              ]}
+              onChange={(direction) =>
+                setSort((current) =>
+                  current ? { ...current, direction: direction === "desc" ? "desc" : "asc" } : current
+                )
+              }
+            />
+          </div>
+        ) : null}
         {Object.values(filters).some(Boolean) ? (
           <Button onClick={() => setFilters({})}>
             {t("plugin.filterClear")}

@@ -7,10 +7,11 @@ import { filterKanbanRows } from "../packages/plugin-kanban/src/filters.js";
 const fields: FieldDefinition[] = [
   {
     id: "priority", label: "Priority", type: "select", required: false, listColumn: true,
+    filter: true, sort: true,
     options: [{ value: "high", label: "High" }, { value: "low", label: "Low" }]
   },
-  { id: "assignee", label: "Assignee", type: "text", required: false, listColumn: true },
-  { id: "tags", label: "Tags", type: "multiselect", required: false, listColumn: true }
+  { id: "assignee", label: "Assignee", type: "text", required: false, listColumn: true, filter: true, sort: true },
+  { id: "tags", label: "Tags", type: "multiselect", required: false, listColumn: true, filter: true, sort: true }
 ];
 
 const rows: PluginIndexRow[] = [

@@ -83,6 +83,13 @@ spec:
       type: date
       listColumn: true
     - { id: parent, label: Parent ticket, type: reference }
+    - id: estimate
+      label: Estimate
+      type: number
+      sort: true  # sortable without a column in the list
+  defaultSort:
+    field: estimate
+    direction: desc
   hierarchy:
     parentField: parent
 ```
@@ -91,6 +98,8 @@ spec:
 - **The first status is the initial value for new tickets**, and the array order is also the display order. There is no separate initial-value key; reorder the array to change it.
 - `fields[]` requires `id`, `label`, and `type`. `required` and `listColumn` default to `false` when omitted.
 - `required` enforces input **only when creating a new ticket in the UI**. It does not block editing existing tickets or writing YAML by hand.
+- A field can join the list view as a column (`listColumn`), a filter (`filter`), or a sort option (`sort`) — declared separately. Omitted `filter` and `sort` follow `listColumn`. A field with `filter` or `sort` but no `listColumn` is used by the filter and sort selectors while staying out of the table.
+- `spec.defaultSort: { field: <field-id>, direction: asc|desc }` sets the sort applied when the list opens. It may name a field that is not a list column, as long as sorting is enabled for it. `direction` defaults to `asc`. An unknown field or one with sorting disabled raises a warning and the list opens sorted by title, as before. Personal settings override the default.
 
 ### Ticket
 
@@ -234,6 +243,13 @@ spec:
       type: date
       listColumn: true
     - { id: parent, label: 親チケット, type: reference }
+    - id: estimate
+      label: 見積
+      type: number
+      sort: true  # 一覧の列にはせず、並べ替えにだけ使う
+  defaultSort:
+    field: estimate
+    direction: desc
   hierarchy:
     parentField: parent
 ```
@@ -242,6 +258,8 @@ spec:
 - **配列の先頭が新規作成時の初期値**になり、配列順がそのまま表示順になります。初期値を指定するキーはありません。並べ替えて変えます。
 - `fields[]`は`id`／`label`／`type`が必須です。`required`と`listColumn`は省略すると`false`です。
 - `required`は**画面から新しく作るときだけ**入力を強制します。既存チケットの編集も、手書きのYAMLも止めません。
+- 一覧への参加は列（`listColumn`）・絞り込み（`filter`）・並べ替え（`sort`）を別々に宣言します。`filter`と`sort`を省略すると`listColumn`と同じになります。`listColumn`なしで`filter`か`sort`を宣言した項目は、表に列を出さないまま、絞り込みと並べ替えの選択に使えます。
+- `spec.defaultSort: { field: <項目ID>, direction: asc|desc }`は一覧を開いたときの並べ替えです。列に出していない項目でも、並べ替えを有効にしていれば指定できます。`direction`の省略時は`asc`。存在しない項目や並べ替えが無効な項目を指すと警告になり、一覧は今までどおりタイトルの昇順で開きます。個人設定で並べ替えを変えた場合はそちらが優先されます。
 
 ### Ticket
 

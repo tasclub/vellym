@@ -38,8 +38,9 @@ spec:
     - { id: todo, label: Todo, category: open }
     - { id: done, label: Done, category: closed }
   fields:
-    - { id: estimate, label: "Estimate(h)", type: number }
+    - { id: estimate, label: "Estimate(h)", type: number, sort: true }
     - { id: owner, label: Owner, type: text, listColumn: true }
+  defaultSort: { field: estimate, direction: desc }
   summary:
     - { field: estimate, method: sum }
 `);
@@ -107,4 +108,37 @@ it.each([
   expect(summary.textContent).toBe(empty);
   searchFor("");
   expect(summary.textContent).toBe(initial);
+});
+
+it("offers the default sort and the sort selector in the static output", () => {
+  const descriptor = payload.descriptor;
+  if (descriptor.type !== "list") throw new Error("一覧のdescriptorのはず");
+  // 一覧の列に出さない項目は、隠れた列として並び順にだけ参加する
+  expect(descriptor.columns.find((column) => column.id === "field:estimate"))
+    .toMatchObject({ hidden: true, sortable: true });
+  expect(descriptor.defaultSort).toEqual({ columnId: "field:estimate", direction: "desc" });
+
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  act(() => root!.render(createElement(PluginListView, {
+    payload, projectRoot: directory, targetName: "summary-tracker", locale: "en"
+  })));
+  const sortSelect = container.querySelector<HTMLSelectElement>('select[aria-label="並べ替え"]')!;
+  // 既定の並べ替えが最初から適用されている。選択肢は並び替え可能な列すべて
+  expect(sortSelect.value).toBe("field:estimate");
+  expect([...sortSelect.options].map((option) => option.value).sort())
+    .toEqual(["field:estimate", "field:owner", "status", "title"]);
+
+  const firstTitle = () => container.querySelector("tbody tr button")?.textContent;
+  // 列を替えたときは昇順から始める（見出しクリックと同じ作法）
+  act(() => {
+    sortSelect.value = "field:owner";
+    sortSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(firstTitle()).toBe("Task 0");
+  const desc = [...container.querySelectorAll("button")].find((button) => button.textContent === "降順")!;
+  act(() => desc.click());
+  // Ownerが同じ行は元の行順のまま。静的ページの行順は名前の辞書順で、その先頭はTask 10
+  expect(firstTitle()).toBe("Task 10");
 });
