@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, mkdtemp, readFile, rm, writeFile, unlink, symlink } from "node:fs/promises";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { readGitChanges, readChangeDiff, writeGitChanges, gitFailure } from "../packages/runtime-node/src/git-changes.js";
 import { readGitHistory } from "../packages/runtime-node/src/git-history.js";
@@ -12,7 +13,7 @@ const exec = promisify(execFile);
 const dirs: string[] = [];
 async function git(cwd: string, ...args: string[]) { return (await exec("git", args, { cwd, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } })).stdout.trim(); }
 async function fixture() {
-  const repo = await mkdtemp("/tmp/opencode/changes-"); dirs.push(repo);
+  const repo = await mkdtemp(path.join(tmpdir(), "changes-")); dirs.push(repo);
   const root = path.join(repo, "content"); await mkdir(root);
   await git(repo, "init", "-q");
   await git(repo, "config", "user.name", "Tester"); await git(repo, "config", "user.email", "test@example.test");
@@ -66,7 +67,7 @@ describe("content-root Git writes", () => {
   it("pushes to the configured upstream using a local bare remote and distinguishes rejection and no upstream", async () => {
     const { repo, root } = await fixture();
     expect(await writeGitChanges(root, "push", {})).toEqual({ ok: false, code: "noUpstream" });
-    const remote = await mkdtemp("/tmp/opencode/remote-"); dirs.push(remote); await git(remote, "init", "--bare", "-q");
+    const remote = await mkdtemp(path.join(tmpdir(), "remote-")); dirs.push(remote); await git(remote, "init", "--bare", "-q");
     const branch = await git(repo, "branch", "--show-current");
     await git(repo, "remote", "add", "origin", remote); await git(repo, "push", "-u", "origin", branch);
     await writeFile(path.join(root, "one.yaml"), "local\n");
@@ -74,7 +75,7 @@ describe("content-root Git writes", () => {
     expect(await readGitChanges(root)).toMatchObject({ ahead: 1, upstream: `origin/${branch}` });
     expect(await writeGitChanges(root, "push", {})).toEqual({ ok: true });
     expect(await readGitChanges(root)).toMatchObject({ ahead: 0 });
-    const clone = await mkdtemp("/tmp/opencode/clone-"); dirs.push(clone);
+    const clone = await mkdtemp(path.join(tmpdir(), "clone-")); dirs.push(clone);
     await git(clone, "clone", "-q", "-b", branch, remote, ".");
     await writeFile(path.join(clone, "new"), "remote\n"); await git(clone, "add", ".");
     await git(clone, "-c", "user.name=Other", "-c", "user.email=other@example.test", "-c", "commit.gpgSign=false", "commit", "-qm", "remote");

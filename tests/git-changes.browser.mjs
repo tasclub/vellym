@@ -3,10 +3,14 @@ import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 const exec = promisify(execFile);
-const root = await mkdtemp("/tmp/opencode/git-changes-browser-");
+const root = await mkdtemp(path.join(tmpdir(), "git-changes-browser-"));
+// Screenshots go inside the temporary root by default; set VELLYM_SCREENSHOT_DIR to keep them elsewhere.
+const shots = process.env.VELLYM_SCREENSHOT_DIR || root;
+if (shots !== root) await mkdir(shots, { recursive: true });
 const remote = path.join(root, "remote.git");
 const git = async (...args) => (await exec("git", args, { cwd: root })).stdout.trim();
 await mkdir(path.join(root, "content"));
@@ -52,7 +56,7 @@ try {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     if (width < 768) await expect(page.getByRole("button", { name: "Commit", exact: true })).toBeHidden();
     else await expect(page.getByRole("button", { name: "Commit", exact: true })).toBeVisible();
-    await page.screenshot({ path: `/tmp/opencode/git-changes-${width}.png`, fullPage: true });
+    await page.screenshot({ path: path.join(shots, `git-changes-${width}.png`), fullPage: true });
   }
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
   expect(a11y.violations).toEqual([]);

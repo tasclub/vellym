@@ -2,10 +2,14 @@
 import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-const root = await mkdtemp("/tmp/opencode/image-upload-");
+const root = await mkdtemp(path.join(tmpdir(), "image-upload-"));
+// Screenshots go inside the temporary root by default; set VELLYM_SCREENSHOT_DIR to keep them elsewhere.
+const shots = process.env.VELLYM_SCREENSHOT_DIR || root;
+if (shots !== root) await mkdir(shots, { recursive: true });
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 await mkdir(path.join(root, "content"));
 await writeFile(path.join(root, "vellym.config.yaml"), 'schemaVersion: "1.0"\ncontentRoot: content\noutputDir: dist\nui:\n  language: en\nplugins: []\nassets:\n  maxBytes: 1000\n');
@@ -67,7 +71,7 @@ try {
   await transfer("paste", "large.png", "image/png", Buffer.concat([png, Buffer.alloc(1000)]));
   await expect(page.getByRole("alert")).toContainText("size limit");
   await expect(editor.locator("img")).toHaveCount(3);
-  await page.screenshot({ path: "/tmp/opencode/image-upload-edit.png", fullPage: true });
+  await page.screenshot({ path: path.join(shots, "image-upload-edit.png"), fullPage: true });
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
   const image = page.getByRole("img", { name: "Diagram", exact: true });
@@ -78,7 +82,7 @@ try {
   expect(source.match(/asset:/g)).toHaveLength(3);
   await page.reload();
   await expect(page.getByRole("img", { name: "Diagram", exact: true })).toBeVisible();
-  await page.screenshot({ path: "/tmp/opencode/image-upload-read.png", fullPage: true });
+  await page.screenshot({ path: path.join(shots, "image-upload-read.png"), fullPage: true });
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Image alternative text" })).toHaveCount(3);
   await expect(editor.locator('img[alt="Diagram"]')).toBeVisible();
@@ -118,7 +122,7 @@ try {
   await transfer("paste", "unsafe.svg", "image/svg+xml", Buffer.from("<svg/>"));
   await expect(page.getByRole("alert")).toContainText("PNG");
   expect(await page.getByRole("alert").innerText()).not.toContain("Use a PNG");
-  await page.screenshot({ path: "/tmp/opencode/image-upload-ja.png", fullPage: true });
+  await page.screenshot({ path: path.join(shots, "image-upload-ja.png"), fullPage: true });
   await page.getByRole("button", { name: "キャンセル", exact: true }).click();
   // Even if a host incorrectly mounts an editor in static mode, it exposes no upload operation.
   await page.evaluate(() => {

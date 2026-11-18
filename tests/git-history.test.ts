@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { readGitHistory } from "../packages/runtime-node/src/git-history.js";
 import type { GitHistoryData, GitResult } from "../packages/ui-react/src/shared/api.js";
@@ -12,7 +13,7 @@ async function git(cwd: string, ...args: string[]) {
   return (await exec("git", ["-c", "user.name=History Tester", "-c", "user.email=test@example.test", "-c", "commit.gpgSign=false", ...args], { cwd })).stdout.trim();
 }
 async function fixture() {
-  const project = await mkdtemp("/tmp/opencode/vellym-history-");
+  const project = await mkdtemp(path.join(tmpdir(), "vellym-history-"));
   projects.push(project);
   const root = path.join(project, "content");
   await mkdir(root);
