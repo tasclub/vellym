@@ -127,6 +127,22 @@ describe("Git history UI data extensions", () => {
     expect(await diff({ from: "", context: "all" })).toContain("+changed 20");
   });
 
+  it("returns a server-side projection with historical content only when the version is valid", async () => {
+    const { project, root } = await fixture();
+    const valid = "apiVersion: vellym.tasclub.com/v1\nkind: Page\nmetadata:\n  name: page\n  title: Old\nspec:\n  locale: en\n  blocks: []\n";
+    await writeFile(path.join(root, "page.yaml"), valid);
+    const good = await commit(project, "valid");
+    await writeFile(path.join(root, "page.yaml"), "kind: Page\nmetadata: [\n");
+    const bad = await commit(project, "invalid");
+    const content = async (revision: string, locale = "en") => await readGitHistory(root, "content", query({ revision, locale, baseLocale: "en" })) as { available: true; source: string; view?: { page: { metadata: { title: string } } } };
+    const ok = await content(good);
+    expect(ok.source).toBe(valid);
+    expect(ok.view?.page.metadata.title).toBe("Old");
+    expect((await content(good, "fr")).view).toBeUndefined();
+    const broken = await content(bad);
+    expect(broken.source).toContain("metadata: [");
+    expect(broken.view).toBeUndefined();
+  });
   it("rejects malformed pagination, revisions and context", async () => {
     const { root } = await fixture();
     await writeFile(path.join(root, "page.yaml"), "data\n");

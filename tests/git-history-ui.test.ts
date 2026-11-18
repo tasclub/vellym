@@ -5,6 +5,7 @@ import { parseGitDiff, foldDiff } from "../packages/ui-react/src/editor/git-diff
 import { historicalPage, HistoryDocument } from "../packages/ui-react/src/editor/git-history.js";
 import { GitDiff } from "../packages/ui-react/src/editor/git-diff.js";
 import { DocumentView } from "../packages/ui-react/src/editor/view.js";
+import { historicalProjection } from "../packages/runtime-node/src/git-history.js";
 import { i18next } from "../packages/ui-react/src/shared/i18n.js";
 import type { PageView } from "@vellym-internal/core";
 
@@ -42,16 +43,17 @@ describe("Git history presentation", () => {
     } finally { vi.unstubAllGlobals(); }
   });
   it("projects old YAML without borrowing live relations or changing the editor", () => {
-    const past = historicalPage(source, current)!;
+    const past = historicalPage(historicalProjection(source, current.relativePath, "en", "en"), current)!;
     expect(past.readOnly).toBe(true);
     expect(past.relations).toBeUndefined();
     expect(renderToStaticMarkup(React.createElement(DocumentView, { view: past }))).toContain("<strong>Historical body</strong>");
     expect(current.page.metadata.title).toBe("Current");
-    expect(historicalPage(source, { ...current, locale: "ja" })?.page.metadata.title).toBe("過去の題名");
-    expect(historicalPage(source, { ...current, locale: "fr" })).toBeUndefined();
+    expect(historicalPage(historicalProjection(source, current.relativePath, "ja", "en"), { ...current, locale: "ja" })?.page.metadata.title).toBe("過去の題名");
+    expect(historicalPage(historicalProjection(source, current.relativePath, "fr", "en"), { ...current, locale: "fr" })).toBeUndefined();
   });
   it("rejects malformed, unsupported and excessive-alias YAML", () => {
-    for (const invalid of ["[", source.replace("kind: Page", "kind: Folder"), source.replace("vellym.tasclub.com/v1", "unknown/v9"), source + "metadata: {}\n"]) expect(historicalPage(invalid, current)).toBeUndefined();
+    for (const invalid of ["[", source.replace("kind: Page", "kind: Folder"), source.replace("vellym.tasclub.com/v1", "unknown/v9"), source + "metadata: {}\n"]) expect(historicalProjection(invalid, current.relativePath, "en", "en")).toBeUndefined();
+    expect(historicalPage(undefined, current)).toBeUndefined();
   });
   it("parses line numbers, ignores headers, and folds with exactly three context lines", () => {
     const diff = `diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1,22 +1,22 @@\n${Array.from({ length: 10 }, (_, i) => ` line${i}`).join("\n")}\n-old\n+new\n${Array.from({ length: 10 }, (_, i) => ` tail${i}`).join("\n")}\n`;

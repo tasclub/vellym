@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { parseDocument } from "yaml";
-import { projectPage, validatePage, type PageView } from "@vellym-internal/core";
+import type { LocalizedPageProjection, PageView } from "@vellym-internal/core";
 import { useTranslation } from "react-i18next";
 import { fetchGitContent, fetchGitDiff, fetchGitHistory, isStaticApp, type GitHistoryData } from "../shared/api.js";
 import { ChoiceControl } from "../shared/choice-control.js";
@@ -8,17 +7,13 @@ import { DocumentView } from "./view.js";
 import { GitDiff } from "./git-diff.js";
 import styles from "./git-history.module.css";
 
-/** A historical projection is deliberately not mixed into the live editor or its relations. */
-export function historicalPage(source: string, current: PageView): PageView | undefined {
-  try {
-    const yaml = parseDocument(source, { uniqueKeys: true });
-    if (yaml.errors.length) return;
-    const validated = validatePage(yaml.toJS({ maxAliasCount: 100 }), current.relativePath);
-    if (!validated.page || validated.diagnostics.some((item) => item.severity === "error")) return;
-    const projected = projectPage(validated.page, current.locale ?? current.baseLocale ?? "en", current.baseLocale ?? "en", current.relativePath);
-    if (!projected) return;
-    return { ...projected, relativePath: current.relativePath, hash: "", readOnly: true, readOnlyReasons: [] };
-  } catch { return; }
+/**
+ * A historical projection is deliberately not mixed into the live editor or its relations.
+ * The server validates and projects the old version, so the browser never bundles the Ajv compiler.
+ */
+export function historicalPage(projected: LocalizedPageProjection | undefined, current: PageView): PageView | undefined {
+  if (!projected) return;
+  return { ...projected, relativePath: current.relativePath, hash: "", readOnly: true, readOnlyReasons: [] };
 }
 
 type History = GitHistoryData & { shallow: boolean };
@@ -102,8 +97,8 @@ export function HistoryDocument({ view, headerActions, beforeBody, onNavigatePag
     if (!version || !commit) return;
     const controller = new AbortController();
     setPast(undefined); setPastLoading(true);
-    void fetchGitContent(path, commit.hash, controller.signal).then(({ data }) => {
-      if (!controller.signal.aborted && data.available) setPast(historicalPage(data.source, view));
+    void fetchGitContent(path, commit.hash, controller.signal, view.locale ?? view.baseLocale ?? "en", view.baseLocale ?? "en").then(({ data }) => {
+      if (!controller.signal.aborted && data.available) setPast(historicalPage(data.view, view));
     }).catch(() => { /* Unreadable versions keep their diff available. */ }).finally(() => { if (!controller.signal.aborted) setPastLoading(false); });
     return () => controller.abort();
   }, [version, commit?.hash, path, view.locale]);

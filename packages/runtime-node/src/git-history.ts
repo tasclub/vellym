@@ -4,6 +4,7 @@ import { lstat, realpath, readFile, mkdtemp, writeFile, rm } from "node:fs/promi
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseDocument } from "yaml";
+import { projectPage, validatePage, type LocalizedPageProjection } from "@vellym-internal/core";
 import { RuntimeError } from "./errors.js";
 import { isInside } from "./path-utils.js";
 
@@ -12,6 +13,22 @@ const hashPattern = /^[0-9a-f]{7,40}$/;
 interface Commit { hash: string; date: string; author: string; subject: string }
 interface Change { status: string; paths: string[] }
 interface LogEntry extends Commit { changes: Change[] }
+
+/**
+ * Validates and projects a historical version on the server, so the browser never
+ * bundles the Ajv compiler (ticket-01m7phrktvjrvwgekge6fq9vnh). Returns nothing for
+ * malformed YAML, excessive aliases, other kinds, validation errors or a locale the
+ * version does not publish.
+ */
+export function historicalProjection(source: string, relativePath: string, locale: string, defaultLocale: string): LocalizedPageProjection | undefined {
+  try {
+    const yaml = parseDocument(source, { uniqueKeys: true });
+    if (yaml.errors.length) return;
+    const validated = validatePage(yaml.toJS({ maxAliasCount: 100 }), relativePath);
+    if (!validated.page || validated.diagnostics.some((item) => item.severity === "error")) return;
+    return projectPage(validated.page, locale, defaultLocale, relativePath);
+  } catch { return; }
+}
 
 // NUL framing preserves spaces, tabs, newlines and non-ASCII filenames.
 export function parseGitLog(output: string): LogEntry[] {
@@ -167,7 +184,12 @@ export async function readGitHistory(contentRoot: string, operation: string, que
       }
       throw new RuntimeError("この版にcontentRoot内のファイルはありません", 404, "NOT_FOUND");
     };
-    if (operation === "content") return { ...state, source: await readVersion(query.get("revision")!) };
+    if (operation === "content") {
+      const source = await readVersion(query.get("revision")!);
+      const locale = query.get("locale");
+      const view = locale ? historicalProjection(source, requested, locale, query.get("baseLocale") || locale) : undefined;
+      return { ...state, source, ...(view ? { view } : {}) };
+    }
     const from = query.get("from") ?? versions[0]?.hash;
     if (from === undefined) throw new RuntimeError("コミットされた版がありません", 404, "NOT_FOUND");
     const before = from === "" ? "" : await readVersion(from);

@@ -9,6 +9,7 @@ import type {
   FolderEditView,
   PageSummary,
   PageEditView,
+  LocalizedPageProjection,
   PageView,
   SearchProjection
 } from "@vellym-internal/core";
@@ -52,9 +53,9 @@ export function fetchGitHistory(filePath: string, limit = 50, signal?: AbortSign
 export function fetchGitDiff(filePath: string, from?: string, to?: string, signal?: AbortSignal, context: number | "all" = 3): Promise<Envelope<GitResult<{ diff: string }>>> {
   return fetchGit("diff", { path: filePath, ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}), context: String(context) }, signal);
 }
-/** Raw YAML, interpreted by the same Core parser as current documents. */
-export function fetchGitContent(filePath: string, revision: string, signal?: AbortSignal): Promise<Envelope<GitResult<{ source: string }>>> {
-  return fetchGit("content", { path: filePath, revision }, signal);
+/** Raw YAML, plus its server-side projection in `locale` when the version is a valid Page. */
+export function fetchGitContent(filePath: string, revision: string, signal?: AbortSignal, locale?: string, baseLocale?: string): Promise<Envelope<GitResult<{ source: string; view?: LocalizedPageProjection }>>> {
+  return fetchGit("content", { path: filePath, revision, ...(locale ? { locale } : {}), ...(baseLocale ? { baseLocale } : {}) }, signal);
 }
 export function fetchGitRecent(limit = 50, signal?: AbortSignal, offset = 0): Promise<Envelope<GitResult<{ nextOffset: number | null; commits: Array<GitCommit & { files: Array<{ path: string; status: string; title?: string }> }> }>>> {
   return fetchGit("recent", { limit: String(limit), offset: String(offset) }, signal);
