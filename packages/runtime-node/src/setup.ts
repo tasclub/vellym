@@ -802,7 +802,7 @@ function projectInformationGuide(plan: SetupPlan): string {
   if (ja) {
     return `## このPageの役割
 
-このPageは、初期セットアップ時点の構成と読み順を人間と外部AIへ案内する入口です。後から構成を追加した場合は、必要に応じて利用者が編集してください。
+このPageは、初期セットアップ時点の構成と読み順を人間と外部AIへ案内する入口です。後から構成を追加した場合は、必要に応じて利用者が編集してください。見出しと説明文は自由に直してよいですが、\`metadata.name\`・\`blocks[].id\`・\`spec\`の構造はVellymが使うので変えないでください。
 
 ## 採用した構成
 
@@ -831,7 +831,7 @@ Vellymは本文の意味的な重複や矛盾を自動判定しません。ま�
   }
   return `## Purpose of this Page
 
-This Page is the entry point that explains the initial structure and reading order to people and external AI agents. If the structure changes later, update this Page manually when needed.
+This Page is the entry point that explains the initial structure and reading order to people and external AI agents. If the structure changes later, update this Page manually when needed. Headings and prose can be edited freely; keep \`metadata.name\`, \`blocks[].id\`, and the shape of \`spec\`, because Vellym uses them.
 
 ## Selected structure
 

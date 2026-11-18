@@ -79,6 +79,8 @@ spec:
         ...
 ```
 
+`format: commonmark` may be omitted: body text is always read as CommonMark (with GFM tables), and no other value has a meaning yet. Headings and prose are yours to edit; `metadata.name`, `blocks[].id` and the shape of `spec` are used by Vellym, so keep them.
+
 Read the [English user guide](https://vellym.tasclub.com/en/) or [日本語の利用ガイド](https://vellym.tasclub.com/).
 The official site is generated with Vellym and demonstrates the output of `vellym build`.
 
@@ -224,6 +226,8 @@ spec:
         ## 目的
         ...
 ```
+
+`format: commonmark`は省略してよい。本文は常にCommonMark（GFMの表を含む）として読まれ、ほかの値にはまだ意味が無い。見出しと説明文は自由に直してよいが、`metadata.name`・`blocks[].id`・`spec`の構造はVellymが使うので変えない。
 
 詳しくは[日本語の利用ガイド](https://vellym.tasclub.com/)または[English user guide](https://vellym.tasclub.com/en/)を参照。公式サイト <https://vellym.tasclub.com/> は Vellym 自身で生成している。`vellym build` の静的サイト出力がどう見えるかは、あのサイトがそのまま例になる。
 

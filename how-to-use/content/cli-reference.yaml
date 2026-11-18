@@ -105,6 +105,11 @@ spec:
         既定言語はルートへ、公開済みtranslationはlocale別pathへ一回のbuildで生成する。
         出力先・配信手順・注意点は[[self-hosting|静的配信と自己ホスト]]を参照。
 
+        設定の`outputDir`は、出力先そのものではなく「版フォルダの置き場所と名前の元」である。
+        `outputDir: dist/vellym`なら、`dist/`の下に`<YYYYMMDD-HHmmss>-vellym/`という
+        日時つきのフォルダを毎回新しく作る。公開中の版を上書きせず、生成に失敗しても前の版が残るための作りである。
+        実際の出力先は`--json`の`data.outputDir`で分かる。古い版は自動では消さないので、不要になったら手で消す。
+
         ## migrate — Page形式の移行
 
         ```bash
@@ -115,6 +120,9 @@ spec:
         `v1alpha1`のPageとFolderを明示的に`v1`へ移行する。最初のコマンドで対象と診断を確認し、
         Gitへcommitしてから2番目のコマンドで適用する。コメント、未知キー、未知blockを保持し、
         preview後に対象が変わった場合は書き込みを中止する。自動migrationは行わない。
+
+        古い形式（`v1alpha1`）のままのファイルが残っていないかは、`--plan`の対象一覧で分かる。
+        `validate`は`v1alpha1`を警告しない（現役の形式として読める）。
 
         ## 関連
 
@@ -233,6 +241,13 @@ spec:
             translations under locale-specific paths. See [[self-hosting|Static Publishing and Self-Hosting]]
             for output location, serving, and caveats.
 
+            The config's `outputDir` is not the output folder itself but the place and base
+            name for versioned folders. With `outputDir: dist/vellym`, each build creates a new
+            timestamped folder `<YYYYMMDD-HHmmss>-vellym/` under `dist/`. This keeps the published
+            version intact and leaves the previous one in place if a build fails. The actual
+            location is reported as `data.outputDir` by `--json`. Old versions are never removed
+            automatically; delete them by hand when you no longer need them.
+
             ## migrate — Page format migration
 
             ```bash
@@ -244,6 +259,10 @@ spec:
             targets and diagnostics first, commit the project to Git, and then apply. The
             migration preserves comments, unknown keys, and unknown blocks and aborts if a
             target changes after preview. Vellym never migrates files automatically.
+
+            To find files still in the old `v1alpha1` format, look at the targets listed by
+            `--plan`. `validate` does not warn about `v1alpha1`, because it is still read as a
+            supported format.
 
             ## Related
 
