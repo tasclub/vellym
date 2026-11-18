@@ -16,7 +16,11 @@ for (const entry of (await readdir(path.join(root, "packages"), { withFileTypes:
   .filter((item) => item.isDirectory() && item.name.startsWith("plugin-"))) {
   const manifest = JSON.parse(await readFile(path.join(root, "packages", entry.name, "package.json"), "utf8"));
   if (manifest.private || manifest.publishConfig?.access !== "public" || typeof manifest.vellym?.id !== "string") continue;
-  officialPlugins[manifest.vellym.id] = { name: manifest.name, version: manifest.version };
+  officialPlugins[manifest.vellym.id] = {
+    name: manifest.name,
+    version: manifest.version,
+    ...(manifest.vellym.guideUrl ? { guideUrl: manifest.vellym.guideUrl } : {})
+  };
 }
 const sortedOfficialPlugins = Object.fromEntries(Object.entries(officialPlugins).sort(([a], [b]) => a.localeCompare(b)));
 

@@ -681,6 +681,78 @@ spec:
     expect(result.stdout).not.toContain("  npm install");
   });
 
+  describe("init --level, --dry-run and existing content roots (ticket-01m7ety1e647x33mq7jwkns67c)", () => {
+    const plan = (root: string, extra: string[] = []) => {
+      const result = run(initArgs(root, ["--language", "en", "--dry-run", "--json", ...extra]));
+      expect(result.status, result.stderr).toBe(0);
+      return JSON.parse(result.stdout) as { level: string; create: string[]; skip: string[]; conflict: string[]; warnings: string[] };
+    };
+    const pages = (files: string[]) => files.filter((file) => file.endsWith(".yaml") && !file.endsWith("_index.yaml") && file !== "vellym.config.yaml");
+
+    it("sizes the set by --level, defaults to standard, and matches the browser's light choice", async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-level-"));
+      const light = plan(root, ["--level", "light"]);
+      const standard = plan(root, ["--level", "standard"]);
+      const strict = plan(root, ["--level", "strict"]);
+      expect(plan(root).level).toBe("standard");
+      expect(plan(root).create).toEqual(standard.create);
+      expect(pages(light.create).length).toBeLessThan(pages(standard.create).length);
+      expect(pages(standard.create).length).toBeLessThanOrEqual(pages(strict.create).length);
+      // The browser's "light" plans with the estimated selection; the CLI must produce the same files.
+      const { setupCatalog, planProjectSetup } = await import("../packages/runtime-node/src/index.js");
+      const { buildCatalogIndex, estimateSelection } = await import("../packages/ui-react/src/setup/setup-catalog-tree.js");
+      const estimate = estimateSelection(
+        // The browser receives the same catalog as JSON through its own copy of the type.
+        buildCatalogIndex(setupCatalog("en") as unknown as Parameters<typeof buildCatalogIndex>[0]),
+        "small-team", "hybrid", "light");
+      const browser = await planProjectSetup(root, {
+        mode: "recommended", size: "small-team", method: "hybrid", level: "light", contentRoot: "docs", language: "en",
+        selectedTemplateIds: [...estimate.pageIds], pluginPackages: []
+      });
+      expect(browser.files.filter((file) => file.status === "create").map((file) => file.relativePath).sort()).toEqual([...light.create].sort());
+      const invalid = run(initArgs(root, ["--language", "en", "--level", "huge"]));
+      expect(invalid.status).toBe(2);
+      expect(invalid.stderr).toContain("--level must be light, standard, or strict");
+    });
+
+    it("writes nothing with --dry-run", async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-dry-"));
+      const result = run(initArgs(root, ["--language", "ja", "--dry-run"]));
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("初期化の計画（何も書いていません）");
+      expect(result.stdout).toMatch(/^create: docs\//m);
+      expect(await readdir(root)).toEqual([]);
+    });
+
+    it("stops on a content root with non-Vellym files unless told to use it", async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-foreign-"));
+      await mkdir(path.join(root, "docs"), { recursive: true });
+      await writeFile(path.join(root, "docs", "README.md"), "# Existing docs\n");
+      const stopped = run(initArgs(root, ["--language", "en"]));
+      expect(stopped.status).toBe(1);
+      expect(stopped.stderr).toContain("--use-existing-content-root");
+      await expect(access(path.join(root, "vellym.config.yaml"))).rejects.toThrow();
+      expect(plan(root).warnings.join("\n")).toContain("not Vellym documents");
+      expect(run(initArgs(root, ["--language", "en", "--use-existing-content-root"])).status).toBe(0);
+      await access(path.join(root, "vellym.config.yaml"));
+      // A Vellym content root is not foreign: a second init just skips existing files.
+      expect(plan(root).warnings).toEqual([]);
+    });
+
+    it("points to each selected plugin's own guide after init", async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-guide-"));
+      const result = run(initArgs(root, ["--language", "en", "--plugins", "tickets,kanban"]));
+      expect(result.status).toBe(0);
+      const guide = "https://vellym.tasclub.com/en/pages/ticket-management/";
+      expect(result.stdout).toContain(`How to use the plugins:\n  ${guide}`);
+      expect(result.stdout.split(guide).length - 1).toBe(1);
+      const ja = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-guide-ja-"));
+      expect(run(initArgs(ja, ["--language", "ja", "--plugins", "wbs"])).stdout).toContain("https://vellym.tasclub.com/pages/ticket-management/");
+      const none = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-guide-none-"));
+      expect(run(initArgs(none, ["--language", "en"])).stdout).not.toContain("How to use the plugins");
+    });
+  });
+
   it("rejects unknown plugin names with exit code 1 and candidate list", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-badplugin-"));
     const result = run(initArgs(root, ["--language", "en", "--plugins", "tickets,bogus"]));
@@ -775,7 +847,8 @@ spec:
     await writeFile(existing, "利用者が作成した既存内容\n", "utf8");
     await writeFile(path.join(root, "unrelated.txt"), "keep\n", "utf8");
 
-    const result = run(initArgs(root));
+    // docs/ holds only a non-Vellym file, so init asks for explicit consent to write there.
+    const result = run(initArgs(root, ["--use-existing-content-root"]));
 
     expect(result.status).toBe(0);
     expect(await readFile(existing, "utf8")).toBe("利用者が作成した既存内容\n");

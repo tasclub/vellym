@@ -26,6 +26,8 @@ export interface PluginManifest {
   id: string;
   /** Browser stylesheets, relative to the package's exported browser directory. */
   styles?: readonly string[];
+  /** The guide `vellym init` points to after setting the plugin up, per UI language (https only). */
+  guideUrl?: Readonly<{ ja?: string; en?: string }>;
   contributes?: PluginContributions;
 }
 

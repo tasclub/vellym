@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { access, mkdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseDocument, stringify } from "yaml";
 import {
@@ -461,6 +461,25 @@ function reasonTexts(
       setupReasonText(reason as SetupNodeReason, language, titleOf)
     ])
   );
+}
+
+/**
+ * What already sits in a content root before `init` writes to it. `foreign` means the
+ * folder holds files but no Vellym document (no Page or Folder resource), such as an
+ * existing `docs/` of another tool; writing there would mix the two.
+ */
+export async function inspectContentRoot(
+  projectRoot: string,
+  contentRoot: string
+): Promise<"missing" | "empty" | "vellym" | "foreign"> {
+  const directory = path.resolve(projectRoot, contentRoot);
+  if (!(await exists(directory))) return "missing";
+  const files = (await readdir(directory, { recursive: true, withFileTypes: true }))
+    .filter((entry) => entry.isFile() && !entry.name.startsWith("."));
+  if (!files.length) return "empty";
+  if (files.some((entry) => entry.name === "_index.yaml")) return "vellym";
+  const repository = await loadRepository(directory);
+  return repository.pages.length ? "vellym" : "foreign";
 }
 
 export async function planProjectSetup(

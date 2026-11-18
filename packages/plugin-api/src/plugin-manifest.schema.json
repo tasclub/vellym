@@ -20,6 +20,22 @@
         "pattern": "^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\\.css$"
       }
     },
+    "guideUrl": {
+      "type": "object",
+      "description": "Where `vellym init` points people to read how to use this plugin, per UI language.",
+      "properties": {
+        "ja": {
+          "type": "string",
+          "pattern": "^https://"
+        },
+        "en": {
+          "type": "string",
+          "pattern": "^https://"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
     "contributes": {
       "type": "object",
       "properties": {

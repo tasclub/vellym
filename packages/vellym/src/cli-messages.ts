@@ -1,6 +1,6 @@
 // CLIの表示文言を日本語・英語で切り替えるための軽量なメッセージ表。
 // --language／ui.languageに応じて同じフラグで日英どちらの出力も得られる。
-// initは候補選択を持たず、規模・開発方式・言語から厳格案を生成する。
+// initは候補選択を持たず、規模・開発方式・言語と--level（既定standard）から生成する。
 
 import { OFFICIAL_PLUGINS } from "./version.js";
 
@@ -34,6 +34,10 @@ export interface CliMessages {
   initConflict(paths: string): string;
   initComplete(target: string, created: number, skipped: number): string;
   initNext(): string;
+  initGuides(): string;
+  initPlan(target: string, create: string[], skip: string[], conflict: string[]): string;
+  initForeignContentRoot(contentRoot: string): string;
+  initForeignContentRootWarning(contentRoot: string): string;
   migrationTargetInvalid(): string;
   migrationPlanSummary(files: number, diagnostics: number): string;
   migrationSummary(files: number): string;
@@ -54,13 +58,16 @@ Usage:
 `,
   initHelp: () => `vellym init [directory] [options]
 
-規模と開発方式に対応する厳格案のFolder・Pageを一括生成します。
+規模と開発方式に対応するFolder・Pageを、--levelの大きさで一括生成します。
 
 Options:
   --size <value>        personal | small-team | medium-large
   --method <value>      agile | hybrid | waterfall
   --language <ja|en>    初期生成言語
   --plugins <list>      ${officialPluginList()}（任意）
+  --level <value>       light | standard | strict（既定: standard。ブラウザの初回設定と同じ）
+  --dry-run             作成・skip・競合するファイルを表示し、何も書かない（--jsonでJSON）
+  --use-existing-content-root  Vellymの文書ではないファイルがあるcontent rootをそのまま使う
   --content-root <path> project rootからのcontent root相対path（既定: docs）
 
 例:
@@ -142,6 +149,17 @@ Options:
   initConflict: (paths) => `既存ファイルと競合しています: ${paths}`,
   initComplete: (target, created, skipped) => `初期化しました: ${target}\n作成: ${created}件、skip: ${skipped}件`,
   initNext: () => "次のコマンド:",
+  initGuides: () => "プラグインの使い方:",
+  initPlan: (target, create, skip, conflict) => [
+    `初期化の計画（何も書いていません）: ${target}`,
+    `作成: ${create.length}件、skip: ${skip.length}件、競合: ${conflict.length}件`,
+    ...create.map((file) => `create: ${file}`),
+    ...skip.map((file) => `skip: ${file}`),
+    ...conflict.map((file) => `conflict: ${file}`),
+    ...(conflict.length ? ["競合があるため、実際のinitはここで止まります。"] : [])
+  ].join("\n"),
+  initForeignContentRoot: (contentRoot) => `${contentRoot}にはVellymの文書ではないファイルがあります。別の場所を--content-rootで指定するか、そのまま使う場合は--use-existing-content-rootを付けてください。`,
+  initForeignContentRootWarning: (contentRoot) => `注意: ${contentRoot}にはVellymの文書ではないファイルがあります。実際のinitは、--content-rootで別の場所を指定するか--use-existing-content-rootを付けない限り止まります。`,
   migrationTargetInvalid: () => "--to v1を指定してください",
   migrationPlanSummary: (files, diagnostics) =>
     `migration予定: ${files}ファイル、診断${diagnostics}件`,
@@ -163,13 +181,16 @@ Run "vellym <command> --help" for per-command details and examples.
 `,
   initHelp: () => `vellym init [directory] [options]
 
-Creates the strict Folder and Page set for the selected size and development method.
+Creates the Folder and Page set for the selected size and development method, at the --level size.
 
 Options:
   --size <value>        personal | small-team | medium-large
   --method <value>      agile | hybrid | waterfall
   --language <ja|en>    Language for generated documents
   --plugins <list>      ${officialPluginList()} (optional)
+  --level <value>       light | standard | strict (default: standard, as in the browser setup)
+  --dry-run             List the files to create, skip, or conflict, and write nothing (--json for JSON)
+  --use-existing-content-root  Use a content root that holds non-Vellym files as it is
   --content-root <path> Content root relative to the project root (default: docs)
 
 Examples:
@@ -251,6 +272,17 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   initConflict: (paths) => `init: already exists (existing_file): ${paths}`,
   initComplete: (target, created, skipped) => `Vellym workspace created: ${target}\nCreated: ${created}, skipped: ${skipped}`,
   initNext: () => "Next commands:",
+  initGuides: () => "How to use the plugins:",
+  initPlan: (target, create, skip, conflict) => [
+    `Setup plan (nothing written): ${target}`,
+    `Create: ${create.length}, skip: ${skip.length}, conflicts: ${conflict.length}`,
+    ...create.map((file) => `create: ${file}`),
+    ...skip.map((file) => `skip: ${file}`),
+    ...conflict.map((file) => `conflict: ${file}`),
+    ...(conflict.length ? ["The real init stops here because of the conflicts."] : [])
+  ].join("\n"),
+  initForeignContentRoot: (contentRoot) => `${contentRoot} holds files that are not Vellym documents. Choose another place with --content-root, or add --use-existing-content-root to use it as it is.`,
+  initForeignContentRootWarning: (contentRoot) => `Warning: ${contentRoot} holds files that are not Vellym documents. The real init stops unless you choose another place with --content-root or add --use-existing-content-root.`,
   migrationTargetInvalid: () => "Specify --to v1",
   migrationPlanSummary: (files, diagnostics) =>
     `Migration plan: ${files} file(s), ${diagnostics} diagnostic(s)`,

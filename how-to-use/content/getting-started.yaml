@@ -27,7 +27,7 @@ spec:
            npx vellym@beta init myproject --size small-team --method hybrid --language ja
            ```
 
-           規模と開発方式に応じた厳格構成のFolderとPage YAML、`vellym.config.yaml`が作成される。
+           規模と開発方式に応じた標準の構成（`--level`で`light`・`strict`も選べる）のFolderとPage YAML、`vellym.config.yaml`が作成される。
            個別に選びながら始めたい場合は、初期化せずに`vellym dev`を起動し、ブラウザの3段階
            セットアップから開始する。指定できるオプションは[[cli-reference|CLIリファレンス]]を参照。
 
@@ -161,7 +161,7 @@ spec:
                npx vellym@beta init myproject --size small-team --method hybrid --language ja
                ```
 
-               Writes `vellym.config.yaml` plus the strict folder and page hierarchy for the
+               Writes `vellym.config.yaml` plus the standard folder and page hierarchy (choose `--level light` or `strict` for others) for the
                given size and method. To choose folders and pages individually instead, skip
                `init` and run `vellym dev` to use the three-step browser setup. See
                [[cli-reference|CLI Reference]] for the available options.

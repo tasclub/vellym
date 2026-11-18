@@ -27,6 +27,10 @@
   "devDependencies": { "@vellym-internal/ticket-engine": "*", "@vellym/plugin-api": "*", "esbuild": "^0.28.1" },
   "vellym": {
     "id": "wbs",
+    "guideUrl": {
+      "ja": "https://vellym.tasclub.com/pages/ticket-management/",
+      "en": "https://vellym.tasclub.com/en/pages/ticket-management/"
+    },
     "styles": ["wbs.css"],
     "contributes": {
       "kinds": [{ "kind": "Ticket" }, { "kind": "TicketTracker", "showInDocumentTree": true, "hasBlocks": false }],

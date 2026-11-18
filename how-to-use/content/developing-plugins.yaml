@@ -388,6 +388,10 @@ spec:
         }
         ```
 
+        manifestの`guideUrl`（任意）に、プラグインの使い方のページを言語ごとに書ける
+        （`{ "ja": "https://…", "en": "https://…" }`、httpsだけ）。公式プラグインでは、
+        `vellym init --plugins`が完了時にこのURLを案内する。
+
         ## データと安全性の規則
 
         - プラグインにファイルシステムのpathやcontent rootは渡らない。読み取りは
@@ -801,6 +805,10 @@ spec:
             `@vellym/plugin-api/react`. Mark `react`, `react-dom`, `react/jsx-runtime`, and
             `@vellym/plugin-api/ui` as external. Vellym supplies shared instances; bundling a
             second React instance breaks hooks.
+
+            The optional manifest field `guideUrl` names the page that explains how to use the
+            plugin, per language (`{ "ja": "https://…", "en": "https://…" }`, https only). For
+            official plugins, `vellym init --plugins` points to this URL when it finishes.
 
             ## Data and safety rules
 

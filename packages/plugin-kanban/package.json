@@ -37,6 +37,10 @@
   },
   "vellym": {
     "id": "kanban",
+    "guideUrl": {
+      "ja": "https://vellym.tasclub.com/pages/ticket-management/",
+      "en": "https://vellym.tasclub.com/en/pages/ticket-management/"
+    },
     "styles": ["kanban.css"],
     "contributes": {
       "kinds": [

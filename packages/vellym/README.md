@@ -39,7 +39,7 @@ Vellym has no authentication. Anyone who can reach a server started with `--host
 
 | Command | Purpose |
 | --- | --- |
-| `vellym init [dir]` | Generate a strict set of Folder and Page YAML files for a project size and development method. |
+| `vellym init [dir]` | Generate Folder and Page YAML files for a project size and development method (`--level light\|standard\|strict`, default `standard`). |
 | `vellym dev` | Start the local web server for viewing and editing. |
 | `vellym validate` | Validate the source YAML against its schemas and report diagnostics. |
 | `vellym build` | Generate a read-only static HTML snapshot. |
@@ -51,7 +51,7 @@ vellym init ./small-team-docs --size small-team --method hybrid --language en
 vellym init ./large-docs --size medium-large --method waterfall --language en
 ```
 
-The CLI generates the complete strict structure for the selected size and development method; it does not offer individual template choices. If a Page with the same path already exists, only that Page is skipped. Existing files are never overwritten or deleted. In the browser, choose a lightweight, standard, or strict setup and add or remove proposed Pages. Later, add more structure explicitly in settings; Vellym does not add it automatically or send reminders.
+The CLI generates the structure for the selected size, development method, and `--level` (default `standard`, as in the browser); it does not offer individual template choices. `--dry-run` lists the files without writing them. If a Page with the same path already exists, only that Page is skipped. Existing files are never overwritten or deleted. In the browser, choose a lightweight, standard, or strict setup and add or remove proposed Pages. Later, add more structure explicitly in settings; Vellym does not add it automatically or send reminders.
 
 To migrate existing documents to `v1`, commit them to Git, preview the changes with `vellym migrate --to v1 --plan`, then explicitly run `vellym migrate --to v1` to apply them.
 
@@ -141,7 +141,7 @@ Vellym に認証はない。`--host 0.0.0.0` で起動したサーバーへ到�
 
 | コマンド | 役割 |
 | --- | --- |
-| `vellym init [dir]` | 規模と開発方式に応じた厳格構成のFolderとPage YAMLを生成 |
+| `vellym init [dir]` | 規模と開発方式に応じたFolderとPage YAMLを生成（`--level light\|standard\|strict`、既定は`standard`） |
 | `vellym dev` | ローカル Web サーバーを起動し、閲覧・編集 |
 | `vellym validate` | 正本 YAML をスキーマ検証し、診断を出力 |
 | `vellym build` | 節目の閲覧専用スナップショット（静的 HTML）を生成 |
@@ -153,7 +153,7 @@ vellym init ./small-team-docs --size small-team --method hybrid --language ja
 vellym init ./large-docs --size medium-large --method waterfall --language ja
 ```
 
-CLIは個別候補の選択を行わず、指定された規模と開発方式の厳格構成を一括生成する。Page候補と同じpathが既にある場合はそのPageだけをskipし、既存ファイルを上書き・削除しない。ブラウザでは軽量・標準・厳格から選択し、生成候補を追加・除外できる。後から必要になった構成は設定画面から明示的に追加でき、自動追加やリマインドは行わない。
+CLIは個別候補の選択を行わず、指定された規模・開発方式・`--level`（既定は`standard`。ブラウザと同じ）の構成を一括生成する。`--dry-run`で書かずに一覧だけを見られる。Page候補と同じpathが既にある場合はそのPageだけをskipし、既存ファイルを上書き・削除しない。ブラウザでは軽量・標準・厳格から選択し、生成候補を追加・除外できる。後から必要になった構成は設定画面から明示的に追加でき、自動追加やリマインドは行わない。
 
 既存文書の形式を`v1`へ移す場合は、Gitへcommitした上で`vellym migrate --to v1 --plan`で対象を確認し、`vellym migrate --to v1`を明示的に実行する。
 

@@ -42,9 +42,17 @@ spec:
         | `--method <value>` | `agile`、`hybrid`、`waterfall`のいずれか。 |
         | `--language ja\|en` | UIと初期文書の言語。 |
         | `--content-root <path>` | 正本を置くディレクトリ（project rootからの相対path）。 |
-        | `--plugins <list>` | 公式プラグインの短縮名をカンマ区切り（例`tickets,kanban,wbs`）。設定ファイルと`package.json`の依存に公式パッケージを追加する。未知の名前は候補を一覧にして終了コード`1`。 |
-        CLIは対話選択を行わず、指定した規模と開発方式の厳格構成を一括生成する。
+        | `--plugins <list>` | 公式プラグインの短縮名をカンマ区切り（例`tickets,kanban,wbs`）。設定ファイルと`package.json`の依存に公式パッケージを追加する。未知の名前は候補を一覧にして終了コード`1`。完了時に、選んだプラグインの使い方のページを案内する。 |
+        | `--level light\|standard\|strict` | 作る構成の大きさ。ブラウザの初期セットアップの「軽量・標準・厳格」と同じ。省略時は`standard`。`--size`・`--method`とは独立。 |
+        | `--dry-run` | 作成・skip・競合するファイルを一覧にし、何も書かない。`--json`を付けるとJSONで出す。 |
+        | `--use-existing-content-root` | Vellymの文書ではないファイルがあるcontent rootへ、そのまま書く。 |
+
+        CLIは対話選択を行わず、指定した規模・開発方式・大きさ（`--level`）の構成を一括生成する。
         個別候補の追加・除外はブラウザの初期セットアップまたは設定画面で行う。
+
+        content rootのフォルダ（省略時は`docs`）に、Vellymの文書（PageやFolder）ではないファイルだけがあるときは、
+        既存の文書を混ぜないよう、何も書かずに終了コード`1`で止まる。別の場所を`--content-root`で指定するか、
+        そのまま使うなら`--use-existing-content-root`を付ける。`--dry-run`では止まらず警告を出す。
 
         **必須引数の候補表示**
 
@@ -170,10 +178,20 @@ spec:
             | `--method <value>` | One of `agile`, `hybrid`, or `waterfall`. |
             | `--language ja\|en` | Language of the UI and initial documents. |
             | `--content-root <path>` | Directory that holds the source (relative to project root). |
-            | `--plugins <list>` | Official plugin short names, comma-separated (example: `tickets,kanban,wbs`). Adds the official packages to the config file and to `package.json` dependencies. An unknown name lists the candidates and exits with code `1`. |
-            The CLI is non-interactive and creates the strict structure for the selected size
-            and development method. Add or remove individual candidates in the browser setup
-            or later from Settings.
+            | `--plugins <list>` | Official plugin short names, comma-separated (example: `tickets,kanban,wbs`). Adds the official packages to the config file and to `package.json` dependencies. An unknown name lists the candidates and exits with code `1`. When init finishes, it points to the guide of each selected plugin. |
+            | `--level light\|standard\|strict` | How large a set to create; the same as light, standard, and strict in the browser setup. Defaults to `standard`. Independent of `--size` and `--method`. |
+            | `--dry-run` | Lists the files to create, skip, or conflict, and writes nothing. Add `--json` for JSON. |
+            | `--use-existing-content-root` | Writes into a content root that holds files that are not Vellym documents. |
+
+            The CLI is non-interactive and creates the structure for the selected size,
+            development method, and `--level`. Add or remove individual candidates in the
+            browser setup or later from Settings.
+
+            When the content root folder (`docs` if omitted) holds only files that are not
+            Vellym documents (Pages or Folders), init writes nothing and exits with code `1`,
+            so existing documents are not mixed in. Choose another place with `--content-root`,
+            or add `--use-existing-content-root` to use it as it is. `--dry-run` warns instead
+            of stopping.
 
             **Candidate list for missing options**
 

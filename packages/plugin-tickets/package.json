@@ -58,6 +58,10 @@
   },
   "vellym": {
     "id": "tickets",
+    "guideUrl": {
+      "ja": "https://vellym.tasclub.com/pages/ticket-management/",
+      "en": "https://vellym.tasclub.com/en/pages/ticket-management/"
+    },
     "styles": ["tickets-settings.css"],
     "contributes": {
       "kinds": [

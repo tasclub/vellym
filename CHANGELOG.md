@@ -89,6 +89,7 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 ### 変更
 
+- **`vellym init`の既定の構成を`strict`から`standard`（ブラウザの初期セットアップと同じ）に変えた。** 大きさは`--level light|standard|strict`で選べる。`--dry-run`（`--json`でJSON）で計画だけを表示できる。content rootにVellymの文書ではないファイルだけがあるときは止まり、`--content-root`か`--use-existing-content-root`を案内する。`--plugins`で選んだプラグインの使い方のページを、完了時に案内する（プラグインの`package.json`の`vellym.guideUrl`）。
 - `init --plugins`が受け付ける公式プラグインの一覧を、ビルド時に公開するプラグインのパッケージ（`packages/plugin-*`の`vellym.id`）から集めるようにした。ヘルプと「不明なプラグイン」のエラーはこの一覧から作る。プラグインの一覧の件数の英語表記を、種別に依存しない`1 item`／`n items`にした。
 - ビューの個人設定をプロジェクト・プラグイン・ビュー・対象リソース単位に分離した。
   `projectRoot`を使うためポート変更では維持され、別プロジェクト・別trackerとは混ざらない。

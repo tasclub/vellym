@@ -254,7 +254,7 @@ async function main(args = process.argv.slice(2)): Promise<void> {
   }
   if (command === "init") {
     const initArgs = args.slice(1);
-    const allowed = new Set(["--size", "--method", "--language", "--content-root", "--plugins"]);
+    const allowed = new Set(["--size", "--method", "--language", "--content-root", "--plugins", "--level", "--dry-run", "--use-existing-content-root", "--json"]);
     const unsupported = initArgs.find(
       (item) => item.startsWith("--") && !allowed.has(item)
     );
@@ -273,6 +273,10 @@ async function main(args = process.argv.slice(2)): Promise<void> {
     if (methodValue && !["agile", "hybrid", "waterfall"].includes(methodValue)) {
       throw new UsageError(language === "en" ? "--method must be agile, hybrid, or waterfall" : "--methodはagile、hybrid、waterfallから指定してください");
     }
+    const levelValue = option(initArgs, "--level");
+    if (levelValue && !["light", "standard", "strict"].includes(levelValue)) {
+      throw new UsageError(language === "en" ? "--level must be light, standard, or strict" : "--levelはlight、standard、strictから指定してください");
+    }
     await initializeProject(
       args[1] && !args[1].startsWith("--") ? args[1] : undefined,
       {
@@ -280,7 +284,11 @@ async function main(args = process.argv.slice(2)): Promise<void> {
         method: methodValue as import("@vellym-internal/runtime-node").DevelopmentMethod | undefined,
         language: languageValue as "ja" | "en" | undefined,
         contentRoot: option(initArgs, "--content-root"),
-        plugins: option(initArgs, "--plugins")
+        plugins: option(initArgs, "--plugins"),
+        level: levelValue as import("@vellym-internal/runtime-node").DocumentationLevel | undefined,
+        dryRun: initArgs.includes("--dry-run"),
+        useExistingContentRoot: initArgs.includes("--use-existing-content-root"),
+        json: initArgs.includes("--json")
       }
     );
     return;
