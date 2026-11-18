@@ -206,9 +206,7 @@ export const steps = [
       const guide = await ctx.fs.readFile(ctx.path.join(data, "pages", "guide.json"), "utf8");
       assert(guide.includes(TICKETS[0]), "案内のページからチケットへの内部リンクが解決されていない");
     });
-    await ctx.check("静的サイトの検索からチケットへ到達できる", async () => {
-      ctx.blocked("静的版には全文検索が無い（利用ガイドの「ブラウザ画面の使い方」に動的版だけの機能と書かれている）。シナリオの期待と製品の制約が食い違うため、どちらに合わせるかは利用者の判断に残す。");
-    });
+    // The static site has no full-text search, and none is required for now (user, 2026-11-18).
   } },
 
   { id: id(3), title: "壊れたプラグインを指す", async run(ctx) {
