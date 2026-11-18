@@ -10,6 +10,7 @@ import ReactMarkdown from "react-markdown";
 import { assetUrlTransform } from "./asset-url.js";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
+import { useUiLang } from "../shared/ui-language.js";
 import type { Root } from "mdast";
 import {
   headingId,
@@ -48,7 +49,9 @@ export function DocumentView({
   beforeBody?: ReactNode;
   onNavigatePage?(pageId: string, heading?: string): void;
 }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // These notes are UI text inside the document article, so they carry the UI language.
+  const uiLang = useUiLang();
   const locale = view.locale ?? view.baseLocale;
   // 本文の`[[...]]`は、サーバ／静的builderが解決した結果（view.relations.outgoing）
   // を使って描画する。readerが独自に解決規則を持たないようにする。
@@ -214,13 +217,13 @@ export function DocumentView({
         </section>
       ))}
       {unknownBlockCount > 0 && (
-        <aside className={styles["unsupported-content"]}>
-          この文書には、この版で表示できない内容があります。
+        <aside lang={uiLang} className={styles["unsupported-content"]}>
+          {t("editor.unsupportedContent")}
         </aside>
       )}
       {incoming.length > 0 && (
-        <aside className={styles["page-backlinks"]}>
-          <h2>このPageを参照しているPage</h2>
+        <aside lang={uiLang} className={styles["page-backlinks"]}>
+          <h2>{t("editor.backlinksHeading")}</h2>
           <ul>
             {incoming.map((reference) => (
               <li key={reference.pageId}>
@@ -237,8 +240,8 @@ export function DocumentView({
         </aside>
       )}
       {diagnostics.length > 0 && (
-        <aside className={styles["page-reference-diagnostics"]}>
-          <h2>リンクの問題</h2>
+        <aside lang={uiLang} className={styles["page-reference-diagnostics"]}>
+          <h2>{t("editor.linkProblemsHeading")}</h2>
           <ul>
             {diagnostics.map((diagnostic) => (
               <li key={`${diagnostic.blockId}:${diagnostic.target}:${diagnostic.code}`}>

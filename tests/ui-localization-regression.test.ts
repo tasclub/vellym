@@ -23,6 +23,10 @@ const localizedUiLiterals: Array<{ file: string; literals: string[] }> = [
     literals: ["＋行", "−行", "＋列", "−列", "表を削除"]
   },
   {
+    file: "packages/ui-react/src/editor/view.tsx",
+    literals: ["このPageを参照しているPage", "この文書には、この版で表示できない内容があります。", "リンクの問題"]
+  },
+  {
     file: "packages/ui-react/src/plugin/render-context.ts",
     literals: ["静的出力では保存できません"]
   }
