@@ -357,6 +357,8 @@ export function App() {
   const [editing, setEditing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [message, setMessage] = useState("");
+  // A failed page load, shown where the page would be (no view to carry `message`).
+  const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [savedAt, setSavedAt] = useState<number>();
   const [copyMessage, setCopyMessage] = useState("");
@@ -512,6 +514,7 @@ export function App() {
       );
       // 自分より新しい読み込みが始まっていれば、この応答は捨てる。
       if (seq !== loadSeqRef.current) return;
+      setLoadError("");
       setPluginView(nextPluginView);
       if (
         viewRef.current?.hash === next.hash &&
@@ -524,6 +527,7 @@ export function App() {
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setMessage(errorMessage(error, t));
+      if (seq === loadSeqRef.current) setLoadError(errorMessage(error, t));
     }
   }
 
@@ -1739,6 +1743,7 @@ export function App() {
           blockAssessments={editAssessment.blocks}
           saveState={saveState}
           hasUnsavedChanges={hasUnsavedChanges}
+          loadError={loadError}
           message={
             message ||
             // プラグインのブラウザ側が読み込めなかったことは黙って隠さない。

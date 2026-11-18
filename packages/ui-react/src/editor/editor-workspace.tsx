@@ -242,6 +242,8 @@ export function EditorWorkspace(props: {
   saveState: SaveState;
   hasUnsavedChanges: boolean;
   message: string;
+  /** Set only when loading the page failed; other notices stay in `message`. */
+  loadError?: string;
   saveError: string;
   savedAt?: number;
   copyMessage: string;
@@ -317,8 +319,8 @@ export function EditorWorkspace(props: {
     // leaving the loading text up forever.
     return (
       <section className="workspace">
-        {props.message
-          ? <div className="notice warning" role="alert">{props.message}</div>
+        {props.loadError
+          ? <div className="notice warning" role="alert">{props.loadError}</div>
           : <div className="empty">{t("editor.loading")}</div>}
       </section>
     );
