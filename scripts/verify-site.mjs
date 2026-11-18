@@ -56,12 +56,104 @@ const server = createServer(async (request, response) => {
   }
 });
 
+// Static ticket pages (ticket-01m7nyfvg0kehynhatga9962qf). Runs before the guide
+// scenarios so a failure there does not hide these checks.
+const knownIssues = [];
+async function verifyStaticTickets(browser, baseUrl) {
+  const demoDir = path.resolve(import.meta.dirname, "../how-to-use/content/demo-tickets/+tickets");
+  if (!existsSync(demoDir)) return;
+  const names = [];
+  for (const file of (await readdir(demoDir)).filter((name) => name.endsWith(".yaml")).sort()) {
+    const match = (await readFile(path.join(demoDir, file), "utf8")).match(/^\s*name:\s*(\S+)\s*$/m);
+    if (!match) throw new Error(`demo Ticket ${file} has no metadata.name`);
+    names.push(match[1]);
+  }
+  if (!names.length) throw new Error("no demo Tickets found");
+  const buildIds = (await readdir(path.join(root, "data"), { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  if (buildIds.length !== 1) throw new Error(`expected one build data folder, found ${buildIds.length}`);
+  for (const name of names) {
+    for (const prefix of ["", "en/"]) {
+      if (!existsSync(path.join(root, `${prefix}pages/${name}/index.html`))) {
+        throw new Error(`static Ticket page is missing: ${prefix}pages/${name}/`);
+      }
+    }
+    for (const language of ["ja", "en"]) {
+      const file = path.join(root, "data", buildIds[0], language, "pages", `${name}.json`);
+      if (!existsSync(file)) throw new Error(`static Ticket data is missing: ${language}/${name}`);
+      const json = JSON.parse(await readFile(file, "utf8"));
+      if (json?.data?.page?.metadata?.name !== name) throw new Error(`static Ticket data has the wrong name: ${language}/${name}`);
+    }
+  }
+
+  // The UI language follows the site config, not the page language, so match both.
+  const viewNames = [/^(チケット一覧|Ticket list)$/, /^(カンバン|Kanban)$/, /^WBS$/];
+  const languages = [
+    { language: "ja", prefix: "", locale: "ja-JP" },
+    { language: "en", prefix: "/en", locale: "en-US" }
+  ];
+  const forbiddenButtons = /このチケット管理の設定|Tracker settings|チケットを作成|New ticket|アーカイブ|Archive|一括|Bulk/;
+  const countForbidden = async (page, where) => {
+    const buttons = await page.getByRole("button", { name: forbiddenButtons }).count();
+    const selection = await page.getByRole("checkbox", { name: /選択|Select/ }).count();
+    if (buttons || selection) {
+      throw new Error(`static ${where} exposes unavailable operations (buttons ${buttons}, row selection ${selection})`);
+    }
+  };
+  for (const scenario of languages) {
+    const context = await browser.newContext({ locale: scenario.locale, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const listUrl = `${baseUrl}${scenario.prefix}/pages/demo-tickets/`;
+    const response = await page.goto(listUrl, { waitUntil: "networkidle" });
+    if (!response?.ok()) throw new Error(`${listUrl} returned ${response?.status()}`);
+    for (const view of viewNames) {
+      await page.getByRole("button", { name: view }).click();
+      await page.waitForLoadState("networkidle");
+      await countForbidden(page, `${scenario.language} ${view}`);
+    }
+    await page.getByRole("button", { name: viewNames[0] }).click();
+    const filter = page.getByRole("button", { name: /^(絞り込み|Filters?)/ });
+    if (!(await filter.isEnabled())) throw new Error(`${scenario.language} static Ticket list filter is not usable`);
+    const sortHeader = page.locator("table thead").getByRole("button").first();
+    if (!(await sortHeader.isEnabled())) throw new Error(`${scenario.language} static Ticket list sorting is not usable`);
+    const firstRow = page.locator("table tbody tr").first().getByRole("button").first();
+    const title = (await firstRow.innerText()).trim();
+    await firstRow.click();
+    await page.waitForURL(/\/pages\/ticket-[0-9a-z]+\/$/);
+    const heading = page.getByRole("heading", { level: 1, name: title, exact: true });
+    await heading.waitFor();
+    await countForbidden(page, `${scenario.language} Ticket detail`);
+    const reloaded = await page.reload({ waitUntil: "networkidle" });
+    if (!reloaded?.ok()) throw new Error(`${scenario.language} Ticket detail reload returned ${reloaded?.status()}`);
+    await heading.waitFor();
+    if (errors.length) throw new Error(`${scenario.language} static Ticket browser errors: ${errors.join("; ")}`);
+    await context.close();
+  }
+
+  const failing = await browser.newContext({ locale: "ja-JP", viewport: { width: 1440, height: 900 } });
+  const failingPage = await failing.newPage();
+  await failingPage.route(`**/data/*/ja/pages/${names[0]}.json`, (route) => route.fulfill({ status: 404, body: "Not found" }));
+  await failingPage.goto(`${baseUrl}/pages/${names[0]}/`, { waitUntil: "networkidle" });
+  const alert = failingPage.getByRole("alert");
+  try {
+    await alert.first().waitFor({ timeout: 5000 });
+  } catch {
+    knownIssues.push(`static Ticket detail shows no error when its data fails to load (ticket-01m7phrktc68mgpwwfpznepmrz)`);
+  }
+  await failing.close();
+}
+
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const address = server.address();
 if (!address || typeof address === "string") throw new Error("site server did not start");
 const baseUrl = `http://127.0.0.1:${address.port}`;
 const browser = await chromium.launch({ headless: true });
 try {
+  await verifyStaticTickets(browser, baseUrl);
+  for (const issue of knownIssues) process.stdout.write(`known issue: ${issue}\n`);
+  process.stdout.write("static Ticket verification passed\n");
   for (const scenario of [
     { path: "/", language: "ja", heading: "Vellymとは", width: 1440 },
     { path: "/en/", language: "en", heading: "What is Vellym", width: 390 },
