@@ -325,6 +325,11 @@ function Screen({ context }: { context: PluginRenderContext }) {
               />
             </label>
             <div className="tickets-settings-actions">
+              {/* The definition order is the list column order and the order inside each detail group. */}
+              <Button icon aria-label={text("上へ", "Move up")} disabled={index === 0}
+                onClick={() => setFields(move(fields, index, -1))}>↑</Button>
+              <Button icon aria-label={text("下へ", "Move down")} disabled={index === fields.length - 1}
+                onClick={() => setFields(move(fields, index, 1))}>↓</Button>
               <Button onClick={() => setFields(fields.filter((_, position) => position !== index))}>
                 {text("項目を削除", "Remove field")}
               </Button>
