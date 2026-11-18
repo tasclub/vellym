@@ -200,15 +200,19 @@ export const steps = [
     });
     await ctx.check("別の項目を変えたうえで、そのままキャンセルできる", async () => {
       await page.locator("#plugin-field-priority").selectOption("high");
-      page.once("dialog", (dialog) => void dialog.accept());
+      const accept = (dialog) => void dialog.accept().catch(() => {});
+      page.on("dialog", accept);
       await button(page, "キャンセル").first().click();
       const confirm = page.getByRole("alertdialog").or(page.getByRole("dialog"));
       if (await confirm.count()) await confirm.getByRole("button", { name: /破棄|やめる|閉じる|キャンセル/ }).first().click();
       await button(page, "編集").waitFor();
+      page.off("dialog", accept);
       assert.equal(await readTicket(ctx, root, name), original);
     });
     await ctx.check("埋めないまま保存すると止まって未入力へフォーカスし、埋めれば保存できる", async () => {
       await button(page, "編集").click();
+      // Save is enabled once something changed; change another field and try to save.
+      await page.locator("#plugin-field-priority").selectOption("high");
       await button(page, "保存").first().click();
       await page.waitForTimeout(400);
       assert.equal(await page.evaluate(() => document.activeElement?.id), "plugin-field-owner");
@@ -237,7 +241,7 @@ export const steps = [
     await page.locator("#plugin-field-priority").selectOption("low");
     await ctx.check("未保存のまま画面を離れようとすると保護が働く", async () => {
       let asked = false;
-      page.once("dialog", (dialog) => { asked = true; void dialog.dismiss(); });
+      page.once("dialog", (dialog) => { asked = true; void dialog.dismiss().catch(() => {}); });
       await page.reload().catch(() => {});
       assert(asked, "離脱の確認が出ない");
     });

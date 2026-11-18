@@ -1770,7 +1770,9 @@ export function App() {
           watchMessage={watchMessage}
           externalChange={externalChange}
           onStartEdit={() => {
-            if (editAssessment.supported) void startMultilingualEdit();
+            // The same rule as the Edit button: a plugin detail (fields above an optional body)
+            // is editable even when the resource has no body blocks.
+            if (editAssessment.supported || pluginDetailEditable) void startMultilingualEdit();
           }}
           onCancel={() => {
             if (hasUnsavedChanges) {
