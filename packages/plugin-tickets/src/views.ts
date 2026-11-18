@@ -128,7 +128,10 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
     columns,
     ...(tracker?.summary?.length ? { summary: tracker.summary.map(({ field, method, groupBy }) => ({
       valueKey: fieldKey(field.id), type: field.type, method, label: field.label,
-      ...(groupBy ? { groupBy: { valueKey: fieldKey(groupBy.id), type: groupBy.type, ...(groupBy.type === "select" ? { order: groupBy.options?.map((option) => option.value) } : {}) } } : {})
+      ...(field.options ? { options: field.options } : {}),
+      ...(groupBy ? { groupBy: { valueKey: fieldKey(groupBy.id), type: groupBy.type,
+        ...(groupBy.type === "select" ? { order: groupBy.options?.map((option) => option.value) } : {}),
+        ...(groupBy.options ? { options: groupBy.options } : {}) } } : {})
     })) } : {}),
     // `spec.defaultSort`が解決できていればそれを、無ければタイトル昇順。
     defaultSort: tracker?.defaultSort

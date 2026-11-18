@@ -126,7 +126,15 @@ export interface PluginListViewDescriptor {
   title: PluginLocalizedText;
   columns: readonly PluginColumnDescriptor[];
   /** Aggregations over all currently visible index rows. */
-  summary?: readonly { valueKey: string; type: PluginValueType; method: SummaryMethod; label: PluginLocalizedText; groupBy?: { valueKey: string; type: PluginValueType; order?: readonly string[] } }[];
+  /**
+   * Totals over the list. `options` (choice values with display names, in definition order) lets
+   * a breakdown and select groups show names instead of stored values.
+   */
+  summary?: readonly {
+    valueKey: string; type: PluginValueType; method: SummaryMethod; label: PluginLocalizedText;
+    options?: readonly { value: string; label: PluginLocalizedText }[];
+    groupBy?: { valueKey: string; type: PluginValueType; order?: readonly string[]; options?: readonly { value: string; label: PluginLocalizedText }[] };
+  }[];
   defaultSort?: PluginSortDescriptor;
   /**
    * この一覧に出る集合そのものを決める絞り込み。**利用者が外せない。**

@@ -581,7 +581,12 @@ export function PluginListView({
         }, locale)}>
           <ul>{descriptor.summary.map((definition, index) => {
             const groupBy = definition.groupBy;
-            const result = summarizeRows(rows, definition.valueKey, definition.type, definition.method, locale, groupBy ? { groupBy: { key: groupBy.valueKey, type: groupBy.type, order: groupBy.order, labelOf: groupBy.type === "reference" ? (value) => (allRows ?? payload.rows).find((row) => row.name === value)?.title ?? value : undefined } } : undefined);
+            const named = (options?: readonly { value: string; label: PluginLocalizedText }[]) =>
+              options?.map((option) => ({ value: option.value, label: resolveLocalizedText(option.label, locale) }));
+            const result = summarizeRows(rows, definition.valueKey, definition.type, definition.method, locale, {
+              ...(definition.options ? { valueLabels: named(definition.options) } : {}),
+              ...(groupBy ? { groupBy: { key: groupBy.valueKey, type: groupBy.type, order: groupBy.order, labels: named(groupBy.options), labelOf: groupBy.type === "reference" ? (value: string) => (allRows ?? payload.rows).find((row) => row.name === value)?.title ?? value : undefined } } : {})
+            });
             return <li key={`${definition.valueKey}-${definition.method}-${index}`}>
               {resolveLocalizedText(definition.label, locale)} {result.text}
               {result.excluded ? ` (${resolveLocalizedText({ ja: "型が合わず除外", en: "Invalid values excluded" }, locale)}: ${result.excluded})` : ""}

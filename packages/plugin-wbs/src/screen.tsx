@@ -583,7 +583,10 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
     {data.tracker?.summary?.length ? <section className="wbs-summary" aria-live="polite"
       aria-label={label("表示中のチケットの集計", "Visible tickets summary", context.locale)}>
       <ul>{data.tracker.summary.map(({ field, method, groupBy }, index) => {
-        const result = summarizeRows(rows, fieldKey(field.id), field.type, method, context.locale, groupBy ? { groupBy: { key: fieldKey(groupBy.id), type: groupBy.type, order: groupBy.type === "select" ? groupBy.options?.map((option) => option.value) : undefined, labelOf: groupBy.type === "reference" ? (value) => context.rows.find((row) => row.name === value)?.title ?? value : undefined } } : undefined);
+        const result = summarizeRows(rows, fieldKey(field.id), field.type, method, context.locale, {
+          ...(field.options ? { valueLabels: field.options } : {}),
+          ...(groupBy ? { groupBy: { key: fieldKey(groupBy.id), type: groupBy.type, order: groupBy.type === "select" ? groupBy.options?.map((option) => option.value) : undefined, labels: groupBy.options, labelOf: groupBy.type === "reference" ? (value: string) => context.rows.find((row) => row.name === value)?.title ?? value : undefined } } : {})
+        });
         return <li key={`${field.id}-${method}-${index}`}>
           {field.label} {result.text}{result.excluded ? ` (${label("型が合わず除外", "Invalid values excluded", context.locale)}: ${result.excluded})` : ""}
           {result.multiCounted ? <span> {label("複数の値に重複計上", "Counted in multiple groups", context.locale)}</span> : null}

@@ -34,6 +34,9 @@ export interface SummaryResult {
   multiCounted?: boolean;
 }
 
+/** A choice value and the name to show for it. */
+export interface SummaryValueLabel { value: string; label: string }
+
 /** Calculate from all projected rows; the 20-card rendering limit is unrelated. */
 export function summarizeRows(
   rows: readonly PluginIndexRow[],
@@ -41,7 +44,11 @@ export function summarizeRows(
   type: PluginValueType,
   method: SummaryMethod,
   locale: string,
-  options?: { groupBy?: { key: string; type: PluginValueType; order?: readonly string[]; labelOf?: (value: string) => string } }
+  options?: {
+    /** Choice values with their display names, in definition order: the breakdown uses these. */
+    valueLabels?: readonly SummaryValueLabel[];
+    groupBy?: { key: string; type: PluginValueType; order?: readonly string[]; labels?: readonly SummaryValueLabel[]; labelOf?: (value: string) => string };
+  }
 ): SummaryResult {
   if (options?.groupBy) {
     const groupBy = options.groupBy;
@@ -60,13 +67,15 @@ export function summarizeRows(
     const groups = [...buckets].sort(([a], [b]) => {
       if (a === null) return b === null ? 0 : 1;
       if (b === null) return -1;
-      const ai = groupBy.order?.indexOf(a) ?? -1, bi = groupBy.order?.indexOf(b) ?? -1;
+      const order = groupBy.order ?? groupBy.labels?.map((item) => item.value);
+      const ai = order?.indexOf(a) ?? -1, bi = order?.indexOf(b) ?? -1;
       if (ai !== bi && (ai >= 0 || bi >= 0)) return ai < 0 ? 1 : bi < 0 ? -1 : ai - bi;
       return a.localeCompare(b, locale);
     }).map(([value, bucket]) => ({ value, label: value === null
       ? resolveLocalizedText({ ja: "（未設定）", en: "(Not set)" }, locale)
-      : groupBy.labelOf?.(value) ?? value, ...summarizeRows(bucket, key, type, method, locale) }));
-    return { ...summarizeRows(rows, key, type, method, locale), groups, ...(groupBy.type === "multiselect" ? { multiCounted: true } : {}) };
+      : groupBy.labels?.find((item) => item.value === value)?.label ?? groupBy.labelOf?.(value) ?? value,
+      ...summarizeRows(bucket, key, type, method, locale, { valueLabels: options.valueLabels }) }));
+    return { ...summarizeRows(rows, key, type, method, locale, { valueLabels: options.valueLabels }), groups, ...(groupBy.type === "multiselect" ? { multiCounted: true } : {}) };
   }
   const values: PluginIndexValue[] = [];
   let excluded = 0;
@@ -86,12 +95,14 @@ export function summarizeRows(
     for (const value of values) {
       for (const entry of Array.isArray(value) ? value : [value]) {
         const raw = String(entry);
-        const name = raw;
-        counts.set(name, (counts.get(name) ?? 0) + 1);
+        counts.set(raw, (counts.get(raw) ?? 0) + 1);
       }
     }
-    text = `${label("内訳", "Breakdown")}: ${[...counts].sort(([a], [b]) => a.localeCompare(b, locale))
-      .map(([key, count]) => `${key} ${count}`).join("、") || "—"}`;
+    // Known choices first in definition order, by display name; unknown values after, as written.
+    const known = options?.valueLabels ?? [];
+    const position = (value: string) => { const index = known.findIndex((item) => item.value === value); return index < 0 ? Infinity : index; };
+    text = `${label("内訳", "Breakdown")}: ${[...counts].sort(([a], [b]) => position(a) - position(b) || a.localeCompare(b, locale))
+      .map(([value, count]) => `${known.find((item) => item.value === value)?.label ?? value} ${count}`).join("、") || "—"}`;
   } else if (method === "earliest" || method === "latest") {
     const dates = values as string[];
     const date = [...dates].sort()[method === "earliest" ? 0 : dates.length - 1];
