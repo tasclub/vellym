@@ -6,7 +6,7 @@
 
 A Vellym plugin that displays `TicketTracker` tickets as a parent-child hierarchy with dates. It works without `@vellym/tickets` and creates no WBS-specific resources, tasks, or placement records.
 
-English user guide: <https://vellym.tasclub.com/en/>
+English user guide: <https://vellym.tasclub.com/en/pages/wbs/>
 
 ```yaml
 plugins:
@@ -38,6 +38,30 @@ spec:
     orderField: sequence
 ```
 
+| Setting | Field type | Meaning |
+| --- | --- | --- |
+| `hierarchy.parentField` (or `wbs.parentField`) | `reference` | Holds the parent ticket's `metadata.name` |
+| `wbs.startField` | `date` | Start date (`YYYY-MM-DD`) |
+| `wbs.endField` | `date` | End date (`YYYY-MM-DD`) |
+| `wbs.orderField` | `number` | Order among tickets at the same level |
+
+Field types a tracker can declare: `text`, `multiline`, `number`, `boolean`, `date`, `select`, `multiselect`, and `reference`.
+
+`metadata.name` must be lowercase letters and digits separated by single hyphens (`^[a-z0-9]+(?:-[a-z0-9]+)*$`), unique in the project, and should not change once other tickets refer to it. A ticket with a parent and dates looks like this:
+
+```yaml
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata: { name: ticket-write-notes, title: Write the release notes }
+spec:
+  status: todo
+  fields:
+    parent: ticket-plan-release
+    start: "2026-11-02"
+    due: "2026-11-10"
+    sequence: 2
+```
+
 Set `spec.fields.parent` on each ticket to its parent's `metadata.name`. You can also specify the parent reference field in `spec.wbs.parentField`. Choose fields for dates and ordering from the types declared in the ticket tracker. Changing a parent or an order saves only the ticket you changed.
 
 Start creating a ticket from the shared **New ticket** action above the list or Kanban, or from **Add child task** on a row. The host's normal ticket-creation flow opens the editor; no source file is created until the first save.
@@ -52,7 +76,7 @@ Tickets without dates remain visible. Change a parent from **Change parent** on 
 
 `TicketTracker`のチケットを親子階層と日程で表示するVellymプラグインです。`@vellym/tickets`なしでも使えます。WBS専用のリソース・自前タスク・配置レコードは作りません。
 
-日本語の利用ガイド: <https://vellym.tasclub.com/>
+日本語の利用ガイド: <https://vellym.tasclub.com/pages/wbs/>
 
 ```yaml
 plugins:
@@ -82,6 +106,30 @@ spec:
     startField: start
     endField: due
     orderField: sequence
+```
+
+| 設定 | 項目の型 | 意味 |
+| --- | --- | --- |
+| `hierarchy.parentField`（または`wbs.parentField`） | `reference` | 親のチケットの`metadata.name`を入れる項目 |
+| `wbs.startField` | `date` | 開始日（`YYYY-MM-DD`） |
+| `wbs.endField` | `date` | 終了日（`YYYY-MM-DD`） |
+| `wbs.orderField` | `number` | 同じ階層の中の並び順 |
+
+チケット管理で宣言できる項目の型は`text`・`multiline`・`number`・`boolean`・`date`・`select`・`multiselect`・`reference`です。
+
+`metadata.name`は、小文字の英数字をハイフン1つで区切った形（`^[a-z0-9]+(?:-[a-z0-9]+)*$`）で、プロジェクトの中で一意にします。ほかのチケットから参照された後は変えません。親と日程を持つチケットの例です。
+
+```yaml
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata: { name: ticket-write-notes, title: リリースノートを書く }
+spec:
+  status: todo
+  fields:
+    parent: ticket-plan-release
+    start: "2026-11-02"
+    due: "2026-11-10"
+    sequence: 2
 ```
 
 チケットは`spec.fields.parent`に親の`metadata.name`を入れます。`spec.wbs.parentField`で親の参照項目を指定することもできます。日程・順序に使う項目はチケット管理の定義にある型から選びます。親の変更や順序の変更は操作したチケットだけを保存します。

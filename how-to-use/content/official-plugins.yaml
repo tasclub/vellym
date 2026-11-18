@@ -27,7 +27,7 @@ spec:
 
         `TicketTracker`のチケットを親子階層と日程のWBSで表示します。単独で導入でき、`@vellym/tickets`や`@vellym/kanban`と併用すると同じTrackerからビューを切り替えられます。
 
-        [npm](https://www.npmjs.com/package/@vellym/wbs) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-wbs/README.md)
+        [npm](https://www.npmjs.com/package/@vellym/wbs) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-wbs/README.md) · 使い方: [[wbs|WBS]]
 
         プラグインを作る入口は[[developing-plugins|プラグインを作る]]です。Plugin APIはbeta版のあいだ変更されることがあります。
   translations:
@@ -56,6 +56,6 @@ spec:
 
             Displays `TicketTracker` tickets as a parent-child hierarchy with a schedule. It can be installed on its own; with `@vellym/tickets` or `@vellym/kanban` enabled, users can switch views from the same tracker.
 
-            [npm](https://www.npmjs.com/package/@vellym/wbs) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-wbs/README.md)
+            [npm](https://www.npmjs.com/package/@vellym/wbs) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-wbs/README.md) · How to use: [[wbs|WBS]]
 
             To get started with plugin development, see [[developing-plugins|Developing Plugins]]. The Plugin API may change while it is in beta.

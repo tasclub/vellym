@@ -53,6 +53,8 @@ spec:
         - `dev`は既定で`127.0.0.1`にバインドする。Vellymに認証はないため、
           `--host 0.0.0.0`で起動したサーバーへ到達できる相手は、文書の閲覧・編集・構成変更に加え、画像保存やGitのコミット・設定済み上流へのプッシュができる。
           信頼できるネットワークだけで使用する。
+        - プラグインはホストと同じ権限で動き、ファイルの読み書きや任意のコードの実行ができる（隔離しない）。
+          信頼できる提供元のものだけを入れる（[[using-plugins|プラグインを使う]]）。
         - Dockerイメージのレジストリ公開・バージョン固定・更新手順は未確定。
         - 新規文書は`v1`で生成する。既存の`v1alpha1`はそのまま利用でき、明示的なmigrationも
           利用できるが、正式な`v1`契約はRCまで変更される可能性がある。
@@ -121,6 +123,9 @@ spec:
               can reach a `--host 0.0.0.0` server can read, edit, and restructure documents,
               save images, commit, and push to the configured Git upstream.
               Use it only on a trusted network.
+            - Plugins run with the host's permissions and can read and write files and run any code;
+              they are not sandboxed. Install only plugins from sources you trust
+              ([[using-plugins|Using Plugins]]).
             - Registry publishing, version pinning, and update procedures for the Docker image
               are not finalized.
             - New documents are generated as `v1`. Existing `v1alpha1` documents keep working, and

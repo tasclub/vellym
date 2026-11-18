@@ -273,6 +273,12 @@ try {
   if (!llms.ok || !llmsText.includes("Vellymとは") || !llmsText.includes("ドキュメントの正本をGitで管理")) {
     throw new Error("llms.txt is missing a known page title or body");
   }
+  for (const title of ["変更・コミット・文書の履歴", "画像", "WBS"]) {
+    if (!llmsText.includes(title)) throw new Error(`llms.txt is missing the guide page ${title}`);
+  }
+  if (!llmsText.includes("下書き（`visibility: draft`）の翻訳だけが参照する画像")) {
+    throw new Error("llms.txt is missing the body of the images guide");
+  }
   if (llmsText.includes("[[developing-plugins|")) {
     throw new Error("llms.txt leaves internal link notation unexpanded");
   }

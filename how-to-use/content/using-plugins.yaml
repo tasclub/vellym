@@ -13,6 +13,12 @@ spec:
 
         `{ field: estimate, method: sum, groupBy: sprint }` のように値ごとの集計もできる。`groupBy` は select・multiselect・reference・text の項目ID。未設定はまとめ、multiselect は各値に重複計上する。
 
+        ## 入れる前に: プラグインはホストと同じ権限で動く
+
+        プラグインは、Vellymのサーバー（Node.js）とブラウザの両方で、Vellym本体と同じ権限で動く。
+        ファイルの読み書きも、任意のコードの実行もできる。Vellymはプラグインを隔離しない。
+        信頼できる提供元のものだけを`plugins`に書く。公式プラグインは`@vellym/`のnpmパッケージである。
+
         ## プラグインを追加する
 
         Vellymプロジェクトのルートで、使いたいプラグインをnpmパッケージとして
@@ -86,6 +92,13 @@ spec:
             Configure `spec.summary` as an array, e.g. `{ field: priority, method: breakdown }`. The list summarizes all filtered rows and reports invalid values, including in static output. WBS summarizes all its tickets, including collapsed and attention-needed rows. Kanban prefers `spec.kanban.summary` when present.
 
             Group an aggregate by a field with `{ field: estimate, method: sum, groupBy: sprint }`. The group field must be select, multiselect, reference, or text. Missing values form one group; multiselect values count in every matching group.
+
+            ## Before you install: plugins run with the host's permissions
+
+            A plugin runs in both the Vellym server (Node.js) and the browser with the same permissions as
+            Vellym itself. It can read and write files and run any code; Vellym does not sandbox plugins.
+            List only plugins from sources you trust in `plugins`. The official plugins are the npm
+            packages under `@vellym/`.
 
             ## Add a plugin
 

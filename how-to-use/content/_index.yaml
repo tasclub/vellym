@@ -9,8 +9,10 @@ spec:
     - cli-reference.yaml
     - compatibility.yaml
     - configuration.yaml
+    - official-plugins.yaml
     - using-plugins.yaml
     - ticket-management.yaml
+    - wbs.yaml
     - developing-plugins.yaml
     - plugin-design-notes.yaml
     - demo-tickets
@@ -19,6 +21,8 @@ spec:
     - index.yaml
     - authoring.yaml
     - browser-guide.yaml
+    - changes-and-history.yaml
+    - images.yaml
     - limitations.yaml
   translations:
     en:

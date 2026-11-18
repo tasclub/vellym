@@ -67,7 +67,7 @@ spec:
 
         `asset:`の後ろは画像フォルダ内の相対パス（区切りは`/`）。`..`やフォルダ外への
         シンボリックリンクは使えない。PNG・JPEG・GIF・WebP・AVIFに対応し、SVGには対応しない。
-        現時点では`dev`で表示でき、編集画面からの挿入と静的出力へのコピーは別の作業で対応する。
+        編集画面からの挿入、`validate`の診断、静的出力へのコピーは[[images|画像]]を参照。
         `validate`は参照切れをエラーにする。フォルダ自体に届かない場合は、確認できない旨の警告にする。
 
         **プロジェクト外の画像はGitの履歴に入らない。** 別PCへcloneしても画像はコピーされない。
@@ -157,8 +157,8 @@ spec:
 
             The part after `asset:` is a path inside the image folder, separated by `/`. Traversal
             with `..` and symlinks escaping the folder are rejected. PNG, JPEG, GIF, WebP and AVIF are
-            supported; SVG is not. Images currently display in `dev`; editor insertion and copying images
-            into static output are separate follow-up work. `validate` reports broken references as errors,
+            supported; SVG is not. See [[images|Images]] for inserting from the editor, diagnostics, and
+            copying into static output. `validate` reports broken references as errors,
             but warns that references cannot be checked if the whole folder is unavailable.
 
             **Images outside the project do not enter its Git history.** Cloning to another PC does not

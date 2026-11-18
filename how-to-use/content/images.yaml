@@ -1,0 +1,142 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: images
+  title: 画像
+spec:
+  locale: ja
+  blocks:
+    - id: images
+      type: rich-text
+      content: |
+        本文に画像を入れられる。画像のファイルは画像フォルダに置き、本文からは置き場所によらない
+        `asset:`の参照で指す。
+
+        ## 編集画面から入れる
+
+        `vellym dev`の編集画面で、次のどれかの方法で入れる。
+
+        - ツールバーの「画像を挿入」を押してファイルを選ぶ
+        - 画像をクリップボードから貼り付ける
+        - 画像のファイルを本文へドラッグする
+
+        保存中は「画像を保存しています…」と出る。入れた画像を選ぶと「画像の代替テキスト」を直せる。
+        画面を読み上げる人のために、図の中身が分かる代替テキストを書く。
+
+        画像は画像フォルダの`<年>/<月>/`の下に、Vellymが作った名前で保存される（元のファイル名は使わない）。
+        本文には`![代替テキスト](asset:2026/11/<名前>.png)`のように書かれる。
+
+        ## 種類と大きさ
+
+        - PNG・JPEG・GIF・WebP・AVIFに対応する。SVGには対応しない（中にスクリプトを持てるため）
+        - 拡張子と中身の両方で種類を確かめる。拡張子だけを変えたファイルは入らない
+        - 1つの画像の上限は`assets.maxBytes`（既定は10MB）。超えると入らず、画面に理由が出る
+
+        ## 置き場所
+
+        画像フォルダは設定の`assets.root`で決める（既定は設定ファイルと同じ階層の`assets/`）。
+        PCごとに変えたいときは環境変数`VELLYM_ASSETS_DIR`を使う（`assets.root`より優先する）。
+        設定の書き方は[[configuration|設定ファイル]]を参照。
+
+        本文には`asset:`の後ろに画像フォルダの中の相対パス（区切りは`/`）を書く。
+        `..`やフォルダの外を指すシンボリックリンクは使えない。
+
+        ```markdown
+        ![構成図](asset:2026/11/example.png)
+        ```
+
+        **プロジェクトの外に置いた画像はGitの履歴に入らない。** 別のPCへcloneしても画像は付いてこない。
+        同じフォルダへのアクセスか、別のバックアップが要る。VellymはGitへの追加やコミットを自動では行わない。
+
+        ## 検証
+
+        `vellym validate`は、本文が参照する画像を確かめる。
+
+        | 診断 | 重大度 | 意味 |
+        | --- | --- | --- |
+        | `ASSET_NOT_FOUND` | エラー | 参照先の画像が無い、または読めない |
+        | `ASSET_TYPE` | エラー | 対応していない種類、または中身と拡張子が合わない |
+        | `ASSETS_UNAVAILABLE` | 警告 | 画像フォルダに届かない（NASが外れているなど）ため、確かめられない |
+
+        ## 静的出力
+
+        `vellym build`は、公開する本文が参照する画像だけを出力の`media/`へコピーし、静的版はそこから読む。
+        サブディレクトリに置いて配信しても表示できる。
+
+        - どこからも参照されていない画像はコピーしない
+        - 下書き（`visibility: draft`）の翻訳だけが参照する画像はコピーしない
+        - 参照先の無い画像があると、`validate`と同じく`ASSET_NOT_FOUND`のエラーで生成を中止する
+
+        関連: [[configuration|設定ファイル]]・[[self-hosting|静的配信と自己ホスト]]
+  translations:
+    en:
+      visibility: published
+      title: Images
+      blocks:
+        - id: images
+          type: rich-text
+          content: |
+            You can put images in the body text. Image files live in the images folder, and the body
+            points to them with an `asset:` reference that does not depend on where the folder is.
+
+            ## Insert from the editor
+
+            In the `vellym dev` editor, use any of these:
+
+            - Press **Insert image** on the toolbar and choose a file
+            - Paste an image from the clipboard
+            - Drag an image file onto the body
+
+            "Uploading image…" appears while it is saved. Select an inserted image to edit its
+            **Image alternative text**. Write alternative text that tells screen-reader users what
+            the image shows.
+
+            Images are saved under `<year>/<month>/` in the images folder with a name Vellym generates
+            (the original file name is not used). The body gets
+            `![alternative text](asset:2026/11/<name>.png)`.
+
+            ## Types and size
+
+            - PNG, JPEG, GIF, WebP, and AVIF are supported. SVG is not, because it can carry scripts
+            - Both the extension and the content are checked; a file with only a changed extension is refused
+            - The size limit per image is `assets.maxBytes` (10 MB by default). Larger files are refused
+              and the reason is shown
+
+            ## Where images live
+
+            The images folder is set by `assets.root` (by default `assets/` next to the config file).
+            To use a different place on each computer, set the environment variable
+            `VELLYM_ASSETS_DIR`, which takes precedence over `assets.root`. See
+            [[configuration|Configuration File]] for the settings.
+
+            After `asset:`, write the path inside the images folder, separated by `/`. `..` and
+            symbolic links that leave the folder are not allowed.
+
+            ```markdown
+            ![Architecture](asset:2026/11/example.png)
+            ```
+
+            **Images kept outside the project are not in the Git history.** Cloning on another computer
+            does not bring them along; you need access to the same folder or a separate backup. Vellym
+            never adds or commits files to Git on its own.
+
+            ## Validation
+
+            `vellym validate` checks the images the body refers to.
+
+            | Diagnostic | Severity | Meaning |
+            | --- | --- | --- |
+            | `ASSET_NOT_FOUND` | Error | The image is missing or unreadable |
+            | `ASSET_TYPE` | Error | An unsupported type, or the content does not match the extension |
+            | `ASSETS_UNAVAILABLE` | Warning | The images folder cannot be reached (a disconnected NAS, for example), so nothing can be checked |
+
+            ## Static output
+
+            `vellym build` copies only the images referenced by published bodies into `media/` in the
+            output, and the static site reads them from there, also when served from a subdirectory.
+
+            - Images referenced nowhere are not copied
+            - Images referenced only by draft (`visibility: draft`) translations are not copied
+            - A missing image stops the build with `ASSET_NOT_FOUND`, as `validate` does
+
+            Related: [[configuration|Configuration File]] · [[self-hosting|Static Publishing and Self-Hosting]]

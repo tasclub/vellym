@@ -1,0 +1,163 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: wbs
+  title: WBS
+spec:
+  locale: ja
+  blocks:
+    - id: wbs
+      type: rich-text
+      content: |
+        `@vellym/wbs`は、チケット管理（`TicketTracker`）のチケットを、親子の階層と日程の表（WBS）で表示する。
+        WBS専用のファイルは作らず、チケットの項目（親・開始日・終了日・順序）をそのまま使う。
+        `@vellym/tickets`なしでも使え、併用すると同じチケット管理から一覧・カンバン・WBSを切り替えられる。
+
+        ## 導入
+
+        ```bash
+        npm install @vellym/wbs
+        ```
+
+        ```yaml
+        plugins:
+          - "@vellym/wbs"
+        ```
+
+        手順の詳細は[[using-plugins|プラグインを使う]]、チケット管理の作り方は[[ticket-management|チケット管理]]を参照。
+
+        ## チケット管理の設定
+
+        親の参照・開始日・終了日・順序に使う項目を、チケット管理の定義で指定する。
+
+        ```yaml
+        apiVersion: vellym.tasclub.com/v1
+        kind: TicketTracker
+        metadata: { name: project-tickets, title: 開発計画 }
+        spec:
+          statuses:
+            - { id: todo, label: 未着手, category: open }
+            - { id: done, label: 完了, category: closed }
+          fields:
+            - { id: parent, label: 親チケット, type: reference }
+            - { id: start, label: 開始, type: date }
+            - { id: due, label: 終了, type: date }
+            - { id: sequence, label: 順序, type: number }
+          hierarchy:
+            parentField: parent
+          wbs:
+            startField: start
+            endField: due
+            orderField: sequence
+        ```
+
+        | 設定 | 項目の型 | 意味 |
+        | --- | --- | --- |
+        | `hierarchy.parentField`（または`wbs.parentField`） | `reference` | 親のチケットの`metadata.name`を入れる項目 |
+        | `wbs.startField` | `date` | 開始日 |
+        | `wbs.endField` | `date` | 終了日 |
+        | `wbs.orderField` | `number` | 同じ階層の中の並び順 |
+
+        チケットの`spec.fields.parent`に親の`metadata.name`を書く。`spec.summary`を書くと、表示対象の全チケットの集計を出す。
+
+        ## 画面の操作
+
+        チケット管理を開き、ビューの切り替えで「WBS」を選ぶ。
+
+        - **展開・折りたたみ**: 行の左の印で子を開閉する
+        - **作成**: 上部の「チケットを作成」、または行の「行の操作」の「子タスクを追加」。最初の保存までファイルは作られない
+        - **親の変更**: 「行の操作」の「親を変更…」。保存されるのは操作したチケットだけ
+        - **並べ替え**: 同じ階層の中で、ドラッグハンドルを動かす。キーボードではハンドルにフォーカスして`Alt + ↑ / ↓`
+        - **日付タイムライン**: 右側に、表示対象のチケットの開始・終了から決めた範囲で表示する。「表示開始」「表示終了」と、日ごと・週ごとの目盛りを変えられる。目盛りが重ならないよう、日ごとは最大31日、週ごとは最大182日で区切る。範囲の外の行は、どちらの方向にあるかを示す
+        - 日程の無いチケットや、親の見つからないチケット・親子が循環しているチケットも、印を付けて表示する
+
+        ## 静的版
+
+        `vellym build`の静的版でもWBSを表示する。読むだけで、作成・並べ替え・親の変更はできない。
+
+        関連: [[official-plugins|公式プラグイン]]・[[ticket-management|チケット管理]]
+  translations:
+    en:
+      visibility: published
+      title: WBS
+      blocks:
+        - id: wbs
+          type: rich-text
+          content: |
+            `@vellym/wbs` shows the tickets of a ticket tracker (`TicketTracker`) as a work breakdown
+            structure: a parent-child hierarchy with a date timeline. It creates no WBS-specific files;
+            it uses the tickets' own fields (parent, start, end, order). It works without
+            `@vellym/tickets`; with it, the same tracker switches between the list, Kanban, and WBS.
+
+            ## Install
+
+            ```bash
+            npm install @vellym/wbs
+            ```
+
+            ```yaml
+            plugins:
+              - "@vellym/wbs"
+            ```
+
+            See [[using-plugins|Using Plugins]] for the steps and [[ticket-management|Ticket Management]]
+            for creating a ticket tracker.
+
+            ## Tracker settings
+
+            Name the fields used for the parent reference, start date, end date, and order in the
+            tracker definition.
+
+            ```yaml
+            apiVersion: vellym.tasclub.com/v1
+            kind: TicketTracker
+            metadata: { name: project-tickets, title: Development plan }
+            spec:
+              statuses:
+                - { id: todo, label: To do, category: open }
+                - { id: done, label: Done, category: closed }
+              fields:
+                - { id: parent, label: Parent ticket, type: reference }
+                - { id: start, label: Start date, type: date }
+                - { id: due, label: End date, type: date }
+                - { id: sequence, label: Order, type: number }
+              hierarchy:
+                parentField: parent
+              wbs:
+                startField: start
+                endField: due
+                orderField: sequence
+            ```
+
+            | Setting | Field type | Meaning |
+            | --- | --- | --- |
+            | `hierarchy.parentField` (or `wbs.parentField`) | `reference` | Holds the parent ticket's `metadata.name` |
+            | `wbs.startField` | `date` | Start date |
+            | `wbs.endField` | `date` | End date |
+            | `wbs.orderField` | `number` | Order among siblings |
+
+            Put the parent's `metadata.name` in each ticket's `spec.fields.parent`. With `spec.summary`
+            the WBS shows totals over every ticket it displays.
+
+            ## Using the screen
+
+            Open the ticket tracker and choose **WBS** in the view switcher.
+
+            - **Expand and collapse**: use the marker at the left of a row
+            - **Create**: **New ticket** at the top, or **Add child task** under a row's **Row actions**.
+              No file is written until the first save
+            - **Change parent**: **Change parent…** under **Row actions**. Only that ticket is saved
+            - **Reorder**: drag the handle within the same level. With the keyboard, focus the handle and
+              press `Alt + ↑ / ↓`
+            - **Date timeline**: the right side covers the range of the displayed tickets' start and end
+              dates. Change **Range start**, **Range end**, and the daily or weekly scale. To keep labels
+              apart, daily view is limited to 31 days and weekly view to 182 days. Rows outside the range
+              show which way they lie
+            - Tickets without dates, with a missing parent, or in a parent cycle are still shown, with a marker
+
+            ## Static site
+
+            The static site from `vellym build` shows the WBS read-only: no creating, reordering, or
+            changing parents.
+
+            Related: [[official-plugins|Official Plugins]] · [[ticket-management|Ticket Management]]
