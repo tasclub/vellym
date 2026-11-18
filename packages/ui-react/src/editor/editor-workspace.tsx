@@ -313,9 +313,13 @@ export function EditorWorkspace(props: {
   }, [props.editLocale]);
 
   if (!props.view || !props.draft) {
+    // A failed first load has no view to put the notice on; show it here instead of
+    // leaving the loading text up forever.
     return (
       <section className="workspace">
-        <div className="empty">{t("editor.loading")}</div>
+        {props.message
+          ? <div className="notice warning" role="alert">{props.message}</div>
+          : <div className="empty">{t("editor.loading")}</div>}
       </section>
     );
   }

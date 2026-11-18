@@ -140,7 +140,7 @@ async function verifyStaticTickets(browser, baseUrl) {
   try {
     await alert.first().waitFor({ timeout: 5000 });
   } catch {
-    knownIssues.push(`static Ticket detail shows no error when its data fails to load (ticket-01m7phrktc68mgpwwfpznepmrz)`);
+    throw new Error("static Ticket detail shows no error when its data fails to load");
   }
   await failing.close();
 }
