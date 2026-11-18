@@ -1,6 +1,6 @@
 {
   "name": "@vellym/kanban",
-  "version": "0.1.0-beta",
+  "version": "0.2.0-beta",
   "description": "Kanban view plugin for Vellym tickets",
   "license": "MIT",
   "type": "module",
@@ -26,7 +26,7 @@
   },
   "publishConfig": { "access": "public" },
   "peerDependencies": {
-    "@vellym/plugin-api": "^0.1.0-beta",
+    "@vellym/plugin-api": "^0.2.0-beta",
     "react": ">=18"
   },
   "peerDependenciesMeta": { "react": { "optional": true } },

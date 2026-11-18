@@ -1,6 +1,6 @@
 {
   "name": "@vellym/tickets",
-  "version": "0.1.0-beta",
+  "version": "0.2.0-beta",
   "description": "Official ticket management plugin for Vellym",
   "keywords": [
     "vellym",
@@ -48,7 +48,7 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@vellym/plugin-api": "^0.1.0-beta",
+    "@vellym/plugin-api": "^0.2.0-beta",
     "react": ">=18"
   },
   "devDependencies": {

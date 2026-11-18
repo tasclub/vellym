@@ -39,7 +39,15 @@ for (const [key, packagePath] of Object.entries(packagePaths)) {
   }
 }
 
-for (const key of ["tickets", "kanban", "wbs", "design"]) {
+// Private packages (design, kept out of 0.5.0-beta) are never published, so they are not
+// checked as releases; publish.yml must not publish them.
+const publishWorkflow = await readFile(new URL("../.github/workflows/publish.yml", import.meta.url), "utf8");
+for (const [key, packagePath] of Object.entries(packagePaths)) {
+  if (manifests[key].private && publishWorkflow.includes(`working-directory: ${packagePath}\n`)) {
+    throw new Error(`privateのパッケージを公開しようとしています: ${manifests[key].name}`);
+  }
+}
+for (const key of ["tickets", "kanban", "wbs", "design"].filter((name) => !manifests[name].private)) {
   const plugin = manifests[key];
   const pluginApiRange = plugin.peerDependencies?.["@vellym/plugin-api"] ?? "";
   if (!semver.satisfies(manifests.pluginApi.version, pluginApiRange)) {

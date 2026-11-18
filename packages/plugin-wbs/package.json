@@ -1,6 +1,6 @@
 {
   "name": "@vellym/wbs",
-  "version": "0.1.0-beta",
+  "version": "0.2.0-beta",
   "description": "Standalone WBS view plugin for Vellym tickets",
   "license": "MIT",
   "type": "module",
@@ -22,7 +22,7 @@
     "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api --external:@vellym/plugin-api/react --external:@vellym/plugin-api/ui && node -e \"require('node:fs').copyFileSync('src/wbs.css', 'dist/browser/wbs.css')\""
   },
   "publishConfig": { "access": "public" },
-  "peerDependencies": { "@vellym/plugin-api": "^0.1.0-beta", "react": ">=18" },
+  "peerDependencies": { "@vellym/plugin-api": "^0.2.0-beta", "react": ">=18" },
   "peerDependenciesMeta": { "react": { "optional": true } },
   "devDependencies": { "@vellym-internal/ticket-engine": "*", "@vellym/plugin-api": "*", "esbuild": "^0.28.1" },
   "vellym": {

@@ -1,6 +1,7 @@
 {
   "name": "@vellym/design",
   "version": "0.1.0-beta",
+  "private": true,
   "description": "Design canvas plugin for Vellym (artboard boards on a canvas)",
   "license": "MIT",
   "type": "module",
@@ -26,7 +27,7 @@
   },
   "publishConfig": { "access": "public" },
   "peerDependencies": {
-    "@vellym/plugin-api": "^0.1.0-beta"
+    "@vellym/plugin-api": "^0.2.0-beta"
   },
   "devDependencies": {
     "@vellym/plugin-api": "*",

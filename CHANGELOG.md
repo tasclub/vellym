@@ -95,6 +95,7 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 ### 変更
 
+- `@vellym/plugin-api`・`@vellym/tickets`・`@vellym/kanban`・`@vellym/wbs`を`0.2.0-beta`にした（プラグインAPIの公開型が増えたため）。各プラグインは`@vellym/plugin-api@^0.2.0-beta`を要求する。`@vellym/wbs`を公開の手順に加えた。`@vellym/design`は0.5.0-betaに含めず、`private`にした。
 - チケット詳細の項目を、一覧の列に出す項目→1行の項目→複数行の項目の順に並べ、幅1024px以上では1行の項目を2列に置くようにした。読むときは値の無い任意の項目を出さない（必須の項目は「—」で残す。編集では全項目を出す）。
 - **`vellym init`の既定の構成を`strict`から`standard`（ブラウザの初期セットアップと同じ）に変えた。** 大きさは`--level light|standard|strict`で選べる。`--dry-run`（`--json`でJSON）で計画だけを表示できる。content rootにVellymの文書ではないファイルだけがあるときは止まり、`--content-root`か`--use-existing-content-root`を案内する。`--plugins`で選んだプラグインの使い方のページを、完了時に案内する（プラグインの`package.json`の`vellym.guideUrl`）。
 - `init --plugins`が受け付ける公式プラグインの一覧を、ビルド時に公開するプラグインのパッケージ（`packages/plugin-*`の`vellym.id`）から集めるようにした。ヘルプと「不明なプラグイン」のエラーはこの一覧から作る。プラグインの一覧の件数の英語表記を、種別に依存しない`1 item`／`n items`にした。

@@ -213,6 +213,26 @@ with workflow filename `publish.yml` and no environment.
 If only the publish step fails, re-run the workflow with `workflow_dispatch` and the tag
 name instead of recreating the tag and release.
 
+### Publishing a package for the first time
+
+A trusted publisher is registered per npm package, so a package that has never been
+published (for example `@vellym/wbs` before 0.5.0-beta) needs one more step:
+
+1. On npmjs.com, open the package's **Settings → Trusted publishing** and add a GitHub
+   Actions publisher: organization `tasclub`, repository `vellym`, workflow `publish.yml`,
+   no environment.
+2. If npm does not let you register a publisher for a package that does not exist yet,
+   publish its first version once by hand from an account with access to the `@vellym`
+   scope (`npm publish --access public` in the package directory, after `npm run build`),
+   then register the publisher as above. Later versions go through the workflow.
+3. Add the package's step to `.github/workflows/publish.yml` in dependency order
+   (`@vellym/plugin-api` first, plugins next, `vellym` last). Packages with
+   `"private": true` (such as `@vellym/design`) are never added; `npm run release:check`
+   fails if one is.
+
+When `@vellym/plugin-api` gains public types, raise its minor version while below 1.0, and
+move every plugin's `peerDependencies["@vellym/plugin-api"]` to the new range together.
+
 ## Design boundaries
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the packages fit together, which

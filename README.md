@@ -40,7 +40,7 @@ cd myproject
 npx vellym@beta dev
 ```
 
-For ticket management, add `--plugins tickets,kanban` to `init`, then run `npm install` in the project before `npx vellym dev`. Create your first tracker in the UI or follow the [AI setup guide](https://vellym.tasclub.com/en/#page=getting-started).
+For ticket management, add `--plugins tickets,kanban` to `init`, then run `npm install` in the project before `npx vellym@beta dev`. Create your first tracker in the UI or follow the [AI setup guide](https://vellym.tasclub.com/en/#page=getting-started).
 
 `dev` binds to `127.0.0.1` by default. Run `vellym dev --host 0.0.0.0` only when you need to connect from outside the container. Then open `http://127.0.0.1:4173` in a browser.
 
