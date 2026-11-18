@@ -553,5 +553,8 @@
   "plugin.relatedCommitsNone": "No commits contain this page's name.",
   "plugin.relatedCommitsUnavailable": "Related commits can't be shown because the Git history is unavailable.",
   "plugin.relatedCommitsError": "Couldn't load the related commits.",
-  "plugin.relatedCommitsHint": "Write this page's name ({{name}}) in a commit message to list the commit here."
+  "plugin.relatedCommitsHint": "Write this page's name ({{name}}) in a commit message to list the commit here.",
+  "admin.unknownKindsTitle": "Uninterpreted content",
+  "admin.unknownKindsDescription": "Files of a kind no plugin interprets. They stay out of the document tree but open as body-only documents from search and links. The files are never moved or converted.",
+  "admin.unknownKindsCount": "{{kind}}: {{count}}"
 }

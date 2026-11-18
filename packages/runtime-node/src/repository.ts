@@ -616,35 +616,6 @@ export async function loadRepository(
   };
 }
 
-export interface UnknownKindGroup {
-  kind: string;
-  count: number;
-  resources: Array<{ name: string; title: string; relativePath: string }>;
-}
-
-/**
- * 解釈できるプラグインが無いkindを、kindごとにまとめて返す。文書ツリーには出さず、
- * 「その時点のプラグイン構成で解釈できないもの」として利用者へ示すために使う。
- * 整理は利用者の作業であり、Vellymは自動で移動・削除・変換を行わない。
- */
-export function unknownKindGroups(snapshot: RepositorySnapshot): UnknownKindGroup[] {
-  const groups = new Map<string, UnknownKindGroup>();
-  for (const entry of snapshot.pages) {
-    if (entry.kind === "Page") continue;
-    // 解釈できるプラグインがあるkindは「未知の内容」ではない。
-    if (snapshot.knownKinds?.has(entry.kind)) continue;
-    const group = groups.get(entry.kind) ?? { kind: entry.kind, count: 0, resources: [] };
-    group.count += 1;
-    group.resources.push({
-      name: entry.name,
-      title: entry.title,
-      relativePath: entry.relativePath
-    });
-    groups.set(entry.kind, group);
-  }
-  return [...groups.values()].sort((left, right) => left.kind.localeCompare(right.kind));
-}
-
 export function pageSummaries(snapshot: RepositorySnapshot): PageSummary[] {
   return snapshot.pages.map((entry) => ({
     name: entry.name,
@@ -653,6 +624,36 @@ export function pageSummaries(snapshot: RepositorySnapshot): PageSummary[] {
     relativePath: entry.relativePath,
     readOnly: entry.readOnly,
     resourceKind: entry.kind
+  }));
+}
+
+/**
+ * Resources of a kind no installed plugin interprets, grouped by kind. Vellym never moves,
+ * deletes or converts them; tidying up is the user's job.
+ */
+export interface UnknownKindGroup {
+  kind: string;
+  count: number;
+  resources: Array<{ name: string; title: string; relativePath: string }>;
+}
+
+/**
+ * The "uninterpreted content" aggregate. Such resources stay readable as body-only documents
+ * through search and links, but appear in no tree; this tells the user where they are.
+ */
+export function unknownKindGroups(snapshot: RepositorySnapshot): UnknownKindGroup[] {
+  const byKind = new Map<string, UnknownKindGroup["resources"]>();
+  for (const entry of snapshot.pages) {
+    // Folders starting with "_" (archive, set-aside material) stay out; "+" folders are machine
+    // stores of listed content (such as +tickets) and count.
+    const setAside = entry.relativePath.split("/").slice(0, -1).some((segment) => segment.startsWith("_"));
+    if (entry.kind === "Page" || entry.kind === "Folder" || snapshot.knownKinds?.has(entry.kind) || setAside) continue;
+    const items = byKind.get(entry.kind) ?? [];
+    items.push({ name: entry.name, title: entry.title, relativePath: entry.relativePath });
+    byKind.set(entry.kind, items);
+  }
+  return [...byKind].sort(([a], [b]) => a.localeCompare(b)).map(([kind, resources]) => ({
+    kind, count: resources.length, resources: resources.sort((a, b) => a.relativePath.localeCompare(b.relativePath))
   }));
 }
 

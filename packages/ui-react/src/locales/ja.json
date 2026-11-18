@@ -554,5 +554,8 @@
   "plugin.relatedCommitsNone": "このページの名前を含むコミットはありません。",
   "plugin.relatedCommitsUnavailable": "Gitの履歴を読めないため、関連するコミットを表示できません。",
   "plugin.relatedCommitsError": "関連するコミットを読み込めませんでした。",
-  "plugin.relatedCommitsHint": "コミットメッセージにこのページの名前（{{name}}）を書くと、ここに出ます。"
+  "plugin.relatedCommitsHint": "コミットメッセージにこのページの名前（{{name}}）を書くと、ここに出ます。",
+  "admin.unknownKindsTitle": "解釈できない内容",
+  "admin.unknownKindsDescription": "どのプラグインも解釈しないkindのファイルです。文書ツリーには出ませんが、本文だけの文書として検索とリンクから開けます。ファイルは移動も変換もしません。",
+  "admin.unknownKindsCount": "{{kind}} {{count}}件"
 }

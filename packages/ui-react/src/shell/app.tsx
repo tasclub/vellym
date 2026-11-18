@@ -24,6 +24,7 @@ import {
   runPluginCommand,
   fetchPageEdit,
   fetchPages,
+  type RepositoryData,
   patchPage,
   applyStructure,
   previewStructure,
@@ -292,6 +293,7 @@ export function App() {
   const [bootstrapError, setBootstrapError] = useState("");
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [folders, setFolders] = useState<FolderSummary[]>([]);
+  const [unknownKinds, setUnknownKinds] = useState<NonNullable<RepositoryData["unknownKinds"]>>([]);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [selected, setSelected] = useState<string>();
   const [selectedFolder, setSelectedFolder] = useState<string>();
@@ -439,6 +441,7 @@ export function App() {
       const result = await fetchPages(signal, locale);
       setPages(result.data.pages);
       setFolders(result.data.folders);
+      setUnknownKinds(result.data.unknownKinds ?? []);
       setDiagnostics(result.diagnostics);
       const location = currentDocumentLocation();
       const requestedPage = result.data.pages.find(
@@ -1591,6 +1594,8 @@ export function App() {
             resolvedContentRoot={bootstrap.project.resolvedContentRoot}
             configPath={bootstrap.project.configPath}
             diagnostics={diagnostics}
+            unknownKinds={unknownKinds}
+            onOpenResource={(name) => { setArea("documents"); navigate(name); }}
             language={bootstrap.project.language}
             canManageStructure={bootstrap.capabilities.structure}
             onConfigApplied={() => {

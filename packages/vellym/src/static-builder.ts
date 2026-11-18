@@ -33,6 +33,7 @@ import {
   buildPluginViewFromSnapshot,
   diagnoseAssets,
   loadRepository,
+  unknownKindGroups,
   readAsset
 } from "@vellym-internal/runtime-node";
 import { VELLYM_VERSION } from "./version.js";
@@ -260,12 +261,15 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       // ナビゲーションへ混ぜない。
       const staticKinds = staticViewKinds(plugins);
       const summaryNames = new Set(summaries.map((summary) => summary.name));
+      // Kinds no plugin interprets are baked too, as body-only documents: reachable from
+      // search and links as in dev, but kept out of repository.json (the tree).
+      const uninterpreted = new Set(unknownKindGroups(repository).flatMap((group) => group.resources.map((item) => item.name)));
       const bakedSummaries = [
         ...summaries,
         ...pageSummaries(repository).filter(
           (summary) =>
             !summaryNames.has(summary.name) &&
-            staticKinds.has(summary.resourceKind ?? "Page")
+            (staticKinds.has(summary.resourceKind ?? "Page") || uninterpreted.has(summary.name))
         )
       ];
       const folders = localizedFolderSummaries(repository, locale, defaultLocale);

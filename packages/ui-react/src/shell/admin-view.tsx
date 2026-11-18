@@ -27,6 +27,9 @@ export function AdminView(props: {
   resolvedContentRoot: string;
   configPath: string;
   diagnostics: Diagnostic[];
+  /** Resources no installed plugin interprets, by kind. */
+  unknownKinds?: Array<{ kind: string; count: number; resources: Array<{ name: string; title: string; relativePath: string }> }>;
+  onOpenResource?(name: string): void;
   language: SupportedLanguage;
   canManageStructure: boolean;
   onConfigApplied(): void;
@@ -350,6 +353,27 @@ export function AdminView(props: {
           )}
         </section>
       )}
+      {props.unknownKinds?.length ? (
+        <section className={styles.panel} aria-labelledby="unknown-kinds-title">
+          <h2 id="unknown-kinds-title">{t("admin.unknownKindsTitle")}</h2>
+          <p>{t("admin.unknownKindsDescription")}</p>
+          {props.unknownKinds.map((group) => (
+            <details key={group.kind}>
+              <summary>{t("admin.unknownKindsCount", { kind: group.kind, count: group.count })}</summary>
+              <ul>
+                {group.resources.map((item) => (
+                  <li key={item.relativePath}>
+                    {props.onOpenResource
+                      ? <Button onClick={() => props.onOpenResource!(item.name)}>{item.title}</Button>
+                      : item.title}{" "}
+                    <code>{item.relativePath}</code>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
+        </section>
+      ) : null}
       <section className={styles.panel} aria-labelledby="problems-title">
         <div className={styles.panelHeading}>
           <div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -159,6 +159,17 @@ spec:
         ]
       }
     ]);
+  });
+
+  it("counts unknown kinds in + folders but leaves _ folders (such as the archive) out", async () => {
+    // ticket-01m7q8v1pj465hapc800hkhhqz
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-unknown-kinds-"));
+    await mkdir(path.join(root, "+tickets"), { recursive: true });
+    await mkdir(path.join(root, "_archive"), { recursive: true });
+    await writeFile(path.join(root, "+tickets/ticket.yaml"), TICKET);
+    await writeFile(path.join(root, "_archive/ticket.yaml"), TICKET.replace("ticket-01jxyz", "ticket-01jxya"));
+    const groups = unknownKindGroups(await loadRepository(root));
+    expect(groups.map((group) => group.resources.map((item) => item.relativePath))).toEqual([["+tickets/ticket.yaml"]]);
   });
 
   it("still finds an unknown kind through full-text search", async () => {

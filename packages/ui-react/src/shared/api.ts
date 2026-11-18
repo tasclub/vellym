@@ -121,6 +121,8 @@ export interface RepositoryData {
   availableLocales: string[];
   pages: PageSummary[];
   folders: FolderSummary[];
+  /** Resources no installed plugin interprets, by kind (live only). */
+  unknownKinds?: Array<{ kind: string; count: number; resources: Array<{ name: string; title: string; relativePath: string }> }>;
 }
 
 interface StaticPluginViewIndex {

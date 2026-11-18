@@ -126,7 +126,6 @@ export const steps = [
     const root = await project(ctx);
     await config(ctx, root, []);
     ctx.git(root, "commit", "-qam", "remove plugins");
-    ctx.note("2026-11-18の既知の失敗: kindごとの件数の表示が無い（ticket-01m7q8v1pj465hapc800hkhhqz）");
     ctx.state.ticketD = { root };
     const server = await ctx.start(root);
     const page = await ctx.page(server.origin);
@@ -186,7 +185,6 @@ export const steps = [
 
   { id: id(2), title: "外した状態でvalidateとbuild", async run(ctx) {
     const root = ctx.state.ticketD?.root ?? ctx.blocked("D01の領域が無い");
-    ctx.note("2026-11-18の既知の失敗: 静的出力に未知kindのページが焼かれない（ticket-01m7q8v1pj465hapc800hkhhqz）");
     const { validate, build } = validateAndBuild(ctx, root);
     await ctx.check("validateが終了コード0で終わり、未知kindがwarningとして出る", async () => {
       assert.equal(validate.status, 0, validate.stdout + validate.stderr);
@@ -196,7 +194,7 @@ export const steps = [
     await ctx.check("buildが成功する", async () => {
       assert.equal(build.status, 0, build.stdout + build.stderr);
     });
-    await ctx.check("静的サイトでチケットが本文を持つ文書として読め、検索の索引にあり、文書ツリーには出ない", async () => {
+    await ctx.check("静的サイトでチケットが本文を持つ文書として読め、内部リンクから到達でき、文書ツリーには出ない", async () => {
       const output = JSON.parse(build.stdout).data.outputDir;
       const buildInfo = JSON.parse(await ctx.fs.readFile(ctx.path.join(output, "vellym-build.json"), "utf8"));
       const data = ctx.path.join(output, "data", buildInfo.buildId, "ja");
@@ -204,10 +202,12 @@ export const steps = [
       assert.match(ticket, /通知を見直すの本文/);
       const tree = await ctx.fs.readFile(ctx.path.join(data, "repository.json"), "utf8");
       assert(!tree.includes(`"${TICKETS[0]}"`), "repository.json（文書ツリー）にチケットがある");
-      const files = await ctx.fs.readdir(data);
-      const search = files.find((file) => /search/.test(file));
-      assert(search, `検索の索引が見つからない: ${files.join(", ")}`);
-      assert.match(await ctx.fs.readFile(ctx.path.join(data, search), "utf8"), new RegExp(TICKETS[0]));
+      await ctx.fs.access(ctx.path.join(output, "pages", TICKETS[0], "index.html"));
+      const guide = await ctx.fs.readFile(ctx.path.join(data, "pages", "guide.json"), "utf8");
+      assert(guide.includes(TICKETS[0]), "案内のページからチケットへの内部リンクが解決されていない");
+    });
+    await ctx.check("静的サイトの検索からチケットへ到達できる", async () => {
+      ctx.blocked("静的版には全文検索が無い（利用ガイドの「ブラウザ画面の使い方」に動的版だけの機能と書かれている）。シナリオの期待と製品の制約が食い違うため、どちらに合わせるかは利用者の判断に残す。");
     });
   } },
 

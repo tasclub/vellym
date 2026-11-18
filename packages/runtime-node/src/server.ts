@@ -42,6 +42,7 @@ import { parseFolderPatch, saveFolder } from "./folder-store.js";
 import { parsePagePatch, savePage } from "./page-store.js";
 import { isInside } from "./path-utils.js";
 import {
+  unknownKindGroups,
   editablePage,
   editableFolder,
   loadRepository,
@@ -899,7 +900,8 @@ export async function startDevServer(options: {
                 ready.snapshot,
                 localeState.requestedLocale,
                 localeState.defaultLocale
-              )
+              ),
+              unknownKinds: unknownKindGroups(ready.snapshot)
             },
             ready.snapshot.diagnostics
           )
