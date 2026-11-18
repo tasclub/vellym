@@ -39,6 +39,7 @@ import {
   userSettingsKey
 } from "../shared/user-settings.js";
 import styles from "./workspace-shell.module.css";
+import { useUiLang } from "../shared/ui-language.js";
 
 const DEFAULT_TREE_WIDTH = 268;
 const MIN_TREE_WIDTH = 220;
@@ -179,6 +180,7 @@ export function WorkspaceShell(props: {
   onFolderApplied(folder: FolderSummary): void;
   children: ReactNode;
 }) {
+  const uiLang = useUiLang();
   const { t } = useTranslation();
   const [treeOpen, setTreeOpen] = useState(storedTreeOpen);
   const [treeWidth, setTreeWidth] = useState(storedTreeWidth);
@@ -292,7 +294,7 @@ export function WorkspaceShell(props: {
       <a className={styles.skipLink} href="#document-content">
         {t("nav.skipToContent")}
       </a>
-      <aside className={styles.productRail} aria-label={t("nav.productRail")}>
+      <aside lang={uiLang} className={styles.productRail} aria-label={t("nav.productRail")}>
         <div className={styles.productMark} aria-hidden="true">V</div>
         <IconTooltip label={t("nav.documents")}>
           <Button
@@ -325,7 +327,7 @@ export function WorkspaceShell(props: {
           </IconTooltip>
         )}
       </aside>
-      <header className={styles.header}>
+      <header lang={uiLang} className={styles.header}>
         <div className={styles.headerLeading}>
           {props.gitChanges && <Button className={styles.mobileMenu} aria-label={t("changes.rail", { count: props.gitChanges.uncommitted, ahead: props.gitChanges.ahead })} onPress={() => props.onAreaChange("changes")}>⇅</Button>}
           <Button
@@ -367,7 +369,7 @@ export function WorkspaceShell(props: {
           </Button>
         )}
       </header>
-      {props.area === "documents" && <aside
+      {props.area === "documents" && <aside lang={uiLang}
         className={styles.navigation}
         aria-label={t("nav.documentNav")}
         aria-hidden={!treeOpen}
@@ -394,7 +396,7 @@ export function WorkspaceShell(props: {
               >
                 <Icon name="create" size={16} />
               </Button>
-              <Popover className={styles.createPopover}>
+              <Popover lang={uiLang} className={styles.createPopover}>
                 <Menu
                   className={styles.createMenu}
                   aria-label={t("nav.create")}
@@ -567,7 +569,7 @@ export function WorkspaceShell(props: {
         onOpenChange={setDrawerOpen}
         isDismissable
       >
-        <Modal className={styles.drawer}>
+        <Modal lang={uiLang} className={styles.drawer}>
           <Dialog aria-label={t("nav.documentNav")} className={styles.dialog}>
             <div className={styles.drawerHeader}>
               <h2>{t("nav.documents")}</h2>

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { resolveLocalizedText } from "@vellym/plugin-api";
 import type { PageEditSession } from "./page-edit-session.js";
 import styles from "./page-language-controls.module.css";
+import { useUiLang } from "../shared/ui-language.js";
 
 const SUPPORTED_CONTENT_LOCALES = ["ja", "en"] as const;
 
@@ -18,6 +19,7 @@ export function PageLanguageControls(props: {
   onRepairInvalid(rawKey: string): void;
   onDeleteInvalid(rawKey: string): void;
 }) {
+  const uiLang = useUiLang();
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [locale, setLocale] = useState("");
@@ -126,7 +128,7 @@ export function PageLanguageControls(props: {
         </section>
       )}
       <ModalOverlay isOpen={adding} onOpenChange={setAdding} isDismissable className={styles.overlay}>
-        <Modal className={styles.modal}>
+        <Modal lang={uiLang} className={styles.modal}>
           <Dialog aria-labelledby="add-language-title" className={styles.dialog}>
             <h2 id="add-language-title">{t("language.addTitle")}</h2>
             <label>

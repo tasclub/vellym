@@ -22,6 +22,7 @@ import {
 import styles from "./structure-dialog.module.css";
 import { errorMessage } from "../shared/error-message.js";
 import { Button as HostButton } from "../shared/button.js";
+import { useUiLang } from "../shared/ui-language.js";
 
 export type StructureAction =
   | { type: "create-page"; parentPath: string; chooseParent?: boolean }
@@ -55,6 +56,7 @@ export function StructureActionDialog(props: {
   onApplied(plan: StructurePlan, result: StructureApplyResult): void;
   onFolderApplied?(folder: FolderSummary): void;
 }) {
+  const uiLang = useUiLang();
   const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -267,7 +269,7 @@ export function StructureActionDialog(props: {
       isDismissable={!busy}
       className={styles.overlay}
     >
-      <Modal className={styles.modal}>
+      <Modal lang={uiLang} className={styles.modal}>
         <Dialog
           aria-label={action ? t(titleKeys[action.type]) : t("structure.fallbackLabel")}
           className={styles.dialog}

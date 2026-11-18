@@ -90,6 +90,8 @@ import {
   staticAppBasePath
 } from "./routing.js";
 import { Button } from "../shared/button.js";
+import { UiLanguageContext } from "../shared/ui-language.js";
+import { pageLanguages, uiLangAttribute } from "./page-languages.js";
 
 function currentDocumentLocation() {
   return resolveDocumentLocation({
@@ -890,10 +892,14 @@ export function App() {
             : "Vellym";
   }, [area, selectedFolderNode, view]);
 
+  // `<html lang>` is the document language; the UI chrome carries the UI language
+  // (UiLanguageContext) when it differs. Setup and config screens are all UI.
+  const languages = pageLanguages(bootstrap?.project, view?.locale);
+  const uiLang = bootstrap?.state === "ready" ? uiLangAttribute(languages) : undefined;
   useEffect(() => {
-    document.documentElement.lang = bootstrap?.project.uiLocale ?? "ja";
+    document.documentElement.lang = bootstrap?.state === "ready" ? languages.document : languages.ui;
     document.documentElement.dir = "ltr";
-  }, [bootstrap?.project.uiLocale]);
+  }, [bootstrap?.state, languages.document, languages.ui]);
 
   useEffect(() => {
     if (!view || pendingLocation?.page !== view.page.metadata.name) return;
@@ -1501,6 +1507,7 @@ export function App() {
   return (
     // 種別ごとのアイコンはプラグインが渡したものだけを配る。
     // **hostが種別名から推測しない。**
+    <UiLanguageContext.Provider value={uiLang}>
     <KindIconProvider value={bootstrap.plugins?.kindIcons ?? {}}>
       <WorkspaceShell
         navigation={navigation}
@@ -1895,5 +1902,6 @@ export function App() {
         }
       />
     </KindIconProvider>
+    </UiLanguageContext.Provider>
   );
 }

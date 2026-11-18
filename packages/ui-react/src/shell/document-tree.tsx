@@ -27,6 +27,7 @@ import {
   readExpandedKeys
 } from "./document-tree-state.js";
 import styles from "./document-tree.module.css";
+import { useUiLang } from "../shared/ui-language.js";
 
 function itemKey(node: DocumentNavigationNode): string {
   return folderKey(node);
@@ -65,7 +66,8 @@ function renderNode(
     itemKey: string
   ) => void,
   canManage: boolean,
-  t: TFunction
+  t: TFunction,
+  uiLang?: string
 ) {
   const id = itemKey(node);
   if (node.kind === "page") {
@@ -95,7 +97,7 @@ function renderNode(
                 >
                   …
                 </Button>
-                <Popover className={styles.menuPopover}>
+                <Popover lang={uiLang} className={styles.menuPopover}>
                   <Menu
                     className={styles.menu}
                     aria-label={t("tree.itemActions", { title: node.title })}
@@ -160,7 +162,7 @@ function renderNode(
               >
                 <Icon name="create" size={14} />
               </Button>
-              <Popover className={styles.menuPopover}>
+              <Popover lang={uiLang} className={styles.menuPopover}>
                 <Menu
                   className={styles.menu}
                   aria-label={t("tree.createIn", { title: node.title })}
@@ -190,7 +192,7 @@ function renderNode(
               >
                 …
               </Button>
-              <Popover className={styles.menuPopover}>
+              <Popover lang={uiLang} className={styles.menuPopover}>
                 <Menu
                   className={styles.menu}
                   aria-label={t("tree.itemActions", { title: node.title })}
@@ -226,7 +228,8 @@ function renderNode(
           createOptions,
           onItemAction,
           canManage,
-          t
+          t,
+          uiLang
         )
       )}
     </TreeItem>
@@ -255,6 +258,7 @@ export function DocumentTree(props: {
   ): void;
   canManage: boolean;
 }) {
+  const uiLang = useUiLang();
   const { t } = useTranslation();
   // 展開状態は個人設定として保持し、正本YAMLには書き込まない。
   const folderKeys = allFolderKeys(props.nodes);
@@ -380,7 +384,8 @@ export function DocumentTree(props: {
             props.createOptions ?? [],
             props.onItemAction,
             props.canManage,
-            t
+            t,
+            uiLang
           )
         )}
       </Tree>

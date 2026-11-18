@@ -178,6 +178,22 @@ try {
     if ((await page.getByRole("heading", { level: 1, name: scenario.heading }).count()) !== 1) {
       throw new Error(`${scenario.path} has no unique Vellym heading`);
     }
+    // The site UI is Japanese: on English pages the chrome says so with its own lang,
+    // overlays included; on Japanese pages no extra lang is needed (ticket-01m7f500000000000000000001).
+    const railLang = await page.locator("aside").first().getAttribute("lang");
+    if (railLang !== (scenario.language === "en" ? "ja" : null)) {
+      throw new Error(`${scenario.path} product rail has lang=${railLang}`);
+    }
+    if (scenario.language === "en" && scenario.width < 768) {
+      // The navigation drawer is portaled into document.body, outside the chrome.
+      await page.getByRole("button", { name: /^(文書ナビゲーションを開く|Open document navigation)$/ }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.waitFor();
+      const dialogLang = await dialog.evaluate((element) => element.closest("[lang]")?.getAttribute("lang"));
+      if (dialogLang !== "ja") throw new Error(`${scenario.path} search dialog has lang=${dialogLang}`);
+      await page.keyboard.press("Escape");
+      await dialog.waitFor({ state: "hidden" });
+    }
     const axe = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
       .analyze();

@@ -11,6 +11,7 @@ import {
   type FolderEditSession
 } from "./folder-edit-session.js";
 import styles from "./page-language-controls.module.css";
+import { useUiLang } from "../shared/ui-language.js";
 
 const SUPPORTED_CONTENT_LOCALES = ["ja", "en"] as const;
 
@@ -20,6 +21,7 @@ export function FolderLanguageControls(props: {
   disabled?: boolean;
   onChange(session: FolderEditSession): void;
 }) {
+  const uiLang = useUiLang();
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [locale, setLocale] = useState("");
@@ -157,7 +159,7 @@ export function FolderLanguageControls(props: {
         </section>
       )}
       <ModalOverlay isOpen={adding} onOpenChange={setAdding} isDismissable className={styles.overlay}>
-        <Modal className={styles.modal}>
+        <Modal lang={uiLang} className={styles.modal}>
           <Dialog aria-labelledby="add-folder-language-title" className={styles.dialog}>
             <h2 id="add-folder-language-title">{t("language.addFolderTitle")}</h2>
             <label>
