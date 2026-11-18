@@ -212,8 +212,9 @@ export function AdminView(props: {
               setUiLanguage(event.target.value as SupportedLanguage)
             }
           >
-            <option value="ja">日本語</option>
-            <option value="en">English</option>
+            {/* Each language is named in itself; lang lets screen readers say it right. */}
+            <option value="ja" lang="ja">日本語</option>
+            <option value="en" lang="en">English</option>
           </select>
         </label>
         {languageError && <p role="alert">{languageError}</p>}
