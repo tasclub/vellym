@@ -31,6 +31,8 @@ try {
   await page.goto("http://127.0.0.1:4189/en/pages/page");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   const editor = page.locator('[contenteditable="true"]');
+  // ProseMirror adds helper <img class="ProseMirror-separator"> next to inline nodes; count only real images.
+  const images = editor.locator("img:not(.ProseMirror-separator)");
   await expect(editor).toBeVisible();
   await editor.click();
   await page.keyboard.press("Control+Home");
@@ -54,23 +56,23 @@ try {
   await expect(page.getByRole("status").filter({ hasText: "Uploading image" })).toBeVisible();
   await page.keyboard.type("prefix ");
   release();
-  await expect(editor.locator("img")).toHaveCount(1);
-  await expect(editor.locator("img")).toHaveAttribute("alt", "clipboard.png");
-  expect(await editor.locator("img").evaluate((img) => img.parentElement.previousSibling?.textContent)).toBe("prefix ");
+  await expect(images).toHaveCount(1);
+  await expect(images).toHaveAttribute("alt", "clipboard.png");
+  expect(await images.evaluate((img) => img.parentElement.previousSibling?.textContent)).toBe("prefix ");
   await page.getByRole("textbox", { name: "Image alternative text" }).fill("Diagram");
   await transfer("drop", "dropped.png", "image/png", png);
-  await expect(editor.locator("img")).toHaveCount(2);
+  await expect(images).toHaveCount(2);
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Insert image" }).click();
   await (await chooser).setFiles({ name: "selected.png", mimeType: "image/png", buffer: png });
-  await expect(editor.locator("img")).toHaveCount(3);
+  await expect(images).toHaveCount(3);
   const a11y = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
   expect(a11y.violations).toEqual([]);
   await transfer("paste", "unsafe.svg", "image/svg+xml", Buffer.from("<svg/>"));
   await expect(page.getByRole("alert")).toContainText("Use a PNG");
   await transfer("paste", "large.png", "image/png", Buffer.concat([png, Buffer.alloc(1000)]));
   await expect(page.getByRole("alert")).toContainText("size limit");
-  await expect(editor.locator("img")).toHaveCount(3);
+  await expect(images).toHaveCount(3);
   await page.screenshot({ path: path.join(shots, "image-upload-edit.png"), fullPage: true });
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
@@ -105,7 +107,7 @@ try {
   releaseCancelled();
   await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(editor.locator("img")).toHaveCount(3);
+  await expect(images).toHaveCount(3);
   expect(await readFile(path.join(root, "content/page.yaml"), "utf8")).not.toContain("cancelled.png");
   // Use the same API error in Japanese, not an English server fallback.
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
