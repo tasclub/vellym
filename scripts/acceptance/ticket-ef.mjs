@@ -104,6 +104,7 @@ export const steps = [
     server.stdout.on("data", (chunk) => { log += chunk; });
     server.stderr.on("data", (chunk) => { log += chunk; });
     const measured = {};
+    let stopped;
     try {
       for (let attempt = 0; ; attempt++) {
         try {
@@ -149,6 +150,11 @@ export const steps = [
       measured.saveMs = Math.round(performance.now() - t);
       assert.match(await ctx.fs.readFile(ctx.path.join(root, "content/+tickets/bench-ticket-0001.yaml"), "utf8"), /規模の確認/);
       measured.rssAfterMb = await rss(ctx, server.pid);
+    } catch (error) {
+      // No pass/fail here: a step that cannot be measured makes the scenario BLOCKED, and the
+      // values measured so far are still recorded (a crashed tab is itself a finding).
+      stopped = error.message.split("\n")[0];
+      measured.rssAtStopMb = await rss(ctx, server.pid);
     } finally {
       server.kill("SIGTERM");
     }
@@ -156,6 +162,7 @@ export const steps = [
     measured.pages = 1000;
     await ctx.fs.writeFile(ctx.path.join(ctx.output, "ticket-f01-measurements.json"), `${JSON.stringify(measured, null, 2)}\n`);
     ctx.note(`実測（合否なし）: ${JSON.stringify(measured)}`);
+    if (stopped) return { status: "BLOCKED", detail: `途中で測れなくなった: ${stopped}` };
     return { status: "PASS", detail: "このシナリオは合否を持たない。実測できたのでPASS（測れなければBLOCKED）。" };
   } }
 ];
