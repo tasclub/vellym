@@ -176,6 +176,16 @@ export interface PluginFieldDescriptor {
    */
   valueKey?: string;
   options?: readonly PluginSelectOption[];
+  /**
+   * `type: "reference"`のときだけ意味を持つ。`true`は値が`metadata.name`の
+   * **配列**であることを示す（YAMLでは`[ticket-a, ticket-b]`）。
+   *
+   * 新しい型ではなく`reference`の修飾である。既存のYAMLとJSON Schemaを壊さない
+   * ため、この指定が無ければ今までどおり単一の文字列である。
+   * 編集・一覧・集計での振る舞いは`multiselect`と同じにする。
+   * **親（1つだけ持つ関係）には使わない。**
+   */
+  multiple?: boolean;
   required?: boolean;
   /**
    * 定義に無い項目や、型が定義と合わない値に付ける。値は保持したまま

@@ -22,6 +22,10 @@ function valid(type: PluginValueType, value: PluginIndexValue): boolean {
     case "boolean": return typeof value === "boolean";
     case "date": return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
     case "multiselect": return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+    // 参照は単一なら文字列、`multiple: true`なら文字列の配列。集計はどちらも数える。
+    // 型の一致自体は`ticket-engine`のprojectionがすでに警告している。
+    case "reference":
+      return typeof value === "string" || (Array.isArray(value) && value.every((entry) => typeof entry === "string"));
     default: return typeof value === "string";
   }
 }
@@ -55,7 +59,8 @@ export function summarizeRows(
     const buckets = new Map<string | null, PluginIndexRow[]>();
     for (const row of rows) {
       const raw = row.values[groupBy.key];
-      const entries = groupBy.type === "multiselect" && Array.isArray(raw)
+      // `multiselect`と同じく、配列の値は値ごとに分ける（`multiple: true`の参照を含む）。
+      const entries = (groupBy.type === "multiselect" || groupBy.type === "reference") && Array.isArray(raw)
         ? [...new Set(raw.filter((value): value is string => typeof value === "string" && value !== ""))]
         : typeof raw === "string" && raw !== "" ? [raw] : [];
       for (const value of entries.length ? entries : [null]) {
@@ -75,7 +80,7 @@ export function summarizeRows(
       ? resolveLocalizedText({ ja: "（未設定）", en: "(Not set)" }, locale)
       : groupBy.labels?.find((item) => item.value === value)?.label ?? groupBy.labelOf?.(value) ?? value,
       ...summarizeRows(bucket, key, type, method, locale, { valueLabels: options.valueLabels }) }));
-    return { ...summarizeRows(rows, key, type, method, locale, { valueLabels: options.valueLabels }), groups, ...(groupBy.type === "multiselect" ? { multiCounted: true } : {}) };
+    return { ...summarizeRows(rows, key, type, method, locale, { valueLabels: options.valueLabels }), groups, ...((groupBy.type === "multiselect" || groupBy.type === "reference") ? { multiCounted: true } : {}) };
   }
   const values: PluginIndexValue[] = [];
   let excluded = 0;

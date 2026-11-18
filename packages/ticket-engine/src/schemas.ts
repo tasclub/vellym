@@ -62,6 +62,8 @@ export const TICKET_TRACKER_SPEC_SCHEMA = {
           listColumn: { type: "boolean" },
           filter: { type: "boolean" },
           sort: { type: "boolean" },
+          // reference専用の修飾。他の型で書くとvalidateで警告になる
+          multiple: { type: "boolean" },
           options: {
             type: "array",
             items: {

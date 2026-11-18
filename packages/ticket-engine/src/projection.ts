@@ -58,6 +58,10 @@ function matchesType(field: FieldDefinition, value: unknown): boolean {
       return typeof value === "boolean";
     case "multiselect":
       return Array.isArray(value) && value.every((item) => typeof item === "string");
+    case "reference":
+      // `multiple: true`の参照は文字列の配列。単一参照は今までどおり文字列。
+      if (field.multiple) return Array.isArray(value) && value.every((item) => typeof item === "string");
+      return typeof value === "string";
     case "date":
       return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
     default:

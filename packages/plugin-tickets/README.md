@@ -48,7 +48,7 @@ Open a tracker and choose **Configure this tracker** to define statuses and fiel
 If a definition change makes existing ticket values inconsistent, Vellym reports warnings. Tickets remain readable and editable, and values are never silently deleted.
 Values outside defined `select` or `multiselect` options are warned about and retained.
 
-To use parent-child relationships, add a field of type `reference` and select it under **Parent reference field** in the settings. Installing `@vellym/wbs` displays that hierarchy in the WBS view. Circular references and missing parents are reported as warnings; tickets are not removed. Trackers that do not select a parent field behave as before.
+To use parent-child relationships, add a field of type `reference` and select it under **Parent reference field** in the settings. Installing `@vellym/wbs` displays that hierarchy in the WBS view. Circular references and missing parents are reported as warnings; tickets are not removed. Trackers that do not select a parent field behave as before. A field with `multiple: true` cannot be used as the parent reference field; it is reported as `TICKET_PARENT_FIELD_INVALID`.
 
 ## Writing YAML directly
 
@@ -143,9 +143,11 @@ spec:
 | `date` | String in `2026-09-05` format; other formats produce a warning |
 | `select` | String matching one of the `options[].value` values |
 | `multiselect` | Array of strings |
-| `reference` | String |
+| `reference` | String; with `multiple: true`, an array of strings |
 
 The identifier is **`multiselect`**, not `multi-select`.
+
+A `reference` field can store several tickets by adding `multiple: true` to the field definition. Its value is then an array of references, and lists, searches, sorting and summaries treat it the same way as a `multiselect` field (counts show the number of values). A missing value type mismatch is reported as a warning and kept, like other types. The detail screen edits the array as a comma-separated list of ticket names.
 
 Values that do not match their declared type are reported as warnings, not deleted. This prevents a single definition change from making many tickets impossible to edit.
 
@@ -208,7 +210,7 @@ Trackerを開き、「このチケット管理の設定」からステータス�
 定義を変更した結果、既存チケットのステータスや項目と食い違っても、Vellymはすべて警告として扱います。チケットは読める状態、編集できる状態を保ち、値を勝手に削除しません。
 `select`や`multiselect`の選択肢にない値も警告され、保持されます。
 
-親子関係を使う場合は`reference`型の項目を追加し、設定画面の「親を指す参照項目」で選びます。`@vellym/wbs`を導入すると、その定義に基づく階層をWBS画面で表示できます。循環や見つからない親は警告として示し、チケットは消しません。親を選ばないTrackerの挙動は変わりません。
+親子関係を使う場合は`reference`型の項目を追加し、設定画面の「親を指す参照項目」で選びます。`@vellym/wbs`を導入すると、その定義に基づく階層をWBS画面で表示できます。循環や見つからない親は警告として示し、チケットは消しません。親を選ばないTrackerの挙動は変わりません。`multiple: true`を付けた項目は親を指す参照項目に使えず、`TICKET_PARENT_FIELD_INVALID`として報告します。
 
 ## YAMLで直接書く
 
@@ -303,9 +305,11 @@ spec:
 | `date` | `2026-09-05`形式の文字列。他の書式は警告になる |
 | `select` | `options[].value`のいずれかと一致する文字列 |
 | `multiselect` | 文字列の配列 |
-| `reference` | 文字列 |
+| `reference` | 文字列。`multiple: true`を付けると文字列の配列 |
 
 識別子は**`multiselect`であり、`multi-select`ではありません**。
+
+`reference`の項目には、項目定義へ`multiple: true`を足すと複数のTicketを格納できます。値は参照の配列になり、一覧・検索・並び替え・集計は`multiselect`と同じ扱いになります（件数は値の個数を表示します）。型に合わない値も警告として残ります。詳細画面ではTicket名のカンマ区切りとして編集し、名称を並べて表示します。
 
 型に合わない値も、Vellymは削除せず警告として表示します。定義を1つ変えただけで大量のチケットが編集不能になるのを避けるためです。
 

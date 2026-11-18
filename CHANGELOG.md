@@ -12,6 +12,7 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 ### 追加
 
+- `TicketTracker`の`reference`項目に`multiple: true`を付けられるようにした。値は参照の配列になり、1つのTicketから複数のTicketを参照できる。一覧の列・絞り込み・並べ替え・集計（件数と`groupBy`の内訳）は`multiselect`と同じ扱いで、並び替えは配列の先頭の値を使い、詳細画面ではTicket名のカンマ区切りとして編集する。`reference`以外の型に`multiple`を付けた定義は`TICKET_FIELD_MULTIPLE_UNSUPPORTED`の警告にして`false`として動く。既存のTrackerのYAMLは変わらず、`vellym migrate`は不要。参照先の未解決・自己参照の警告は配列の各値に出る。階層の`parentField`は単一参照のままで、`multiple`を付けた項目は`TICKET_PARENT_FIELD_INVALID`になる。JSON Schema（`ticket-tracker.schema.json`）とプラグインAPIの項目記述子にも`multiple`を載せた。
 - プラグインAPIに`registerRecordSetValidator(kind, validate)`を足した。登録した検査は、そのkindの索引行がすべてそろった後に1回だけ、全索引行を受け取る。projectorでは書けなかった、レコードをまたぐ参照の解決・循環・突き合わせをここで書く。同じkindへ複数のプラグインが登録してよい。hostは同じ関数（同じ参照）を1回だけ実行し、返された診断をfile・JSON Pointer・codeで重複を除き、検査が投げても`PLUGIN_RECORD_SET_VALIDATION_FAILED`の警告にして読み込みを続ける。チケットエンジンはこの受け口で、Trackerごとに親の未解決（`TICKET_PARENT_UNRESOLVED`)・親の循環（`TICKET_PARENT_CYCLE`)・`reference`項目（親以外）の参照先の未解決（`TICKET_REFERENCE_UNRESOLVED`)・自己参照（`TICKET_REFERENCE_SELF`)を`validate`と画面に出す。
 - Ticketの索引行に`statusCategory`（`open`・`closed`。Trackerの`statuses`定義から引き、状態が未定義なら載らない）を載せた。`vellym list --kind Ticket --json`で読めるため、外部のスクリプトが`vellym list`だけで「依存先のTicketがすべて完了したか」を判定できる。
 - 既定のキー割り当てを足した: 検索（`/`・`Ctrl/⌘+K`）、保存（`Ctrl/⌘+S`）、編集を始める（`E`）、文書ツリーの開閉（`Ctrl/⌘+\`）、前・次のビュー（`[`・`]`）、キー一覧（`?`。設定画面からも開ける）。入力欄とエディタの中では文字入力を奪わず、日本語の変換中はどのキーも反応しない。表は利用ガイドの「ブラウザ画面の使い方」にもある。

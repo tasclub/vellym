@@ -385,6 +385,26 @@ describe("ticket plugin", () => {
       ["status"],
       ["fields", "severity"]
     ]);
+    // 単一参照の項目には`multiple`を付けない。詳細の入力欄は従来どおり1値。
+    expect(detail.fields.every((field) => field.multiple === undefined)).toBe(true);
+  });
+
+  it("marks a multiple reference field on the detail descriptor", () => {
+    const related = record("TicketTracker", "multi-tickets", "multi/multi.yaml", {
+      statuses: [{ id: "open", label: "Open", category: "open" }],
+      fields: [
+        { id: "parent", label: "Parent", type: "reference", listColumn: true },
+        { id: "dependsOn", label: "Depends on", type: "reference", multiple: true }
+      ]
+    });
+    const view = activate().views.get("ticket-detail")?.view;
+    if (typeof view !== "function") throw new Error("expected a view provider");
+    const detail = view(context([related], record("Ticket", "ticket-01", "multi/ticket-01.yaml")));
+    if (detail.type !== "detail") throw new Error("expected a detail descriptor");
+    const byId = new Map(detail.fields.map((field) => [field.id, field]));
+    expect(byId.get("parent")?.multiple).toBeUndefined();
+    expect(byId.get("dependsOn")?.multiple).toBe(true);
+    expect(byId.get("dependsOn")?.type).toBe("reference");
   });
 
   it("puts only declared fields in the list, but every field in the detail", () => {

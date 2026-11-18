@@ -4,7 +4,7 @@ import type { FieldDefinition } from "@vellym-internal/ticket-engine";
 import { summarizeColumn } from "../packages/plugin-kanban/src/summary.js";
 
 const field = (type: FieldDefinition["type"]): FieldDefinition => ({
-  id: "value", label: "値", type, required: false, listColumn: false, filter: false, sort: false
+  id: "value", label: "値", type, required: false, listColumn: false, filter: false, sort: false, multiple: false
 });
 const rows = (values: unknown[]): PluginIndexRow[] => values.map((value, index) => ({
   name: String(index), title: String(index), values: { "field:value": value as string }

@@ -42,7 +42,8 @@ export function toSpecValue(
     return Number.isFinite(parsed) ? parsed : text;
   }
   if (field.type === "boolean") return text === "true";
-  if (field.type === "multiselect") {
+  // `multiple: true`の参照も、カンマ区切りの入力を受け取り配列で返す。
+  if (field.type === "multiselect" || (field.type === "reference" && field.multiple)) {
     return text
       .split(",")
       .map((part) => part.trim())
@@ -141,7 +142,7 @@ export function FieldInput({
       />
     );
   }
-  if (field.type === "multiselect") {
+  if (field.type === "multiselect" || (field.type === "reference" && field.multiple)) {
     return (
       <input
         id={id}

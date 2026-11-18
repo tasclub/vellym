@@ -208,6 +208,8 @@ export function ticketDetailView(context: PluginViewContext): PluginDetailViewDe
       path: ["fields", field.id],
       valueKey: fieldKey(field.id),
       ...(field.options ? { options: field.options } : {}),
+      // 参照の複数値。編集・表示はmultiselectと同じ入力欄を使う。
+      ...(field.multiple ? { multiple: true } : {}),
       ...(field.required ? { required: true } : {})
     });
   }

@@ -22,6 +22,17 @@ Run `npm run pack:smoke` for packaging changes, `npm run verify:core` for browse
 
 ## Changing the UI
 
+Run `npm run verify:acceptance` for the automated manual-acceptance scenarios in
+`scripts/acceptance/`. It builds the CLI, uses disposable projects and headless
+Chromium, and prints PASS / FAIL / BLOCKED / NOT RUN counts. Evidence (commit,
+execution time, per-check details and durations) is in `dist/acceptance/result.json`.
+Any FAIL exits with code 1; BLOCKED and NOT RUN are reported, not counted as passes.
+Modules export `steps = [{ id, title, run(ctx) }]`; `ctx` provides temporary roots,
+CLI/Git commands, filesystem access, dev servers on available ports, browser pages,
+`check(title, fn)` (aggregated assertions), `note(text)`, and `blocked(reason)`.
+Real macOS IME candidate selection is not emulated; unautomated parts are recorded
+in each scenario's detail. Scenario expectations must not be weakened to fit the UI.
+
 A green `npm run typecheck` and `npm test` do not mean a screen is finished.
 Open the affected screen in a browser before proposing the change — see
 *Seeing the screen* at the end of this section for how — and check the list

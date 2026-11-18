@@ -35,6 +35,11 @@ export interface FieldDefinition {
   /** 並べ替えの対象にするか。実効値で、省略時は`listColumn`と同じ */
   sort: boolean;
   options?: { value: string; label: string }[];
+  /**
+   * 参照の複数値。**reference専用**で、trueなら値は文字列の配列になる。
+   * 他の型で宣言しても無効化し、`TICKET_FIELD_MULTIPLE_UNSUPPORTED`を出す。
+   */
+  multiple: boolean;
 }
 
 /** 一覧を開いたときの並べ替え。`TicketTracker`の`spec.defaultSort` */
@@ -143,7 +148,7 @@ function readTracker(record: PluginResourceRecord): Tracker {
   const hierarchy = typeof rawHierarchy === "object" && rawHierarchy !== null && !Array.isArray(rawHierarchy)
     ? rawHierarchy as Record<string, unknown> : {};
   const parentField = typeof hierarchy.parentField === "string" &&
-    fields.some((field) => field.id === hierarchy.parentField && field.type === "reference")
+    fields.some((field) => field.id === hierarchy.parentField && field.type === "reference" && !field.multiple)
     ? hierarchy.parentField : undefined;
   const ticketTemplate = readTemplate(record.spec.ticketTemplate);
 
@@ -199,7 +204,9 @@ function parseFieldDefinition(item: Record<string, unknown>): FieldDefinition | 
     listColumn,
     filter: typeof item.filter === "boolean" ? item.filter : listColumn,
     sort: typeof item.sort === "boolean" ? item.sort : listColumn,
-    ...(options.length ? { options } : {})
+    ...(options.length ? { options } : {}),
+    // reference専用の修飾。他の型で宣言してもここではfalseにし、diagnosticsで警告する
+    multiple: type === "reference" && item.multiple === true
   };
 }
 
@@ -283,10 +290,12 @@ export function trackerDefinitionDiagnostics(
     const hierarchy = record.spec.hierarchy;
     if (typeof hierarchy === "object" && hierarchy !== null && !Array.isArray(hierarchy)) {
       const parentField = (hierarchy as Record<string, unknown>).parentField;
+      // 親は単一の参照でなければならない。multiple: trueの項目は親にできない
       if (parentField !== undefined && parentField !== null && parentField !== "" && !fields.some((entry) =>
         typeof entry === "object" && entry !== null &&
         (entry as Record<string, unknown>).id === parentField &&
-        (entry as Record<string, unknown>).type === "reference"
+        (entry as Record<string, unknown>).type === "reference" &&
+        (entry as Record<string, unknown>).multiple !== true
       )) {
         diagnostics.push({ file: record.relativePath, path: "/spec/hierarchy/parentField",
           severity: "warning", code: "TICKET_PARENT_FIELD_INVALID",
@@ -299,13 +308,26 @@ export function trackerDefinitionDiagnostics(
     fields.forEach((entry, index) => {
       if (typeof entry !== "object" || entry === null) return;
       const item = entry as Record<string, unknown>;
+      const id = asString(item.id);
+      // multipleはreference専用の修飾。他の型やtrue以外の値はfalseで動くが、警告する
+      if (item.multiple !== undefined && (item.type !== "reference" || item.multiple !== true)) {
+        diagnostics.push({
+          file: record.relativePath,
+          path: `/spec/fields/${index}/multiple`,
+          severity: "warning",
+          code: "TICKET_FIELD_MULTIPLE_UNSUPPORTED",
+          message: {
+            ja: `複数値にできるのは参照項目だけです${id ? `: ${id}` : ""}`,
+            en: `Only reference fields can hold multiple values${id ? `: ${id}` : ""}`
+          }
+        });
+      }
       if (item.type !== "select" && item.type !== "multiselect") return;
       const validOptions = asArray(item.options).filter((option) => {
         if (typeof option !== "object" || option === null) return false;
         return asString((option as Record<string, unknown>).value) !== undefined;
       });
       if (validOptions.length > 0) return;
-      const id = asString(item.id);
       diagnostics.push({
         file: record.relativePath,
         path: `/spec/fields/${index}/options`,
@@ -384,6 +406,9 @@ export function initialFieldValue(field: FieldDefinition): unknown {
       return field.options?.[0]?.value;
     case "multiselect":
       return [];
+    case "reference":
+      // 複数値の参照は、空の配列から始める
+      return field.multiple ? [] : undefined;
     case "boolean":
       return false;
     default:

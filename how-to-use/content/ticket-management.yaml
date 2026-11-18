@@ -171,9 +171,16 @@ spec:
         | `date` | `2026-09-05`形式の文字列。他の書式は警告になる |
         | `select` | `options[].value`のいずれかと一致する文字列 |
         | `multiselect` | 文字列の配列。`- { }`ではなく`[a, b]`または`- a` |
-        | `reference` | 文字列 |
+        | `reference` | 文字列。`multiple: true`を付けると文字列の配列 |
 
         識別子は**`multiselect`であり、`multi-select`ではない**。
+
+        `reference`の項目には、項目定義へ`multiple: true`を足すと複数のTicketを格納できる。
+        値は参照の配列になり、一覧・検索・並び替え・集計は`multiselect`と同じ扱いになる
+        （件数は値の個数を表示し、並び替えは配列の先頭の値を使う）。型に合わない値も
+        警告として残る。詳細画面ではTicket名のカンマ区切りとして編集し、名称を並べて表示する。
+        `multiple: true`を付けた項目は、階層の設定で「親を指す参照項目」に選べない
+        （`TICKET_PARENT_FIELD_INVALID`として報告される）。
 
         型に合わない値も、Vellymは削除せず警告として表示する。定義を1つ変えただけで
         大量のチケットが編集不能になるのを避けるためである。
@@ -364,9 +371,18 @@ spec:
             | `date` | string in `2026-09-05` form. Other formats raise a warning |
             | `select` | string matching one of `options[].value` |
             | `multiselect` | array of strings |
-            | `reference` | string |
+            | `reference` | string; with `multiple: true`, an array of strings |
 
             The identifier is **`multiselect`, not `multi-select`**.
+
+            A `reference` field can hold several tickets by adding `multiple: true` to the
+            field definition. Its value is an array of references, and lists, searches,
+            sorting and summaries treat it like a `multiselect` field (counts show the
+            number of values, and sorting uses the first value of the array). Values that
+            do not match the type are kept as warnings. The detail screen edits the array
+            as a comma-separated list of ticket names and displays the names side by side.
+            A field with `multiple: true` cannot be chosen as the parent reference field
+            in the hierarchy settings (`TICKET_PARENT_FIELD_INVALID`).
 
             Values that do not match the type are reported as warnings, never removed. This
             keeps one edit to a definition from making a large number of tickets uneditable.
