@@ -549,5 +549,10 @@
   "shortcuts.scopeReading": "文書・チケットを読んでいるとき",
   "shortcuts.scopeDocuments": "文書の画面（幅768px以上）",
   "shortcuts.scopeViews": "ビューを切り替えられる画面（一覧・カンバン・WBS・設定）",
-  "plugin.referencedBy": "このページを参照している"
+  "plugin.referencedBy": "このページを参照している",
+  "plugin.relatedCommits": "関連するコミット",
+  "plugin.relatedCommitsNone": "このページの名前を含むコミットはありません。",
+  "plugin.relatedCommitsUnavailable": "Gitの履歴を読めないため、関連するコミットを表示できません。",
+  "plugin.relatedCommitsError": "関連するコミットを読み込めませんでした。",
+  "plugin.relatedCommitsHint": "コミットメッセージにこのページの名前（{{name}}）を書くと、ここに出ます。"
 }

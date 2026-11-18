@@ -548,5 +548,10 @@
   "shortcuts.scopeReading": "While reading a document or ticket",
   "shortcuts.scopeDocuments": "Document screens (768px wide or more)",
   "shortcuts.scopeViews": "Screens with a view switcher (list, Kanban, WBS, settings)",
-  "plugin.referencedBy": "Referenced by"
+  "plugin.referencedBy": "Referenced by",
+  "plugin.relatedCommits": "Related commits",
+  "plugin.relatedCommitsNone": "No commits contain this page's name.",
+  "plugin.relatedCommitsUnavailable": "Related commits can't be shown because the Git history is unavailable.",
+  "plugin.relatedCommitsError": "Couldn't load the related commits.",
+  "plugin.relatedCommitsHint": "Write this page's name ({{name}}) in a commit message to list the commit here."
 }

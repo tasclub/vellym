@@ -45,6 +45,10 @@ function fetchGit<T>(operation: string, params: Record<string, string>, signal?:
   return request(`/api/v1/git/${operation}?${new URLSearchParams(params)}`, { signal });
 }
 
+/** Commits whose message names `name` exactly (newest first). */
+export function fetchGitMentions(name: string, limit = 20, signal?: AbortSignal, offset = 0): Promise<Envelope<GitResult<{ nextOffset: number | null; commits: GitCommit[] }>>> {
+  return fetchGit("mentions", { name, limit: String(limit), offset: String(offset) }, signal);
+}
 export function fetchGitHistory(filePath: string, limit = 50, signal?: AbortSignal, offset = 0): Promise<Envelope<GitResult<GitHistoryData>>> {
   return fetchGit("history", { path: filePath, limit: String(limit), offset: String(offset) }, signal);
 }

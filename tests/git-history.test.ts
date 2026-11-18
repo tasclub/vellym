@@ -143,6 +143,33 @@ describe("Git history UI data extensions", () => {
     expect(broken.source).toContain("metadata: [");
     expect(broken.view).toBeUndefined();
   });
+  it("finds commits that name a resource exactly, anywhere in the repository (mentions)", async () => {
+    const { project, root } = await fixture();
+    await writeFile(path.join(root, "page.yaml"), "a\n");
+    await commit(project, "Start ticket-01a work");
+    await writeFile(path.join(project, "code.txt"), "b\n");
+    await git(project, "add", ".");
+    await git(project, "commit", "-qm", "Change code", "-m", "Refs: ticket-01a");
+    await writeFile(path.join(root, "page.yaml"), "c\n");
+    await commit(project, "Unrelated ticket-01ab and ticket-01a1 and xticket-01a");
+    await writeFile(path.join(root, "page.yaml"), "d\n");
+    await commit(project, "Nothing here");
+    const mentions = async (name: string, extra: Record<string, string> = {}) =>
+      await readGitHistory(root, "mentions", new URLSearchParams({ name, ...extra })) as { available: boolean; nextOffset: number | null; commits: Array<{ subject: string; hash: string; author: string; date: string }> };
+    const found = await mentions("ticket-01a");
+    expect(found.available).toBe(true);
+    expect(found.commits.map((item) => item.subject)).toEqual(["Change code", "Start ticket-01a work"]);
+    expect(found.commits[0]!.hash).toMatch(/^[0-9a-f]{40}$/);
+    const paged = await mentions("ticket-01a", { limit: "1" });
+    expect(paged.commits).toHaveLength(1);
+    expect(paged.nextOffset).toBe(1);
+    expect((await mentions("ticket-01zz")).commits).toEqual([]);
+    await expect(readGitHistory(root, "mentions", new URLSearchParams({ name: "bad name" }))).rejects.toMatchObject({ status: 400, code: "INVALID_NAME" });
+    const outside = await mkdtemp(path.join(tmpdir(), "vellym-history-nogit-"));
+    projects.push(outside);
+    expect(await readGitHistory(outside, "mentions", new URLSearchParams({ name: "ticket-01a" }))).toMatchObject({ available: false });
+  });
+
   it("rejects malformed pagination, revisions and context", async () => {
     const { root } = await fixture();
     await writeFile(path.join(root, "page.yaml"), "data\n");

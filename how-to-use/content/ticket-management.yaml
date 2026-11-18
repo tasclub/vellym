@@ -52,6 +52,20 @@ spec:
         複数行を選ぶと、ステータスまたは単一選択の項目をまとめて変更できる。
         選んだチケットをまとめてアーカイブへ移すこともできる。
 
+        ## 参照元と関連するコミット
+
+        チケットの詳細には、次の2つの節が出る（読むときだけ）。
+
+        - **このページを参照している**: 親（`parent`）や依存などの`reference`型の項目で、このチケットを指している
+          チケットの一覧。項目名と状態が付き、押すとそのチケットを開ける。参照元が無ければ出ない
+        - **関連するコミット**: コミットメッセージ（件名か本文）にこのチケットの名前（`metadata.name`、例:
+          `ticket-01m6…`）をそのまま書いたコミットの一覧。リポジトリ全体が対象で、日時・作者・件名・短いhashが出る。
+          名前の一部や別の名前の前方一致には当たらない。Gitが無いときは理由を出す。静的版には出ない
+
+        ```text
+        git commit -m "一覧の並べ替えを直す" -m "Refs: ticket-01m6sy034fzn60bv6ayw7sbg2n"
+        ```
+
         ## `_`と`+`で始まるフォルダ
 
         - `+`で始まるフォルダは文書ツリーだけから隠す。中のチケットは一覧、全文検索、
@@ -246,6 +260,21 @@ spec:
 
             Select multiple rows to change their status or a single-select field together.
             You can also move the selected tickets to the archive in one operation.
+
+            ## Referenced by and related commits
+
+            A ticket's detail shows two more sections while reading:
+
+            - **Referenced by**: tickets whose `reference` fields, such as the parent or dependencies,
+              point at this one, with the field name and state. Press one to open it. Hidden when none
+            - **Related commits**: commits whose message (subject or body) contains this ticket's name
+              (`metadata.name`, for example `ticket-01m6…`) exactly, anywhere in the repository, with
+              date, author, subject, and a short hash. Parts of the name or longer names that start
+              with it do not match. Without Git, the reason is shown. Not shown on the static site
+
+            ```text
+            git commit -m "Fix list sorting" -m "Refs: ticket-01m6sy034fzn60bv6ayw7sbg2n"
+            ```
 
             ## Folders beginning with `_` and `+`
 

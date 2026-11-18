@@ -225,6 +225,8 @@ export function ticketDetailView(context: PluginViewContext): PluginDetailViewDe
     undeclaredKeyPrefix: FIELD_KEY_PREFIX,
     // チケットから参照しているチケット（親・依存など）を、状態つきで見せる。
     referencedBy: { statusField: STATUS_KEY },
+    // コミットメッセージにチケットの名前を書いたコミットを、詳細に並べる（動的版だけ）。
+    relatedCommits: true,
     // 保存したら、属するチケット管理の一覧へ戻る。
     ...(tracker ? { parent: { name: tracker.name, title: tracker.title } } : {})
   };

@@ -140,6 +140,8 @@ async function verifyStaticTickets(browser, baseUrl) {
     const referenced = page.locator('section[aria-labelledby="plugin-referenced-by"]');
     await referenced.waitFor();
     if (await referenced.getByRole("listitem").count() !== 3) throw new Error("static Ticket detail does not list its 3 children as referencing it");
+    // Related commits are live-only (ticket-01m6sy034fzn60bv6ayw7sbg2n).
+    if (await page.locator('section[aria-labelledby="plugin-related-commits"]').count()) throw new Error("static Ticket detail shows related commits");
     await context.close();
   }
   const failing = await browser.newContext({ locale: "ja-JP", viewport: { width: 1440, height: 900 } });

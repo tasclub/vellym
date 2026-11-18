@@ -12,6 +12,7 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 ### 追加
 
+- チケット詳細に「関連するコミット」欄を足した。コミットメッセージにチケットの名前（`metadata.name`）をそのまま書いたコミットを、リポジトリ全体から日時・作者・件名・hashつきで出す（動的版だけ）。詳細を表示してから読み込み、1万コミットでも中央値500ms以内（`npm run verify:scale:git`）。プラグインAPIの詳細の記述子に`relatedCommits`を、`/api/v1/git/mentions`を足した。
 - チケット詳細に「このページを参照している」欄を足した。親や依存として、このチケットを参照しているチケットを、項目名と状態つきで出し、押すと開ける。プラグインAPIの詳細の記述子に`referencedBy: { statusField }`を足した（宣言したビューだけ、ホストが参照型の項目から計算する）。静的出力でも表示する。
 - `TicketTracker`の`reference`項目に`multiple: true`を付けられるようにした。値は参照の配列になり、1つのTicketから複数のTicketを参照できる。一覧の列・絞り込み・並べ替え・集計（件数と`groupBy`の内訳）は`multiselect`と同じ扱いで、並び替えは配列の先頭の値を使い、詳細画面ではTicket名のカンマ区切りとして編集する。`reference`以外の型に`multiple`を付けた定義は`TICKET_FIELD_MULTIPLE_UNSUPPORTED`の警告にして`false`として動く。既存のTrackerのYAMLは変わらず、`vellym migrate`は不要。参照先の未解決・自己参照の警告は配列の各値に出る。階層の`parentField`は単一参照のままで、`multiple`を付けた項目は`TICKET_PARENT_FIELD_INVALID`になる。JSON Schema（`ticket-tracker.schema.json`）とプラグインAPIの項目記述子にも`multiple`を載せた。
 - プラグインAPIに`registerRecordSetValidator(kind, validate)`を足した。登録した検査は、そのkindの索引行がすべてそろった後に1回だけ、全索引行を受け取る。projectorでは書けなかった、レコードをまたぐ参照の解決・循環・突き合わせをここで書く。同じkindへ複数のプラグインが登録してよい。hostは同じ関数（同じ参照）を1回だけ実行し、返された診断をfile・JSON Pointer・codeで重複を除き、検査が投げても`PLUGIN_RECORD_SET_VALIDATION_FAILED`の警告にして読み込みを続ける。チケットエンジンはこの受け口で、Trackerごとに親の未解決（`TICKET_PARENT_UNRESOLVED`)・親の循環（`TICKET_PARENT_CYCLE`)・`reference`項目（親以外）の参照先の未解決（`TICKET_REFERENCE_UNRESOLVED`)・自己参照（`TICKET_REFERENCE_SELF`)を`validate`と画面に出す。

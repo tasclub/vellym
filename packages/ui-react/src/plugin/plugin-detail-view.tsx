@@ -19,6 +19,8 @@ import {
 import { Button } from "../shared/button.js";
 import styles from "./plugin.module.css";
 import { useShortcutAction } from "../shell/shortcuts.js";
+import { isStaticApp } from "../shared/api.js";
+import { RelatedCommits } from "./related-commits.js";
 
 export type { PluginSpecValue };
 
@@ -257,6 +259,8 @@ export function PluginDetailView({
           </ul>
         </section>
       ) : null}
+      {mode === "read" && descriptor.relatedCommits && payload.target && !isStaticApp()
+        ? <RelatedCommits name={payload.target.name} locale={locale} /> : null}
 
 
       {mode === "settings" && onSave ? (

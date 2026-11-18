@@ -228,6 +228,11 @@ export interface PluginDetailViewDescriptor {
    */
   referencedBy?: { statusField?: string };
   /**
+   * Show the Git commits whose message contains this resource's `metadata.name` exactly. The host
+   * reads them after the detail is shown, in live mode only (never in static output).
+   */
+  relatedCommits?: boolean;
+  /**
    * 未宣言として見せる索引行キーの接頭辞。省略すると未宣言を1つも出さない。
    *
    * 索引行には`tracker`のような、利用者へ見せる意味を持たないキーも入る。

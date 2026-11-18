@@ -53,6 +53,9 @@ export function parseGitLog(output: string): LogEntry[] {
   return entries;
 }
 
+/** Mentions by "<HEAD>:<name>:<offset>:<limit>"; a new HEAD makes old keys unreachable. */
+const mentionCache = new Map<string, unknown>();
+
 async function git(cwd: string, args: string[]): Promise<string> {
   const result = await execute("git", ["--literal-pathspecs", "-c", "core.quotePath=false", ...args], {
     cwd, encoding: "utf8", timeout: 15_000, maxBuffer: 8 * 1024 * 1024,
@@ -78,7 +81,10 @@ export async function readGitHistory(contentRoot: string, operation: string, que
   const root = await realpath(contentRoot);
   const requested = query.get("path") ?? "";
   let file: string | undefined;
-  if (operation !== "recent") {
+  if (operation === "mentions" && !/^[A-Za-z0-9._-]{1,200}$/.test(query.get("name") ?? "")) {
+    throw new RuntimeError("nameは英数字・.・_・-の1〜200文字です", 400, "INVALID_NAME");
+  }
+  if (operation !== "recent" && operation !== "mentions") {
     if (!requested || requested.includes("\0") || requested.split(/[/\\]/).includes("..") || path.isAbsolute(requested)) {
       throw new RuntimeError("contentRoot外のpathは利用できません", 422, "PATH_BOUNDARY");
     }
@@ -121,6 +127,21 @@ export async function readGitHistory(contentRoot: string, operation: string, que
     if (!tracked) return { available: false, reason: "unavailable" };
     const shallow = (await git(repo, ["rev-parse", "--is-shallow-repository"])).trim() === "true";
     const format = "--format=%x00%H%x00%aI%x00%an%x00%s%x00";
+    if (operation === "mentions") {
+      // Commits anywhere in the repository whose message names this resource exactly; the
+      // boundaries keep ticket-01a from matching ticket-01ab. Only metadata is returned.
+      const name = query.get("name")!;
+      const head = (await git(repo, ["rev-parse", "--verify", "-q", "HEAD"]).catch(() => "")).trim();
+      const cacheKey = `${head}:${name}:${offset}:${limit}`;
+      const cached = mentionCache.get(cacheKey);
+      if (cached) return cached;
+      const pattern = `(^|[^A-Za-z0-9_.-])${name.replaceAll(".", "\\.")}($|[^A-Za-z0-9_.-])`;
+      const log = head ? parseGitLog(await git(repo, ["log", "--extended-regexp", `--grep=${pattern}`, `--skip=${offset}`, `-n${limit + 1}`, format, "-z"])) : [];
+      const result = { available: true, shallow, nextOffset: log.length > limit ? offset + limit : null, commits: log.slice(0, limit).map(publicCommit) };
+      mentionCache.set(cacheKey, result);
+      if (mentionCache.size > 500) mentionCache.delete(mentionCache.keys().next().value!);
+      return result;
+    }
     if (operation === "recent") {
       // Disable rename pairing: an external source of a rename must never reach the response.
        const log = parseGitLog(await git(repo, ["log", `--skip=${offset}`, `-n${limit + 1}`, format, "--name-status", "--no-renames", "-z", "--", prefix || "."]));

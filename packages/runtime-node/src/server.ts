@@ -859,8 +859,15 @@ export async function startDevServer(options: {
         json(response, 200, envelope(result));
         return;
       }
-      if (request.method === "GET" && /^\/api\/v1\/git\/(history|diff|content|recent)$/.test(url.pathname)) {
+      if (request.method === "GET" && /^\/api\/v1\/git\/(history|diff|content|recent|mentions)$/.test(url.pathname)) {
         const ready = requireReady();
+        // Mentions are looked up by a resource name; only names that exist in the content root.
+        if (url.pathname.endsWith("/mentions")) {
+          const name = url.searchParams.get("name") ?? "";
+          if (/^[A-Za-z0-9._-]{1,200}$/.test(name) && !ready.snapshot.byName.has(name)) {
+            throw new RuntimeError("リソースがありません", 404, "NOT_FOUND");
+          }
+        }
         json(response, 200, envelope(await readGitHistory(
           ready.loadedConfig.contentRoot, url.pathname.split("/").at(-1)!, url.searchParams
         )));
