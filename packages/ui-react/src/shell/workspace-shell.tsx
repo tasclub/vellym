@@ -40,6 +40,8 @@ import {
 } from "../shared/user-settings.js";
 import styles from "./workspace-shell.module.css";
 import { useUiLang } from "../shared/ui-language.js";
+import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog.js";
+import { ShortcutContext, isMacPlatform, matchShortcut, type ShortcutId } from "./shortcuts.js";
 
 const DEFAULT_TREE_WIDTH = 268;
 const MIN_TREE_WIDTH = 220;
@@ -226,25 +228,50 @@ export function WorkspaceShell(props: {
     }
   }, [treeWidth]);
 
+  // One keydown listener for every default shortcut (shortcuts.ts). Screens register save,
+  // edit and view switching while they are shown; the shell handles search, tree and help.
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const shortcutHandlers = useRef(new Map<ShortcutId, () => void>());
+  const shortcutRegistry = useMemo(() => ({
+    register(id: ShortcutId, handler: () => void) {
+      shortcutHandlers.current.set(id, handler);
+      return () => {
+        if (shortcutHandlers.current.get(id) === handler) shortcutHandlers.current.delete(id);
+      };
+    },
+    openHelp: () => setShortcutHelpOpen(true)
+  }), []);
+  const shortcutState = useRef({ canSearch: props.canSearch, area: props.area });
+  shortcutState.current = { canSearch: props.canSearch, area: props.area };
   useEffect(() => {
-    if (!props.canSearch) return;
-    function openSearch(event: KeyboardEvent) {
-      const target = event.target;
-      const isInput =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        (target instanceof HTMLElement && target.isContentEditable);
-      if (
-        (event.key === "/" && !isInput) ||
-        ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")
-      ) {
+    const isMac = isMacPlatform();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented) return;
+      const id = matchShortcut(event, isMac);
+      if (!id) return;
+      const state = shortcutState.current;
+      if (id === "search") {
+        if (!state.canSearch) return;
         event.preventDefault();
         setSearchOpen(true);
+      } else if (id === "help") {
+        event.preventDefault();
+        setShortcutHelpOpen(true);
+      } else if (id === "toggleTree") {
+        if (state.area !== "documents" || window.innerWidth < 768) return;
+        event.preventDefault();
+        setTreeOpen((open) => !open);
+      } else {
+        const handler = shortcutHandlers.current.get(id);
+        // Without a handler the browser keeps its own behaviour (Mod+S saves the page).
+        if (!handler) return;
+        event.preventDefault();
+        handler();
       }
     }
-    window.addEventListener("keydown", openSearch);
-    return () => window.removeEventListener("keydown", openSearch);
-  }, [props.canSearch]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   function selectFromDrawer(name: string) {
     props.onSelect(name);
@@ -282,6 +309,7 @@ export function WorkspaceShell(props: {
   }
 
   return (
+    <ShortcutContext.Provider value={shortcutRegistry}>
     <div
       className={`${styles.shell} ${props.area !== "documents" ? styles.adminShell : ""}`}
       style={
@@ -635,6 +663,8 @@ export function WorkspaceShell(props: {
         onApplied={props.onStructureApplied}
         onFolderApplied={props.onFolderApplied}
       />
+      <KeyboardShortcutsDialog isOpen={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
     </div>
+    </ShortcutContext.Provider>
   );
 }

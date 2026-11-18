@@ -37,6 +37,11 @@ export interface LinkContext {
 
 export interface VellymEditorAdapter {
   getValue(): string;
+  /**
+   * Serializes the document now and returns it. The change callback runs after a short delay,
+   * so a save right after typing needs this; the delayed callback then reports nothing new.
+   */
+  flush(): string;
   focus(): void;
   run(command: EditorCommand): boolean;
   canUndo(): boolean;
@@ -71,7 +76,7 @@ export async function createEditorAdapter(
   }
 ): Promise<VellymEditorAdapter> {
   const [
-    { Editor, defaultValueCtx, editorStateCtx, editorViewCtx, rootCtx, prosePluginsCtx },
+    { Editor, defaultValueCtx, editorStateCtx, editorViewCtx, rootCtx, prosePluginsCtx, serializerCtx },
     preset,
     gfm,
     { listener, listenerCtx },
@@ -326,6 +331,10 @@ export async function createEditorAdapter(
       };
     },
     getValue: () => currentValue,
+    flush: () => {
+      currentValue = readyEditor.action((ctx) => ctx.get(serializerCtx)(ctx.get(editorViewCtx).state.doc));
+      return currentValue;
+    },
     focus: () => {
       readyEditor.action((ctx) => ctx.get(editorViewCtx).focus());
     },

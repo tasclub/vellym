@@ -18,6 +18,7 @@ import {
 } from "../shared/field-input.js";
 import { Button } from "../shared/button.js";
 import styles from "./plugin.module.css";
+import { useShortcutAction } from "../shell/shortcuts.js";
 
 export type { PluginSpecValue };
 
@@ -134,6 +135,28 @@ export function PluginDetailView({
     );
   }
 
+  async function saveSettings() {
+    if (!descriptor || !onSave) return;
+    setSaving(true);
+    try {
+      const changes: Array<{ path: string[]; value: PluginSpecValue }> = [];
+      for (const field of descriptor.fields) {
+        if (draft[field.id] === initial[field.id]) continue;
+        changes.push({
+          path: [...field.path],
+          value: toSpecValue(field, draft[field.id] ?? "")
+        });
+      }
+      await onSave(changes);
+    } finally {
+      setSaving(false);
+    }
+  }
+  // Mod+S saves the settings form like its Save button (shell/shortcuts.ts).
+  const settingsDirty = Object.keys(draft).some((id) => draft[id] !== initial[id]);
+  useShortcutAction("save", mode === "settings" && onSave && descriptor && settingsDirty && !saving
+    ? () => void saveSettings() : undefined);
+
   if (!descriptor) return null;
   const changed =
     Object.keys(draft).some((id) => draft[id] !== initial[id]) ||
@@ -218,22 +241,7 @@ export function PluginDetailView({
       {mode === "settings" && onSave ? (
         <Button className={styles["plugin-detail-save"]}
           disabled={!changed || saving}
-          onClick={async () => {
-            setSaving(true);
-            try {
-              const changes: Array<{ path: string[]; value: PluginSpecValue }> = [];
-              for (const field of descriptor.fields) {
-                if (draft[field.id] === initial[field.id]) continue;
-                changes.push({
-                  path: [...field.path],
-                  value: toSpecValue(field, draft[field.id] ?? "")
-                });
-              }
-              await onSave(changes);
-            } finally {
-              setSaving(false);
-            }
-          }}
+          onClick={() => void saveSettings()}
         >
           {t("editor.save")}
         </Button>

@@ -21,6 +21,7 @@ import { Button } from "../shared/button.js";
 import { ChoiceControl } from "../shared/choice-control.js";
 import { PluginCommandDialog } from "./plugin-command-dialog.js";
 import styles from "./plugin.module.css";
+import { useShortcutAction } from "../shell/shortcuts.js";
 
 /**
  * プラグインが一覧を出すときの画面。文書の紙の中へ一覧を差し込む。
@@ -63,6 +64,15 @@ export function PluginListPage(props: {
 }) {
   const { payload, view } = props;
   const [command, setCommand] = useState<PluginViewPayload["commands"][number]>();
+  // The same order as the view switcher below; [ and ] step through it and stop at the ends.
+  const switchable = [...(payload.siblings ?? [])]
+    .filter((sibling) => sibling.label)
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const position = switchable.findIndex((sibling) => sibling.id === payload.viewId);
+  const previous = position > 0 ? switchable[position - 1] : undefined;
+  const next = position >= 0 && position < switchable.length - 1 ? switchable[position + 1] : undefined;
+  useShortcutAction("previousView", previous ? () => void props.onSwitchView(previous.id) : undefined);
+  useShortcutAction("nextView", next ? () => void props.onSwitchView(next.id) : undefined);
   const body = props.renderer && props.renderContext ? (
     <>
       <div className={styles["plugin-list-toolbar"]}>
@@ -134,10 +144,8 @@ export function PluginListPage(props: {
               mode="segmented"
               aria-label={resolveLocalizedText({ ja: "表示", en: "View" }, props.uiLocale)}
               value={payload.viewId}
-              options={[...(payload.siblings ?? [])]
-                .filter((sibling) => sibling.label)
-                // Keep mode switches together regardless of plugin activation order.
-                .sort((left, right) => left.id.localeCompare(right.id))
+              // Keep mode switches together regardless of plugin activation order.
+              options={switchable
                 .map((sibling) => ({
                   value: sibling.id,
                   label: resolveLocalizedText(sibling.label!, props.uiLocale)

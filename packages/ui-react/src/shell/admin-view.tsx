@@ -19,6 +19,7 @@ import { errorMessage } from "../shared/error-message.js";
 import { SetupWizard } from "../setup/setup-wizard.js";
 import { Button } from "../shared/button.js";
 import { resolveLocalizedText } from "@vellym/plugin-api";
+import { useOpenShortcutHelp } from "./shortcuts.js";
 
 export function AdminView(props: {
   contentRoot: string;
@@ -47,6 +48,7 @@ export function AdminView(props: {
   useEffect(() => setContentRoot(props.contentRoot), [props.contentRoot]);
   useEffect(() => setUiLanguage(props.language), [props.language]);
   const { t } = useTranslation();
+  const openShortcutHelp = useOpenShortcutHelp();
 
   const { canManageStructure, onConfigApplied } = props;
   const loadArchived = useCallback(async () => {
@@ -227,6 +229,15 @@ export function AdminView(props: {
           </Button>
         </div>
       </section>
+      {openShortcutHelp ? (
+        <section className={styles.panel} aria-labelledby="shortcuts-title">
+          <h2 id="shortcuts-title">{t("shortcuts.title")}</h2>
+          <p>{t("shortcuts.settingsDescription")}</p>
+          <div className={styles.configActions}>
+            <Button onClick={openShortcutHelp}>{t("shortcuts.open")}</Button>
+          </div>
+        </section>
+      ) : null}
       <section className={styles.panel} aria-labelledby="content-root-title">
         <h2 id="content-root-title">{t("admin.contentRootTitle")}</h2>
         <p>{t("admin.contentRootDescription", { root: props.projectRoot })}</p>

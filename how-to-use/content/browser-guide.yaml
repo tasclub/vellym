@@ -88,6 +88,22 @@ spec:
 
         画像の挿入は[[images|画像]]を参照。
 
+        ## キーボード操作
+
+        主な操作のキー割り当て。どの画面でも`?`で一覧を開ける（設定画面の「キーボード操作を見る」からも開ける）。Macでは`Ctrl`の代わりに`⌘`（Command）を使う。
+
+        | 操作 | キー | 効く場所 |
+        | --- | --- | --- |
+        | 検索を開く | `/`・`Ctrl+K` | どこでも（入力欄の中を除く。Ctrl/⌘+Kは入力欄でも効く） |
+        | 保存 | `Ctrl+S` | 文書・チケットの編集中、チケット管理の設定の編集中 |
+        | 編集を始める | `E` | 文書・チケットを読んでいるとき |
+        | 文書ツリーの開閉 | `Ctrl+\` | 文書の画面（幅768px以上） |
+        | 前のビュー | `[` | ビューを切り替えられる画面（一覧・カンバン・WBS・設定） |
+        | 次のビュー | `]` | ビューを切り替えられる画面（一覧・カンバン・WBS・設定） |
+        | キー一覧を開く | `?` | どこでも（入力欄の中を除く。Ctrl/⌘+Kは入力欄でも効く） |
+
+        入力欄やエディタの中で文字を打っているときは、`Ctrl+K`・`Ctrl+S`・`Ctrl+\`だけが効き、ほかのキーは文字として入る。日本語の変換中はどのキーも反応しない。
+
         ## 言語の追加と編集
 
         編集画面の言語操作から、既存Pageへ日本語または英語を追加できる。追加時は空の翻訳、
@@ -204,6 +220,22 @@ spec:
             The server has no authentication. Expose it only in a trusted environment.
 
             See [[images|Images]] for inserting images.
+
+            ## Keyboard shortcuts
+
+            Keys for the main actions. Press `?` on any screen to open the list (or **Show keyboard shortcuts** in Settings). On a Mac, use `⌘` (Command) instead of `Ctrl`.
+
+            | Action | Keys | Where |
+            | --- | --- | --- |
+            | Open search | `/` / `Ctrl+K` | Anywhere (not while typing in a field; Ctrl/⌘+K works there too) |
+            | Save | `Ctrl+S` | While editing a document or ticket, or the tracker settings |
+            | Start editing | `E` | While reading a document or ticket |
+            | Show or hide the document tree | `Ctrl+\` | Document screens (768px wide or more) |
+            | Previous view | `[` | Screens with a view switcher (list, Kanban, WBS, settings) |
+            | Next view | `]` | Screens with a view switcher (list, Kanban, WBS, settings) |
+            | Show keyboard shortcuts | `?` | Anywhere (not while typing in a field; Ctrl/⌘+K works there too) |
+
+            While typing in a field or the editor, only `Ctrl+K`, `Ctrl+S`, and `Ctrl+\` work; other keys type characters. No key reacts during IME composition.
 
             ## Editing and saving
 

@@ -27,6 +27,7 @@ import { HistoryDocument } from "./git-history.js";
 import { errorMessage } from "../shared/error-message.js";
 import { Button } from "../shared/button.js";
 import styles from "./editor-workspace.module.css";
+import { useShortcutAction } from "../shell/shortcuts.js";
 
 const FORMAT_ACTIONS: {
   command: EditorCommand;
@@ -274,6 +275,36 @@ export function EditorWorkspace(props: {
   onNavigatePage?(pageId: string, heading?: string): void;
 }) {
   const adapters = useRef(new Map<string, VellymEditorAdapter>());
+  // Mod+S saves while editing; E starts editing while reading (shell/shortcuts.ts).
+  // The editor reports typing after a short delay, so a key press right after typing would
+  // save the older text: hand over each editor's current value first, then save next tick.
+  const latestProps = useRef(props);
+  latestProps.current = props;
+  const ready = Boolean(props.view && props.draft);
+  useShortcutAction("save", ready && props.editing ? () => {
+    const current = latestProps.current;
+    let handedOver = false;
+    for (const [key, adapter] of adapters.current) {
+      const separator = key.lastIndexOf(":");
+      const locale = key.slice(0, separator);
+      const index = Number(key.slice(separator + 1));
+      const value = adapter.flush();
+      const draftBlocks = current.localeDrafts?.find((draft) => draft.locale === locale)?.blocks ?? current.blocks;
+      if (draftBlocks[index]?.content === value) continue;
+      if (current.onLocaleBlockChange) current.onLocaleBlockChange(locale, index, value);
+      else current.onBlockChange(index, value);
+      handedOver = true;
+    }
+    if (!handedOver) { current.onSave(); return; }
+    // Save with the props of the render that received the new text, not the current ones.
+    const before = latestProps.current;
+    const saveWhenRendered = (frames: number) => {
+      if (latestProps.current !== before || frames > 20) latestProps.current.onSave();
+      else window.requestAnimationFrame(() => saveWhenRendered(frames + 1));
+    };
+    window.requestAnimationFrame(() => saveWhenRendered(0));
+  } : undefined);
+  useShortcutAction("edit", ready && !props.editing && props.canEdit ? props.onStartEdit : undefined);
   const activeAdapter = useRef<VellymEditorAdapter | undefined>(undefined);
   const [editorState, setEditorState] = useState<EditorStateSnapshot>({
     canUndo: false,
