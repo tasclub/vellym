@@ -866,6 +866,19 @@ spec:
     )).toContain("__VELLYM_STATIC__");
   });
 
+  it("copies only images referenced by published bodies and stops on a missing image", async () => {
+    // ticket-01m748wq4ddar0gdyytdxn95vy
+    const { staticAssetsProject } = await import("./static-assets-fixture.mjs");
+    const project = await staticAssetsProject();
+    const output = buildDir(project.config);
+    const media = (await readdir(path.join(output, "media"), { recursive: true })).map(String).sort();
+    expect(media).toEqual(["images", path.join("images", "used.png")]);
+    const missing = await staticAssetsProject({ missing: true });
+    const failed = run(["build", "--config", missing.config, "--json"]);
+    expect(failed.status).toBe(1);
+    expect(JSON.parse(failed.stdout).diagnostics.map((item: { code: string }) => item.code)).toContain("ASSET_NOT_FOUND");
+  });
+
   it("builds only published locale projections with deep portable entry points", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-static-i18n-"));
     const content = path.join(root, "docs");

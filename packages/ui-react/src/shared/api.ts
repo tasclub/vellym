@@ -374,6 +374,8 @@ declare global {
     __VELLYM_STATIC__?: {
       appBase: string;
       assetBase: string;
+      /** Images referenced by published bodies (`media/`). Missing in builds before 0.5.0-beta. */
+      mediaBase?: string;
       dataBase: string;
       buildId: string;
       locale: string;
@@ -391,9 +393,16 @@ function staticBase(): string | undefined {
     const documentBase = document.baseURI;
     config.appBase = new URL(config.appBase, documentBase).href;
     config.assetBase = new URL(config.assetBase, documentBase).href;
+    config.mediaBase = new URL(config.mediaBase ?? `${config.appBase}media`, documentBase).href.replace(/\/$/, "");
     config.dataBase = new URL(config.dataBase, documentBase).href.replace(/\/$/, "");
   }
   return config.dataBase;
+}
+
+/** Absolute URL of the static `media/` folder, resolved once at start-up like the other bases. */
+export function staticMediaBase(): string | undefined {
+  if (!staticBase()) return undefined;
+  return window.__VELLYM_STATIC__!.mediaBase;
 }
 
 /**
