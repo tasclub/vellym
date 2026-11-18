@@ -189,7 +189,6 @@ export const steps = [
     await ctx.write(root, `content/work/+tickets/${name}.yaml`, original);
     await page.waitForTimeout(800);
     await page.goto(`${server.origin}/ja/pages/${name}/`, { waitUntil: "networkidle" });
-    ctx.note("2026-11-18の既知の失敗: 本文（blocks）の無いチケットで「編集」が始まらない（ticket-01m7qam5vacck4z6agvjp556f3）");
     await ctx.check("開けて、読み取り専用にならず、編集画面に入れる", async () => {
       await button(page, "編集").click();
       await ctx.expect(page.locator("#plugin-field-owner")).toBeEditable();
@@ -349,7 +348,6 @@ export const steps = [
       const fields = await page.locator("main").locator("select, input").evaluateAll((elements) => elements.map((element) => element.getAttribute("aria-label") || element.labels?.[0]?.textContent?.trim() || ""));
       assert(!fields.some((label) => /本文|全文/.test(label)), fields.join(" | "));
     });
-    ctx.note("2026-11-18の既知の失敗: 「未完了のみ」の切り替えが保たれない（ticket-01m7qam5vv84mxm7jxazf2w24c）");
     await ctx.check("絞り込み（完了を含める）と並び順を変えて画面を離れ、戻ると同じ状態", async () => {
       await page.keyboard.press("Escape");
       await doneToggle(page).click();
@@ -437,7 +435,6 @@ export const steps = [
       await ctx.expect(button(page, "項目を追加")).toBeVisible();
       await ctx.expect(button(page, "ステータスを追加")).toBeVisible();
     });
-    ctx.note("2026-11-18の既知の失敗: 項目の行を並べ替えられない（ticket-01m7qam5wct6a26nbvc77qck49）");
     await ctx.check("ステータスと項目の行を上下に並べ替えられる", async () => {
       await ctx.expect(button(page, "下へ").first()).toBeVisible();
       await ctx.expect(fieldRow("due").getByRole("button", { name: "上へ" })).toBeVisible();

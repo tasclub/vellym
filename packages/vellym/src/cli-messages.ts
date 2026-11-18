@@ -35,6 +35,9 @@ export interface CliMessages {
   initComplete(target: string, created: number, skipped: number): string;
   initNext(): string;
   initGuides(): string;
+  initPackageJsonKept(): string;
+  initPackageJsonUnreadable(): string;
+  initInstallPlugins(): string;
   initPlan(target: string, create: string[], skip: string[], conflict: string[]): string;
   initForeignContentRoot(contentRoot: string): string;
   initForeignContentRootWarning(contentRoot: string): string;
@@ -150,6 +153,9 @@ Options:
   initComplete: (target, created, skipped) => `初期化しました: ${target}\n作成: ${created}件、skip: ${skipped}件`,
   initNext: () => "次のコマンド:",
   initGuides: () => "プラグインの使い方:",
+  initPackageJsonKept: () => "既存のpackage.jsonは変更していません。",
+  initPackageJsonUnreadable: () => "注意: package.jsonがJSONとして読めません。変更していないので、手で直してください。",
+  initInstallPlugins: () => "プラグインを入れるには次を実行します:",
   initPlan: (target, create, skip, conflict) => [
     `初期化の計画（何も書いていません）: ${target}`,
     `作成: ${create.length}件、skip: ${skip.length}件、競合: ${conflict.length}件`,
@@ -273,6 +279,9 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   initComplete: (target, created, skipped) => `Vellym workspace created: ${target}\nCreated: ${created}, skipped: ${skipped}`,
   initNext: () => "Next commands:",
   initGuides: () => "How to use the plugins:",
+  initPackageJsonKept: () => "The existing package.json was left unchanged.",
+  initPackageJsonUnreadable: () => "Warning: package.json is not valid JSON. It was left unchanged; fix it by hand.",
+  initInstallPlugins: () => "To install the plugins, run:",
   initPlan: (target, create, skip, conflict) => [
     `Setup plan (nothing written): ${target}`,
     `Create: ${create.length}, skip: ${skip.length}, conflicts: ${conflict.length}`,

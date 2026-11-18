@@ -759,6 +759,41 @@ spec:
     });
   });
 
+  describe("init with an existing package.json (ticket-01m7q82gf3f03qq1r3f1kk9an8)", () => {
+    it("leaves a valid package.json untouched and finishes the rest", async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-pkg-"));
+      const original = '{\n  "name": "keep-me",\n  "scripts": { "x": "echo" }\n}\n';
+      await writeFile(path.join(root, "package.json"), original);
+      const result = run(initArgs(root, ["--language", "en"]));
+      expect(result.status, result.stderr).toBe(0);
+      expect(await readFile(path.join(root, "package.json"), "utf8")).toBe(original);
+      await access(path.join(root, "vellym.config.yaml"));
+      expect(result.stdout).toContain("The existing package.json was left unchanged.");
+      const plan = JSON.parse(run(initArgs(root, ["--language", "en", "--dry-run", "--json"])).stdout);
+      expect(plan.skip).toContain("package.json");
+    });
+
+    it("leaves a broken package.json untouched, warns, and finishes the rest", async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-pkg-broken-"));
+      await writeFile(path.join(root, "package.json"), "{broken");
+      const result = run(initArgs(root, ["--language", "ja"]));
+      expect(result.status, result.stderr).toBe(0);
+      expect(await readFile(path.join(root, "package.json"), "utf8")).toBe("{broken");
+      expect(result.stderr).toContain("package.jsonがJSONとして読めません");
+      await access(path.join(root, "vellym.config.yaml"));
+    });
+
+    it("prints the npm install line instead of adding dependencies with --plugins", async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-pkg-plugins-"));
+      await writeFile(path.join(root, "package.json"), '{ "name": "existing" }\n');
+      const result = run(initArgs(root, ["--language", "en", "--plugins", "tickets"]));
+      expect(result.status, result.stderr).toBe(0);
+      expect(await readFile(path.join(root, "package.json"), "utf8")).toBe('{ "name": "existing" }\n');
+      expect(result.stdout).toMatch(/npm install vellym@\S+ @vellym\/tickets@\S+/);
+      expect(await readFile(path.join(root, "vellym.config.yaml"), "utf8")).toContain("@vellym/tickets");
+    });
+  });
+
   it("rejects unknown plugin names with exit code 1 and candidate list", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-badplugin-"));
     const result = run(initArgs(root, ["--language", "en", "--plugins", "tickets,bogus"]));

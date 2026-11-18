@@ -1,5 +1,5 @@
 import path from "node:path";
-import { OFFICIAL_PLUGINS } from "./version.js";
+import { OFFICIAL_PLUGINS, VELLYM_VERSION } from "./version.js";
 import { getMessages } from "./cli-messages.js";
 import {
   applyProjectSetup,
@@ -90,9 +90,17 @@ export async function initializeProject(
   }
   if (conflicts.length) throw new Error(messages.initConflict(conflicts.map((file) => file.relativePath).join(", ")));
   await applyProjectSetup(plan);
+  const keptPackage = plan.files.find((file) => file.kind === "package-json" && file.status === "skip");
+  if (keptPackage?.note === "unreadable-json") process.stderr.write(`${messages.initPackageJsonUnreadable()}\n`);
   process.stdout.write(`${messages.initComplete(target, created.length, skipped.length)}\n`);
   for (const file of skipped) process.stdout.write(`skip: ${file.relativePath}\n`);
-  process.stdout.write(`${messages.initNext()}\n${pluginPackages.length ? "  npm install\n" : ""}  npx vellym dev\n`);
+  if (keptPackage) process.stdout.write(`${messages.initPackageJsonKept()}\n`);
+  // An existing package.json gets no dependencies from init; say exactly what to install.
+  if (keptPackage && pluginPackages.length) {
+    const packages = [`vellym@${VELLYM_VERSION}`, ...pluginPackages.map((item) => `${item.name}@${item.version}`)];
+    process.stdout.write(`${messages.initInstallPlugins()}\n  npm install ${packages.join(" ")}\n`);
+  }
+  process.stdout.write(`${messages.initNext()}\n${pluginPackages.length && !keptPackage ? "  npm install\n" : ""}  npx vellym dev\n`);
   // Each selected plugin names its own guide (package.json vellym.guideUrl); the host knows no plugin.
   const guides = [...new Set(names.flatMap((name) => {
     const url = OFFICIAL_PLUGINS[name]!.guideUrl;

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { access, mkdir, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseDocument, stringify } from "yaml";
 import {
@@ -113,6 +113,8 @@ export interface SetupPlanFile {
   title: string;
   status: "create" | "reuse" | "skip" | "conflict";
   conflictReason?: "path" | "page-id" | "template-existing" | "ancestor";
+  /** An existing package.json that is not valid JSON; it is still left untouched. */
+  note?: "unreadable-json";
 }
 
 export interface SetupPlan {
@@ -693,12 +695,20 @@ export async function planProjectSetup(
       title: "Vellym設定",
       status: (await exists(path.join(root, "vellym.config.yaml"))) ? "conflict" : "create"
     });
-    // 既存のpackage.jsonは内容を検査せず触らない。利用者の依存記録だからである。
+    // 既存のpackage.jsonは1文字も変えず、ほかの初期化は続ける（既存のnpmプロジェクトへ入れられる）。
+    // 利用者の依存記録だからである。読めないJSONなら、そのことだけを知らせる。
+    const packageJson = path.join(root, "package.json");
+    const existingPackage = await exists(packageJson);
+    let unreadable = false;
+    if (existingPackage) {
+      try { JSON.parse(await readFile(packageJson, "utf8")); } catch { unreadable = true; }
+    }
     files.push({
       relativePath: "package.json",
       kind: "package-json",
       title: "npm package定義",
-      status: (await exists(path.join(root, "package.json"))) ? "conflict" : "create"
+      status: existingPackage ? "skip" : "create",
+      ...(unreadable ? { note: "unreadable-json" as const } : {})
     });
   }
 

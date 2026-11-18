@@ -56,9 +56,6 @@ export const steps = [
       init(ctx, root, existing);
       assert.equal(await ctx.fs.readFile(ctx.path.join(existing, "package.json"), "utf8"), original);
     });
-    // Known failure on 2026-11-18: an existing package.json is planned as a conflict, so init stops
-    // without writing anything (ticket-01m7q82gf3f03qq1r3f1kk9an8).
-    ctx.note("既存・壊れたpackage.jsonでinitが止まる不具合: ticket-01m7q82gf3f03qq1r3f1kk9an8");
     await ctx.check("壊れたJSONのpackage.jsonは書き換えず、診断を示し、initの他の処理は完了する", async () => {
       const broken = ctx.path.join(root, "broken");
       await ctx.fs.mkdir(broken);
