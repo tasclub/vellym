@@ -107,6 +107,27 @@
     inline-size: 100%;
     max-inline-size: 34rem;
   }
+  .plugin-detail-referenced {
+    margin: 0 0 var(--space-5);
+  }
+  .plugin-detail-referenced h2 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--size-ui);
+    color: var(--text-secondary);
+  }
+  .plugin-detail-referenced ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: var(--space-1);
+  }
+  .plugin-detail-referenced li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: baseline;
+  }
   .plugin-detail-undeclared dd {
     display: flex;
     gap: var(--space-2);

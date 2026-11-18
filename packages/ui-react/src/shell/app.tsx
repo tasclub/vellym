@@ -1680,6 +1680,7 @@ export function App() {
               <PluginDetailPanel
                 payload={pluginView}
                 view={view}
+                onOpenResource={(name) => navigate(name)}
                 uiLocale={bootstrap.project.uiLocale}
                 editing={editing}
                 renderer={pluginRenderers.byViewId.get(pluginView.viewId)}

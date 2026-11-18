@@ -14,6 +14,7 @@ import {
   type PluginManifest,
   type PluginDiagnostic,
   type PluginFilterDescriptor,
+  type PluginDetailViewDescriptor,
   type PluginLocalizedText,
   type PluginRecordProjectorFactory,
   type PluginRecordSetValidator,
@@ -471,6 +472,46 @@ export interface PluginViewRow {
   errorCount?: number;
 }
 
+export interface PluginReferencedBy {
+  name: string;
+  title: string;
+  fieldId: string;
+  fieldLabel: PluginLocalizedText;
+  status?: string;
+  statusLabel?: PluginLocalizedText;
+}
+
+/**
+ * Who points at `target`: rows whose values for the descriptor's reference fields equal its
+ * name (or contain it, for multiple references). Generic: only field types are consulted.
+ */
+export function referencedByOf(
+  descriptor: PluginDetailViewDescriptor,
+  target: PluginViewRow,
+  rows: readonly PluginViewRow[],
+  locale: string
+): PluginReferencedBy[] {
+  const references = descriptor.fields.filter((field) => field.type === "reference");
+  const statusField = descriptor.referencedBy?.statusField
+    ? descriptor.fields.find((field) => field.id === descriptor.referencedBy!.statusField)
+    : undefined;
+  const found: PluginReferencedBy[] = [];
+  for (const row of rows) {
+    if (row.name === target.name) continue;
+    for (const field of references) {
+      const value = row.values[field.valueKey ?? field.id];
+      const points = Array.isArray(value) ? value.includes(target.name) : value === target.name;
+      if (!points) continue;
+      const raw = statusField ? row.values[statusField.valueKey ?? statusField.id] : undefined;
+      const status = typeof raw === "string" && raw ? raw : undefined;
+      const statusLabel = status ? statusField?.options?.find((option) => option.value === status)?.label : undefined;
+      found.push({ name: row.name, title: row.title, fieldId: field.id, fieldLabel: field.label,
+        ...(status ? { status } : {}), ...(statusLabel ? { statusLabel } : {}) });
+    }
+  }
+  return found.sort((a, b) => a.title.localeCompare(b.title, locale) || a.name.localeCompare(b.name));
+}
+
 export interface PluginViewPayload {
   pluginId: string;
   viewId: string;
@@ -487,6 +528,8 @@ export interface PluginViewPayload {
   targetSpec?: Readonly<Record<string, unknown>>;
   /** 開いているリソースについての注意。定義との食い違いをその場で見せる */
   targetDiagnostics?: PluginDiagnostic[];
+  /** Resources whose reference fields point at the target (detail views declaring `referencedBy`). */
+  referencedBy?: PluginReferencedBy[];
   /** 同じkindに登録された他のビュー。画面の切り替えに使う */
   siblings?: Array<{ id: string; type: "list" | "detail"; label?: PluginLocalizedText }>;
   /** このビューから起こせるコマンド。静的出力では使えないものを除く */
@@ -721,7 +764,12 @@ export function buildPluginView(options: {
     ...(descriptor.type === "detail" ? { targetSpec: options.target.spec } : {}),
     ...(descriptor.type === "detail" && options.targetDiagnostics?.length
       ? { targetDiagnostics: [...options.targetDiagnostics] }
-      : {})
+      : {}),
+    ...(() => {
+      if (descriptor.type !== "detail" || !descriptor.referencedBy || !options.targetRow) return {};
+      const referencedBy = referencedByOf(descriptor, options.targetRow, options.rows, options.locale);
+      return referencedBy.length ? { referencedBy } : {};
+    })()
   };
 }
 

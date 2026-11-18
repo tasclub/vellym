@@ -463,6 +463,19 @@ async function verifyNarrowTicketViews() {
       assert(layout.lefts.length === (width >= 1024 ? 2 : 1), `${width}px detail columns ${JSON.stringify(layout)}`);
       assert(layout.wide.length > 0 && layout.wide.every((item) => item === layout.width), `${width}px multi-line field width ${JSON.stringify(layout)}`);
       assert(!layout.labels.includes("親"), `empty optional field shown while reading ${JSON.stringify(layout)}`);
+      // Referenced by (ticket-01m7k6gftq6gt6j226dsbz5yq0): a parent lists the child that points at it,
+      // and the child opens from there.
+      if (width >= 1024) {
+        const referenced = page.locator('section[aria-labelledby="plugin-referenced-by"]');
+        assert((await referenced.getByRole("heading").textContent()).trim() === "このページを参照している", "参照元の見出しがありません");
+        await referenced.first().waitFor();
+        const child = referenced.first().getByRole("button").first();
+        const childTitle = (await child.textContent()).trim();
+        await child.click();
+        await page.getByRole("heading", { level: 1, name: childTitle }).waitFor();
+        await page.goto(`${baseUrl}/ja/pages/ticket-01m0m000000000000000000001/`);
+        await fields.waitFor();
+      }
       if (width >= 1024) {
         // The phone editor does not show the field list (ticket-01m7pmtbp6s8s3cv5s1kakmjec).
         await page.getByRole("button", { name: "編集", exact: true }).click();

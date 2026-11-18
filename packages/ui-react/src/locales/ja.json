@@ -548,5 +548,6 @@
   "shortcuts.scopeEditing": "文書・チケットの編集中、チケット管理の設定の編集中",
   "shortcuts.scopeReading": "文書・チケットを読んでいるとき",
   "shortcuts.scopeDocuments": "文書の画面（幅768px以上）",
-  "shortcuts.scopeViews": "ビューを切り替えられる画面（一覧・カンバン・WBS・設定）"
+  "shortcuts.scopeViews": "ビューを切り替えられる画面（一覧・カンバン・WBS・設定）",
+  "plugin.referencedBy": "このページを参照している"
 }

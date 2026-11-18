@@ -177,6 +177,8 @@ export function PluginDetailPanel(props: {
   renderContext?: PluginRenderContext;
   onChange(changes: Array<{ path: string[]; value: PluginSpecValue }>): void;
   onSave(changes: Array<{ path: string[]; value: PluginSpecValue }>): Promise<void>;
+  /** Opens another resource by name ("Referenced by"). */
+  onOpenResource?(name: string): void;
 }): ReactNode {
   const { payload } = props;
   if (payload.descriptor.type !== "detail") return undefined;
@@ -202,6 +204,7 @@ export function PluginDetailPanel(props: {
       }
       onChange={props.onChange}
       onSave={props.onSave}
+      {...(props.onOpenResource ? { onOpenResource: props.onOpenResource } : {})}
     />
   );
 }

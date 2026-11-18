@@ -222,6 +222,12 @@ export interface PluginDetailViewDescriptor {
    */
   undeclaredFields?: "read-only" | "hidden";
   /**
+   * Show the resources whose `reference` fields point at this one. The host finds them from
+   * the index rows with this descriptor's reference fields; it knows no kind. `statusField` names
+   * the field shown as each one's state (its `options` give the label).
+   */
+  referencedBy?: { statusField?: string };
+  /**
    * 未宣言として見せる索引行キーの接頭辞。省略すると未宣言を1つも出さない。
    *
    * 索引行には`tracker`のような、利用者へ見せる意味を持たないキーも入る。

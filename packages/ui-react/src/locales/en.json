@@ -547,5 +547,6 @@
   "shortcuts.scopeEditing": "While editing a document or ticket, or the tracker settings",
   "shortcuts.scopeReading": "While reading a document or ticket",
   "shortcuts.scopeDocuments": "Document screens (768px wide or more)",
-  "shortcuts.scopeViews": "Screens with a view switcher (list, Kanban, WBS, settings)"
+  "shortcuts.scopeViews": "Screens with a view switcher (list, Kanban, WBS, settings)",
+  "plugin.referencedBy": "Referenced by"
 }

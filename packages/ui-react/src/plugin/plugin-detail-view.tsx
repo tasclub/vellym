@@ -74,7 +74,8 @@ export function PluginDetailView({
   locale,
   mode,
   onSave,
-  onChange
+  onChange,
+  onOpenResource
 }: {
   payload: PluginViewPayload;
   locale: string;
@@ -90,6 +91,8 @@ export function PluginDetailView({
   onSave?(
     changes: Array<{ path: string[]; value: PluginSpecValue }>
   ): Promise<void> | void;
+  /** Opens another resource by name (used by "Referenced by"). */
+  onOpenResource?(name: string): void;
 }) {
   const { t } = useTranslation();
   const descriptor =
@@ -236,6 +239,24 @@ export function PluginDetailView({
           </div>
         ))}
       </dl>
+      {mode === "read" && payload.referencedBy?.length ? (
+        <section className={styles["plugin-detail-referenced"]} aria-labelledby="plugin-referenced-by">
+          <h2 id="plugin-referenced-by">{t("plugin.referencedBy")}</h2>
+          <ul>
+            {payload.referencedBy.map((item) => (
+              <li key={`${item.name}:${item.fieldId}`}>
+                {onOpenResource
+                  ? <Button className={styles["plugin-detail-referenced-link"]} onClick={() => onOpenResource(item.name)}>{item.title}</Button>
+                  : <span>{item.title}</span>}
+                <span className={styles["plugin-detail-note"]}>
+                  {resolveLocalizedText(item.fieldLabel, locale)}
+                  {item.status ? ` · ${item.statusLabel ? resolveLocalizedText(item.statusLabel, locale) : item.status}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
 
       {mode === "settings" && onSave ? (

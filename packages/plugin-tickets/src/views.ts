@@ -223,6 +223,8 @@ export function ticketDetailView(context: PluginViewContext): PluginDetailViewDe
     undeclaredFields: "read-only",
     // 索引行のうち、利用者が定義した項目はこの接頭辞を持つ。
     undeclaredKeyPrefix: FIELD_KEY_PREFIX,
+    // チケットから参照しているチケット（親・依存など）を、状態つきで見せる。
+    referencedBy: { statusField: STATUS_KEY },
     // 保存したら、属するチケット管理の一覧へ戻る。
     ...(tracker ? { parent: { name: tracker.name, title: tracker.title } } : {})
   };

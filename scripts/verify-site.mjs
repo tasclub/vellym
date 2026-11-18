@@ -132,6 +132,16 @@ async function verifyStaticTickets(browser, baseUrl) {
     await context.close();
   }
 
+  // The static detail of a parent lists the tickets that point at it (ticket-01m7k6gftq6gt6j226dsbz5yq0).
+  {
+    const context = await browser.newContext({ locale: "ja-JP", viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}/pages/ticket-01m0m000000000000000000005/`, { waitUntil: "networkidle" });
+    const referenced = page.locator('section[aria-labelledby="plugin-referenced-by"]');
+    await referenced.waitFor();
+    if (await referenced.getByRole("listitem").count() !== 3) throw new Error("static Ticket detail does not list its 3 children as referencing it");
+    await context.close();
+  }
   const failing = await browser.newContext({ locale: "ja-JP", viewport: { width: 1440, height: 900 } });
   const failingPage = await failing.newPage();
   await failingPage.route(`**/data/*/ja/pages/${names[0]}.json`, (route) => route.fulfill({ status: 404, body: "Not found" }));
