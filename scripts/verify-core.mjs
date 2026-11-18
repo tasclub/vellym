@@ -656,6 +656,8 @@ async function verifyDocumentTreeLayout() {
         .filter((row) => row.hasAttribute("aria-expanded"))
         .map((row) => [row.textContent.trim().match(/^[a-z0-9-]+/)?.[0], row.getAttribute("aria-expanded")])));
       const state = async () => { const map = await expanded(); return { alpha: map.alpha, beta: map.beta, nested: map.nested }; };
+      // Expansion is restored after the tree renders; wait until the root folders have settled.
+      await tab.waitForFunction(() => [...document.querySelectorAll('[role="treegrid"] [role="row"][aria-expanded="true"]')].length >= 2);
       let now = await state();
       assert(now.alpha === "true" && now.beta === "true" && now.nested !== "true", `初回の展開がルート直下だけではありません ${JSON.stringify(await expanded())}`);
       await tab.getByRole("button", { name: "すべて折りたたむ", exact: true }).click();
