@@ -232,6 +232,13 @@ export function PluginListView({
     setLoadedSettingsKey(key);
   }, [key, loadedSettingsKey, stored, defaultSort]);
 
+  // The "open only" switch lives with the host, but it is this view's preference too:
+  // restore it whenever the view (or the resource it shows) changes.
+  useEffect(() => {
+    if (stored.showAll !== undefined && stored.showAll !== showAll) onToggleShowAll?.(stored.showAll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the stored preference changes
+  }, [key]);
+
   useEffect(() => {
     if (loadedSettingsKey !== key) return;
     writePluginViewSettings(settingsScope, {
