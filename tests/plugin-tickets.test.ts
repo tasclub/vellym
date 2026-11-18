@@ -267,6 +267,17 @@ describe("ticket plugin", () => {
     expect(codes).toEqual(["TICKET_STATUS_UNDEFINED"]);
   });
 
+  it("flags a status outside the ticket's own definition for the list marker (ticket-01m7qas4w71s3pw4b6aw17aevb)", () => {
+    const values = (status: string, file = "30-実装/単体テスト/ticket-01.yaml") =>
+      project(trackers, record("Ticket", "ticket-01", file, { status, fields: { caseId: "UT-1" } }))?.values;
+    expect(values("triage")?.statusUndefined).toBe(true);
+    expect(values("open")?.statusUndefined).toBeUndefined();
+    // Without an owning tracker there is no definition to be outside of.
+    expect(values("triage", "elsewhere/ticket-01.yaml")?.statusUndefined).toBeUndefined();
+    const status = listView(unitTests).columns.find((column) => column.id === "status");
+    expect(status?.marker).toEqual({ valueKey: "statusUndefined", label: { ja: "定義外", en: "undefined" } });
+  });
+
   it("warns instead of failing when data does not match the definitions", () => {
     const codes = (spec: Record<string, unknown>) =>
       project(

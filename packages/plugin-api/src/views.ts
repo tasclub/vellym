@@ -62,6 +62,11 @@ export interface PluginColumnDescriptor {
    */
   hidden?: boolean;
   /**
+   * Marks a cell when the row's `valueKey` is true, e.g. a status outside the row's own
+   * definition. The host appends the label after the value; colour is never the only signal.
+   */
+  marker?: { valueKey: string; label: PluginLocalizedText };
+  /**
    * 選んだ行へまとめて書き込むときの`spec`内の位置。宣言した列だけが
    * 一括編集の対象になる。
    *

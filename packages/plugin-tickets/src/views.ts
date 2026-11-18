@@ -12,6 +12,7 @@ import {
   FIELD_KEY_PREFIX,
   LABELS_KEY,
   STATUS_KEY,
+  STATUS_UNDEFINED_KEY,
   TRACKERS_KEY,
   fieldKey
 } from "@vellym-internal/ticket-engine";
@@ -78,6 +79,8 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
       label: { ja: "ステータス", en: "Status" },
       type: "select",
       options: statusOptions(tracker),
+      // 自分の定義（最も近い祖先のチケット管理）に無いステータスは「定義外」と示す。
+      marker: { valueKey: STATUS_UNDEFINED_KEY, label: { ja: "定義外", en: "undefined" } },
       sortable: true,
       filterable: true,
       // まとめて変えられるのはステータスと単一選択まで。自由入力は対象にしない。

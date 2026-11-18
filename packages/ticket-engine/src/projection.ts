@@ -26,6 +26,8 @@ export const STATUS_KEY = "status";
  * 「依存先が完了したか」を判定できるようにするための値である。
  */
 export const STATUS_CATEGORY_KEY = "statusCategory";
+/** True when the status is not in the definition of the ticket's own (nearest) tracker. */
+export const STATUS_UNDEFINED_KEY = "statusUndefined";
 /** 利用者が定義した項目の索引行キーに付ける接頭辞 */
 export const FIELD_KEY_PREFIX = "field:";
 export const fieldKey = (id: string): string => `${FIELD_KEY_PREFIX}${id}`;
@@ -155,6 +157,7 @@ export function projectTicket(
     if (statusDefinition) {
       values[STATUS_CATEGORY_KEY] = statusDefinition.category;
     } else if (tracker && tracker.statuses.length > 0) {
+      values[STATUS_UNDEFINED_KEY] = true;
       diagnostics.push(
         warn(
           record,

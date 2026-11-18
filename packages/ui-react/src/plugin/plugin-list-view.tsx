@@ -91,6 +91,14 @@ function cellText(
     .join(", ");
 }
 
+/** The cell text plus the column's marker label when the row sets it (see PluginColumnDescriptor.marker). */
+function markedCellText(row: PluginViewRow, column: PluginColumnDescriptor, locale: string): string {
+  const text = cellText(cellValue(row, column), column, locale);
+  if (!column.marker || row.values[column.marker.valueKey] !== true) return text;
+  const label = resolveLocalizedText(column.marker.label, locale);
+  return locale.startsWith("ja") ? `${text}（${label}）` : `${text} (${label})`;
+}
+
 /**
  * 並べ替えの比較。**列の型に従う。**
  *
@@ -717,7 +725,7 @@ export function PluginListView({
                   <span className={styles["plugin-list-secondary"]}>
                     {secondary
                       .map((item) => {
-                        const text = cellText(cellValue(row, item), item, locale);
+                        const text = markedCellText(row, item, locale);
                         if (!text) return "";
                         const label = resolveLocalizedText(item.label, locale);
                         // 長い値は畳んだ行をさらに崩す。全文は詳細で読む。
@@ -730,7 +738,7 @@ export function PluginListView({
                 ) : null}
               </>
             ) : (
-              cellText(cellValue(row, column), column, locale)
+              markedCellText(row, column, locale)
             )
         }))}
       />

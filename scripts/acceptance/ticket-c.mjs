@@ -73,7 +73,6 @@ const search = async (ctx, origin, query) => JSON.stringify(await ctx.json(origi
 export const steps = [
   { id: id("01"), title: "定義外のステータス", async run(ctx) {
     const { root, server, page } = await workspace(ctx);
-    ctx.note("2026-11-18の既知の失敗: 一覧で「定義外」と示されない（ticket-01m7qas4w71s3pw4b6aw17aevb）");
     await ctx.check("一覧に「定義外」として現れ、行が消えない", async () => {
       const { text } = await listText(ctx, page, server.origin, "dev-tracker");
       assert(/定義外の状態[\s\S]*定義外/.test(text), text);
