@@ -49,17 +49,32 @@
    * プラグインが宣言した詳細。ラベル左・入力右の2カラム固定幅にする。
    * ラベルの長短で入力欄の位置が動かないようにする。
    */
+  /*
+   * Each field is one grid item so it can span columns: single-line fields sit two
+   * to a row on wide screens, multi-line fields ([data-wide]) take the whole row.
+   */
   .plugin-detail-fields {
     display: grid;
-    grid-template-columns: 150px minmax(0, 1fr);
-    gap: var(--space-3);
-    align-items: center;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: var(--space-6);
+    row-gap: var(--space-3);
     margin: 0 0 var(--space-5);
     padding-block-end: 16px;
     border-block-end: 1px solid var(--border-subtle);
   }
   .plugin-detail-field {
-    display: contents;
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: center;
+  }
+  @media (min-width: 1024px) {
+    .plugin-detail-fields {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .plugin-detail-field[data-wide] {
+      grid-column: 1 / -1;
+    }
   }
   .plugin-detail-field dt {
     font-size: var(--size-ui);

@@ -189,7 +189,15 @@ export function ticketDetailView(context: PluginViewContext): PluginDetailViewDe
       options: statusOptions(tracker)
     });
   }
-  for (const field of tracker?.fields ?? []) {
+  // Most important first, keeping the definition order inside each group: the fields
+  // shown as list columns, then single-line fields, then multi-line ones.
+  const declared = tracker?.fields ?? [];
+  const ordered = [
+    ...declared.filter((field) => field.listColumn),
+    ...declared.filter((field) => !field.listColumn && field.type !== "multiline"),
+    ...declared.filter((field) => !field.listColumn && field.type === "multiline")
+  ];
+  for (const field of ordered) {
     fields.push({
       id: field.id,
       label: field.label,

@@ -403,6 +403,29 @@ describe("ticket plugin", () => {
     ]);
   });
 
+  it("orders detail fields: list columns, then single-line, then multi-line, each in definition order", () => {
+    // ticket-01m7k6gftnq66d3qh00knvzbnc
+    const mixed = record("TicketTracker", "mixed", "mixed/mixed.yaml", {
+      statuses: [{ id: "open", label: "Open", category: "open" }],
+      fields: [
+        { id: "notes", label: "Notes", type: "multiline" },
+        { id: "owner", label: "Owner", type: "text" },
+        { id: "due", label: "Due", type: "date", listColumn: true },
+        { id: "summary", label: "Summary", type: "multiline", listColumn: true },
+        { id: "points", label: "Points", type: "number" },
+        { id: "risk", label: "Risk", type: "multiline" },
+        { id: "priority", label: "Priority", type: "select", listColumn: true, options: [{ value: "high", label: "High" }] }
+      ]
+    });
+    const view = activate().views.get("ticket-detail")?.view;
+    if (typeof view !== "function") throw new Error("expected a view provider");
+    const detail = view(context([mixed], record("Ticket", "ticket-01", "mixed/ticket-01.yaml")));
+    if (detail.type !== "detail") throw new Error("expected a detail descriptor");
+    expect(detail.fields.map((field) => field.id)).toEqual([
+      "status", "due", "summary", "priority", "owner", "points", "notes", "risk"
+    ]);
+  });
+
   it("creates without asking anything first", () => {
     // 作成用の画面を別に持たない。押すと初期値だけのドラフトになり、
     // そのまま編集画面で全部を書く。保存前に正本を開き直させない。

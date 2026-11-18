@@ -160,8 +160,13 @@ export function PluginDetailView({
         </div>
       ) : null}
       <dl className={styles["plugin-detail-fields"]}>
-        {descriptor.fields.map((field) => (
-          <div key={field.id} className={styles["plugin-detail-field"]}>
+        {descriptor.fields
+          // Reading hides empty optional fields to keep the detail short; a required field
+          // stays with "—" so the gap is visible. Editing and settings show every field.
+          .filter((field) => mode !== "read" || field.required || displayText(field, draft[field.id] ?? "", locale) !== "")
+          .map((field) => (
+          <div key={field.id} className={styles["plugin-detail-field"]}
+            data-wide={field.type === "multiline" ? "" : undefined}>
             <dt>
               {mode === "read" ? (
                 <span>{resolveLocalizedText(field.label, locale)}</span>
@@ -174,7 +179,7 @@ export function PluginDetailView({
             </dt>
             <dd>
               {mode === "read" ? (
-                // 参照は読むだけ。入力欄を出さない。空欄は「―」で場所を残す。
+                // 参照は読むだけ。入力欄を出さない。ここに来る空欄は必須の項目だけで、「―」で示す。
                 <span className={styles["plugin-detail-value"]}>
                   {displayText(field, draft[field.id] ?? "", locale) || "—"}
                 </span>

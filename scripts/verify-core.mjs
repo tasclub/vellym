@@ -444,9 +444,34 @@ async function verifyNarrowTicketViews() {
       await page.getByRole("button", { name: "WBS", exact: true }).click();
       await page.locator(".wbs-row[data-ticket-name] .wbs-left").first().waitFor();
       await checkWbs();
+      // Ticket detail (ticket-01m7k6gftnq66d3qh00knvzbnc): single-line fields two to a row from
+      // 1024px, one column on phones; multi-line fields span the row; empty optional fields
+      // (this ticket has no parent) appear only while editing.
+      await page.goto(`${baseUrl}/ja/pages/ticket-01m0m000000000000000000001/`);
+      const fields = page.locator('dl[class*="plugin-detail-fields"]');
+      await fields.waitFor();
+      const layout = await fields.evaluate((dl) => {
+        const items = [...dl.children];
+        const narrow = items.filter((item) => !item.hasAttribute("data-wide"));
+        return {
+          lefts: [...new Set(narrow.map((item) => Math.round(item.querySelector("dt").getBoundingClientRect().left)))],
+          wide: items.filter((item) => item.hasAttribute("data-wide")).map((item) => Math.round(item.getBoundingClientRect().width)),
+          width: Math.round(dl.getBoundingClientRect().width),
+          labels: items.map((item) => item.querySelector("dt").textContent.trim())
+        };
+      });
+      assert(layout.lefts.length === (width >= 1024 ? 2 : 1), `${width}px detail columns ${JSON.stringify(layout)}`);
+      assert(layout.wide.length > 0 && layout.wide.every((item) => item === layout.width), `${width}px multi-line field width ${JSON.stringify(layout)}`);
+      assert(!layout.labels.includes("親"), `empty optional field shown while reading ${JSON.stringify(layout)}`);
+      if (width >= 1024) {
+        // The phone editor does not show the field list (ticket-01m7pmtbp6s8s3cv5s1kakmjec).
+        await page.getByRole("button", { name: "編集", exact: true }).click();
+        await fields.locator("dt").filter({ hasText: /^親$/ }).waitFor();
+        await page.getByRole("button", { name: "キャンセル", exact: true }).first().click();
+      }
       await page.close();
     }
-    console.log("- ticket views: narrow overflow, WBS scrolling and desktop geometry");
+    console.log("- ticket views: narrow overflow, WBS scrolling, desktop geometry and detail field layout");
   } finally {
     if (browser) await browser.close();
     if (server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }
