@@ -1,11 +1,16 @@
 @layer components {
 .treeToolbar {
   display: flex;
+  /* Each button stays on one line; at narrow tree widths the second moves to the next row
+     instead of running past the panel edge. */
+  flex-wrap: wrap;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-3) 0;
 }
 
-.treeToolbarButton {
+/* Scoped under .treeToolbar: the shared Button sets the body size in the same layer, and the
+   later stylesheet would otherwise win, making the buttons too wide for the tree. */
+.treeToolbar .treeToolbarButton {
   flex: 0 0 auto;
   white-space: nowrap;
   padding: var(--space-1) var(--space-2);

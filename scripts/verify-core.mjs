@@ -683,9 +683,12 @@ async function verifyDocumentTreeLayout() {
               const style = getComputedStyle(el);
               const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
               const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
-              return { scroll: el.scrollWidth, client: el.clientWidth, height: el.getBoundingClientRect().height, limit: (line * 1.5) + padding };
+              const panel = el.closest("aside").getBoundingClientRect();
+              const rect = el.getBoundingClientRect();
+              return { scroll: el.scrollWidth, client: el.clientWidth, height: rect.height, limit: (line * 1.5) + padding, right: rect.right, panelRight: panel.right };
             });
             assert(fit.scroll <= fit.client && fit.height < fit.limit, `${language} ${target}px「${label}」が1行に収まりません ${JSON.stringify(fit)}`);
+            assert(fit.right <= fit.panelRight + 0.5, `${language} ${target}px「${label}」がツリーの端からはみ出しています ${JSON.stringify(fit)}`);
           }
         }
       };
@@ -725,9 +728,12 @@ async function verifyDocumentTreeLayout() {
             const style = getComputedStyle(el);
             const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
             const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
-            return { scroll: el.scrollWidth, client: el.clientWidth, height: el.getBoundingClientRect().height, limit: (line * 1.5) + padding };
+            const panel = el.closest("aside").getBoundingClientRect();
+            const rect = el.getBoundingClientRect();
+            return { scroll: el.scrollWidth, client: el.clientWidth, height: rect.height, limit: (line * 1.5) + padding, right: rect.right, panelRight: panel.right };
           });
           assert(fit.scroll <= fit.client && fit.height < fit.limit, `en ${target}px "${label}" does not fit on one line ${JSON.stringify(fit)}`);
+          assert(fit.right <= fit.panelRight + 0.5, `en ${target}px "${label}" runs past the tree edge ${JSON.stringify(fit)}`);
         }
       }
       await context.close();

@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png" />
     <title>Vellym</title>
+    <!-- Declare the cascade layer order before any stylesheet. Vite emits the shared parts'
+         CSS first, and its @layer components would otherwise rank below elements and reset. -->
+    <style>@layer reset, tokens, elements, components;</style>
   </head>
   <body>
     <div id="root"></div>
