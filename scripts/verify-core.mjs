@@ -481,6 +481,7 @@ async function verifyNarrowTicketViews() {
 await verify();
 await verifyNarrowTicketViews();
 await verifyGitHistory();
+await verifyDocumentTreeLayout();
 
 async function verifyGitHistory() {
   const fixture = await createFixture();
@@ -595,5 +596,145 @@ async function verifyGitHistory() {
     if (browser) await browser.close();
     if (server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }
     await rm(fixture.root, { recursive: true, force: true });
+  }
+}
+
+// Document tree and outline (ticket-01m7nyfvg2x858zvgaxhm6gyp2): saved expansion, closing from the
+// tree heading and opening from the rail, one-line expand/collapse buttons at 220px and 268px in
+// both UI languages, and outline links that fill their rows.
+async function verifyDocumentTreeLayout() {
+  const root = await mkdtemp(path.join(tmpdir(), "vellym-tree-verify-"));
+  const page = (name, title, body) => `apiVersion: vellym.tasclub.com/v1\nkind: Page\nmetadata:\n  name: ${name}\n  title: ${title}\nspec:\n  locale: ja\n  blocks:\n    - id: body\n      type: rich-text\n      content: |\n${body.split("\n").map((line) => `        ${line}`).join("\n")}\n`;
+  const headings = [
+    "## 概要", "### 目的", "### 範囲", "## 文書ツリーの展開状態を保存して再読込後も同じ形で開く",
+    "### 初回の展開", "### 再読込", "## 左サイドバーの開閉を文書ナビゲーションの見出し行へ移す",
+    "### 閉じる", "### 開く", "## 全展開と全折りたたみのボタンを狭い幅でも一行に収める",
+    "### 220px", "### 268px", "## 関連"
+  ];
+  const write = async (file, text) => { await mkdir(path.dirname(path.join(root, file)), { recursive: true }); await writeFile(path.join(root, file), text); };
+  const config = (language) => write("vellym.config.yaml", `schemaVersion: "1.0"\ncontentRoot: content\noutputDir: dist\nui:\n  language: ${language}\nplugins: []\n`);
+  await config("ja");
+  await write("content/index.yaml", page("index", "目次の確認", headings.map((heading) => `${heading}\n\n本文。`).join("\n\n")));
+  await write("content/alpha/a1.yaml", page("a1", "A1", "本文"));
+  await write("content/alpha/nested/n1.yaml", page("n1", "N1", "本文"));
+  await write("content/beta/b1.yaml", page("b1", "B1", "本文"));
+  let browser;
+  const start = async () => {
+    const port = await availablePort();
+    const baseUrl = `http://127.0.0.1:${port}`;
+    const server = spawn(process.execPath, [path.resolve("packages/vellym/dist/cli.mjs"), "dev", "--config", path.join(root, "vellym.config.yaml"), "--port", String(port)], { stdio: ["ignore", "pipe", "pipe"] });
+    let output = "";
+    server.stdout.on("data", (chunk) => { output += chunk; });
+    server.stderr.on("data", (chunk) => { output += chunk; });
+    await waitUntilReady(baseUrl, () => output);
+    return { baseUrl, stop: async () => { if (server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); } } };
+  };
+  const lines = { one: 0, more: 0 };
+  try {
+    browser = await chromium.launch();
+    let server = await start();
+    try {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "ja-JP" });
+      const tab = await context.newPage();
+      await tab.goto(`${server.baseUrl}/ja/pages/index/`);
+      const tree = tab.getByRole("treegrid");
+      await tree.waitFor();
+      const expanded = async () => Object.fromEntries(await tree.getByRole("row").evaluateAll((rows) => rows
+        .filter((row) => row.hasAttribute("aria-expanded"))
+        .map((row) => [row.textContent.trim().match(/^[a-z0-9-]+/)?.[0], row.getAttribute("aria-expanded")])));
+      const state = async () => { const map = await expanded(); return { alpha: map.alpha, beta: map.beta, nested: map.nested }; };
+      let now = await state();
+      assert(now.alpha === "true" && now.beta === "true" && now.nested !== "true", `初回の展開がルート直下だけではありません ${JSON.stringify(await expanded())}`);
+      await tab.getByRole("button", { name: "すべて折りたたむ", exact: true }).click();
+      await tab.reload(); await tree.waitFor();
+      now = await state();
+      assert(now.alpha === "false" && now.beta === "false", `折りたたんだ状態が再読込で保たれません ${JSON.stringify(now)}`);
+      // Expand with the keyboard: ArrowRight on the focused folder row.
+      await tree.getByRole("row").filter({ hasText: /^beta/ }).first().focus();
+      await tab.keyboard.press("ArrowRight");
+      await tab.waitForFunction(() => [...document.querySelectorAll('[role="treegrid"] [role="row"][aria-expanded="true"]')].some((row) => row.textContent.trim().startsWith("beta")));
+      await tab.waitForTimeout(300);
+      await tab.reload(); await tree.waitFor();
+      now = await state();
+      assert(now.beta === "true" && now.alpha === "false", `1つだけ開いた状態が再読込で保たれません ${JSON.stringify(await expanded())}`);
+
+      // Open and close: from the tree heading and the rail, by pointer and by keyboard.
+      const nav = tab.locator('aside[aria-label="文書ナビゲーション"]');
+      const closeButton = tab.getByRole("button", { name: "文書ナビゲーションを閉じる" });
+      const openButton = tab.getByRole("button", { name: "文書ナビゲーションを開く" });
+      await closeButton.click();
+      await tab.waitForFunction(() => document.querySelector('aside[aria-label="文書ナビゲーション"]')?.getAttribute("aria-hidden") === "true" || !document.querySelector('aside[aria-label="文書ナビゲーション"]'));
+      await openButton.click();
+      await nav.waitFor();
+      await closeButton.focus(); await tab.keyboard.press("Enter");
+      await openButton.waitFor();
+      await openButton.focus(); await tab.keyboard.press("Enter");
+      await closeButton.waitFor();
+      assert(await tab.locator("header").getByRole("button", { name: /^文書ナビゲーション/ }).filter({ visible: true }).count() === 0, "ヘッダーに文書ナビゲーションの開閉ボタンがあります");
+      const widthCheck = async (labels, language) => {
+        const separator = tab.getByRole("separator", { name: /^(文書ナビゲーションの幅|Document navigation width)$/ });
+        for (const target of [268, 220]) {
+          await separator.focus();
+          for (let i = 0; i < 40 && Number(await separator.getAttribute("aria-valuenow")) > target; i++) await tab.keyboard.press("ArrowLeft");
+          for (let i = 0; i < 40 && Number(await separator.getAttribute("aria-valuenow")) < target; i++) await tab.keyboard.press("ArrowRight");
+          assert(Number(await separator.getAttribute("aria-valuenow")) === target, `${language} ツリーの幅を${target}pxにできません`);
+          for (const label of labels) {
+            const fit = await tab.getByRole("button", { name: label, exact: true }).evaluate((el) => {
+              const style = getComputedStyle(el);
+              const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
+              const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+              return { scroll: el.scrollWidth, client: el.clientWidth, height: el.getBoundingClientRect().height, limit: (line * 1.5) + padding };
+            });
+            assert(fit.scroll <= fit.client && fit.height < fit.limit, `${language} ${target}px「${label}」が1行に収まりません ${JSON.stringify(fit)}`);
+          }
+        }
+      };
+      await widthCheck(["すべて展開", "すべて折りたたむ"], "ja");
+
+      // Outline: each link fills its row (no empty column), and count one-line and wrapped rows.
+      const outline = await tab.evaluate(() => [...document.querySelectorAll("nav ol li > a")].map((a) => {
+        const li = a.closest("li");
+        const style = getComputedStyle(li);
+        const inner = li.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        const own = getComputedStyle(a);
+        const line = parseFloat(own.lineHeight) || parseFloat(own.fontSize) * 1.5;
+        const content = a.getBoundingClientRect().height - parseFloat(own.paddingTop) - parseFloat(own.paddingBottom) - parseFloat(own.borderTopWidth) - parseFloat(own.borderBottomWidth);
+        return { gap: Math.abs(a.getBoundingClientRect().width - inner), lines: Math.round(content / line), line, content };
+      }));
+      assert(outline.length >= 12, `目次の行が足りません ${outline.length}`);
+      assert(outline.every((item) => item.gap <= 1), `目次のリンクが行の幅を埋めていません ${JSON.stringify(outline)}`);
+      lines.one = outline.filter((item) => item.lines <= 1).length;
+      lines.more = outline.length - lines.one;
+      await context.close();
+    } finally { await server.stop(); }
+
+    await config("en");
+    server = await start();
+    try {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "en-US" });
+      const tab = await context.newPage();
+      await tab.goto(`${server.baseUrl}/ja/pages/index/`);
+      await tab.getByRole("treegrid").waitFor();
+      const separator = tab.getByRole("separator", { name: /width/i });
+      for (const target of [268, 220]) {
+        await separator.focus();
+        for (let i = 0; i < 40 && Number(await separator.getAttribute("aria-valuenow")) > target; i++) await tab.keyboard.press("ArrowLeft");
+        for (let i = 0; i < 40 && Number(await separator.getAttribute("aria-valuenow")) < target; i++) await tab.keyboard.press("ArrowRight");
+        for (const label of ["Expand all", "Collapse all"]) {
+          const fit = await tab.getByRole("button", { name: label, exact: true }).evaluate((el) => {
+            const style = getComputedStyle(el);
+            const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
+            const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+            return { scroll: el.scrollWidth, client: el.clientWidth, height: el.getBoundingClientRect().height, limit: (line * 1.5) + padding };
+          });
+          assert(fit.scroll <= fit.client && fit.height < fit.limit, `en ${target}px "${label}" does not fit on one line ${JSON.stringify(fit)}`);
+        }
+      }
+      await context.close();
+    } finally { await server.stop(); }
+    console.log(`- document tree: saved expansion, close from heading / open from rail (pointer and keyboard), one-line expand/collapse at 220px and 268px (ja, en), outline rows fill (${lines.one} one-line, ${lines.more} wrapped)`);
+  } finally {
+    if (browser) await browser.close();
+    await rm(root, { recursive: true, force: true });
   }
 }
