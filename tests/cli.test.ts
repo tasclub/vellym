@@ -121,7 +121,13 @@ spec: { status: ${status}, fields: { priority: high } }
     const args = ["list", "--config", config, "--kind", "Ticket", "--json"];
     const all = run(args);
     expect(all.status, all.stderr).toBe(0);
-    expect(JSON.parse(all.stdout).data.rows).toHaveLength(3);
+    const allRows = JSON.parse(all.stdout).data.rows;
+    expect(allRows).toHaveLength(3);
+    // 索引行は`values`としてそのまま出る。`statusCategory`で、依存先が
+    // 完了したかを`vellym list`だけで判定できる。
+    expect(
+      Object.fromEntries(allRows.map((r: { name: string; values: Record<string, string> }) => [r.name, r.values.statusCategory]))
+    ).toEqual({ "ticket-a": "open", "ticket-b": "open", "ticket-c": "closed" });
     const filtered = run([...args, "--where", "status=ready", "--where", "field:priority=high", "--where", "labels=team=core"]);
     expect(filtered.status, filtered.stderr).toBe(0);
     expect(JSON.parse(filtered.stdout).data.rows.map((row: { name: string }) => row.name)).toEqual(["ticket-a"]);

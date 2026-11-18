@@ -8,6 +8,7 @@ import {
   loadRepository,
   localizedPageSummaries,
   parsePagePatch,
+  pluginKinds,
   savePage,
   startDevServer,
   unknownKindGroups
@@ -456,6 +457,154 @@ describe("record projections", () => {
     // 定義が変わったので、変更していない項目の索引行も作り直される。
     const row = second.pages.find((entry) => entry.name === "item-01")?.indexRow;
     expect(row).toEqual({ label: "結合テスト", status: "open" });
+  });
+});
+
+describe("record set validators", () => {
+  /** 索引行が2件と、`_`始まりで索引に載らない行が1件ある領域 */
+  async function contentRootWithItems(): Promise<string> {
+    const contentRoot = await mkdtemp(path.join(tmpdir(), "vellym-validators-"));
+    await mkdir(path.join(contentRoot, "tests", "_保留"), { recursive: true });
+    const write = async (relativePath: string, lines: string[]) => {
+      await writeFile(path.join(contentRoot, relativePath), `${lines.join("\n")}\n`);
+    };
+    await write("tests/tracker.yaml", [
+      "apiVersion: vellym.tasclub.com/v1",
+      "kind: Demo",
+      "metadata:",
+      "  name: demo-tracker",
+      "  title: デモ"
+    ]);
+    for (const name of ["item-01", "item-02"]) {
+      await write(`tests/${name}.yaml`, [
+        "apiVersion: vellym.tasclub.com/v1",
+        "kind: DemoItem",
+        "metadata:",
+        `  name: ${name}`,
+        `  title: 項目 ${name}`,
+        "spec:",
+        "  status: open"
+      ]);
+    }
+    await write("tests/_保留/item-03.yaml", [
+      "apiVersion: vellym.tasclub.com/v1",
+      "kind: DemoItem",
+      "metadata:",
+      "  name: item-03",
+      "  title: 対象外の項目",
+      "spec:",
+      "  status: open"
+    ]);
+    return contentRoot;
+  }
+
+  const projectorFactory = () => (record: {
+    relativePath: string;
+    spec: Record<string, unknown>;
+  }) =>
+    record.relativePath.includes("/_")
+      ? undefined
+      : { values: { status: String(record.spec.status ?? "") } };
+
+  it("runs once after the index rows are ready and keeps returned diagnostics", async () => {
+    const contentRoot = await contentRootWithItems();
+    let calls = 0;
+    let seenNames: string[] = [];
+    let seenStatuses: unknown[] = [];
+    const validate = (rows: readonly { name: string; values: Record<string, unknown> }[]) => {
+      calls += 1;
+      seenNames = rows.map((row) => row.name).sort();
+      seenStatuses = rows.map((row) => row.values.status);
+      return [
+        {
+          file: rows[0]?.name ?? "",
+          path: "/spec/status",
+          severity: "warning" as const,
+          code: "DEMO_SET_CHECK",
+          message: { ja: "索引行の検査", en: "Index row check" }
+        }
+      ];
+    };
+    const snapshot = await loadRepository(contentRoot, undefined, {
+      knownKinds: new Set(["Demo", "DemoItem"]),
+      treeKinds: new Set(["Demo"]),
+      projections: new Map([["DemoItem", projectorFactory]]),
+      recordSetValidators: new Map([["DemoItem", [validate]]])
+    } as unknown as Parameters<typeof loadRepository>[2]);
+    expect(calls).toBe(1);
+    // 索引に載らない行は渡らない。identity（name・title）と索引行の値が渡る。
+    expect(seenNames).toEqual(["item-01", "item-02"]);
+    expect(seenStatuses).toEqual(["open", "open"]);
+    const warnings = snapshot.diagnostics.filter((item) => item.code === "DEMO_SET_CHECK");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ file: "item-01", severity: "warning" });
+  });
+
+  it("warns and keeps loading when a validator throws", async () => {
+    const contentRoot = await contentRootWithItems();
+    const snapshot = await loadRepository(contentRoot, undefined, {
+      knownKinds: new Set(["Demo", "DemoItem"]),
+      treeKinds: new Set(["Demo"]),
+      projections: new Map([["DemoItem", projectorFactory]]),
+      recordSetValidators: new Map([
+        [
+          "DemoItem",
+          [
+            () => {
+              throw new Error("検査器が壊れた");
+            }
+          ]
+        ]
+      ])
+    } as unknown as Parameters<typeof loadRepository>[2]);
+    // 例外でも読み込みは続き、索引行は残る。
+    const rows = snapshot.pages.filter((entry) => entry.kind === "DemoItem");
+    expect(rows.filter((entry) => entry.indexRow).map((entry) => entry.name).sort())
+      .toEqual(["item-01", "item-02"]);
+    const warnings = snapshot.diagnostics.filter(
+      (item) => item.code === "PLUGIN_RECORD_SET_VALIDATION_FAILED"
+    );
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ severity: "warning" });
+  });
+
+  it("reports the same diagnostic once when the same check runs twice", async () => {
+    // 3つのプラグインが同じエンジンを別々に同梱した状態を模す。関数の参照は
+    // 別だが返す診断は同じなので、file・path・codeで重複を除く。
+    const contentRoot = await contentRootWithItems();
+    const makeCopy = () => () => [
+      {
+        file: "item-01",
+        path: "/spec/status",
+        severity: "warning" as const,
+        code: "DEMO_SHARED_CHECK",
+        message: { ja: "共通の検査", en: "Shared check" }
+      }
+    ];
+    const snapshot = await loadRepository(contentRoot, undefined, {
+      knownKinds: new Set(["Demo", "DemoItem"]),
+      treeKinds: new Set(["Demo"]),
+      projections: new Map([["DemoItem", projectorFactory]]),
+      recordSetValidators: new Map([["DemoItem", [makeCopy(), makeCopy(), makeCopy()]]])
+    } as unknown as Parameters<typeof loadRepository>[2]);
+    const warnings = snapshot.diagnostics.filter((item) => item.code === "DEMO_SHARED_CHECK");
+    expect(warnings).toHaveLength(1);
+  });
+
+  it("runs a shared validator function once for the same kind", () => {
+    // 同じエンジンを共有モジュールとして読み込んだプラグインは、同じ参照を
+    // 登録する。kind別の集約時点で1本になる。
+    const shared = () => [];
+    const registry = {
+      plugins: [
+        { kinds: [], views: [], commands: [], projections: new Map(), recordSetValidators: new Map([["DemoItem", [shared, shared]]]) },
+        { kinds: [], views: [], commands: [], projections: new Map(), recordSetValidators: new Map([["DemoItem", [shared]]]) }
+      ],
+      kinds: new Map(),
+      diagnostics: []
+    } as unknown as Parameters<typeof pluginKinds>[0];
+    const kinds = pluginKinds(registry);
+    expect(kinds.recordSetValidators.get("DemoItem")).toHaveLength(1);
   });
 });
 

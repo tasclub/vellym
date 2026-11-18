@@ -23,8 +23,11 @@ import {
   type PageSummary
 } from "@vellym-internal/core";
 import type {
+  PluginDefinitionContext,
   PluginDiagnostic,
+  PluginIndexRow,
   PluginRecordProjectorFactory,
+  PluginRecordSetValidator,
   PluginResourceRecord
 } from "@vellym/plugin-api";
 import { RuntimeError } from "./errors.js";
@@ -323,6 +326,15 @@ export interface LoadRepositoryOptions {
    * 数の多いものと少ないものを、登録の有無だけで区別する。
    */
   projections?: ReadonlyMap<string, PluginRecordProjectorFactory>;
+  /**
+   * kindごとの「索引行全体を検査する関数」。プラグインが
+   * `registerRecordSetValidator`で登録する。
+   *
+   * hostはkindについて何も知らないまま、索引行がすべてそろった後に
+   * 1回ずつ呼ぶ。同じkindへ複数登録してよい。同じ関数（同じ参照）は
+   * 1回だけ実行し、返された診断は`file`・`path`・`code`で重複を除く。
+   */
+  recordSetValidators?: ReadonlyMap<string, PluginRecordSetValidator[]>;
 }
 
 /** 抽出済みリソースからプラグインへ渡すレコードを作る。pathもFSも渡さない */
@@ -350,6 +362,64 @@ function definitionSignature(records: readonly PluginResourceRecord[]): string {
     .map((record) => `${record.kind}\0${record.name}\0${JSON.stringify(record.spec)}`)
     .sort()
     .join("\n");
+}
+
+/** 重複除去の鍵。同じfile・path・codeは1度だけ出す */
+function diagnosticDedupKey(diagnostic: { file: string; path?: string; code: string }): string {
+  return `${diagnostic.file}\0${diagnostic.path ?? ""}\0${diagnostic.code}`;
+}
+
+/**
+ * 同じkindの索引行全体を、登録された検査関数へ渡す。
+ *
+ * **hostはkindについて何も知らない。** 行を`PluginIndexRow`の形へ組み立てて
+ * 渡すだけで、中身の解釈はプラグイン側にある。検査が投げても読み込みは続け、
+ * 警告にとどめる（1つの検査の失敗で一覧を丸ごと失わない）。
+ * 返された診断は`file`・`path`・`code`で重複を除いて足す。複数のプラグインが
+ * 同じエンジンを同梱して同じ診断を返しても、利用者には1度だけ見える。
+ */
+function runRecordSetValidators(
+  entries: readonly PageEntry[],
+  validators: ReadonlyMap<string, PluginRecordSetValidator[]>,
+  context: PluginDefinitionContext,
+  diagnostics: Diagnostic[]
+): void {
+  const seen = new Set(diagnostics.map(diagnosticDedupKey));
+  for (const [kind, list] of validators) {
+    if (!list.length) continue;
+    const rows: PluginIndexRow[] = [];
+    for (const entry of entries) {
+      if (entry.kind !== kind || !entry.indexRow) continue;
+      rows.push({ name: entry.name, title: entry.title, values: entry.indexRow });
+    }
+    for (const validate of list) {
+      let produced: readonly PluginDiagnostic[];
+      try {
+        produced = validate(rows, context);
+      } catch (error) {
+        diagnostics.push({
+          file: ".",
+          severity: "warning",
+          code: "PLUGIN_RECORD_SET_VALIDATION_FAILED",
+          message: {
+            ja: `kind ${kind}の索引行の検査が失敗しました: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            en: `The index row check for kind ${kind} failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          }
+        });
+        continue;
+      }
+      for (const item of produced ?? []) {
+        const key = diagnosticDedupKey(item);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        diagnostics.push({ ...item });
+      }
+    }
+  }
 }
 
 export async function loadRepository(
@@ -433,15 +503,15 @@ export async function loadRepository(
     }
   }
 
-  if (options.projections?.size) {
-    const context = {
+  if (options.projections?.size || options.recordSetValidators?.size) {
+    const context: PluginDefinitionContext = {
       records: (kind: string): readonly PluginResourceRecord[] =>
         definitionRecords.filter((record) => record.kind === kind),
       reportDiagnostic: (diagnostic: PluginDiagnostic) =>
         diagnostics.push({ ...diagnostic })
     };
     const projectors = new Map<string, ReturnType<PluginRecordProjectorFactory>>();
-    for (const [kind, create] of options.projections) {
+    for (const [kind, create] of options.projections ?? []) {
       try {
         projectors.set(kind, create(context));
       } catch (error) {
@@ -477,6 +547,13 @@ export async function loadRepository(
           message: error instanceof Error ? error.message : String(error)
         });
       }
+    }
+
+    // 索引行がそろった後、行をまたぐ検査を1回だけ走らせる。projectorは
+    // レコード1件ずつしか見えないため、参照の解決や循環はここでやる。
+    // 索引を作り直す経路（上の読み込み全体）はすべてここを通る。
+    if (options.recordSetValidators?.size) {
+      runRecordSetValidators(entries, options.recordSetValidators, context, diagnostics);
     }
   }
   pendingProjection.length = 0;

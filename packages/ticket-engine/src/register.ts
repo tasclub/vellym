@@ -2,6 +2,7 @@ import type { VellymPluginHost } from "@vellym/plugin-api";
 import { TICKET_KIND, TRACKER_KIND, readTrackers, trackerDefinitionDiagnostics } from "./definitions.js";
 import { TICKET_ICON, TICKET_TRACKER_ICON } from "./icons.js";
 import { projectTicket } from "./projection.js";
+import { validateTicketReferences } from "./references.js";
 import { TICKET_SPEC_SCHEMA, TICKET_TRACKER_SPEC_SCHEMA } from "./schemas.js";
 
 /** Ticket kind契約の版。複数プラグインが同梱してもhostが同版として解決する。 */
@@ -36,4 +37,8 @@ export function registerTicketEngine(host: VellymPluginHost): void {
     const trackers = readTrackers(context);
     return (record) => projectTicket(trackers, record);
   });
+  // 行をまたぐ検査（親の未解決・循環、参照の未解決・自分参照）。
+  // `registerTicketEngine`は複数プラグインが共有する登録関数なので、
+  // ここで渡す関数はモジュール内で1つであり、多重登録してもhostは1回だけ実行する。
+  host.registerRecordSetValidator(TICKET_KIND, validateTicketReferences);
 }

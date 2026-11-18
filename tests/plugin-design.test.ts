@@ -101,6 +101,7 @@ function activated() {
     registerView: (value) => views.set(value.id, value),
     registerCommand: (value) => commands.set(value.id, value),
     registerRecordProjection: (kind, value) => projections.set(kind, value),
+    registerRecordSetValidator: () => {},
     reportDiagnostic: () => {}
   });
   return { kinds, views, projections, commands };

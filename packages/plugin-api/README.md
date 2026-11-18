@@ -49,6 +49,27 @@ export default definePlugin({
       values: { status: String(record.spec.status ?? "") }
     }));
 
+    host.registerRecordSetValidator("Example", (rows) =>
+      // Runs once after every index row is ready. Checks that span records —
+      // references, cycles — belong here and nowhere else.
+      rows
+        .filter(
+          (row) =>
+            typeof row.values.duplicateOf === "string" &&
+            !rows.some((other) => other.name === row.values.duplicateOf)
+        )
+        .map((row) => ({
+          file: row.name,
+          path: "/spec/fields/duplicateOf",
+          severity: "warning" as const,
+          code: "EXAMPLE_REFERENCE_UNRESOLVED",
+          message: {
+            ja: "参照先のレコードが見つかりません",
+            en: "The referenced record was not found."
+          }
+        }))
+    );
+
     host.registerView({
       id: "example-list",
       static: true,
@@ -72,6 +93,7 @@ export default definePlugin({
 
 - A plugin never receives a filesystem path or the content root. It reads the extracted records the host hands it, and writes only through host commands, which use Vellym's normal save path.
 - Anything a plugin gets wrong — an unresolvable package, a manifest outside the declared version range, or an `activate` function that throws — becomes a diagnostic. It never fails `vellym validate`, `vellym build`, the dev server, or the SPA.
+- A `registerRecordSetValidator` check runs once per registration, after all index rows of that kind are ready. Several plugins may register checks for the same kind: the host runs the same function (same reference) once, deduplicates returned diagnostics by file, JSON Pointer, and code, and turns a throwing validator into a warning without stopping the load.
 - Data a plugin does not understand is preserved. Unknown fields and comments in canonical YAML survive a save round trip whether or not the plugin is enabled.
 
 ## Naming
@@ -131,6 +153,27 @@ export default definePlugin({
       values: { status: String(record.spec.status ?? "") }
     }));
 
+    host.registerRecordSetValidator("Example", (rows) =>
+      // 索引行がすべてそろった後に1回だけ呼ばれる。レコードをまたぐ検査
+      // （参照の解決・循環）はここでしか書けない。
+      rows
+        .filter(
+          (row) =>
+            typeof row.values.duplicateOf === "string" &&
+            !rows.some((other) => other.name === row.values.duplicateOf)
+        )
+        .map((row) => ({
+          file: row.name,
+          path: "/spec/fields/duplicateOf",
+          severity: "warning" as const,
+          code: "EXAMPLE_REFERENCE_UNRESOLVED",
+          message: {
+            ja: "参照先のレコードが見つかりません",
+            en: "The referenced record was not found."
+          }
+        }))
+    );
+
     host.registerView({
       id: "example-list",
       static: true,
@@ -154,6 +197,7 @@ export default definePlugin({
 
 - プラグインにファイルシステムのパスやcontent rootは渡しません。ホストが渡す抽出済みレコードを読み、Vellymの通常の保存経路を通るホストコマンドだけで書き込みます。
 - 解決できないパッケージ、宣言されたバージョン範囲外のmanifest、例外を投げる`activate`など、プラグインの問題は診断になります。`vellym validate`、`vellym build`、開発サーバー、SPAを失敗させません。
+- `registerRecordSetValidator`の検査は、そのkindの索引行がすべてそろった後に1回だけ走ります。複数のプラグインが同じkindへ登録してよい。同じ関数（同じ参照）は1回だけ実行され、返された診断はfile・JSON Pointer・codeで重複を除きます。検査が例外を投げても読み込みは続き、警告になります。
 - プラグインが理解できないデータも保持します。プラグインの有効・無効にかかわらず、正本YAMLの未知の項目やコメントは保存後も残ります。
 
 ## 命名

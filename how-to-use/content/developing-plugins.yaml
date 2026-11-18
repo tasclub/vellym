@@ -293,6 +293,7 @@ spec:
         | --- | --- |
         | `registerKind` | kind、`spec` JSON Schema、`engineVersion`、本文の有無、ツリー表示、16×16アイコンを登録する。`engineVersion`はkind契約のsemver。`specSchema`不一致はwarningとして診断し、種別固有の値は原文のまま保持する。 |
         | `registerRecordProjection` | 抽出済みレコードを、一覧と詳細が使う小さな索引行へ変換する。 |
+        | `registerRecordSetValidator` | 同じkindの索引行全体を、行がそろう後に1回だけ検査する。レコードをまたぐ参照の解決や循環はここで書く。同じkindへ複数登録でき、hostは同じ関数を1回だけ実行し、診断をfile・path・codeで重複を除く。 |
         | `registerView` | 汎用の一覧・詳細descriptor、または文脈からdescriptorを作る関数を登録する。独自renderer向けの`rendererData`と、一覧の`paperWidth`も宣言できる。 |
         | `registerCommand` | 入力項目と処理を登録する。新規リソースは`context.createResource()`で未保存ドラフトとして始める。 |
         | `reportDiagnostic` | 例外の代わりに、file、JSON Pointer、severity、安定したcode、messageを持つ診断を出す。 |
@@ -301,8 +302,8 @@ spec:
         `date`、`select`、`multiselect`、`reference`である。表示名は文字列、または
         `{ ja: "...", en: "..." }`のようなlocale別の対応で書ける。
 
-        利用者が正本YAMLへ書いた定義を参照する場合は、view providerやprojector
-        factoryの`context.records(kind)`を使う。これは設定リソースのような少数の
+        利用者が正本YAMLへ書いた定義を参照する場合は、view provider・projector factory・
+        record set validatorの`context.records(kind)`を使う。これは設定リソースのような少数の
         集合にだけ使い、大量の本体リソースはprojectionで索引化する。
 
         ## 独自のブラウザ画面が必要な場合
@@ -723,6 +724,7 @@ spec:
             | --- | --- |
             | `registerKind` | Registers a kind, its `spec` JSON Schema, `engineVersion`, body behavior, tree visibility, and optional 16×16 icon. `engineVersion` is the kind contract's semver. A `specSchema` mismatch is a warning; kind-specific values remain preserved as written. |
             | `registerRecordProjection` | Reduces extracted records to small index rows used by lists and details. |
+            | `registerRecordSetValidator` | Checks all index rows of one kind once, after they are ready. Cross-record checks — reference resolution and cycles — belong here. Several plugins may register for the same kind; the host runs the same function once and deduplicates diagnostics by file, path, and code. |
             | `registerView` | Registers a generic list/detail descriptor, or a function that creates one from context. Descriptors may include `rendererData` for a custom renderer and `paperWidth` for list views. |
             | `registerCommand` | Registers inputs and behavior. Start a resource as an unsaved draft with `context.createResource()`. |
             | `reportDiagnostic` | Reports a file, JSON Pointer, severity, stable code, and message instead of throwing. |
@@ -732,8 +734,9 @@ spec:
             locale map such as `{ ja: "...", en: "..." }`.
 
             When behavior depends on definitions in source YAML, call `context.records(kind)`
-            from a view provider or projector factory. Use it only for small sets such as
-            configuration resources. Index large resource sets through projections.
+            from a view provider, projector factory, or record set validator. Use it only for
+            small sets such as configuration resources. Index large resource sets through
+            projections.
 
             ## Add a custom browser view only when needed
 

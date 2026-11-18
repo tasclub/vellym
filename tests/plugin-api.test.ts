@@ -119,6 +119,7 @@ describe("plugin-api contract", () => {
       registerView: () => {},
       registerCommand: () => {},
       registerRecordProjection: (kind, project) => projections.set(kind, project),
+      registerRecordSetValidator: () => {},
       reportDiagnostic: () => {}
     };
 

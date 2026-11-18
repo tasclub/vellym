@@ -3,6 +3,7 @@ export * from "./definitions.js";
 export * from "./hierarchy.js";
 export * from "./icons.js";
 export * from "./projection.js";
+export * from "./references.js";
 export * from "./register.js";
 export * from "./schemas.js";
 export * from "./ulid.js";

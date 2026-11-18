@@ -1,6 +1,7 @@
 import type { PluginDiagnostic } from "./diagnostics.js";
 import type {
   PluginRecordProjectorFactory,
+  PluginRecordSetValidator,
   PluginPendingResource,
   PluginResourceDraft
 } from "./records.js";
@@ -200,6 +201,23 @@ export interface VellymPluginHost {
    * `() => (record) => ...`と書けばよい。受け口を1つに保つ。
    */
   registerRecordProjection(kind: string, createProjector: PluginRecordProjectorFactory): void;
+  /**
+   * 同じkindの索引行全体を検査する関数を登録する。
+   *
+   * projectorはリソース1件ずつしか見えないため、別リソースを参照する値の
+   * 検査が書けなかった。ここでは**索引行がすべてそろった後**に1回呼ばれ、
+   * そのkindの行すべてが渡される。参照先の存在や循環のように、行をまたぐ
+   * 検査だけをここでやる。
+   *
+   * 渡すのは索引行であり、`spec`もpathも渡さない。診断の`file`は索引行の
+   * `name`かcontent root相対pathをそのまま使う（hostは書き換えない）。
+   * 例外を投げても読み込みは続き、`PLUGIN_RECORD_SET_VALIDATION_FAILED`の
+   * 警告になる。
+   *
+   * 同じkindへ複数のプラグインが登録してよい。同じ関数（同じ参照）の再登録は
+   * 1回だけ実行され、診断は`file`・`path`・`code`で重複を除く。
+   */
+  registerRecordSetValidator(kind: string, validate: PluginRecordSetValidator): void;
   /**
    * 利用者へ診断を出す。例外を投げる代わりにこれを使う。
    * 例外は握られて診断になるが、そのとき位置情報は残らない。

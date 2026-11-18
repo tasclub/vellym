@@ -97,6 +97,10 @@ function activate() {
     string,
     Parameters<VellymPluginHost["registerRecordProjection"]>[1]
   >();
+  const recordSetValidators = new Map<
+    string,
+    Parameters<VellymPluginHost["registerRecordSetValidator"]>[1]
+  >();
   plugin.activate({
     pluginId: "tickets",
     hostVersion: "0.3.0-beta.1",
@@ -104,9 +108,10 @@ function activate() {
     registerView: (contribution) => views.set(contribution.id, contribution),
     registerCommand: (contribution) => commands.set(contribution.id, contribution),
     registerRecordProjection: (kind, create) => projections.set(kind, create),
+    registerRecordSetValidator: (kind, validate) => recordSetValidators.set(kind, validate),
     reportDiagnostic: () => {}
   });
-  return { kinds, views, commands, projections };
+  return { kinds, views, commands, projections, recordSetValidators };
 }
 
 function project(definitions: PluginResourceRecord[], ticket: PluginResourceRecord) {
@@ -653,5 +658,82 @@ describe("ticket plugin", () => {
     expect(descriptor.emptyState?.message).toMatchObject({
       ja: expect.stringContaining("ステータス")
     });
+  });
+});
+
+describe("status category on the index row", () => {
+  const values = (spec: Record<string, unknown>, relativePath = "30-実装/単体テスト/t.yaml") =>
+    project(trackers, record("Ticket", "ticket-01", relativePath, spec))?.values;
+
+  it("copies the category from the tracker's statuses", () => {
+    expect(values({ status: "open" })?.statusCategory).toBe("open");
+    expect(values({ status: "fixed" })?.statusCategory).toBe("closed");
+  });
+
+  it("leaves the category out when the status is missing or undefined", () => {
+    // 定義に無い状態・未設定・Trackerの配下外。値を作らず、既存の警告だけで示す。
+    expect(values({ status: "no-such-status" })?.statusCategory).toBeUndefined();
+    expect(values({})?.statusCategory).toBeUndefined();
+    expect(values({ status: "open" }, "notes/t.yaml")?.statusCategory).toBeUndefined();
+  });
+});
+
+describe("record set validator from the shared engine", () => {
+  const related = record("TicketTracker", "related-tickets", "50-設計/related-tickets.yaml", {
+    statuses: [{ id: "open", label: "未対応", category: "open" }],
+    fields: [
+      { id: "parent", label: "親", type: "reference" },
+      { id: "dependsOn", label: "依存", type: "reference" }
+    ],
+    hierarchy: { parentField: "parent" }
+  });
+
+  function row(
+    name: string,
+    fields: Record<string, string | readonly string[]>,
+    owners = ["related-tickets"]
+  ) {
+    return {
+      name,
+      title: name,
+      values: {
+        tracker: owners[0] ?? "",
+        trackers: owners,
+        ...Object.fromEntries(Object.entries(fields).map(([id, v]) => [`field:${id}`, v]))
+      }
+    };
+  }
+
+  it("registers one validator for Ticket", () => {
+    expect(activate().recordSetValidators.get("Ticket")).toBeTypeOf("function");
+  });
+
+  it("warns about unresolved parents, cycles, unresolved references and self references", () => {
+    const validate = activate().recordSetValidators.get("Ticket");
+    if (!validate) throw new Error("validator was not registered");
+    const diagnostics = validate(
+      [
+        row("ticket-a", { parent: "ticket-missing" }),
+        row("ticket-b", { parent: "ticket-c" }),
+        row("ticket-c", { parent: "ticket-b" }),
+        row("ticket-d", { dependsOn: "ticket-gone" }),
+        row("ticket-e", { dependsOn: "ticket-e" }),
+        // 解決できる参照は警告しない。配列の値も解決する。
+        row("ticket-f", { parent: "ticket-a", dependsOn: ["ticket-e", "ticket-nowhere"] }),
+        // 所有者が別のTrackerの行は、このTrackerが二重に警告しない。
+        row("ticket-z", { parent: "ticket-void" }, ["other-tickets", "related-tickets"])
+      ],
+      context([related])
+    );
+    expect(
+      [...diagnostics].map((d) => `${d.code} ${d.file} ${d.path} ${d.severity}`).sort()
+    ).toEqual([
+      "TICKET_PARENT_CYCLE ticket-b /spec/fields/parent warning",
+      "TICKET_PARENT_CYCLE ticket-c /spec/fields/parent warning",
+      "TICKET_PARENT_UNRESOLVED ticket-a /spec/fields/parent warning",
+      "TICKET_REFERENCE_SELF ticket-e /spec/fields/dependsOn warning",
+      "TICKET_REFERENCE_UNRESOLVED ticket-d /spec/fields/dependsOn warning",
+      "TICKET_REFERENCE_UNRESOLVED ticket-f /spec/fields/dependsOn warning"
+    ]);
   });
 });

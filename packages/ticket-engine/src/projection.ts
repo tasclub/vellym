@@ -20,7 +20,12 @@ export const TRACKER_KEY = "tracker";
 /** 上位すべて。一覧はこれで絞るため、子フォルダのチケットが親の一覧にも出る */
 export const TRACKERS_KEY = "trackers";
 export const STATUS_KEY = "status";
-/** Explicit, per-Ticket order for Kanban and other views. */
+/**
+ * 状態の分類（`open`・`closed`）。Trackerの`statuses`定義から引く。
+ * 状態が未定義なら載らない。外部のスクリプトが`vellym list`だけで
+ * 「依存先が完了したか」を判定できるようにするための値である。
+ */
+export const STATUS_CATEGORY_KEY = "statusCategory";
 /** 利用者が定義した項目の索引行キーに付ける接頭辞 */
 export const FIELD_KEY_PREFIX = "field:";
 export const fieldKey = (id: string): string => `${FIELD_KEY_PREFIX}${id}`;
@@ -142,7 +147,10 @@ export function projectTicket(
   } else {
     values[STATUS_KEY] = status;
     // 所属が無ければ定義も無い。「定義外」とは言えない。
-    if (tracker && tracker.statuses.length > 0 && !statusById(tracker, status)) {
+    const statusDefinition = tracker ? statusById(tracker, status) : undefined;
+    if (statusDefinition) {
+      values[STATUS_CATEGORY_KEY] = statusDefinition.category;
+    } else if (tracker && tracker.statuses.length > 0) {
       diagnostics.push(
         warn(
           record,

@@ -12,6 +12,8 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 ### 追加
 
+- プラグインAPIに`registerRecordSetValidator(kind, validate)`を足した。登録した検査は、そのkindの索引行がすべてそろった後に1回だけ、全索引行を受け取る。projectorでは書けなかった、レコードをまたぐ参照の解決・循環・突き合わせをここで書く。同じkindへ複数のプラグインが登録してよい。hostは同じ関数（同じ参照）を1回だけ実行し、返された診断をfile・JSON Pointer・codeで重複を除き、検査が投げても`PLUGIN_RECORD_SET_VALIDATION_FAILED`の警告にして読み込みを続ける。チケットエンジンはこの受け口で、Trackerごとに親の未解決（`TICKET_PARENT_UNRESOLVED`)・親の循環（`TICKET_PARENT_CYCLE`)・`reference`項目（親以外）の参照先の未解決（`TICKET_REFERENCE_UNRESOLVED`)・自己参照（`TICKET_REFERENCE_SELF`)を`validate`と画面に出す。
+- Ticketの索引行に`statusCategory`（`open`・`closed`。Trackerの`statuses`定義から引き、状態が未定義なら載らない）を載せた。`vellym list --kind Ticket --json`で読めるため、外部のスクリプトが`vellym list`だけで「依存先のTicketがすべて完了したか」を判定できる。
 - 既定のキー割り当てを足した: 検索（`/`・`Ctrl/⌘+K`）、保存（`Ctrl/⌘+S`）、編集を始める（`E`）、文書ツリーの開閉（`Ctrl/⌘+\`）、前・次のビュー（`[`・`]`）、キー一覧（`?`。設定画面からも開ける）。入力欄とエディタの中では文字入力を奪わず、日本語の変換中はどのキーも反応しない。表は利用ガイドの「ブラウザ画面の使い方」にもある。
 - `TicketTracker`の項目で、一覧の列（`listColumn`)・絞り込み（`filter`)・並べ替え（`sort`)を別々に宣言できるようにした。`filter`・`sort`の省略時の既定は`listColumn`と同じで、既存のTrackerの見た目と操作は変わらない。列に出さない項目は隠れた列となり、表と行内の副次情報には出ず、絞り込みと並べ替えにだけ使える。カンバンの絞り込み対象も`filter`が有効な項目になった。汎用の一覧画面の絞り込み欄に並べ替えの選択と昇順・降順の切り替えを追加し、列見出しのクリックと同じ並び順の状態を指す（個人設定への保存も同じ経路）。`TicketTracker.spec.defaultSort`で一覧を開いたときの既定の並べ替えを決められる。存在しない項目や並べ替えが無効な項目を指すと警告になり、一覧は今までどおり開く。プラグインAPIの`PluginColumnDescriptor`に`hidden`を追加した。
 - プラグイン索引の行を検索する読み取り専用の`vellym list`を追加した。

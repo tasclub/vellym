@@ -16,6 +16,7 @@ import {
   type PluginFilterDescriptor,
   type PluginLocalizedText,
   type PluginRecordProjectorFactory,
+  type PluginRecordSetValidator,
   type PluginViewContext,
   type PluginViewContribution,
   type PluginViewDescriptor,
@@ -49,6 +50,12 @@ export interface LoadedPlugin {
   commands: PluginCommandContribution[];
   /** kind → 定義を読んでprojectorを作る関数 */
   projections: Map<string, PluginRecordProjectorFactory>;
+  /**
+   * kind → 索引行全体を検査する関数。`projections`と違い、同じkindへ複数
+   * 登録できる（複数のプラグインが同じkindを解釈する場合があるため）。
+   * hostはkindについて何も知らないまま、行がそろう後に1回ずつ呼ぶ。
+   */
+  recordSetValidators: Map<string, PluginRecordSetValidator[]>;
 }
 
 export interface PluginRegistry {
@@ -68,10 +75,12 @@ export function pluginKinds(registry: PluginRegistry): {
   knownKinds: ReadonlySet<string>;
   treeKinds: ReadonlySet<string>;
   projections: ReadonlyMap<string, PluginRecordProjectorFactory>;
+  recordSetValidators: ReadonlyMap<string, PluginRecordSetValidator[]>;
   kindSchemas: ReadonlyMap<string, PluginKindContribution["specSchema"]>;
 } {
   const treeKinds = new Set<string>();
   const projections = new Map<string, PluginRecordProjectorFactory>();
+  const recordSetValidators = new Map<string, PluginRecordSetValidator[]>();
   const kindSchemas = new Map<string, PluginKindContribution["specSchema"]>();
   for (const plugin of registry.plugins) {
     for (const contribution of plugin.kinds) {
@@ -84,8 +93,24 @@ export function pluginKinds(registry: PluginRegistry): {
       if (registry.kinds.get(kind) !== plugin) continue;
       projections.set(kind, create);
     }
+    // 検査はkindを所有するプラグインに限定しない。同じkindを扱うプラグインが
+    // 並んでも検査は欲しいためである。同じ関数の多重登録と、同じ診断は
+    // repository側で束ねる。
+    for (const [kind, validators] of plugin.recordSetValidators) {
+      const list = recordSetValidators.get(kind) ?? [];
+      for (const validate of validators) {
+        if (!list.includes(validate)) list.push(validate);
+      }
+      recordSetValidators.set(kind, list);
+    }
   }
-  return { knownKinds: new Set(registry.kinds.keys()), treeKinds, projections, kindSchemas };
+  return {
+    knownKinds: new Set(registry.kinds.keys()),
+    treeKinds,
+    projections,
+    recordSetValidators,
+    kindSchemas
+  };
 }
 
 export interface LoadPluginsOptions {
@@ -393,7 +418,8 @@ async function loadOne(
     kinds: [],
     views: [],
     commands: [],
-    projections: new Map()
+    projections: new Map(),
+    recordSetValidators: new Map()
   };
 
   const host: VellymPluginHost = {
@@ -403,6 +429,11 @@ async function loadOne(
     registerView: (contribution) => plugin.views.push(contribution),
     registerCommand: (contribution) => plugin.commands.push(contribution),
     registerRecordProjection: (kind, project) => plugin.projections.set(kind, project),
+    registerRecordSetValidator: (kind, validate) => {
+      const validators = plugin.recordSetValidators.get(kind) ?? [];
+      validators.push(validate);
+      plugin.recordSetValidators.set(kind, validators);
+    },
     reportDiagnostic: (item) => registry.diagnostics.push({ ...item })
   };
 

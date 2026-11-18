@@ -72,7 +72,7 @@ describe("WBS as a TicketTracker view", () => {
     const commands: Parameters<VellymPluginHost["registerCommand"]>[0][] = [];
     plugin.activate({ pluginId: "wbs", hostVersion: "0.4.0-beta", registerKind: (value) => kinds.push(value.kind),
       registerView: (value) => views.push(value), registerCommand: (value) => commands.push(value),
-      registerRecordProjection: () => {}, reportDiagnostic: () => {} });
+      registerRecordProjection: () => {}, registerRecordSetValidator: () => {}, reportDiagnostic: () => {} });
     expect(kinds).toEqual(["Ticket", "TicketTracker"]);
     expect(views[0]).toMatchObject({ id: "wbs-tree", opensKind: "TicketTracker", static: true });
     expect(commands.map((command) => command.id)).toEqual(["ticket.create-tracker", "ticket.create"]);

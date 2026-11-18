@@ -9,7 +9,8 @@ spec:
     - id: ticket-management
       type: rich-text
       content: |
-        CLIのTicket索引キーは`status`・`tracker`・`trackers`・`labels`・`field:<項目ID>`。`vellym list --kind Ticket --where status=ready --json`や`vellym list --kind Ticket --where field:priority=high`で読み取り専用に検索できる。`_`配下はTracker一覧から除外されるが、CLIは読み込んだ全Ticketを出す。`_`配下は索引行がなく`values`は空、その他の所属のないTicketは`values.tracker`が空文字列となる。
+        CLIのTicket索引キーは`status`・`tracker`・`trackers`・`labels`・`field:<項目ID>`・`statusCategory`（`open`・`closed`。Trackerの`statuses`定義から引く分類で、状態が未定義なら値は無い）。`vellym list --kind Ticket --where status=ready --json`や`vellym list --kind Ticket --where field:priority=high`で読み取り専用に検索できる。`_`配下はTracker一覧から除外されるが、CLIは読み込んだ全Ticketを出す。`_`配下は索引行がなく`values`は空、その他の所属のないTicketは`values.tracker`が空文字列となる。
+        例えば`vellym list --kind Ticket --json`の`values`から`field:dependsOn`と`statusCategory`を読めば、外部のスクリプトが`vellym list`だけで「依存先のTicketがすべて完了したか」を判定できる。
 
         ## はじめる
 
@@ -194,7 +195,8 @@ spec:
         - id: ticket-management
           type: rich-text
           content: |
-            Ticket index keys are `status`, `tracker`, `trackers`, `labels`, and `field:<id>`. Query read-only with `vellym list --kind Ticket --where status=ready --json` or `vellym list --kind Ticket --where field:priority=high`. Tickets under `_` are excluded from tracker lists but the CLI includes all loaded tickets; these have empty `values`, while other tickets without an owner have an empty `values.tracker`.
+            Ticket index keys are `status`, `tracker`, `trackers`, `labels`, `field:<id>`, and `statusCategory` (`open` or `closed`, taken from the tracker's `statuses` definition; absent for undefined statuses). Query read-only with `vellym list --kind Ticket --where status=ready --json` or `vellym list --kind Ticket --where field:priority=high`. Tickets under `_` are excluded from tracker lists but the CLI includes all loaded tickets; these have empty `values`, while other tickets without an owner have an empty `values.tracker`.
+            For example, reading `field:dependsOn` and `statusCategory` from the `values` of `vellym list --kind Ticket --json` lets an external script decide whether every dependency of a ticket is done using `vellym list` alone.
 
             ## Get started
 

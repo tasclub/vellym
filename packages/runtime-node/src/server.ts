@@ -468,6 +468,7 @@ export async function startDevServer(options: {
     knownKinds: new Set<string>(),
     treeKinds: new Set<string>(),
     projections: new Map(),
+    recordSetValidators: new Map(),
     kindSchemas: new Map()
   };
   let pluginDiagnostics: Diagnostic[] = [];
@@ -565,6 +566,7 @@ export async function startDevServer(options: {
           knownKinds: new Set<string>(),
           treeKinds: new Set<string>(),
           projections: new Map(),
+          recordSetValidators: new Map(),
           kindSchemas: new Map()
         };
     const nextSnapshot = await loadRepository(
