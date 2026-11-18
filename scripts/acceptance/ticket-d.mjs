@@ -5,8 +5,8 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 
 const id = (number) => `TICKET-MANUAL-D${String(number).padStart(2, "0")}`;
-const TRACKER = "acc-tracker";
-const TICKETS = ["ticket-01accd0000000000000000001", "ticket-01accd0000000000000000002"];
+export const TRACKER = "acc-tracker";
+export const TICKETS = ["ticket-01accd0000000000000000001", "ticket-01accd0000000000000000002"];
 const ticketYaml = (name, title, status) => `apiVersion: vellym.tasclub.com/v1
 kind: Ticket
 metadata:
@@ -23,7 +23,7 @@ spec:
 `;
 
 /** A project with the ticket plugin, a tracker, two tickets and a page linking to one. */
-async function project(ctx, plugins = ["@vellym/tickets"]) {
+export async function project(ctx, plugins = ["@vellym/tickets"]) {
   const root = await ctx.temporary("ticket-d");
   const modules = ctx.path.join(root, "node_modules");
   await ctx.fs.mkdir(modules, { recursive: true });
