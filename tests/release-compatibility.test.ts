@@ -3,7 +3,7 @@ import path from "node:path";
 import semver from "semver";
 import { describe, expect, it } from "vitest";
 
-const pluginPackages = ["plugin-tickets", "plugin-kanban", "plugin-wbs"];
+const pluginPackages = ["plugin-tickets", "plugin-kanban", "plugin-wbs", "plugin-design"];
 
 describe("public plugin host compatibility", () => {
   for (const directory of pluginPackages) {
@@ -19,10 +19,11 @@ describe("public plugin host compatibility", () => {
     });
   }
 
-  it("release verification covers Kanban, WBS, and their private shared engine", () => {
+  it("release verification covers Kanban, WBS, design, and their private shared engine", () => {
     const source = readFileSync("scripts/verify-release.mjs", "utf8");
     expect(source).toContain('kanban: "packages/plugin-kanban"');
     expect(source).toContain('wbs: "packages/plugin-wbs"');
+    expect(source).toContain('design: "packages/plugin-design"');
     expect(source).toContain('ticketEngine: "packages/ticket-engine"');
   });
 

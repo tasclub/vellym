@@ -104,6 +104,20 @@ describe("package boundaries", () => {
     expect(packageJson("plugin-wbs").dependencies).toBeUndefined();
   });
 
+  it("keeps the design plugin standalone and on the public contract only", () => {
+    // 段階1aはVanilla DOMの仮画面。キャンバス画面でReact Flowを入れても
+    // devDependenciesへ入れesbuildで同梱し、`dependencies`には入れない。
+    // 配置はアートボード側の`spec`だけを読み、ticket-engineにも触れない。
+    const source = sourceText("plugin-design");
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).not.toMatch(/@vellym\/(?:tickets|kanban|wbs)/);
+    expect(source).not.toMatch(/from ["']node:/);
+    expect(source).toMatch(/from ["']@vellym\/plugin-api["']/);
+    const manifest = packageJson("plugin-design");
+    expect(manifest.dependencies).toBeUndefined();
+    expect(manifest.publishConfig?.access).toBe("public");
+  });
+
   it("keeps core independent from UI, runtime, CLI, and Node.js", () => {
     const source = sourceText("core");
     expect(source).not.toMatch(/@vellym-internal\/(runtime-node|ui-react)/);

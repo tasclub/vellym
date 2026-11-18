@@ -7,6 +7,7 @@ const packagePaths = {
   tickets: "packages/plugin-tickets",
   kanban: "packages/plugin-kanban",
   wbs: "packages/plugin-wbs",
+  design: "packages/plugin-design",
   vellym: "packages/vellym"
 };
 const manifests = Object.fromEntries(
@@ -38,7 +39,7 @@ for (const [key, packagePath] of Object.entries(packagePaths)) {
   }
 }
 
-for (const key of ["tickets", "kanban", "wbs"]) {
+for (const key of ["tickets", "kanban", "wbs", "design"]) {
   const plugin = manifests[key];
   const pluginApiRange = plugin.peerDependencies?.["@vellym/plugin-api"] ?? "";
   if (!semver.satisfies(manifests.pluginApi.version, pluginApiRange)) {
