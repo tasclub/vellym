@@ -11,6 +11,13 @@
 
 **A local-first documentation tool that keeps typed YAML under Git as the source of truth, presenting the same content as readable browser pages for people and structured files for AI agents.**
 
+![Reading a document with its tree and outline](https://raw.githubusercontent.com/tasclub/vellym/main/.github/readme/document.png)
+![Ticket list](https://raw.githubusercontent.com/tasclub/vellym/main/.github/readme/ticket-list.png)
+![Kanban board](https://raw.githubusercontent.com/tasclub/vellym/main/.github/readme/kanban.png)
+![WBS with a date timeline](https://raw.githubusercontent.com/tasclub/vellym/main/.github/readme/wbs.png)
+
+**Try the demo:** <https://vellym.tasclub.com/en/pages/demo-tickets/> (ticket list, Kanban, and WBS on the static site).
+
 Word and Notion are difficult for AI agents to handle structurally, while plain Markdown has weak typing and schema support. Vellym bridges that gap with **Kubernetes-manifest-style typed YAML (`apiVersion` / `kind`) plus a browser interface**. People read and edit visually; engineers and external AI agents work directly with the same YAML. The rendered HTML never drifts from its source.
 
 - **YAML is the source of truth** — review and version it with Git. HTML and diagrams are generated output.
@@ -112,6 +119,13 @@ MIT © tasclub
 ## 日本語
 
 **Git管理できる型付きYAMLを「正本」とし、同じ実体を人間にはブラウザ上の読みやすい文書として、AIエージェントには構造化ファイルとして両対応で提供する、ローカルファーストの文書管理ツール。**
+
+![文書の閲覧（文書ツリーと目次）](https://raw.githubusercontent.com/tasclub/vellym/main/.github/readme/document.png)
+![チケット一覧](https://raw.githubusercontent.com/tasclub/vellym/main/.github/readme/ticket-list.png)
+![カンバン](https://raw.githubusercontent.com/tasclub/vellym/main/.github/readme/kanban.png)
+![日程つきのWBS](https://raw.githubusercontent.com/tasclub/vellym/main/.github/readme/wbs.png)
+
+**デモを触る:** <https://vellym.tasclub.com/pages/demo-tickets/>（静的サイトでチケット一覧・カンバン・WBSを見られる）
 
 Word や Notion は AI エージェントが構造的に扱いにくく、素の Markdown は型・スキーマが弱い。Vellym はその間を **Kubernetes マニフェスト風の型付き YAML（`apiVersion` / `kind`）＋ ブラウザ表示** で埋める。人間は視覚的に読み書きし、エンジニアと外部 AI エージェントは同じ YAML を直接読み書きする。表示用の HTML と正本が乖離しない。
 

@@ -119,6 +119,16 @@ reports no error, so the check silently passes without having run.
 expanded folders, for one — looks correct for the whole session and resets on
 every reload. One reload at the end of the script catches it.
 
+### README screenshots
+
+The README shows four screenshots of the public guide's demo (`.github/readme/`). Retake them with one command:
+
+```bash
+npm run readme:screenshots
+```
+
+It builds the static guide and photographs the document view, ticket list, Kanban, and WBS at 1280×800 in Japanese; each file must stay at or below 300 KB. Retake them when a change alters how the document screen or the ticket screens look. Only the `how-to-use` demo is photographed, so no other documents appear. The images are not part of any npm package; the READMEs refer to them by absolute `raw.githubusercontent.com` URLs.
+
 ## Evolving the document format
 
 Vellym ships **one** Page schema and one Folder schema, not one per `apiVersion`.

@@ -106,6 +106,18 @@ describe("published README entry points", () => {
     expect(headings(japanese)).toEqual(translated);
   });
 
+  it.each(["README.md", "packages/vellym/README.md"])("shows the same screenshots in both languages of %s, from absolute URLs", (file) => {
+    // ticket-01m6sy03482dah0pzpqvmgx7b5: npm cannot show relative images, and the images are not packed.
+    const markdown = readFileSync(file, "utf8");
+    const images = (text: string) => [...text.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((match) => match[1]);
+    const english = images(section(markdown, "English"));
+    expect(english.length).toBeGreaterThanOrEqual(4);
+    expect(images(section(markdown, "日本語"))).toEqual(english);
+    for (const url of english) expect(url).toMatch(/^https:\/\/raw\.githubusercontent\.com\/tasclub\/vellym\/main\/\.github\/readme\/[a-z-]+\.(png|jpg)$/);
+    expect(section(markdown, "English")).toContain("https://vellym.tasclub.com/en/pages/demo-tickets/");
+    expect(section(markdown, "日本語")).toContain("https://vellym.tasclub.com/pages/demo-tickets/");
+  });
+
   it("uses only CLI commands and options present in the built --help", () => {
     const globalHelp = readCliHelp(["--help"]);
     const availableCommands = new Set(
