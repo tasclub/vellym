@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DocumentHeading } from "@vellym-internal/core";
 import { useTranslation } from "react-i18next";
 import styles from "./document-outline.module.css";
@@ -11,6 +11,36 @@ export function DocumentOutline(props: {
 }) {
   const { t } = useTranslation();
   const [current, setCurrent] = useState(props.headings[0]?.id);
+  const [copyResult, setCopyResult] = useState<"success" | "failure">();
+  const copyTimer = useRef<number | undefined>(undefined);
+  const focusedLocation = useRef<string | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(copyTimer.current), []);
+
+  function showCopyResult(result: "success" | "failure") {
+    window.clearTimeout(copyTimer.current);
+    setCopyResult(result);
+    copyTimer.current = window.setTimeout(() => setCopyResult(undefined), 3000);
+  }
+
+  async function copyLink() {
+    try {
+      const url = new URL(window.location.href);
+      let hash = url.hash.slice(1);
+      try {
+        hash = decodeURIComponent(hash);
+      } catch {
+        // A malformed hash cannot identify a heading.
+      }
+      const id = props.headings.find((heading) => heading.id === hash)?.id ?? current;
+      if (!id) throw new Error("No heading");
+      url.hash = id;
+      await navigator.clipboard.writeText(url.toString());
+      showCopyResult("success");
+    } catch {
+      showCopyResult("failure");
+    }
+  }
 
   useEffect(() => {
     setCurrent(props.headings[0]?.id);
@@ -39,7 +69,34 @@ export function DocumentOutline(props: {
     };
   }, [props.headings]);
 
-  const contents = props.headings.length ? (
+  useEffect(() => {
+    // Deep links can load the Page and its heading DOM after the router's
+    // initial focus request; focus again once this outline has the headings.
+    const encodedHash = new URL(window.location.href).hash.slice(1);
+    if (!encodedHash) return;
+    let id: string;
+    try {
+      id = decodeURIComponent(encodedHash);
+    } catch {
+      return;
+    }
+    if (!props.headings.some((heading) => heading.id === id)) return;
+
+    const location = `${props.pageId ?? ""}\0${window.location.pathname}${window.location.hash}`;
+    if (focusedLocation.current === location) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(id);
+      if (!target) return;
+      if (document.activeElement !== target) {
+        target.scrollIntoView({ block: "start" });
+        target.focus({ preventScroll: true });
+      }
+      focusedLocation.current = location;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [props.headings, props.pageId]);
+
+  const list = props.headings.length ? (
     <ol className={styles.list}>
       {props.headings.map((heading) => (
         <li
@@ -63,6 +120,17 @@ export function DocumentOutline(props: {
     </ol>
   ) : (
     <p className={styles.empty}>{t("outline.empty")}</p>
+  );
+  const contents = (
+    <>
+      <button className={styles.copy} type="button" disabled={!props.headings.length} onClick={copyLink}>
+        {t("outline.copyLink")}
+      </button>
+      <p className={styles.copyResult} aria-live="polite">
+        {copyResult && t(copyResult === "success" ? "outline.linkCopied" : "outline.copyFailed")}
+      </p>
+      {list}
+    </>
   );
 
   if (props.compact) {

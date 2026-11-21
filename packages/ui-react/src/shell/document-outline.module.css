@@ -9,6 +9,21 @@
   font-size: var(--size-ui);
 }
 
+.copy {
+  margin: 0 var(--space-2);
+  max-width: calc(100% - 2 * var(--space-2));
+}
+
+.copyResult {
+  margin: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--size-caption);
+}
+
+.copyResult:empty {
+  display: none;
+}
+
 .list {
   margin: 0;
   padding: 0;
