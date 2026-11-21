@@ -154,7 +154,7 @@
   "editor.unsupportedContent": "This document contains content this version cannot display.",
   "editor.linkProblemsHeading": "Link problems",
   "editor.loading": "Loading page",
-  "editor.mobileUnavailable": "Editing is available on screens 768px wide or more.",
+  "editor.mobileUnavailable": "This width is for reading only. Edit the body and ticket fields on a screen at least 768px wide.",
   "editor.moreFormats": "More formatting",
   "editor.orderedList": "Numbered list",
   "editor.pageSettings": "Page settings",

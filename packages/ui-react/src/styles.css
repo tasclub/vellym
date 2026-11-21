@@ -373,6 +373,7 @@
     .document-paper { padding: var(--space-5) var(--space-5); }
     .edit-desktop { display: none; }
     .edit-mobile-fallback { display: block; }
+    .edit-start-action, .create-action { display: none; }
   }
 
   /*

@@ -69,6 +69,8 @@ spec:
 
         ## 編集と保存
 
+        幅768px未満の画面（スマートフォンなど）では閲覧とナビゲーションのみ利用できる。編集は幅768px以上の画面で行う。
+
         - ページ本文はブラウザ上で編集できる。リッチテキスト編集と、YAMLの直接編集の
           両方に対応する。
         - 保存すると、内容は**ローカルのYAMLへ書き戻される**（Gitのcommitは行わない）。
@@ -238,6 +240,8 @@ spec:
             While typing in a field or the editor, only `Ctrl+K`, `Ctrl+S`, and `Ctrl+\` work; other keys type characters. No key reacts during IME composition.
 
             ## Editing and saving
+
+            On screens narrower than 768px (such as smartphones), only reading and navigation are available. Edit on a screen at least 768px wide.
 
             - Page bodies can be edited in the browser, both as rich text and as direct YAML.
             - Saving writes the content back to **local YAML** (it does not create a Git commit).

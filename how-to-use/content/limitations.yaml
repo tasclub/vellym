@@ -40,6 +40,7 @@ spec:
         - `rich-text`以外の追加ブロック
         - preset
         - 自動翻訳、翻訳の鮮度判定、翻訳ワークフロー、翻訳担当者への通知
+        - 幅768px未満の画面（スマートフォンなど）での編集。閲覧とナビゲーションはできる
 
         ## 製品の方針
 
@@ -107,6 +108,7 @@ spec:
             - Presets
             - Automatic translation, translation freshness detection, translation workflow,
               or translator notifications
+            - Editing on screens narrower than 768px (such as smartphones); reading and navigation are available
 
             ## Product policy
 

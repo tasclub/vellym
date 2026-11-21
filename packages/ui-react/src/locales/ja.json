@@ -155,7 +155,7 @@
   "editor.unsupportedContent": "この文書には、この版で表示できない内容があります。",
   "editor.linkProblemsHeading": "リンクの問題",
   "editor.loading": "Pageを読み込んでいます",
-  "editor.mobileUnavailable": "編集は幅768px以上の画面で利用できます。",
+  "editor.mobileUnavailable": "この幅では閲覧だけができます。本文とチケットの項目の編集は、幅768px以上の画面で行ってください。",
   "editor.moreFormats": "その他の書式",
   "editor.orderedList": "番号付きリスト",
   "editor.pageSettings": "ページ設定",

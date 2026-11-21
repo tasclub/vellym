@@ -418,7 +418,7 @@ export function WorkspaceShell(props: {
             {props.canManage && (
             <MenuTrigger>
               <Button
-                className={styles.manageButton}
+                className={`${styles.manageButton} create-action`}
                 isDisabled={!props.structureAvailable}
                 aria-label={t("nav.create")}
               >
@@ -426,7 +426,7 @@ export function WorkspaceShell(props: {
               </Button>
               <Popover lang={uiLang} className={styles.createPopover}>
                 <Menu
-                  className={styles.createMenu}
+                  className={`${styles.createMenu} create-action`}
                   aria-label={t("nav.create")}
                   onAction={(key) => {
                     const id = String(key);

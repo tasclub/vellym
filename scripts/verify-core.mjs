@@ -312,6 +312,20 @@ async function verify() {
     );
     await page.waitForTimeout(200);
 
+    await page.setViewportSize({ width: 390, height: 900 });
+    assert(await page.locator(".edit-mobile-fallback").isVisible(), "狭幅で編集不可の案内と閲覧表示が出ません");
+    assert(
+      await page.getByText("この幅では閲覧だけができます。本文とチケットの項目の編集は、幅768px以上の画面で行ってください。", { exact: true }).isVisible(),
+      "狭幅で編集不可の案内文が表示されません"
+    );
+    assert(!await editor.isVisible(), "狭幅でデスクトップ編集画面が表示されています");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    assert(await editor.isVisible(), "デスクトップ幅に戻しても編集画面が復帰しません");
+    assert(
+      (await editor.textContent())?.includes("日本語入力") && (await editor.textContent())?.includes("貼り付け確認"),
+      "画面幅変更後に編集内容が失われました"
+    );
+
     await page.getByRole("button", { name: /^設定/ }).click();
     await page.getByRole("heading", { name: "未保存の変更があります" }).waitFor();
     await page.getByRole("button", { name: "編集を続ける" }).click();
@@ -444,12 +458,28 @@ async function verifyNarrowTicketViews() {
       await page.getByRole("button", { name: "WBS", exact: true }).click();
       await page.locator(".wbs-row[data-ticket-name] .wbs-left").first().waitFor();
       await checkWbs();
+      await page.goto(`${baseUrl}/ja/pages/overview/`);
+      await page.getByRole("heading", { level: 1, name: "Vellymとは", exact: true }).waitFor();
+      const pageEditButton = page.getByRole("button", { name: "編集", exact: true });
+      if (width === 390) {
+        assert(await pageEditButton.count() === 0, "390pxのPageに編集ボタンがあります");
+        await page.locator("header").getByRole("button", { name: "文書ナビゲーションを開く", exact: true }).click();
+        const createButton = page.getByRole("button", { name: "新規作成", exact: true });
+        assert(await createButton.count() === 0, "390pxの文書ツリーに新規作成ボタンがあります");
+      } else {
+        assert(await pageEditButton.isVisible(), "1280pxのPageに編集ボタンがありません");
+        assert(await page.getByRole("button", { name: "新規作成", exact: true }).isVisible(), "1280pxの文書ツリーに新規作成ボタンがありません");
+      }
       // Ticket detail (ticket-01m7k6gftnq66d3qh00knvzbnc): single-line fields two to a row from
       // 1024px, one column on phones; multi-line fields span the row; empty optional fields
       // (this ticket has no parent) appear only while editing.
       await page.goto(`${baseUrl}/ja/pages/ticket-01m0m000000000000000000001/`);
       const fields = page.locator('dl[class*="plugin-detail-fields"]');
       await fields.waitFor();
+      assert(await fields.isVisible(), `${width}pxのチケット項目が閲覧表示で見えません`);
+      const ticketEditButton = page.getByRole("button", { name: "編集", exact: true });
+      if (width === 390) assert(await ticketEditButton.count() === 0, "390pxのチケット詳細に編集ボタンがあります");
+      else assert(await ticketEditButton.isVisible(), "1280pxのチケット詳細に編集ボタンがありません");
       const layout = await fields.evaluate((dl) => {
         const items = [...dl.children];
         const narrow = items.filter((item) => !item.hasAttribute("data-wide"));
@@ -484,7 +514,7 @@ async function verifyNarrowTicketViews() {
       }
       await page.close();
     }
-    console.log("- ticket views: narrow overflow, WBS scrolling, desktop geometry and detail field layout");
+    console.log("- ticket views: narrow overflow, mobile read-only actions, WBS scrolling, desktop geometry and detail field layout");
   } finally {
     if (browser) await browser.close();
     if (server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }
