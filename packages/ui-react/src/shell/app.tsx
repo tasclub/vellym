@@ -76,6 +76,7 @@ import {
   pageEditExport,
   pageEditPatch,
   pageEditSessionDirty,
+  rebasePageEditSession,
   type PageEditSession
 } from "../editor/page-edit-session.js";
 import { planTreeMove } from "./tree-move.js";
@@ -1262,6 +1263,12 @@ export function App() {
           setSaveState("conflict");
           setExternalChange(true);
           setSaveError(error.message);
+          try {
+            const locale = requestedLocale ?? bootstrap?.project.defaultLocale ?? editSession.baseLocale;
+            setConflictView((await fetchPage(editSession.pageId, undefined, locale)).data);
+          } catch {
+            setSaveError(t("app.saveErrorReloadNeeded", { message: error.message }));
+          }
           return false;
         }
         setSaveState("failure");
@@ -1818,6 +1825,7 @@ export function App() {
           onKeepDraft={() => {
             if (!conflictView) return;
             setView(conflictView);
+            setEditSession((current) => current ? rebasePageEditSession(current, conflictView.hash) : current);
             setConflictView(undefined);
             setExternalChange(false);
             setSaveState("dirty");
@@ -1828,7 +1836,7 @@ export function App() {
           }}
           onReload={() => {
             if (!view) return;
-            if (hasUnsavedChanges) {
+            if (hasUnsavedChanges && saveState !== "conflict") {
               setPendingLeave({ kind: "reload" });
             } else {
               void loadPage(view.page.metadata.name, true);

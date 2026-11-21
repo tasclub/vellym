@@ -70,6 +70,10 @@ export function createPageEditSession(
   };
 }
 
+export function rebasePageEditSession(session: PageEditSession, baseHash: string): PageEditSession {
+  return { ...session, baseHash };
+}
+
 export function addPageLocale(
   session: PageEditSession,
   localeInput: string,
