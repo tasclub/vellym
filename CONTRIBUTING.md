@@ -27,6 +27,19 @@ Run `npm run verify:acceptance` for the automated manual-acceptance scenarios in
 Chromium, and prints PASS / FAIL / BLOCKED / NOT RUN counts. Evidence (commit,
 execution time, per-check details and durations) is in `dist/acceptance/result.json`.
 Any FAIL exits with code 1; BLOCKED and NOT RUN are reported, not counted as passes.
+Run only selected modules with `node scripts/verify-acceptance.mjs --file core-a`
+(repeat `--file`, e.g. `--file core-a --file ticket-d`). Build first when changing
+code. Unknown module names exit with code 2 and list available names.
+Each module runs in its own process group with fresh state, browser and servers.
+The parent prints each step's start/end and kills the whole group if no worker
+line arrives for 10 minutes (`--step-timeout-ms 600000` to override), escalating
+from SIGTERM to SIGKILL after 5 seconds. The active step becomes FAIL and remaining
+steps in that module become NOT RUN; subsequent modules still run. Server shutdown
+also escalates after 5 seconds and records a warning in detail.
+`result.json` is replaced at startup, on progress, after each module, and at the end.
+It includes `runId`, `startedAt`, `filter`, `running`, and `complete`; only
+`complete: true` means the run finished. SIGINT/SIGTERM stop the active group,
+save `complete: false, interrupted: true`, and exit 130.
 Modules export `steps = [{ id, title, run(ctx) }]`; `ctx` provides temporary roots,
 CLI/Git commands, filesystem access, dev servers on available ports, browser pages,
 `check(title, fn)` (aggregated assertions), `note(text)`, and `blocked(reason)`.
