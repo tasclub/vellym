@@ -368,6 +368,7 @@ export function App() {
   const [copyMessage, setCopyMessage] = useState("");
   const [conflictView, setConflictView] = useState<PageView>();
   const [pendingLeave, setPendingLeave] = useState<PendingLeave>();
+  const [editorFocusRequest, setEditorFocusRequest] = useState(0);
   /**
    * プラグインのブラウザ側エントリ。読み込みに失敗しても**SPAは起動したまま**
    * にする。宣言で描ける画面はそのまま出る。
@@ -1677,6 +1678,7 @@ export function App() {
           />
         ) : (
         <EditorWorkspace
+          focusRequest={editorFocusRequest}
           onOpenChanges={view && gitStatus.available && gitStatus.files.some((f) => f.path === view.relativePath) ? () => { setChangePath(view.relativePath); setArea("changes"); } : undefined}
           view={view}
           onNavigatePage={navigate}
@@ -1879,7 +1881,10 @@ export function App() {
           isOpen: Boolean(pendingLeave),
           destination: leaveDestination,
           busy: saveState === "saving",
-          onStay: () => setPendingLeave(undefined),
+          onStay: () => {
+            setPendingLeave(undefined);
+            setEditorFocusRequest((request) => request + 1);
+          },
           onSaveAndLeave: () => void saveAndLeave(),
           onDiscard: discardAndLeave
         }}

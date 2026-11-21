@@ -229,6 +229,8 @@ export function EditorWorkspace(props: {
   /** 紙の外、いちばん上に出すもの。一覧へ戻る導線のように紙の内容でないもの */
   aboveSurface?: ReactNode;
   onOpenChanges?(): void;
+  /** 未保存確認を閉じて編集を続けるとき、元の編集欄へフォーカスを戻す要求 */
+  focusRequest?: number;
   view?: PageView;
   draft?: PageView;
   conflictView?: PageView;
@@ -275,6 +277,9 @@ export function EditorWorkspace(props: {
   onNavigatePage?(pageId: string, heading?: string): void;
 }) {
   const adapters = useRef(new Map<string, VellymEditorAdapter>());
+  const workspaceRef = useRef<HTMLElement | null>(null);
+  const lastFocusedInput = useRef<HTMLElement | undefined>(undefined);
+  const previousFocusRequest = useRef(props.focusRequest);
   // Mod+S saves while editing; E starts editing while reading (shell/shortcuts.ts).
   // The editor reports typing after a short delay, so a key press right after typing would
   // save the older text: hand over each editor's current value first, then save next tick.
@@ -306,6 +311,40 @@ export function EditorWorkspace(props: {
   } : undefined);
   useShortcutAction("edit", ready && !props.editing && props.canEdit ? props.onStartEdit : undefined);
   const activeAdapter = useRef<VellymEditorAdapter | undefined>(undefined);
+  useEffect(() => {
+    if (
+      props.focusRequest === undefined ||
+      props.focusRequest === previousFocusRequest.current
+    ) {
+      return;
+    }
+    previousFocusRequest.current = props.focusRequest;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      // react-aria restores focus to the element that opened the dialog in its
+      // close lifecycle. Wait until that restoration has completed before
+      // returning focus to the edit target.
+      secondFrame = window.requestAnimationFrame(() => {
+        const workspace = workspaceRef.current;
+        const target = lastFocusedInput.current;
+        if (
+          workspace &&
+          target &&
+          target.isConnected &&
+          workspace.contains(target) &&
+          !target.closest("[hidden]")
+        ) {
+          target.focus();
+          return;
+        }
+        (activeAdapter.current ?? adapters.current.values().next().value)?.focus();
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [props.focusRequest]);
   const [editorState, setEditorState] = useState<EditorStateSnapshot>({
     canUndo: false,
     canRedo: false,
@@ -418,7 +457,24 @@ export function EditorWorkspace(props: {
   }
 
   return (
-    <section className="workspace edit-workspace">
+    <section
+      ref={workspaceRef}
+      className="workspace edit-workspace"
+      onFocusCapture={(event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        // ProseMirror owns its selection; adapter.focus() restores it. Keep
+        // actual form controls separately so clicking Cancel does not replace
+        // the last plugin/editor input with the button that opened the dialog.
+        if (target.closest('[contenteditable="true"]')) {
+          lastFocusedInput.current = undefined;
+        } else if (
+          target.matches("input, textarea, select, [role='textbox'], [role='combobox']")
+        ) {
+          lastFocusedInput.current = target;
+        }
+      }}
+    >
       <div className="edit-desktop">
         {props.aboveSurface}
         {props.editLanguageControls}
