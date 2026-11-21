@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import {
   loadConfig,
   diagnoseAssets,
@@ -10,6 +11,7 @@ import {
   pageSummaries,
   pluginKinds,
   planMigration,
+  resourceSchema,
   startDevServer
 } from "@vellym-internal/runtime-node";
 import { API_SCHEMA_VERSION, type Diagnostic } from "@vellym-internal/core";
@@ -51,6 +53,8 @@ function commandHelp(command: string): string {
       return messages.validateHelp();
     case "list":
       return messages.listHelp();
+    case "schema":
+      return messages.schemaHelp();
     case "build":
       return messages.buildHelp();
     case "migrate":
@@ -161,6 +165,97 @@ async function listCommand(args: string[]): Promise<number> {
   return 0;
 }
 
+const CORE_SCHEMA_KINDS = [
+  ["Page", "page.schema.json"],
+  ["Folder", "folder.schema.json"],
+  ["PageTranslation", "page-translation.schema.json"],
+  ["FolderTranslation", "folder-translation.schema.json"]
+] as const;
+
+const CORE_SCHEMA_VERSION = "v1";
+
+function readBundledSchema(fileName: string): Record<string, unknown> {
+  const schemaDirectory = path.join(path.dirname(fileURLToPath(import.meta.url)), "schemas");
+  return JSON.parse(readFileSync(path.join(schemaDirectory, fileName), "utf8")) as Record<string, unknown>;
+}
+
+function isSchemaObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function coreSchemaForKind(kind: string): Record<string, unknown> | undefined {
+  const entry = CORE_SCHEMA_KINDS.find(([name]) => name === kind);
+  if (!entry) return undefined;
+  const [_, fileName] = entry;
+  const schema = readBundledSchema(fileName);
+  if (kind === "Page" || kind === "Folder") {
+    const properties = isSchemaObject(schema.properties) ? schema.properties : {};
+    const specSchema = isSchemaObject(properties.spec) ? properties.spec : {};
+    return resourceSchema({
+      pageSchema: schema,
+      kind,
+      specSchema,
+      version: CORE_SCHEMA_VERSION
+    });
+  }
+  // Translation schemas describe the translation mapping stored inside a resource.
+  // They have no apiVersion/kind/spec envelope, but use the same versioned public ID.
+  return {
+    ...schema,
+    $id: `https://vellym.tasclub.com/schemas/${CORE_SCHEMA_VERSION}/${fileName}`
+  };
+}
+
+async function schemaCommand(args: string[]): Promise<number> {
+  const list = args.includes("--list");
+  const kind = option(args, "--kind");
+  const configPath = option(args, "--config");
+  const languageValue = option(args, "--language");
+  if (languageValue && languageValue !== "ja" && languageValue !== "en") {
+    throw new UsageError(messages.languageInvalid());
+  }
+  if (list && kind) throw new UsageError(messages.schemaModeInvalid());
+  if (!list && !kind) throw new UsageError(messages.schemaKindRequired());
+
+  const loaded = configPath
+    ? await loadConfig(path.resolve(configPath), cliLanguageFromArgs(args) ?? "ja")
+    : undefined;
+  if (loaded && !cliLanguageFromArgs(args)) setLanguage(loaded.config.ui.language);
+  const plugins = loaded
+    ? await loadPlugins({
+        configDir: path.dirname(loaded.configPath),
+        packageNames: loaded.config.plugins,
+        hostVersion: VELLYM_VERSION
+      })
+    : undefined;
+  const kinds = plugins ? pluginKinds(plugins) : undefined;
+  const available = [
+    ...CORE_SCHEMA_KINDS.map(([name]) => name),
+    ...[...(kinds?.knownKinds ?? [])]
+      .filter((name) => !CORE_SCHEMA_KINDS.some(([coreName]) => coreName === name))
+      .sort()
+  ];
+
+  if (list) {
+    process.stdout.write(`${available.join("\n")}\n`);
+    return 0;
+  }
+
+  if (!available.includes(kind!)) {
+    process.stderr.write(`${messages.schemaKindInvalid(kind!, available)}\n`);
+    return 1;
+  }
+
+  const schema = coreSchemaForKind(kind!) ?? resourceSchema({
+    pageSchema: readBundledSchema("page.schema.json"),
+    kind: kind!,
+    specSchema: (kinds?.kindSchemas.get(kind!) ?? {}) as Record<string, unknown>,
+    version: CORE_SCHEMA_VERSION
+  });
+  process.stdout.write(`${JSON.stringify(schema, null, 2)}\n`);
+  return 0;
+}
+
 async function buildCommand(args: string[]): Promise<number> {
   const json = args.includes("--json");
   const result = await buildStatic(resolveConfigPath(args));
@@ -246,7 +341,7 @@ async function main(args = process.argv.slice(2)): Promise<void> {
     return;
   }
   if (
-    ["init", "dev", "validate", "list", "build", "migrate"].includes(command) &&
+    ["init", "dev", "validate", "list", "schema", "build", "migrate"].includes(command) &&
     args.slice(1).includes("--help")
   ) {
     process.stdout.write(commandHelp(command));
@@ -299,6 +394,10 @@ async function main(args = process.argv.slice(2)): Promise<void> {
   }
   if (command === "list") {
     process.exitCode = await listCommand(args.slice(1));
+    return;
+  }
+  if (command === "schema") {
+    process.exitCode = await schemaCommand(args.slice(1));
     return;
   }
   if (command === "build") {

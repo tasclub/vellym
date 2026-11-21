@@ -113,6 +113,8 @@ spec:
           2値だけで、他の値を書いたその要素は読み飛ばされる。
         - **配列の先頭が新規作成時の初期値**になり、配列順がそのまま表示順になる。
           初期値を指定するキーは無い。並べ替えて変える。
+        - `select`項目の初期値は選択肢の先頭。新しいTicketの`blockReason`を`none`にするなら、
+          `options`の先頭を`{ value: none, label: なし }`にする。
         - `fields[]`は`id`／`label`／`type`が必須。`required`と`listColumn`は省略すると
           `false`。
         - `required`は**画面から新しく作るときだけ**入力を強制する。既存チケットの編集も、
@@ -193,6 +195,9 @@ spec:
         値は参照の配列になり、一覧・検索・並び替え・集計は`multiselect`と同じ扱いになる
         （件数は値の個数を表示し、並び替えは配列の先頭の値を使う）。型に合わない値も
         警告として残る。詳細画面ではTicket名のカンマ区切りとして編集し、名称を並べて表示する。
+        `reference`の値は、同じ`TicketTracker`に属するTicketの`metadata.name`である。
+        存在しない名前は`validate`で`TICKET_REFERENCE_UNRESOLVED`警告になる。
+        `multiple: true`ならTicket名の配列を書く。
         `multiple: true`を付けた項目は、階層の設定で「親を指す参照項目」に選べない
         （`TICKET_PARENT_FIELD_INVALID`として報告される）。
 
@@ -325,6 +330,8 @@ spec:
               `open` and `closed`; an entry with any other value is skipped.
             - **The first entry is the initial value** for a new ticket, and array order is
               display order. There is no key for declaring a default. Reorder to change it.
+            - A `select` field uses its first option as the initial value. To start new tickets
+              with `blockReason: none`, put `{ value: none, label: None }` first in `options`.
             - `fields[]` requires `id`, `label`, and `type`. `required` and `listColumn`
               default to `false`.
             - `required` is enforced **only when creating from the screen**. It blocks neither
@@ -410,6 +417,9 @@ spec:
             number of values, and sorting uses the first value of the array). Values that
             do not match the type are kept as warnings. The detail screen edits the array
             as a comma-separated list of ticket names and displays the names side by side.
+            A `reference` value is the `metadata.name` of a ticket in the same `TicketTracker`.
+            A name that does not exist there produces the `TICKET_REFERENCE_UNRESOLVED` warning
+            during `validate`. With `multiple: true`, write an array of ticket names.
             A field with `multiple: true` cannot be chosen as the parent reference field
             in the hierarchy settings (`TICKET_PARENT_FIELD_INVALID`).
 

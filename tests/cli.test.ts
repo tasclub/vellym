@@ -14,6 +14,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
+import { resourceSchema } from "../packages/runtime-node/src/resource-schema.js";
+import {
+  TICKET_SPEC_SCHEMA,
+  TICKET_TRACKER_SPEC_SCHEMA
+} from "../packages/ticket-engine/src/schemas.js";
 
 const cli = path.resolve("packages/vellym/dist/cli.mjs");
 
@@ -94,6 +99,78 @@ async function staticDataDir(output: string, locale?: string): Promise<string> {
 }
 
 describe("published CLI shape", () => {
+  it("lists Core and configured plugin schemas, and emits the shared resource schemas", () => {
+    const coreKinds = ["Page", "Folder", "PageTranslation", "FolderTranslation"];
+    const coreList = run(["schema", "--list"]);
+    expect(coreList.status, coreList.stderr).toBe(0);
+    expect(coreList.stdout.trim().split("\n")).toEqual(coreKinds);
+
+    const config = "how-to-use/vellym.config.yaml";
+    const configuredList = run(["schema", "--list", "--config", config]);
+    expect(configuredList.status, configuredList.stderr).toBe(0);
+    expect(configuredList.stdout.trim().split("\n")).toEqual(
+      expect.arrayContaining([...coreKinds, "Ticket", "TicketTracker"])
+    );
+
+    const pageSchema = JSON.parse(
+      readFileSync(path.resolve("packages/vellym/dist/schemas/page.schema.json"), "utf8")
+    ) as Record<string, unknown>;
+    const ticket = run(["schema", "--kind", "Ticket", "--config", config]);
+    expect(ticket.status, ticket.stderr).toBe(0);
+    expect(JSON.parse(ticket.stdout)).toEqual(resourceSchema({
+      pageSchema,
+      kind: "Ticket",
+      specSchema: TICKET_SPEC_SCHEMA,
+      version: "v1"
+    }));
+
+    const tracker = run(["schema", "--kind", "TicketTracker", "--config", config]);
+    expect(tracker.status, tracker.stderr).toBe(0);
+    expect(JSON.parse(tracker.stdout)).toEqual(resourceSchema({
+      pageSchema,
+      kind: "TicketTracker",
+      specSchema: TICKET_TRACKER_SPEC_SCHEMA,
+      version: "v1"
+    }));
+  });
+
+  it("matches the schemas generated for the public site", () => {
+    const builtSite = spawnSync(process.execPath, ["scripts/build-site.mjs"], {
+      encoding: "utf8"
+    });
+    expect(builtSite.status, `${builtSite.stdout}\n${builtSite.stderr}`).toBe(0);
+
+    const config = "how-to-use/vellym.config.yaml";
+    const schemas = [
+      { kind: "Page", file: "page.schema.json" },
+      { kind: "Folder", file: "folder.schema.json" },
+      { kind: "PageTranslation", file: "page-translation.schema.json" },
+      { kind: "FolderTranslation", file: "folder-translation.schema.json" },
+      { kind: "Ticket", file: "ticket.schema.json", config },
+      { kind: "TicketTracker", file: "ticket-tracker.schema.json", config }
+    ];
+    for (const item of schemas) {
+      const result = run([
+        "schema",
+        "--kind",
+        item.kind,
+        ...(item.config ? ["--config", item.config] : [])
+      ]);
+      expect(result.status, `${item.kind}: ${result.stderr}`).toBe(0);
+      const published = JSON.parse(
+        readFileSync(path.resolve("dist/site/schemas/v1", item.file), "utf8")
+      );
+      expect(JSON.parse(result.stdout), item.kind).toEqual(published);
+    }
+  }, 30_000);
+
+  it("returns code 1 with the available kinds for an unknown schema", () => {
+    const result = run(["schema", "--kind", "Missing", "--language", "en"]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Unknown kind: Missing");
+    expect(result.stderr).toContain("Page");
+  });
+
   it("lists filtered plugin index rows without changing resources", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-list-"));
     expect(run(initArgs(root)).status).toBe(0);

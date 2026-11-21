@@ -13,7 +13,7 @@ spec:
       content: |
         ## 概要
 
-        現在のCLIは、`init`・`dev`・`validate`・`list`・`build`・`migrate`を提供する。
+        現在のCLIは、`init`・`dev`・`validate`・`list`・`schema`・`build`・`migrate`を提供する。
         以下は生成済みCLIを直接呼ぶ例で示す。
 
         ```bash
@@ -92,6 +92,24 @@ spec:
 
         `vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]`はリソースを変更せず索引行を表示する。`--where`は完全一致、配列は要素の一致、複数条件はAND。`--json`は`data: { kind, rows }`と診断を出す。診断があっても終了コードは0、kind省略・未知のkind・不正な条件は2。検証は`validate`を使う。
 
+        ## schema — JSON Schema
+
+        ```bash
+        vellym schema --kind <kind> [--config <path>] [--language ja|en]
+        vellym schema --list [--config <path>] [--language ja|en]
+        ```
+
+        `--kind`はインストール済みの版に対応するkind全体のJSON Schemaを、整形JSONで標準出力へ出す（`--json`は不要）。
+        `--list`はkind名を1行ずつ表示する。`--config`を指定すると、その設定の`plugins`が登録したkindも含める。
+        省略時はCoreの`Page`・`Folder`・`PageTranslation`・`FolderTranslation`だけを扱う。
+        プラグインkindのschemaは`registerKind`の`specSchema`から作る。未知のkindは終了コード`1`となり、指定可能なkindを表示する。
+
+        ```bash
+        vellym schema --kind Page
+        vellym schema --kind Ticket --config vellym.config.yaml
+        vellym schema --list --config vellym.config.yaml
+        ```
+
         ## validate — 検証
 
         ```bash
@@ -148,7 +166,7 @@ spec:
           content: |
             ## Overview
 
-            The CLI provides `init`, `dev`, `validate`, `list`, `build`, and `migrate`.
+            The CLI provides `init`, `dev`, `validate`, `list`, `schema`, `build`, and `migrate`.
             The examples below invoke the built CLI directly.
 
             ```bash
@@ -235,6 +253,26 @@ spec:
             ## list — index rows
 
             `vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]` lists index rows without modifying resources. `--where` matches exactly, including array elements; repeated conditions are ANDed. `--json` emits `data: { kind, rows }` and diagnostics. Diagnostics do not change exit code 0; missing or unknown kind and invalid filters exit 2. Use `validate` to check resources.
+
+            ## schema — JSON Schema
+
+            ```bash
+            vellym schema --kind <kind> [--config <path>] [--language ja|en]
+            vellym schema --list [--config <path>] [--language ja|en]
+            ```
+
+            `--kind` prints the complete JSON Schema for a kind in the installed version as
+            formatted JSON on stdout (`--json` is not needed). `--list` prints one kind per line.
+            With `--config`, the list also includes kinds registered by that config's plugins.
+            Without it, only the Core kinds `Page`, `Folder`, `PageTranslation`, and
+            `FolderTranslation` are available. Plugin schemas are built from the `specSchema`
+            passed to `registerKind`. An unknown kind exits with code `1` and lists available kinds.
+
+            ```bash
+            vellym schema --kind Page
+            vellym schema --kind Ticket --config vellym.config.yaml
+            vellym schema --list --config vellym.config.yaml
+            ```
 
             ## validate — validate
 

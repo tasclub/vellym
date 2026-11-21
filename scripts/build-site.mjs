@@ -2,9 +2,25 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { transform } from "esbuild";
 
 const root = path.resolve(import.meta.dirname, "..");
 const output = path.join(root, "dist/site");
+
+// runtime-node is distributed as TypeScript source inside the workspace. Compile this
+// dependency-free helper in memory so the CLI and public schemas call the same function.
+const resourceSchemaSource = await readFile(
+  path.join(root, "packages/runtime-node/src/resource-schema.ts"),
+  "utf8"
+);
+const { code: resourceSchemaCode } = await transform(resourceSchemaSource, {
+  loader: "ts",
+  format: "esm",
+  target: "node22"
+});
+const { resourceSchema } = await import(
+  `data:text/javascript;base64,${Buffer.from(resourceSchemaCode).toString("base64")}`
+);
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
@@ -23,17 +39,28 @@ for (const version of ["v1alpha1", "v1"]) {
   const directory = path.join(output, "schemas", version);
   await mkdir(directory, { recursive: true });
   for (const name of schemaNames) {
-    const schema = JSON.parse(
+    let schema = JSON.parse(
       await readFile(path.join(root, "packages/core/schemas", name), "utf8")
     );
-    schema.$id = `https://vellym.tasclub.com/schemas/${version}/${name}`;
-    const apiVersion = schema.properties?.apiVersion;
+    const properties = schema.properties ?? {};
+    const apiVersion = properties.apiVersion;
     if (apiVersion?.enum) {
       const value = `vellym.tasclub.com/${version}`;
       if (!apiVersion.enum.includes(value)) {
         throw new Error(`${name} does not support ${value}`);
       }
-      schema.properties.apiVersion = { const: value };
+      const kind = properties.kind?.const;
+      if (typeof kind !== "string" || !properties.spec) {
+        throw new Error(`${name} is missing its resource kind or spec schema`);
+      }
+      schema = resourceSchema({
+        pageSchema: schema,
+        kind,
+        specSchema: properties.spec,
+        version
+      });
+    } else {
+      schema.$id = `https://vellym.tasclub.com/schemas/${version}/${name}`;
     }
     await writeFile(
       path.join(directory, name),
@@ -59,17 +86,7 @@ for (const [name, kind, spec] of [
   ["ticket.schema.json", "Ticket", TICKET_SPEC_SCHEMA],
   ["ticket-tracker.schema.json", "TicketTracker", TICKET_TRACKER_SPEC_SCHEMA]
 ]) {
-  const schema = {
-    ...pageSchema,
-    $id: `https://vellym.tasclub.com/schemas/v1/${name}`,
-    title: `Vellym ${kind}`,
-    properties: {
-      ...pageSchema.properties,
-      apiVersion: { const: "vellym.tasclub.com/v1" },
-      kind: { const: kind },
-      spec
-    }
-  };
+  const schema = resourceSchema({ pageSchema, kind, specSchema: spec, version: "v1" });
   await writeFile(
     path.join(output, "schemas/v1", name),
     `${JSON.stringify(schema, null, 2)}\n`,

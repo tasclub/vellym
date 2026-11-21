@@ -41,6 +41,8 @@ Ticket ownership is determined by its location, not by a YAML field. If multiple
 
 New tickets created in the UI are saved by default under `<tracker-folder>/+tickets/`. Folders whose names start with `+` are hidden from the document tree, but their contents remain available in ticket lists, full-text search, and internal links.
 
+Folders whose names start with `_` are hidden from the document tree and all ticket lists. Use one to keep tickets without listing or warning about them; they remain available through full-text search and internal links. The reserved `_archive/` folder is not loaded by Vellym.
+
 ## Statuses and fields
 
 Open a tracker and choose **Configure this tracker** to define statuses and fields. Configure the workflow and fields such as priority, assignee, and due date for each process.
@@ -96,6 +98,7 @@ spec:
 
 - `statuses[]` requires `id`, `label`, and `category`. The only valid `category` values are `open` and `closed`; entries with another value are skipped.
 - **The first status is the initial value for new tickets**, and the array order is also the display order. There is no separate initial-value key; reorder the array to change it.
+- A `select` field uses its first option as the initial value. If a new ticket should start with `blockReason: none`, put `{ value: none, label: None }` first in that field's `options`.
 - `fields[]` requires `id`, `label`, and `type`. `required` and `listColumn` default to `false` when omitted.
 - `required` enforces input **only when creating a new ticket in the UI**. It does not block editing existing tickets or writing YAML by hand.
 - A field can join the list view as a column (`listColumn`), a filter (`filter`), or a sort option (`sort`) — declared separately. Omitted `filter` and `sort` follow `listColumn`. A field with `filter` or `sort` but no `listColumn` is used by the filter and sort selectors while staying out of the table.
@@ -148,6 +151,8 @@ spec:
 The identifier is **`multiselect`**, not `multi-select`.
 
 A `reference` field can store several tickets by adding `multiple: true` to the field definition. Its value is then an array of references, and lists, searches, sorting and summaries treat it the same way as a `multiselect` field (counts show the number of values). A missing value type mismatch is reported as a warning and kept, like other types. The detail screen edits the array as a comma-separated list of ticket names.
+
+A `reference` value is the `metadata.name` of a ticket in the same `TicketTracker`. A name that does not exist there produces the `TICKET_REFERENCE_UNRESOLVED` warning during `validate`. With `multiple: true`, write an array of ticket names.
 
 Values that do not match their declared type are reported as warnings, not deleted. This prevents a single definition change from making many tickets impossible to edit.
 
@@ -202,6 +207,8 @@ plugins:
 チケットの所属はYAMLの項目ではなく置き場所で決まります。上位に複数の`TicketTracker`がある場合、最も近い祖先のTrackerがそのチケットを所有し、ステータスと項目の定義を与えます。チケットは、さらに上位にあるTrackerの一覧にも表示されます。
 
 画面から作成した新しいチケットは、既定で`<Trackerのフォルダ>/+tickets/`へ保存されます。`+`で始まるフォルダは文書ツリーには出ませんが、チケット一覧、全文検索、内部リンクでは利用できます。
+
+`_`で始まるフォルダは文書ツリーとすべてのチケット一覧から除外されます。一覧に出さず、警告も出さずにチケットを保留するときに使えます。全文検索と内部リンクからは引き続き到達できます。予約済みの`_archive/`はVellymの読み込み対象外です。
 
 ## ステータスと項目
 
@@ -258,6 +265,7 @@ spec:
 
 - `statuses[]`は`id`／`label`／`category`が必須です。`category`は`open`と`closed`の2値だけで、他の値を書いたその要素は読み飛ばされます。
 - **配列の先頭が新規作成時の初期値**になり、配列順がそのまま表示順になります。初期値を指定するキーはありません。並べ替えて変えます。
+- `select`項目の初期値は選択肢の先頭です。新規Ticketの`blockReason`を`none`にする場合は、項目の`options`の先頭に`{ value: none, label: なし }`を置きます。
 - `fields[]`は`id`／`label`／`type`が必須です。`required`と`listColumn`は省略すると`false`です。
 - `required`は**画面から新しく作るときだけ**入力を強制します。既存チケットの編集も、手書きのYAMLも止めません。
 - 一覧への参加は列（`listColumn`）・絞り込み（`filter`）・並べ替え（`sort`）を別々に宣言します。`filter`と`sort`を省略すると`listColumn`と同じになります。`listColumn`なしで`filter`か`sort`を宣言した項目は、表に列を出さないまま、絞り込みと並べ替えの選択に使えます。
@@ -310,6 +318,8 @@ spec:
 識別子は**`multiselect`であり、`multi-select`ではありません**。
 
 `reference`の項目には、項目定義へ`multiple: true`を足すと複数のTicketを格納できます。値は参照の配列になり、一覧・検索・並び替え・集計は`multiselect`と同じ扱いになります（件数は値の個数を表示します）。型に合わない値も警告として残ります。詳細画面ではTicket名のカンマ区切りとして編集し、名称を並べて表示します。
+
+`reference`の値は、同じ`TicketTracker`に属するTicketの`metadata.name`です。存在しない名前は`validate`で`TICKET_REFERENCE_UNRESOLVED`警告になります。`multiple: true`ならTicket名の配列を書きます。
 
 型に合わない値も、Vellymは削除せず警告として表示します。定義を1つ変えただけで大量のチケットが編集不能になるのを避けるためです。
 

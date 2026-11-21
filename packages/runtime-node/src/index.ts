@@ -7,6 +7,7 @@ export * from "./page-store.js";
 export * from "./plugin-resources.js";
 export * from "./plugins.js";
 export * from "./repository.js";
+export * from "./resource-schema.js";
 export * from "./server.js";
 export * from "./setup.js";
 export * from "./setup-catalog.js";

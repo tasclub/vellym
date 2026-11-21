@@ -18,6 +18,10 @@ export interface CliMessages {
   listKindInvalid(kind: string, available: string[]): string;
   listWhereInvalid(): string;
   listSummary(count: number): string;
+  schemaHelp(): string;
+  schemaKindRequired(): string;
+  schemaKindInvalid(kind: string, available: string[]): string;
+  schemaModeInvalid(): string;
   buildHelp(): string;
   migrateHelp(): string;
   diagnosticLabel(severity: "error" | "warning"): string;
@@ -54,6 +58,8 @@ Usage:
   vellym dev [--config <path>] [--host <address>] [--port <number>]
   vellym validate [--config <path>] [--json] [--strict]
   vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]
+  vellym schema --kind <kind> [--config <path>] [--language ja|en]
+  vellym schema --list [--config <path>] [--language ja|en]
   vellym build [--config <path>] [--json]
   vellym migrate --to v1 [--config <path>] [--plan] [--json]
 
@@ -109,10 +115,19 @@ Options:
 索引行を読み取り専用で一覧します。--whereは完全一致、複数指定はANDです。
 --jsonは診断を含むJSONを出力します。
 `,
+  schemaHelp: () => `vellym schema --kind <kind> [--config <path>] [--language ja|en]
+vellym schema --list [--config <path>] [--language ja|en]
+
+インストール済みのkindのJSON Schemaを出力します。kind指定時はJSON Schemaそのものを標準出力へ出します。
+--listはkindを一覧します。--configを省略するとCoreのkindだけを扱います。
+`,
   listKindRequired: () => "--kindを指定してください",
   listKindInvalid: (kind, available) => `不明なkind: ${kind}。指定可能: ${available.join(", ")}`,
   listWhereInvalid: () => "--whereはkey=valueで指定してください",
   listSummary: (count) => `${count}件`,
+  schemaKindRequired: () => "--kindまたは--listを指定してください",
+  schemaKindInvalid: (kind, available) => `不明なkind: ${kind}。指定可能: ${available.join(", ")}`,
+  schemaModeInvalid: () => "--listと--kindは同時に指定できません",
   buildHelp: () => `vellym build [options]
 
 静的サイトを生成します。
@@ -180,6 +195,8 @@ Usage:
   vellym dev [--config <path>] [--host <address>] [--port <number>]
   vellym validate [--config <path>] [--json] [--strict]
   vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]
+  vellym schema --kind <kind> [--config <path>] [--language ja|en]
+  vellym schema --list [--config <path>] [--language ja|en]
   vellym build [--config <path>] [--json]
   vellym migrate --to v1 [--config <path>] [--plan] [--json]
 
@@ -235,10 +252,19 @@ Examples:
 List index rows without modifying resources. --where matches exactly; repeated filters use AND.
 --json emits JSON including diagnostics.
 `,
+  schemaHelp: () => `vellym schema --kind <kind> [--config <path>] [--language ja|en]
+vellym schema --list [--config <path>] [--language ja|en]
+
+Prints the installed JSON Schema for a kind. With --kind, stdout contains the JSON Schema itself.
+--list prints available kinds. Without --config, only Core kinds are available.
+`,
   listKindRequired: () => "--kind is required",
   listKindInvalid: (kind, available) => `Unknown kind: ${kind}. Available: ${available.join(", ")}`,
   listWhereInvalid: () => "--where must be key=value",
   listSummary: (count) => `${count} row(s)`,
+  schemaKindRequired: () => "Specify --kind or --list",
+  schemaKindInvalid: (kind, available) => `Unknown kind: ${kind}. Available: ${available.join(", ")}`,
+  schemaModeInvalid: () => "--list and --kind cannot be used together",
   buildHelp: () => `vellym build [options]
 
 Builds the static site.
