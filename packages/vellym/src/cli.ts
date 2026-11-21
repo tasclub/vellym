@@ -298,14 +298,20 @@ async function devCommand(args: string[]): Promise<void> {
   const configPath = resolveConfigPath(args);
   const directory = path.dirname(fileURLToPath(import.meta.url));
   // 読み込めなかったプラグインを起動時に示す。serverの起動は妨げない。
-  const loaded = await loadConfig(configPath);
-  const plugins = await loadPlugins({
-    configDir: path.dirname(loaded.configPath),
-    packageNames: loaded.config.plugins,
-    hostVersion: VELLYM_VERSION
-  });
-  if (plugins.diagnostics.length) {
-    process.stderr.write(`${formatDiagnostics(plugins.diagnostics)}\n`);
+  let configProblem: "missing" | "unreadable" | undefined;
+  try {
+    const loaded = await loadConfig(configPath);
+    const plugins = await loadPlugins({
+      configDir: path.dirname(loaded.configPath),
+      packageNames: loaded.config.plugins,
+      hostVersion: VELLYM_VERSION
+    });
+    if (plugins.diagnostics.length) {
+      process.stderr.write(`${formatDiagnostics(plugins.diagnostics)}\n`);
+    }
+  } catch (error) {
+    const code = (error as { code?: string } | null)?.code;
+    configProblem = code === "CONFIG_NOT_FOUND" || code === "ENOENT" ? "missing" : "unreadable";
   }
   const server = await startDevServer({
     configPath,
@@ -314,6 +320,9 @@ async function devCommand(args: string[]): Promise<void> {
     port,
     hostVersion: VELLYM_VERSION
   });
+  if (configProblem) {
+    process.stderr.write(`${configProblem === "missing" ? messages.configMissing(server.url) : messages.configUnreadable(server.url)}\n`);
+  }
   if (!isLoopbackHost(host)) {
     process.stderr.write(`${messages.externalBindWarning()}\n`);
   }

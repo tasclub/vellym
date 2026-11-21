@@ -12,7 +12,9 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createServer } from "node:net";
+import { once } from "node:events";
 import { describe, expect, it } from "vitest";
 import { resourceSchema } from "../packages/runtime-node/src/resource-schema.js";
 import {
@@ -21,6 +23,50 @@ import {
 } from "../packages/ticket-engine/src/schemas.js";
 
 const cli = path.resolve("packages/vellym/dist/cli.mjs");
+
+describe("dev with unavailable configuration", () => {
+  for (const [state, source, language] of [
+    ["setup", undefined, "ja"],
+    ["config-error", "invalid: [", "en"]
+  ] as const) {
+    it(`starts in ${state} without modifying the project`, async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-dev-config-"));
+      if (source) await writeFile(path.join(root, "vellym.config.yaml"), source);
+      const before = await readdir(root);
+      const socket = createServer().listen(0, "127.0.0.1");
+      await once(socket, "listening");
+      const port = (socket.address() as { port: number }).port;
+      await new Promise<void>((resolve, reject) => socket.close((err) => err ? reject(err) : resolve()));
+      const origin = `http://127.0.0.1:${port}`;
+      const child = spawn(process.execPath, [cli, "dev", "--port", String(port), "--language", language], { cwd: root });
+      let stderr = "";
+      child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+      try {
+        let data: { data: { state: string } } | undefined;
+        for (let i = 0; i < 150; i++) {
+          try {
+            const response = await fetch(`${origin}/api/v1/bootstrap`);
+            if (response.ok) { data = await response.json() as typeof data; break; }
+          } catch { /* server is starting */ }
+          if (child.exitCode !== null) throw new Error(`dev exited: ${stderr}`);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        expect(data?.data.state).toBe(state);
+        expect(child.exitCode).toBeNull();
+        expect(stderr).toContain(origin);
+        expect(stderr).toContain(language === "ja" ? "設定ファイルがありません" : "Could not read the configuration file");
+        expect(await readdir(root)).toEqual(before);
+        if (source) expect(await readFile(path.join(root, "vellym.config.yaml"), "utf8")).toBe(source);
+      } finally {
+        if (child.exitCode === null && child.signalCode === null) {
+          const exited = once(child, "exit");
+          child.kill("SIGTERM");
+          await exited;
+        }
+      }
+    }, 20000);
+  }
+});
 
 function run(args: string[]) {
   return spawnSync(process.execPath, [cli, ...args], {

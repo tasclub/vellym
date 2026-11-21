@@ -105,9 +105,9 @@ export const steps = [
     const page = await ctx.page(server.origin);
     Object.assign(ctx.state, server, { root, page });
     await page.goto(server.origin, { waitUntil: "networkidle" });
-    await ctx.check("設定なしでもserverが生存し4段階のセットアップが開く", async () => {
+    await ctx.check("設定なしでもserverが生存し3段階のセットアップが開く", async () => {
       assert.equal(server.server.exitCode, null);
-      await ctx.expect(page.getByRole("list", { name: "セットアップの進行状況" }).locator("li")).toHaveCount(4);
+      await ctx.expect(page.getByRole("list", { name: "セットアップの進行状況" }).locator("li")).toHaveCount(3);
     });
     await ctx.check("文書・検索・編集・構成管理は初期化前に利用できない", async () => {
       for (const name of ["全文検索を開く", "編集", "新規作成", "設定"]) await ctx.expect(button(page, name)).toHaveCount(0);
@@ -131,23 +131,22 @@ export const steps = [
   { id: id(2), title: "ブラウザから初期化する", async run(ctx) {
     const { page, root, origin, server } = ctx.state;
     if (!page) ctx.blocked("A01 server unavailable");
-    await ctx.check("software-basicを選択できる", async () => {
-      const profile = page.getByRole("radio", { name: /software-basic/ });
-      await ctx.expect(profile).toBeVisible();
-      await profile.check();
+    await ctx.check("個人・ハイブリッドを選択できる", async () => {
+      await page.locator("dl > div").filter({ has: page.locator("dt", { hasText: "プロジェクト規模" }) }).locator("select").selectOption("personal");
+      await page.locator("dl > div").filter({ has: page.locator("dt", { hasText: "開発方式" }) }).locator("select").selectOption("hybrid");
     });
-    // Keep checking the remaining expectations with the visible recommendation.
-    // This is a fixture fallback, NOT a change to the software-basic expectation.
-    ctx.note("software-basicが無い場合も後続確認のため画面のおすすめ構成を使用する。profile選択の不一致はFAILのまま。");
     await button(page, "次へ").click();
+    await page.getByRole("radio", { name: /^軽量/ }).check();
     await button(page, "次へ").click();
     await button(page, "この内容で生成").waitFor();
     await ctx.check("適用前に作成予定・既存・競合を確認でき、戻っても選択保持", async () => {
       await ctx.expect(page.getByRole("tree")).toBeVisible();
+      await ctx.expect(button(page, "この内容で生成")).toBeEnabled();
       const before = await page.getByRole("tree").innerText();
       await button(page, "戻る").click();
       await button(page, "次へ").click();
-      await ctx.expect(page.getByRole("tree")).toHaveText(before);
+      await ctx.expect(button(page, "この内容で生成")).toBeEnabled();
+      assert.equal(await page.getByRole("tree").innerText(), before);
       await ctx.expect(page.getByText(/既存|競合/).first()).toBeVisible();
     });
     await ctx.check("適用前に非上書きが説明され、ファイルを変更しない", async () => {
@@ -156,7 +155,7 @@ export const steps = [
     });
     await button(page, "この内容で生成").click();
     // Some versions expose a completion button rather than entering immediately.
-    const enter = page.getByRole("button", { name: /文書を開く|はじめる|ワークスペースを開く/ });
+    const enter = page.getByRole("button", { name: /文書を開く|はじめる|ワークスペースを開く|プロジェクトを開く/ });
     await Promise.race([tree(page).waitFor(), enter.first().waitFor()]);
     if (await enter.first().isVisible()) await enter.first().click();
     await tree(page).waitFor();
@@ -174,7 +173,7 @@ export const steps = [
       assert(all["vellym.config.yaml"]);
       assert(Object.keys(all).some((file) => file.startsWith(`${contentRoot}/`) && file.endsWith(".yaml")));
       assert(!all["dist/vellym/index.html"]);
-      for (const file of Object.keys(all)) assert(file === "vellym.config.yaml" || file.startsWith(`${contentRoot}/`), `Unexpected file: ${file}`);
+      for (const file of Object.keys(all)) assert(file === "vellym.config.yaml" || file === "package.json" || file.startsWith(`${contentRoot}/`), `Unexpected file: ${file}`);
     });
     await ctx.check("validateは0終了し画面と同じPage数", async () => {
       const result = ctx.cli(root, "validate", "--json");
@@ -195,14 +194,15 @@ export const steps = [
   { id: id(3), title: "CLI initのpreviewと非上書き", async run(ctx) {
     const { root } = await workspace(ctx);
     const before = await files(ctx, root), baseline = ctx.git(root, "rev-parse", "HEAD");
-    const plan = ctx.cli(root, "init", "--profile", "software-basic", "--plan", "--json");
-    await ctx.check("--planは既存または競合を報告しファイル無変更", async () => {
+    const options = ["--size", "personal", "--method", "hybrid", "--level", "light", "--language", "ja", "--content-root", contentRoot];
+    const plan = ctx.cli(root, "init", ...options, "--dry-run", "--json");
+    await ctx.check("--dry-runは既存または競合を報告しファイル無変更", async () => {
       assert.equal(plan.status, 0, plan.stderr);
       const report = JSON.parse(plan.stdout);
       assert.match(JSON.stringify(report), /existing|conflict|skip/);
       assert.deepEqual(await files(ctx, root), before);
     });
-    const apply = ctx.cli(root, "init", "--profile", "software-basic");
+    const apply = ctx.cli(root, "init", ...options);
     await ctx.check("競合時applyは失敗し既存YAML・baseline・git statusを保持", async () => {
       assert.notEqual(apply.status, 0);
       assert.deepEqual(await files(ctx, root), before);
