@@ -99,7 +99,14 @@
   }
   .setup-warning { margin-top: var(--space-5); }
   .setup-warning p,
-  .setup-error p { margin-bottom: 0; }
+  .setup-error p { margin: var(--space-3) 0 0; }
+  .setup-error-detail {
+    max-width: 100%;
+    margin: var(--space-3) 0 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    font-family: var(--font-mono);
+  }
   .profile-list {
     display: grid;
     gap: var(--space-3);

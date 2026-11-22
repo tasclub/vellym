@@ -12,6 +12,7 @@ export const steps = [
       await ctx.expect(page.getByText(/設定ファイルを確認してください/)).toBeVisible();
       await ctx.expect(page.getByRole("list", { name: "セットアップの進行状況" })).toHaveCount(0);
       await ctx.expect(page.locator("body")).toContainText(/YAML|解析|schemaVersion/i);
+      await ctx.expect(page.getByText(/line 2/)).toBeVisible();
     });
     await ctx.check("CLIも設定エラーを報告し、設定とディレクトリを変更しない", async () => {
       const result = ctx.cli(root, "validate");

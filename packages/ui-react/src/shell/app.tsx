@@ -1428,15 +1428,10 @@ export function App() {
           <p className={setupStyles["setup-kicker"]}>{t("app.configErrorKicker", { lng: bootstrapLanguage })}</p>
           <h1>{t("app.configErrorTitle", { lng: bootstrapLanguage })}</h1>
           <p>{t("app.configErrorDescription", { lng: bootstrapLanguage })}</p>
-          {bootstrapDiagnostics.map((item, index) => (
-            <p className={setupStyles["setup-error"]} key={`${item.file}:${item.code}:${index}`}>
-              <strong>■ {item.code}</strong><br />
-              {t(`error.${item.code}`, {
-                defaultValue: resolveLocalizedText(item.message, bootstrapLanguage),
-                lng: bootstrapLanguage
-              })}
-            </p>
-          ))}
+          <ConfigErrorDiagnostics
+            diagnostics={bootstrapDiagnostics}
+            language={bootstrapLanguage}
+          />
           <Button onClick={() => void loadBootstrap()}>
             {t("app.configErrorReload", { lng: bootstrapLanguage })}
           </Button>
@@ -1925,4 +1920,31 @@ export function App() {
     </KindIconProvider>
     </UiLanguageContext.Provider>
   );
+}
+
+export function ConfigErrorDiagnostics({
+  diagnostics,
+  language
+}: {
+  diagnostics: Diagnostic[];
+  language: "ja" | "en";
+}) {
+  const { t, i18n } = useTranslation();
+  return diagnostics.map((item, index) => {
+    const translationKey = `error.${item.code}`;
+    const hasTranslation = i18n.exists(translationKey, { lng: language });
+    const originalMessage = resolveLocalizedText(item.message, language);
+    return (
+      <div
+        className={setupStyles["setup-error"]}
+        key={`${item.file}:${item.code}:${index}`}
+      >
+        <strong>■ {item.code}</strong>
+        {hasTranslation && (
+          <p>{t(translationKey, { lng: language })}</p>
+        )}
+        <pre className={setupStyles["setup-error-detail"]}>{originalMessage}</pre>
+      </div>
+    );
+  });
 }
