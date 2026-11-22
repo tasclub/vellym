@@ -309,46 +309,31 @@ describe("WBS screen", () => {
     act(() => root.unmount());
   });
 
-  it("renders all rows by default, and counts all tickets in every strategy", () => {
+  it("automatically windows above 300 displayed rows, ignoring saved rendering preferences", () => {
     const { context, container, root } = fixture();
-    const next = { ...context, rows: Array.from({ length: 223 }, (_, index) => ({
-      name: `item-${index}`, title: `項目 ${index}`, values: {}
-    })) };
-    act(() => root.render(createElement(WBSScreen, { context: next })));
-    expect(container.querySelectorAll('[data-ticket-name]')).toHaveLength(223);
-    const strategy = container.querySelector<HTMLSelectElement>('select[aria-label="描き方"]')!;
-    const choose = (value: string) => act(() => {
-      strategy.value = value; strategy.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    choose("virtual");
-    expect(container.textContent).toContain("チケット: 223");
-    expect(container.querySelectorAll('[data-ticket-name]').length).toBeLessThan(223);
-    choose("incremental");
-    expect(container.querySelectorAll('[data-ticket-name]')).toHaveLength(100);
-    expect(container.textContent).toContain("チケット: 223");
-    act(() => [...container.querySelectorAll("button")]
-      .find((button) => button.textContent === "続きを読み込む")!.click());
-    expect(container.querySelectorAll('[data-ticket-name]')).toHaveLength(200);
-    expect(container.textContent).toContain("チケット: 223");
-    choose("all");
-    expect(container.querySelectorAll('[data-ticket-name]')).toHaveLength(223);
+    for (const [count, saved] of [[300, "virtual"], [301, "all"], [301, "incremental"]] as const) {
+      const next = { ...context, getViewSettings: () => ({ strategy: saved }), rows: Array.from({ length: count }, (_, index) => ({
+        name: `item-${index}`, title: `項目 ${index}`, values: {}
+      })) };
+      act(() => root.render(createElement(WBSScreen, { context: next })));
+      const rendered = container.querySelectorAll('[data-ticket-name]').length;
+      if (count === 300) expect(rendered).toBe(300);
+      else expect(rendered).toBeLessThan(301);
+      expect(container.querySelector('select[aria-label="描き方"]')).toBeNull();
+      expect(container.textContent).not.toContain("続きを読み込む");
+      expect(container.textContent).toContain(`チケット: ${count}`);
+    }
     act(() => root.unmount());
   });
 
-  it("windows review headings with their rows instead of showing them before unloaded tasks", () => {
+  it.each([5, 301])("scrolls to the review heading with %i tasks", (count) => {
     const { container, root } = fixture(false, [
-      ...Array.from({ length: 223 }, (_, i) => ({ name: `task-${i}`, title: `Task ${i}`, values: {} })),
+      ...Array.from({ length: count }, (_, i) => ({ name: `task-${i}`, title: `Task ${i}`, values: {} })),
       { name: "orphan", title: "Orphan", values: { "field:parent": "missing" } }
     ]);
-    const strategy = container.querySelector<HTMLSelectElement>('select[aria-label="描き方"]')!;
-    for (const value of ["virtual", "incremental"]) {
-      act(() => { strategy.value = value; strategy.dispatchEvent(new Event("change", { bubbles: true })); });
-      expect(container.querySelector('.wbs-review-heading')).toBeNull();
-      expect(container.textContent).toContain("△ 要確認 1件");
-    }
-    act(() => clickText(container, "続きを読み込む"));
-    expect(container.querySelector('.wbs-review-heading')).toBeNull();
-    act(() => clickText(container, "続きを読み込む"));
+    if (count > 300) expect(container.querySelector('.wbs-review-heading')).toBeNull();
+    act(() => clickText(container, "△ 要確認 1件"));
+    expect(container.querySelector<HTMLElement>('.wbs-scroll')!.scrollTop).toBe(count * 36);
     expect(container.querySelector('.wbs-review-heading')?.textContent).toContain("△ 親が見つからないチケット（1）");
     expect(container.querySelector('[data-ticket-name="orphan"]')).not.toBeNull();
     act(() => root.unmount());

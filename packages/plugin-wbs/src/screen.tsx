@@ -3,7 +3,7 @@ import { resolveLocalizedText, summarizeRows, type PluginIndexRow, type PluginRe
 import type { PluginViewProps } from "@vellym/plugin-api/react";
 import { Button, ChoiceControl, InputControl } from "@vellym/plugin-api/ui";
 import { buildTicketHierarchy, fieldKey } from "@vellym-internal/ticket-engine";
-import { excludedParents, rankForAppend, rankForInsert, flattenRows, rowWindow, DEFAULT_ROW_RENDERING, type RowRendering, type WBSRow } from "./model.js";
+import { excludedParents, rankForAppend, rankForInsert, flattenRows, rowWindow, type WBSRow } from "./model.js";
 import { buildTimeline, parseDate, timelineBar, DAY_MS, mondayOnOrBefore, presetRange, TIMELINE_PRESETS, timelineCells,
   timelinePreset, type Timeline, type TimelineMode, type TimelinePreset } from "./timeline.js";
 import type { WBSRendererData } from "./view.js";
@@ -491,8 +491,6 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
     const value = settings(context).leftWidth;
     return typeof value === "number" && Number.isFinite(value) ? Math.max(240, Math.min(560, value)) : 400;
   });
-  const [strategy, setStrategy] = useState<RowRendering>(DEFAULT_ROW_RENDERING);
-  const [loaded, setLoaded] = useState(100);
   const [measuredDayWidth, setMeasuredDayWidth] = useState<number>();
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -574,24 +572,20 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
       persist({ collapsed: [...next] });
       return next;
     });
-    setLoaded((current) => Math.max(current, index + 1));
   }, [movedName]);
-  const window = rowWindow(entries.length, strategy, viewport.top, viewport.height, viewport.rowHeight, loaded);
+  const strategy = entries.length > 300 ? "virtual" : "all";
+  const window = rowWindow(entries.length, strategy, viewport.top, viewport.height, viewport.rowHeight, 0);
   const visible = entries.slice(window.start, window.end);
   return <>
     <div className="wbs-toolbar">
       <span>{label("チケット", "Tickets", context.locale)}: {rows.length}</span>
       {review.size ? <Button onClick={() => {
-        setStrategy("all"); setLoaded(rows.length);
-        requestAnimationFrame(() => scrollRef.current?.querySelector(".wbs-review-heading")?.scrollIntoView({ block: "start" }));
+        const index = entries.findIndex((entry) => !entry.item);
+        if (index < 0 || !scrollRef.current) return;
+        const top = index * viewport.rowHeight;
+        scrollRef.current.scrollTop = top;
+        setViewport((current) => ({ ...current, top: scrollRef.current?.scrollTop ?? top }));
       }}>{label(`△ 要確認 ${review.size}件`, `△ Needs attention: ${review.size}`, context.locale)}</Button> : null}
-      <label>{label("描き方", "Rendering", context.locale)} <ChoiceControl mode="select"
-        aria-label={label("描き方", "Rendering", context.locale)} value={strategy}
-        options={[{ value: "all", label: label("全行", "All rows", context.locale) },
-          { value: "virtual", label: label("縦の仮想化", "Virtual rows", context.locale) },
-          { value: "incremental", label: label("続きを読み込む", "Load more", context.locale) }]}
-        onChange={(value) => { setStrategy(value as RowRendering); setLoaded(100); if (scrollRef.current) scrollRef.current.scrollTop = 0;
-          setViewport((current) => ({ ...current, top: 0 })); }} /></label>
     </div>
     {data.tracker?.summary?.length ? <section className="wbs-summary" aria-live="polite"
       aria-label={label("表示中のチケットの集計", "Visible tickets summary", context.locale)}>
@@ -667,7 +661,5 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
         style={{ height: (entries.length - window.end) * viewport.rowHeight }} /> : null}
       </div>
     </div>
-    {strategy === "incremental" && window.end < entries.length ? <Button onClick={() => setLoaded(loaded + 100)}>
-      {label("続きを読み込む", "Load more", context.locale)}</Button> : null}
   </>;
 }
