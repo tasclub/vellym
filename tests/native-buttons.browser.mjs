@@ -1,6 +1,6 @@
 // Run after npm run build: node tests/native-buttons.browser.mjs
 // Screens introduced in 0.5.0-beta must not expose browser-default buttons.
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -21,6 +21,11 @@ spec:
 `;
 await symlink(path.resolve("node_modules"), path.join(root, "node_modules"), "dir");
 await write("vellym.config.yaml", 'schemaVersion: "1.0"\ncontentRoot: content\noutputDir: dist\nui:\n  language: en\ni18n:\n  defaultLocale: en\nplugins:\n  - "@vellym/tickets"\n  - "@vellym/kanban"\n  - "@vellym/wbs"\n');
+await write("content/docs/_index.yaml", `apiVersion: vellym.tasclub.com/v1
+kind: Folder
+metadata: { title: Documents }
+spec: { locale: en }
+`);
 await write("content/docs/one.yaml", page("one", "One", "First page"));
 await write("content/docs/two.yaml", page("two", "Two", "Second page"));
 await write("content/tracker.yaml", `apiVersion: vellym.tasclub.com/v1
@@ -40,6 +45,10 @@ spec:
   status: open
   fields: { priority: high }
 `);
+
+execFileSync("git", ["init", "-q", root]);
+execFileSync("git", ["-C", root, "add", "content"]);
+execFileSync("git", ["-C", root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", "Fixture"]);
 
 const port = 4198;
 const base = `http://127.0.0.1:${port}`;
@@ -84,6 +93,38 @@ try {
   await tab.goto(`${base}/en/pages/one/`, { waitUntil: "networkidle" });
   await expect(tab.getByRole("heading", { level: 1, name: "One" })).toBeVisible();
   await expectNoNativeButtons(tab, "document display");
+  await tab.getByRole("button", { name: "History", exact: true }).click();
+  await expect(tab.getByRole("heading", { name: /One.*History/ })).toBeVisible();
+  await expectNoNativeButtons(tab, "document history");
+  await tab.getByRole("button", { name: "Back to document", exact: true }).click();
+  await tab.getByRole("button", { name: "Edit", exact: true }).click();
+  await expectNoNativeButtons(tab, "document editor");
+  await tab.getByRole("button", { name: "Page settings", exact: true }).click();
+  await expectNoNativeButtons(tab, "page settings");
+  await tab.getByRole("button", { name: "Add language", exact: true }).click();
+  await expect(tab.getByRole("dialog", { name: "Add a language to this page" })).toBeVisible();
+  await expectNoNativeButtons(tab, "page language dialog");
+  await tab.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await tab.locator('[contenteditable="true"]').first().click();
+  await tab.keyboard.type(" draft");
+  await expect(tab.getByText("Unsaved", { exact: true }).first()).toBeVisible();
+  await tab.getByRole("button", { name: "Cancel", exact: true }).first().click();
+  await expect(tab.getByRole("dialog", { name: "Unsaved changes" })).toBeVisible();
+  await expectNoNativeButtons(tab, "unsaved changes");
+  await tab.getByRole("dialog").getByRole("button", { name: "Discard changes" }).click();
+  await tab.getByRole("treegrid").getByText("Documents", { exact: true }).click();
+  await expect(tab.getByRole("heading", { name: "Documents", level: 1 })).toBeVisible();
+  await expectNoNativeButtons(tab, "folder display");
+  await tab.getByRole("button", { name: "Actions for Documents" }).click();
+  await tab.getByRole("menuitem", { name: "Edit display info" }).click();
+  await expect(tab.getByRole("tablist", { name: "Folder language to edit" })).toBeVisible();
+  await expectNoNativeButtons(tab, "folder editor");
+  await tab.getByRole("button", { name: "Add language", exact: true }).click();
+  await expect(tab.getByRole("dialog", { name: "Add a language to this folder" })).toBeVisible();
+  await expectNoNativeButtons(tab, "folder language dialog");
+  await tab.getByRole("dialog", { name: "Add a language to this folder" }).getByRole("button", { name: "Cancel" }).click();
+  await tab.getByRole("dialog", { name: "Edit folder info" }).getByRole("button", { name: "Cancel" }).click();
+
 
   await tab.getByRole("button", { name: "Expand all", exact: true }).click();
   await tab.getByRole("button", { name: "Create" }).click();

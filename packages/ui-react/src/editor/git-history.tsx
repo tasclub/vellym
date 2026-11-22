@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { LocalizedPageProjection, PageView } from "@vellym-internal/core";
 import { useTranslation } from "react-i18next";
 import { fetchGitContent, fetchGitDiff, fetchGitHistory, isStaticApp, type GitHistoryData } from "../shared/api.js";
+import { Button } from "../shared/button.js";
 import { ChoiceControl } from "../shared/choice-control.js";
 import { DocumentView } from "./view.js";
 import { GitDiff } from "./git-diff.js";
@@ -37,7 +38,6 @@ export function HistoryDocument({ view, headerActions, beforeBody, onNavigatePag
   const [pastLoading, setPastLoading] = useState(false);
   const [moreBusy, setMoreBusy] = useState(false);
   const [moreError, setMoreError] = useState(false);
-  const entry = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const path = view.relativePath;
   useEffect(() => {
@@ -108,19 +108,19 @@ export function HistoryDocument({ view, headerActions, beforeBody, onNavigatePag
     window.history.pushState(null, "", url);
     setOpen(value); setVersion(false);
     if (!value) setRequestedCommit(null);
-    if (!value) requestAnimationFrame(() => entry.current?.focus());
+    if (!value) requestAnimationFrame(() => document.getElementById("git-history-entry")?.focus());
   };
   const relativeDate = (date: string) => {
     const days = Math.round((new Date(date).getTime() - Date.now()) / 86400000);
     return new Intl.RelativeTimeFormat(i18n.language, { numeric: "auto" }).format(days, "day");
   };
-  if (!open || (!history && !error)) return <DocumentView view={view} beforeBody={beforeBody} onNavigatePage={onNavigatePage} headerActions={<>{headerActions}{onOpenChanges && <button onClick={onOpenChanges}>{t("changes.documentChanged")}</button>}{history && <button ref={entry} onClick={() => navigate(true)}>{t("git.history")}</button>}</>} />;
+  if (!open || (!history && !error)) return <DocumentView view={view} beforeBody={beforeBody} onNavigatePage={onNavigatePage} headerActions={<>{headerActions}{onOpenChanges && <Button onClick={onOpenChanges}>{t("changes.documentChanged")}</Button>}{history && <Button id="git-history-entry" onClick={() => navigate(true)}>{t("git.history")}</Button>}</>} />;
   const comparison = !commit ? `${history?.commits[0]?.hash.slice(0, 7) ?? "∅"} → ${t("git.current")}` : `${mode === "previous" ? previous?.hash.slice(0, 7) ?? "∅" : commit.hash.slice(0, 7)} → ${mode === "previous" ? commit.hash.slice(0, 7) : t("git.current")}`;
   return <div className={styles.history}>
-    <div className={styles.toolbar}><h1>{view.page.metadata.title} — {t("git.history")}</h1><button onClick={() => navigate(false)}>{t("git.back")}</button></div>
-    {error ? <div role="alert">{t("git.historyError")} <button onClick={() => setAttempt(attempt + 1)}>{t("git.retry")}</button></div> : version && commit ? <>
+    <div className={styles.toolbar}><h1>{view.page.metadata.title} — {t("git.history")}</h1><Button onClick={() => navigate(false)}>{t("git.back")}</Button></div>
+    {error ? <div role="alert">{t("git.historyError")} <Button onClick={() => setAttempt(attempt + 1)}>{t("git.retry")}</Button></div> : version && commit ? <>
       <div className="notice" role="status">{t("git.reading", { date: new Date(commit.date).toLocaleString(i18n.language), hash: commit.hash.slice(0, 7) })}
-        <div className={styles.toolbar}><button onClick={() => navigate(false)}>{t("git.currentVersion")}</button><button onClick={() => { setVersion(false); setMode("current"); }}>{t("git.versionDiff")}</button></div>
+        <div className={styles.toolbar}><Button onClick={() => navigate(false)}>{t("git.currentVersion")}</Button><Button onClick={() => { setVersion(false); setMode("current"); }}>{t("git.versionDiff")}</Button></div>
       </div>
       {pastLoading ? <p role="status">{t("git.loading")}</p> : past ? <DocumentView view={past} onNavigatePage={onNavigatePage} /> : <p>{t("git.unreadable")}</p>}
     </> : <div className={styles.content}>
@@ -138,19 +138,19 @@ export function HistoryDocument({ view, headerActions, beforeBody, onNavigatePag
             {row ? <><time dateTime={row.date} title={new Date(row.date).toLocaleString(i18n.language)}>{relativeDate(row.date)}</time> · {row.author}<div>{row.subject}</div><span>{row.hash.slice(0, 7)}</span>{row.rename && <small>{t("git.rename", row.rename)}</small>}</> : t("git.uncommitted")}
           </div>)}
         </div>
-        {commit && <button onClick={() => { void navigator.clipboard?.writeText(commit.hash).catch(() => {}); }}>{t("git.copyHash", { hash: commit.hash.slice(0, 7) })}</button>}
-        {history?.nextOffset !== null && history?.nextOffset !== undefined && <button disabled={moreBusy} onClick={() => {
+        {commit && <Button onClick={() => { void navigator.clipboard?.writeText(commit.hash).catch(() => {}); }}>{t("git.copyHash", { hash: commit.hash.slice(0, 7) })}</Button>}
+        {history?.nextOffset !== null && history?.nextOffset !== undefined && <Button disabled={moreBusy} onClick={() => {
           setMoreBusy(true); setMoreError(false);
           void fetchGitHistory(path, 50, undefined, history.nextOffset!).then(({ data }) => {
             if (data.available) setHistory((old) => old && ({ ...old, commits: [...old.commits, ...data.commits], nextOffset: data.nextOffset }));
           }).catch(() => setMoreError(true)).finally(() => setMoreBusy(false));
-        }}>{t("git.more")}</button>}
+        }}>{t("git.more")}</Button>}
         {moreError && <p role="alert">{t("git.historyError")}</p>}
         {history?.shallow && history.nextOffset === null && <p>{t("git.shallow")}</p>}
       </section>
       <section className={styles.diff}>
-        {commit && <div className={styles.toolbar}><ChoiceControl mode="segmented" aria-label={t("git.compare")} value={mode} options={[{ value: "previous", label: t("git.previous") }, { value: "current", label: t("git.withCurrent") }]} onChange={setMode} /><button onClick={() => setVersion(true)}>{t("git.showVersion")}</button></div>}
-        {diffError ? <p role="alert">{t("git.diffError")} <button onClick={() => setAttempt(attempt + 1)}>{t("git.retry")}</button></p> : diff === undefined ? <p role="status">{t("git.loading")}</p> : <GitDiff key={`${commit?.hash}:${mode}:${diff}`} source={diff} comparison={comparison} />}
+        {commit && <div className={styles.toolbar}><ChoiceControl mode="segmented" aria-label={t("git.compare")} value={mode} options={[{ value: "previous", label: t("git.previous") }, { value: "current", label: t("git.withCurrent") }]} onChange={setMode} /><Button onClick={() => setVersion(true)}>{t("git.showVersion")}</Button></div>}
+        {diffError ? <p role="alert">{t("git.diffError")} <Button onClick={() => setAttempt(attempt + 1)}>{t("git.retry")}</Button></p> : diff === undefined ? <p role="status">{t("git.loading")}</p> : <GitDiff key={`${commit?.hash}:${mode}:${diff}`} source={diff} comparison={comparison} />}
       </section>
     </div>}
   </div>;

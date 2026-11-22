@@ -22,6 +22,7 @@ import {
 } from "@vellym-internal/core";
 import { resolveLocalizedText } from "@vellym/plugin-api";
 import { Icon } from "../shared/icon.js";
+import { Button } from "../shared/button.js";
 import {
   documentPagePath,
   localeDirection,
@@ -227,13 +228,12 @@ export function DocumentView({
           <ul>
             {incoming.map((reference) => (
               <li key={reference.pageId}>
-                <button
-                  type="button"
+                <Button
                   className={styles["backlink"]}
                   onClick={() => onNavigatePage?.(reference.pageId!)}
                 >
                   {reference.title ?? reference.pageId}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

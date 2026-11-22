@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { localeDisplayName, normalizeLocale } from "@vellym-internal/core";
-import { Button, Dialog, Modal, ModalOverlay } from "react-aria-components";
+import { Dialog, Modal, ModalOverlay } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 import { resolveLocalizedText } from "@vellym/plugin-api";
 import {
@@ -12,6 +12,7 @@ import {
 } from "./folder-edit-session.js";
 import styles from "./page-language-controls.module.css";
 import { useUiLang } from "../shared/ui-language.js";
+import { Button } from "../shared/button.js";
 
 const SUPPORTED_CONTENT_LOCALES = ["ja", "en"] as const;
 
@@ -70,8 +71,7 @@ export function FolderLanguageControls(props: {
       <div className={styles.tabsRow}>
         <div role="tablist" aria-label={t("language.folderEditTabs")} className={styles.tabs}>
           {visible.map((draft) => (
-            <button
-              type="button"
+            <Button
               role="tab"
               id={`folder-locale-tab-${draft.locale}`}
               aria-selected={draft.locale === props.session.activeLocale}
@@ -83,22 +83,20 @@ export function FolderLanguageControls(props: {
             >
               {localeDisplayName(draft.locale, props.uiLocale)}
               {draft.operation === "create" && <span className={styles.state}>{t("language.stateNew")}</span>}
-            </button>
+            </Button>
           ))}
         </div>
-        <button
-          type="button"
+        <Button
           disabled={props.disabled || addableLocales.length === 0}
           onClick={() => { setLocale(addableLocales[0] ?? ""); setAdding(true); }}
         >
           {t("language.add")}
-        </button>
+        </Button>
       </div>
       <div className={styles.activeActions}>
         {!active.isBaseLocale && (
           <>
-            <button
-              type="button"
+            <Button
               className={styles.remove}
               disabled={props.disabled}
               onClick={() => {
@@ -111,7 +109,7 @@ export function FolderLanguageControls(props: {
               }}
             >
               {active.operation === "create" ? t("language.cancelAdd") : t("language.remove")}
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -145,15 +143,15 @@ export function FolderLanguageControls(props: {
                 .join(" / ")}</small>
               {item.repairable && item.canonicalLocale &&
                 !item.diagnostics.some(({ code }) => code === "DUPLICATE_TRANSLATION_LOCALE") && (
-                <button type="button" onClick={() => props.onChange(
+                <Button onClick={() => props.onChange(
                   repairInvalidFolderTranslation(props.session, item.rawKey)
-                )}>{t("language.repair")}</button>
+                )}>{t("language.repair")}</Button>
               )}
-              <button type="button" className={styles.remove} onClick={() => {
+              <Button className={styles.remove} onClick={() => {
                 if (window.confirm(t("language.deleteInvalidConfirm", { key: item.rawKey }))) {
                   props.onChange(deleteInvalidFolderTranslation(props.session, item.rawKey));
                 }
-              }}>{t("language.deleteInvalid")}</button>
+              }}>{t("language.deleteInvalid")}</Button>
             </div>
           ))}
         </section>
@@ -185,8 +183,8 @@ export function FolderLanguageControls(props: {
             )}
             {error && <p role="alert" className={styles.error}>{error}</p>}
             <div className={styles.dialogActions}>
-              <Button onPress={() => setAdding(false)}>{t("editor.cancel")}</Button>
-              <Button onPress={add} isDisabled={!locale.trim()}>{t("language.addAction")}</Button>
+              <Button onClick={() => setAdding(false)}>{t("editor.cancel")}</Button>
+              <Button onClick={add} disabled={!locale.trim()}>{t("language.addAction")}</Button>
             </div>
           </Dialog>
         </Modal>

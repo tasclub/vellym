@@ -2,6 +2,7 @@ import type { DocumentNavigationFolder } from "@vellym-internal/core";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../shared/icon.js";
 import { KindIcon } from "../shared/kind-icon.js";
+import { Button } from "../shared/button.js";
 import styles from "./folder-view.module.css";
 
 export function FolderView(props: {
@@ -18,13 +19,12 @@ export function FolderView(props: {
         <h1 id="empty-title">{t("folder.empty.title")}</h1>
         <span>{t("folder.empty.hint")}</span>
         {props.onCreatePage && (
-          <button
-            type="button"
+          <Button
             className={styles.emptyCta}
             onClick={props.onCreatePage}
           >
             {t("folder.empty.createFirst")}
-          </button>
+          </Button>
         )}
       </section>
     );
@@ -41,7 +41,7 @@ export function FolderView(props: {
         <ul>
           {props.folder.children.map((child) => (
             <li key={child.kind === "folder" ? child.path : child.name}>
-              <button type="button" onClick={() => child.kind === "folder"
+              <Button onClick={() => child.kind === "folder"
                 ? props.onSelectFolder(child.path)
                 : props.onSelectPage(child.name)}>
                 <span className={styles.icon}>
@@ -57,7 +57,7 @@ export function FolderView(props: {
                     ? t("folder.kindFolder")
                     : t("folder.kindPage")}
                 </small>
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

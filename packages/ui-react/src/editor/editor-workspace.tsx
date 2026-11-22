@@ -126,12 +126,12 @@ function Notices(props: {
           <strong>{t("editor.saveFailedTitle")}</strong>
           <span>{props.saveError}</span>
           <div className={styles["notice-actions"]}>
-            <button type="button" onClick={props.onRetry}>
+            <Button onClick={props.onRetry}>
               {t("editor.retrySave")}
-            </button>
-            <button type="button" onClick={props.onCopy}>
+            </Button>
+            <Button onClick={props.onCopy}>
               {t("editor.copyDraft")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -165,17 +165,17 @@ function Notices(props: {
             </details>
           )}
           <div className={styles["notice-actions"]}>
-            <button type="button" onClick={props.onCopy}>
+            <Button onClick={props.onCopy}>
               {t("editor.copyDraft")}
-            </button>
+            </Button>
             {props.conflictView && (
-              <button type="button" onClick={props.onKeepDraft}>
+              <Button onClick={props.onKeepDraft}>
                 {t("editor.keepDraft")}
-              </button>
+              </Button>
             )}
-            <button type="button" onClick={props.onReload}>
+            <Button onClick={props.onReload}>
               {t("editor.useYaml")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -208,9 +208,9 @@ function Notices(props: {
       {props.externalChange && props.saveState !== "conflict" && (
         <div className="notice warning">
           {t("editor.externalChange")}
-          <button type="button" onClick={props.onReload}>
+          <Button onClick={props.onReload}>
             {t("editor.reload")}
-          </button>
+          </Button>
         </div>
       )}
       {props.message && (
@@ -531,9 +531,8 @@ export function EditorWorkspace(props: {
                 aria-label={t("editor.moreFormats")}
               >
                 {MORE_ACTIONS.map((action) => (
-                  <button
+                  <Button
                     key={action.command}
-                    type="button"
                     aria-pressed={editorState.activeCommands.includes(
                       action.command
                     )}
@@ -549,7 +548,7 @@ export function EditorWorkspace(props: {
                       {action.text}
                     </span>
                     <span>{t(action.labelKey)}</span>
-                  </button>
+                  </Button>
                 ))}
               </div>
             </details>
