@@ -7,11 +7,13 @@
    * 記号と太さと文言で伝える。
    */
   /* 行を縦に積み上げず、副次情報は1行へ畳む。 */
-
-
-
-
-
+  .plugin-list-nowrap {
+    white-space: nowrap;
+  }
+  .plugin-list-title-column {
+    display: inline-block;
+    min-width: 12em;
+  }
 
   /* 題名は行の主役。他の列より1段強くする。 */
   .plugin-list-open {

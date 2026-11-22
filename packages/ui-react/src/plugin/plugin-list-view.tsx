@@ -684,7 +684,17 @@ export function PluginListView({
         }
         columns={columns.map((column) => ({
           id: column.id,
-          label: resolveLocalizedText(column.label, locale),
+          label: (
+            <span
+              className={
+                column.id === "title"
+                  ? styles["plugin-list-title-column"]
+                  : styles["plugin-list-nowrap"]
+              }
+            >
+              {resolveLocalizedText(column.label, locale)}
+            </span>
+          ),
           ...(column.sortable
             ? {
                 sort: ((): SortDirection => {
@@ -703,7 +713,7 @@ export function PluginListView({
             : {}),
           cell: (row: PluginViewRow) =>
             column.id === "title" ? (
-              <>
+              <span className={styles["plugin-list-title-column"]}>
                 <button
                   type="button"
                   className={styles["plugin-list-open"]}
@@ -738,9 +748,17 @@ export function PluginListView({
                       .join(" / ")}
                   </span>
                 ) : null}
-              </>
+              </span>
             ) : (
-              markedCellText(row, column, locale)
+              <span
+                className={
+                  column.type === "multiline"
+                    ? undefined
+                    : styles["plugin-list-nowrap"]
+                }
+              >
+                {markedCellText(row, column, locale)}
+              </span>
             )
         }))}
       />
