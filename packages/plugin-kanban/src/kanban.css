@@ -2,6 +2,24 @@
 .kanban-board {
   min-width: 0;
 }
+.kanban-card-title {
+  display: block;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  justify-content: flex-start;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 700;
+}
 .kanban-filters {
   display: flex;
   flex-wrap: wrap;

@@ -42,19 +42,6 @@ const cardStyle: CSSProperties = {
   padding: "var(--space-3)",
   color: "var(--text-primary)"
 };
-const cardTitleStyle: CSSProperties = {
-  width: "100%",
-  color: "inherit",
-  font: "inherit",
-  textAlign: "start",
-  cursor: "pointer",
-  border: 0,
-  background: "none",
-  padding: 0,
-  textDecoration: "none",
-  fontWeight: 700
-};
-
 function isRendererData(value: unknown): value is KanbanRendererData {
   return typeof value === "object" && value !== null &&
     Array.isArray((value as KanbanRendererData).statuses) &&
@@ -530,7 +517,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
                       <KindIcon resourceKind="Ticket" aria-hidden="true" />
                       <div style={{ minWidth: 0, width: "100%" }}>
                         <Button
-                          style={cardTitleStyle}
+                          className="kanban-card-title"
                           aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
                           onKeyDown={(event) => handleCardKeyDown(event, row)}
                           onClick={() => {
