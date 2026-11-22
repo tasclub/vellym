@@ -94,6 +94,7 @@ import {
 import { Button } from "../shared/button.js";
 import { UiLanguageContext } from "../shared/ui-language.js";
 import { pageLanguages, uiLangAttribute } from "./page-languages.js";
+import shellStyles from "./workspace-shell.module.css";
 
 function currentDocumentLocation() {
   return resolveDocumentLocation({
@@ -1582,6 +1583,33 @@ export function App() {
           void loadList();
         }}
       >
+        {/* Match the rendered history, not a second copy of its URL state. */}
+        <style>{`
+        .${shellStyles.shell}:has([data-git-history]):not(:has([hidden] [data-git-history])) {
+          display: grid; height: 100dvh; overflow: clip;
+          grid-template: "rail header header header" 54px "rail navigation content outline" minmax(0, 1fr)
+            / 52px var(--navigation-width) minmax(0, 1fr) 0px;
+        }
+        .${shellStyles.contentColumn}:has([data-git-history]):not(:has([hidden] [data-git-history])) { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+        .${shellStyles.contentColumn}:has([data-git-history]):not(:has([hidden] [data-git-history])) > details,
+        .${shellStyles.shell}:has([data-git-history]):not(:has([hidden] [data-git-history])) > .${shellStyles.outlineColumn},
+        .${shellStyles.content}:has([data-git-history]):not(:has([hidden] [data-git-history])) > .${shellStyles.pageTurner} { display: none; }
+        .${shellStyles.content}:has([data-git-history]):not(:has([hidden] [data-git-history])) { overflow: hidden; }
+        .${shellStyles.content}:has([data-git-history]):not(:has([hidden] [data-git-history])) > div:not([hidden]) { height: 100%; }
+        .workspace:has(> .document-paper > [data-git-history]) { height: 100%; padding: 0; }
+        .document-paper:has(> [data-git-history]) {
+          width: 100%; max-width: none; height: 100%; min-height: 0;
+          margin: 0; padding: 0; border: 0; box-shadow: none; background: transparent;
+        }
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .${shellStyles.shell}:has([data-git-history]):not(:has([hidden] [data-git-history])) { grid-template-columns: 52px 0 minmax(0, 1fr) 0; }
+        }
+        @media (max-width: 767px) {
+          .${shellStyles.shell}:has([data-git-history]):not(:has([hidden] [data-git-history])) {
+            grid-template: "header" 54px "content" minmax(0, 1fr) / minmax(0, 1fr);
+          }
+        }
+      `}</style>
         {area === "changes" && gitStatus.available && (
           <GitChanges status={gitStatus} pages={pages} unsaved={hasUnsavedChanges} initialPath={changePath} refresh={refreshGit} onHistory={(page, hash) => {
             if (hasUnsavedChanges) { setPendingLeave({ kind: "navigate", page: page.name, historyHash: hash }); return; }

@@ -56,7 +56,12 @@ spec:
         文書の見出しの横の「履歴」を押すと、その文書の版の一覧（新しい順、50件ずつ。「さらに表示」で続きを読む）が出る。
         移動（ファイル名の変更）があっても、移動前の版までたどる。
 
-        - **差分**: 「1つ前との差分」か「今との差分」を選ぶ。並べ方は「左右」と「1列」から選べ、選んだ並べ方は覚えておく。
+        履歴は紙面と目次を外して幅いっぱいに開く。左に細い版の一覧、右に広い差分を表示し、それぞれ別にスクロールできる。
+        選んだ版の情報と比較・表示・hashのコピーは差分の上にあり、「文書に戻る」は見出しの左にある。
+        幅768px未満では一覧が上、1列の差分が下に並ぶ。
+
+        - **差分**: 「1つ前との差分」か「今との差分」を選ぶ。既定では各列の本文を400px以上取れるときに「左右」、それ以外は「1列」になる。
+          「左右」と「1列」を自分で選ぶと、その並べ方を個人設定として覚えておく（幅768px未満では常に1列）。
           変更の無い行は折りたたまれ、「n行の変更なし」を押すと開く。
         - **この版を表示**: その版の文書を読むだけの形で表示する。「今の版に戻る」で戻る。
           その版のYAMLが今のVellymで読めない形のときは表示できないが、差分は見られる。
@@ -131,8 +136,15 @@ spec:
             time; **Show more** loads the next ones). Renames are followed back to the versions before
             the move.
 
-            - **Diff**: choose **Diff with previous** or **Diff with current**. Pick **Side by side** or
-              **One column**; your choice is remembered. Unchanged lines are folded; press
+            History uses the full area beside the document tree, without the paper or outline. A narrow
+            version list is on the left and a wide diff on the right; each scrolls independently.
+            Selected version details, comparison, display and hash-copy actions sit above the diff.
+            **Back to document** is left of the heading. Below 768px, the list sits above a one-column diff.
+
+            - **Diff**: choose **Diff with previous** or **Diff with current**. By default, **Side by side**
+              is used when each text column can be at least 400px wide; otherwise it uses **One column**.
+              Your explicit choice is remembered as a personal setting (below 768px it is always one column).
+              Unchanged lines are folded; press
               **n unchanged lines** to open them.
             - **Show this version**: shows that version read-only. **Return to current version** returns.
               If that version's YAML cannot be read by this Vellym, it cannot be shown, but its diff can.

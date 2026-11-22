@@ -101,7 +101,11 @@ try {
   await expectNoNativeButtons(tab, "document display");
   await tab.getByRole("button", { name: "History", exact: true }).click();
   await expect(tab.getByRole("heading", { name: /One.*History/ })).toBeVisible();
+  await expect(tab.getByRole("region", { name: "Diff", exact: true }).locator("table")).toBeVisible();
   await expectNoNativeButtons(tab, "document history");
+  await tab.getByRole("option").filter({ hasText: "Fixture" }).click();
+  await expect(tab.getByRole("button", { name: "Show this version", exact: true })).toBeVisible();
+  await expectNoNativeButtons(tab, "selected commit and diff controls");
   await tab.getByRole("button", { name: "Back to document", exact: true }).click();
   await tab.getByRole("button", { name: "Edit", exact: true }).click();
   await expectNoNativeButtons(tab, "document editor");
