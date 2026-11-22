@@ -294,7 +294,7 @@ spec:
         | `registerKind` | kind、`spec` JSON Schema、`engineVersion`、本文の有無、ツリー表示、16×16アイコンを登録する。`engineVersion`はkind契約のsemver。`specSchema`不一致はwarningとして診断し、種別固有の値は原文のまま保持する。 |
         | `registerRecordProjection` | 抽出済みレコードを、一覧と詳細が使う小さな索引行へ変換する。 |
         | `registerRecordSetValidator` | 同じkindの索引行全体を、行がそろう後に1回だけ検査する。レコードをまたぐ参照の解決や循環はここで書く。同じkindへ複数登録でき、hostは同じ関数を1回だけ実行し、診断をfile・path・codeで重複を除く。 |
-        | `registerView` | 汎用の一覧・詳細descriptor、または文脈からdescriptorを作る関数を登録する。独自renderer向けの`rendererData`と、一覧の`paperWidth`も宣言できる。 |
+        | `registerView` | 汎用の一覧・詳細descriptor、または文脈からdescriptorを作る関数を登録する。独自renderer向けの`rendererData`と、一覧の`paperWidth`も宣言できる。ビュー切替の順は`role: "primary"`を先頭、`role: "settings"`を末尾にし、指定なしはその間で`plugins`の設定順・登録順にする。 |
         | `registerCommand` | 入力項目と処理を登録する。新規リソースは`context.createResource()`で未保存ドラフトとして始める。 |
         | `reportDiagnostic` | 例外の代わりに、file、JSON Pointer、severity、安定したcode、messageを持つ診断を出す。 |
 
@@ -725,7 +725,7 @@ spec:
             | `registerKind` | Registers a kind, its `spec` JSON Schema, `engineVersion`, body behavior, tree visibility, and optional 16×16 icon. `engineVersion` is the kind contract's semver. A `specSchema` mismatch is a warning; kind-specific values remain preserved as written. |
             | `registerRecordProjection` | Reduces extracted records to small index rows used by lists and details. |
             | `registerRecordSetValidator` | Checks all index rows of one kind once, after they are ready. Cross-record checks — reference resolution and cycles — belong here. Several plugins may register for the same kind; the host runs the same function once and deduplicates diagnostics by file, path, and code. |
-            | `registerView` | Registers a generic list/detail descriptor, or a function that creates one from context. Descriptors may include `rendererData` for a custom renderer and `paperWidth` for list views. |
+            | `registerView` | Registers a generic list/detail descriptor, or a function that creates one from context. Descriptors may include `rendererData` for a custom renderer and `paperWidth` for list views. In a view switcher, `role: "primary"` is first and `role: "settings"` is last; unspecified views stay between them in `plugins` configuration and registration order. |
             | `registerCommand` | Registers inputs and behavior. Start a resource as an unsaved draft with `context.createResource()`. |
             | `reportDiagnostic` | Reports a file, JSON Pointer, severity, stable code, and message instead of throwing. |
 

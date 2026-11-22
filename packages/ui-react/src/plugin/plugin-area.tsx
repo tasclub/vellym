@@ -64,10 +64,9 @@ export function PluginListPage(props: {
 }) {
   const { payload, view } = props;
   const [command, setCommand] = useState<PluginViewPayload["commands"][number]>();
-  // The same order as the view switcher below; [ and ] step through it and stop at the ends.
-  const switchable = [...(payload.siblings ?? [])]
-    .filter((sibling) => sibling.label)
-    .sort((left, right) => left.id.localeCompare(right.id));
+  // The server orders views by role, plugin configuration, and registration. Keep that
+  // order for both the switcher and [ / ] navigation.
+  const switchable = (payload.siblings ?? []).filter((sibling) => sibling.label);
   const position = switchable.findIndex((sibling) => sibling.id === payload.viewId);
   const previous = position > 0 ? switchable[position - 1] : undefined;
   const next = position >= 0 && position < switchable.length - 1 ? switchable[position + 1] : undefined;

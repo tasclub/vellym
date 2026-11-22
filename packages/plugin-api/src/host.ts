@@ -84,6 +84,13 @@ export interface PluginViewContribution {
   id: string;
   view: PluginViewProvider;
   /**
+   * 同じ入口kindのビュー切替での位置。
+   *
+   * `"primary"`は先頭、`"settings"`は末尾に置く。省略したビューはその間に、
+   * `vellym.config.yaml`の`plugins`と、そのプラグイン内での登録の順で並ぶ。
+   */
+  role?: "primary" | "settings";
+  /**
    * このビューを開く入口になるリソースのkind。
    *
    * 利用者がそのkindのリソースを開いたとき、本文の代わりにこのビューを描く。

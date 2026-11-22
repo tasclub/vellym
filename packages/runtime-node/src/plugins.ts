@@ -585,7 +585,7 @@ export function resolveCommandInputs(
  * 指定kindのリソースを開いたときに表示するビュー。
  *
  * 同じkindに複数のビューを登録できる（一覧と設定など）。`viewId`を指定すると
- * そのビューを選び、省略すると最初に登録されたものを使う。
+ * そのビューを選び、省略すると役割順で最初のものを使う。
  */
 export function viewForKind(
   registry: PluginRegistry,
@@ -593,16 +593,36 @@ export function viewForKind(
   viewId?: string,
   isStatic = false
 ): { plugin: LoadedPlugin; contribution: PluginViewContribution } | undefined {
+  const candidates = viewsForKind(registry, kind, isStatic);
+  return viewId
+    ? candidates.find((candidate) => candidate.contribution.id === viewId)
+    : candidates[0];
+}
+
+/**
+ * `primary`、通常、`settings`の順で入口kindのビューを返す。
+ *
+ * 各グループ内はregistryのplugins（設定順）とviews（登録順）をそのまま保つ。
+ * `sort`でIDを比較しないため、プラグイン名で利用者向けの順序が変わらない。
+ */
+function viewsForKind(
+  registry: PluginRegistry,
+  kind: string,
+  isStatic: boolean
+): Array<{ plugin: LoadedPlugin; contribution: PluginViewContribution }> {
+  const primary: Array<{ plugin: LoadedPlugin; contribution: PluginViewContribution }> = [];
+  const ordinary: Array<{ plugin: LoadedPlugin; contribution: PluginViewContribution }> = [];
+  const settings: Array<{ plugin: LoadedPlugin; contribution: PluginViewContribution }> = [];
   for (const plugin of registry.plugins) {
     for (const contribution of plugin.views) {
-      if (isStatic && !contribution.static) continue;
-      const opensKind = viewOpensKind(plugin, contribution);
-      if (opensKind !== kind) continue;
-      if (viewId && contribution.id !== viewId) continue;
-      return { plugin, contribution };
+      if ((isStatic && !contribution.static) || viewOpensKind(plugin, contribution) !== kind) continue;
+      const candidate = { plugin, contribution };
+      if (contribution.role === "primary") primary.push(candidate);
+      else if (contribution.role === "settings") settings.push(candidate);
+      else ordinary.push(candidate);
     }
   }
-  return undefined;
+  return [...primary, ...ordinary, ...settings];
 }
 
 /** 登録値を優先し、関数形のビューではmanifestの宣言で入口kindを補う */
@@ -641,14 +661,7 @@ export function staticViewIdsForKind(
   registry: PluginRegistry,
   kind: string
 ): readonly string[] {
-  return registry.plugins.flatMap((plugin) =>
-    plugin.views
-      .filter((contribution) => {
-        if (!contribution.static) return false;
-        return viewOpensKind(plugin, contribution) === kind;
-      })
-      .map((contribution) => contribution.id)
-  );
+  return viewsForKind(registry, kind, true).map((candidate) => candidate.contribution.id);
 }
 
 /**
@@ -753,13 +766,9 @@ export function buildPluginView(options: {
     descriptor,
     rows,
     allRows: scoped,
-    siblings: options.registry.plugins.flatMap((siblingPlugin) =>
-      siblingPlugin.views
-        .filter((item) => {
-          if (!item.label || (options.isStatic && !item.static)) return false;
-          return viewOpensKind(siblingPlugin, item) === options.target.kind;
-        })
-        .map((item) => ({
+    siblings: viewsForKind(options.registry, options.target.kind, options.isStatic)
+      .filter(({ contribution }) => contribution.label)
+      .map(({ plugin: siblingPlugin, contribution: item }) => ({
           id: item.id,
           // descriptorは関数の場合があり、呼ばずに種別を知る必要がある。
           // manifestが宣言した種別を使う。宣言と実装の一致はプラグイン側の責務。
@@ -767,8 +776,7 @@ export function buildPluginView(options: {
             siblingPlugin.manifest.contributes?.views?.find((declared) => declared.id === item.id)
               ?.type ?? "list",
           label: item.label!
-        }))
-    ),
+      })),
     commands: plugin.commands
       .filter((command) => command.placement !== "document-tree")
       .filter((command) => !options.isStatic || command.static)

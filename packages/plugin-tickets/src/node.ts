@@ -26,6 +26,7 @@ export default definePlugin({
     host.registerView({
       id: LIST_VIEW_ID,
       view: ticketListView,
+      role: "primary",
       opensKind: "TicketTracker",
       label: { ja: "チケット一覧", en: "Ticket list" },
       static: true
@@ -33,6 +34,7 @@ export default definePlugin({
     host.registerView({
       id: SETTINGS_VIEW_ID,
       view: ticketTrackerSettingsView,
+      role: "settings",
       opensKind: "TicketTracker",
       label: { ja: "このチケット管理の設定", en: "Tracker settings" },
       static: false
