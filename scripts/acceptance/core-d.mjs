@@ -177,7 +177,8 @@ export const steps = [
   { id: "CORE-MANUAL-A14", title: "未対応blockを非破壊に扱う", async run(ctx) {
     const fixture = await workspace(ctx);
     const { page, root, contentRoot, origin } = fixture;
-    const source = "apiVersion: vellym.tasclub.com/v1alpha1\nkind: Page\nmetadata:\n  name: manual-unsupported\n  title: 未対応block保持確認\nspec:\n  blocks:\n    - id: body\n      type: rich-text\n      format: commonmark\n      content: |\n        ## 表示できる本文\n\n        この本文は閲覧できる。\n    - id: future\n      type: future-widget\n      value: keep-this-exact-value\n";
+    const source = "apiVersion: vellym.tasclub.com/v1alpha1\nkind: Page\nmetadata:\n  name: manual-unsupported\n  title: 未対応block保持確認\nspec:\n  blocks:\n    - id: body\n      type: rich-text\n      format: commonmark\n      content: |\n        ## 表示できる本文\n\n        この本文は閲覧できる。\n    # この未対応blockのコメントも保持する\n    - id: future\n      type: future-widget\n      value: keep-this-exact-value # この値のコメントも保持する\n";
+    const unknownBlock = source.slice(source.indexOf("    # この未対応block"));
     const file = ctx.path.join(root, contentRoot, "manual-unsupported.yaml");
     await ctx.fs.writeFile(file, source);
     const validation = ctx.cli(root, "validate");
@@ -188,24 +189,26 @@ export const steps = [
       await ctx.expect(page.getByRole("heading", { name: "未対応block保持確認", exact: true })).toBeVisible();
       await ctx.expect(page.locator("#document-content")).toContainText("この本文は閲覧できる。");
     });
-    await ctx.check("未対応blockがある理由を示して編集を許可しない。", async () => {
+    await ctx.check("未対応blockがある理由を示し、そのblockを編集できない一方、既知rich-textを編集・保存できる。", async () => {
       await ctx.expect(page.getByText("この文書には、この版で表示できない内容があります。")).toBeVisible();
-      const edit = button(page, "編集");
-      if (await edit.count() && await edit.isEnabled()) {
-        const response = page.waitForResponse((res) => res.url().endsWith("/pages/manual-unsupported/edit"));
-        await edit.click();
-        const data = (await (await response).json()).data;
-        assert.equal(data.readOnly, true, "編集APIが未対応blockを編集可能としている");
-        await ctx.expect(page.getByRole("alert")).toBeVisible();
-      }
-      await ctx.expect(page.locator('[contenteditable="true"]')).toHaveCount(0);
+      await button(page, "編集").click();
+      const editor = page.locator('[contenteditable="true"]').first();
+      await ctx.expect(editor).toBeVisible();
+      await editor.click();
+      await page.keyboard.press("Control+End");
+      await page.keyboard.insertText(" A14既知本文の保存");
+      await button(page, "保存").first().click();
+      await button(page, "編集").waitFor();
+      const saved = await ctx.fs.readFile(file, "utf8");
+      assert(saved.includes("A14既知本文の保存"), "既知rich-textの変更が保存されていない");
+      assert(saved.includes(unknownBlock), "未対応blockの値またはコメントが変わった");
     });
     await page.reload({ waitUntil: "networkidle" });
     await ctx.check("他Pageの編集と保存は継続できる。", () => editOther(ctx, fixture, "A14未対応block存在時の編集"));
-    await ctx.check("再読み込みや他Pageの保存後も`future-widget`と`keep-this-exact-value`が原文のまま残る。", async () => {
+    await ctx.check("同じPageの既知本文の保存、再読み込みや他Pageの保存後も未対応blockの原文が残る。", async () => {
       await page.goto(url, { waitUntil: "networkidle" });
-      await ctx.expect(page.locator("#document-content")).toContainText("この本文は閲覧できる。");
-      assert.equal(await ctx.fs.readFile(file, "utf8"), source);
+      await ctx.expect(page.locator("#document-content")).toContainText("A14既知本文の保存");
+      assert((await ctx.fs.readFile(file, "utf8")).includes(unknownBlock), "未対応blockの原文が変わった");
     });
   } }
 ];
