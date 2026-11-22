@@ -22,6 +22,7 @@ import {
   type DropPosition
 } from "react-aria-components";
 import { Icon } from "../shared/icon.js";
+import { Button as AppButton } from "../shared/button.js";
 import { DocumentTree } from "./document-tree.js";
 import { DocumentOutline } from "./document-outline.js";
 import type {
@@ -125,17 +126,16 @@ function Breadcrumbs(props: {
   return (
     <nav className={styles.breadcrumbs} aria-label={t("nav.breadcrumb")}>
       <ol>
-        <li><button type="button" onClick={() => props.onSelectFolder("")}>{t("nav.allDocuments")}</button></li>
+        <li><AppButton onClick={() => props.onSelectFolder("")}>{t("nav.allDocuments")}</AppButton></li>
         {page.breadcrumbs.map((item, index) => (
           <li key={`${item}:${index}`}>
-            <button
-              type="button"
+            <AppButton
               onClick={() => props.onSelectFolder(page.breadcrumbs.slice(0, index + 1).join("/"))}
             >
               {props.folders.find((folder) =>
                 folder.path === page.breadcrumbs.slice(0, index + 1).join("/")
               )?.title ?? item}
-            </button>
+            </AppButton>
           </li>
         ))}
         <li aria-current="page">{page.title}</li>
@@ -537,18 +537,17 @@ export function WorkspaceShell(props: {
           selectedFolder ? (
             selectedFolder.path ? <nav className={styles.breadcrumbs} aria-label={t("nav.breadcrumb")}>
               <ol>
-                <li><button type="button" onClick={() => props.onSelectFolder("")}>{t("nav.allDocuments")}</button></li>
+                <li><AppButton onClick={() => props.onSelectFolder("")}>{t("nav.allDocuments")}</AppButton></li>
                 {selectedFolder.path.split("/").map((item, index, all) => (
                   <li key={`${item}:${index}`} aria-current={index === all.length - 1 ? "page" : undefined}>
                     {index === all.length - 1 ? selectedFolder.title : (
-                      <button
-                        type="button"
+                      <AppButton
                         onClick={() => props.onSelectFolder(all.slice(0, index + 1).join("/"))}
                       >
                         {props.folders.find((folder) =>
                           folder.path === all.slice(0, index + 1).join("/")
                         )?.title ?? item}
-                      </button>
+                      </AppButton>
                     )}
                   </li>
                 ))}
@@ -571,14 +570,14 @@ export function WorkspaceShell(props: {
           {props.area === "documents" && selectedPage && !props.selectedFolder && (
             <nav className={styles.pageTurner} aria-label={t("nav.previousDocuments")}>
               {selectedPage.previous ? (
-                <button type="button" onClick={() => props.onNavigate(selectedPage.previous!.name)}>
+                <AppButton onClick={() => props.onNavigate(selectedPage.previous!.name)}>
                   <small>{t("nav.previous")}</small><strong>← {selectedPage.previous.title}</strong>
-                </button>
+                </AppButton>
               ) : <span />}
               {selectedPage.next ? (
-                <button type="button" onClick={() => props.onNavigate(selectedPage.next!.name)}>
+                <AppButton onClick={() => props.onNavigate(selectedPage.next!.name)}>
                   <small>{t("nav.next")}</small><strong>{selectedPage.next.title} →</strong>
-                </button>
+                </AppButton>
               ) : <span />}
             </nav>
           )}

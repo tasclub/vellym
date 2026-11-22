@@ -714,13 +714,12 @@ export function PluginListView({
           cell: (row: PluginViewRow) =>
             column.id === "title" ? (
               <span className={styles["plugin-list-title-column"]}>
-                <button
-                  type="button"
+                <Button
                   className={styles["plugin-list-open"]}
                   onClick={() => onOpen?.(row.name)}
                 >
                   {row.title}
-                </button>
+                </Button>
                 {/*
                   読み込めない行と、値は読めていて注意があるだけの行を
                   区別する。同じ見た目にすると、直すべきものが埋もれる。

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 
 import styles from "./table.module.css";
+import { Button } from "./button.js";
 
 export type SortDirection = "ascending" | "descending" | "none";
 
@@ -109,14 +110,14 @@ export function DataTable<Row>(props: {
               const direction = column.sort ?? "none";
               return (
                 <th key={column.id} scope="col" aria-sort={direction}>
-                  <button type="button" className={styles.sort} onClick={column.onSort}>
+                  <Button className={styles.sort} onClick={column.onSort}>
                     {label}
                     {direction === "none" ? null : (
                       <span className={styles.direction} aria-hidden="true">
                         {DIRECTION_MARK[direction]}
                       </span>
                     )}
-                  </button>
+                  </Button>
                 </th>
               );
             })}
