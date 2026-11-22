@@ -245,12 +245,15 @@ const ctx = {
     await fs.mkdir(path.dirname(destination), { recursive: true });
     await fs.writeFile(destination, text);
   },
-  async start(root) {
-    const socket = createServer();
-    socket.listen(0, "127.0.0.1");
-    await once(socket, "listening");
-    const port = socket.address().port;
-    await new Promise((resolve, reject) => socket.close((error) => error ? reject(error) : resolve()));
+  async start(root, options = {}) {
+    let port = options.port;
+    if (port === undefined) {
+      const socket = createServer();
+      socket.listen(0, "127.0.0.1");
+      await once(socket, "listening");
+      port = socket.address().port;
+      await new Promise((resolve, reject) => socket.close((error) => error ? reject(error) : resolve()));
+    }
     const origin = `http://127.0.0.1:${port}`;
     const server = spawn(process.execPath, [cli, "dev", "--host", "127.0.0.1", "--port", String(port)], { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
     let log = "";
