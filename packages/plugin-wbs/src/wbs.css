@@ -71,7 +71,12 @@
 .wbs-status { flex: 0 0 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wbs-narrow-status { display: none; }
 /* Host ancestor+button rules otherwise defeat fixed-height, single-line cells. */
-.wbs-row .wbs-title { flex: 1; min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; min-height: 0; height: 30px; padding: 0 2px; }
+.wbs-row .wbs-title {
+  flex: 1; min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; text-align: start; min-height: 0; height: 30px; padding: 0 2px;
+  border: 0; background: none; box-shadow: none; color: inherit;
+}
+.wbs-row .wbs-title:hover { text-decoration: underline; }
 .wbs-row .wbs-toggle button, .wbs-row .wbs-actions button { min-width: 18px; width: 18px; min-height: 26px; height: 26px; padding: 0; }
 .wbs-actions { display: flex; flex: 0 0 0; width: 0; overflow: hidden; }
 .wbs-row:hover .wbs-actions, .wbs-row:focus-within .wbs-actions { flex-basis: 56px; width: 56px; overflow: visible; }
