@@ -132,8 +132,16 @@ spec:
   const target = page.getByRole("heading", { level: 2, name: "日本語の見出し", exact: true });
   await expect(target).toBeFocused();
 
-  await outline.getByRole("button", { name: "現在の見出しへのリンクをコピー", exact: true }).click();
-  await expect(outline.locator('[aria-live="polite"]')).toHaveText("リンクをコピーしました");
+  const copyButton = outline.getByRole("button", { name: "現在の見出しへのリンクをコピー", exact: true });
+  await expect(copyButton).toHaveAttribute("title", "現在の見出しへのリンクをコピー");
+  const titleBox = await outline.getByRole("heading", { name: "このページ", exact: true }).boundingBox();
+  const buttonBox = await copyButton.boundingBox();
+  assert(titleBox && buttonBox, "outline title and copy icon should be visible");
+  assert.ok(Math.abs(titleBox.y + titleBox.height / 2 - buttonBox.y - buttonBox.height / 2) <= 1,
+    "copy icon should share the title row");
+  assert.ok(buttonBox.width <= 40, `copy icon button should stay small: ${buttonBox.width}px`);
+  await copyButton.click();
+  await expect(outline.getByRole("status")).toHaveText("リンクをコピーしました");
   const copiedUrl = await page.evaluate(() => navigator.clipboard.readText());
   assert.equal(copiedUrl, page.url(), "dynamic copied URL should be the current URL");
   const dynamicTab = await context.newPage();
@@ -159,7 +167,7 @@ spec:
   const staticOutline = staticPage.getByRole("navigation", { name: "このページの見出し" });
   await staticOutline.getByRole("link", { name: "日本語の見出し", exact: true }).click();
   await staticOutline.getByRole("button", { name: "現在の見出しへのリンクをコピー", exact: true }).click();
-  await expect(staticOutline.locator('[aria-live="polite"]')).toHaveText("リンクをコピーしました");
+  await expect(staticOutline.getByRole("status")).toHaveText("リンクをコピーしました");
   const staticCopiedUrl = await staticPage.evaluate(() => navigator.clipboard.readText());
   assert.equal(staticCopiedUrl, staticPage.url(), "static copied URL should use the static page URL");
   assert.equal(new URL(staticCopiedUrl).origin, staticOrigin);

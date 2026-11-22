@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { DocumentHeading } from "@vellym-internal/core";
 import { useTranslation } from "react-i18next";
+import { Button } from "../shared/button.js";
+import { Icon } from "../shared/icon.js";
 import styles from "./document-outline.module.css";
 
 export function DocumentOutline(props: {
@@ -121,12 +123,23 @@ export function DocumentOutline(props: {
   ) : (
     <p className={styles.empty}>{t("outline.empty")}</p>
   );
+  const copyLinkLabel = t("outline.copyLink");
   const contents = (
     <>
-      <button className={styles.copy} type="button" disabled={!props.headings.length} onClick={copyLink}>
-        {t("outline.copyLink")}
-      </button>
-      <p className={styles.copyResult} aria-live="polite">
+      <div className={styles.heading}>
+        <h2>{t("outline.title")}</h2>
+        <Button
+          className={styles.copyButton}
+          icon
+          aria-label={copyLinkLabel}
+          title={copyLinkLabel}
+          disabled={!props.headings.length}
+          onClick={copyLink}
+        >
+          <Icon name="link" />
+        </Button>
+      </div>
+      <p className={styles.copyResult} role="status" aria-live="polite">
         {copyResult && t(copyResult === "success" ? "outline.linkCopied" : "outline.copyFailed")}
       </p>
       {list}
@@ -143,7 +156,6 @@ export function DocumentOutline(props: {
   }
   return (
     <nav className={styles.outline} aria-label={t("outline.compactSummary")}>
-      <h2>{t("outline.title")}</h2>
       {contents}
     </nav>
   );

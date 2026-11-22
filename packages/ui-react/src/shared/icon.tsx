@@ -17,7 +17,8 @@ export type IconName =
   | "chevronRight"
   | "chevronLeft"
   | "check"
-  | "arrowUpRight";
+  | "arrowUpRight"
+  | "link";
 
 // viewBox は 16x16 に統一。線は currentColor・round キャップで軽い線画に揃える。
 const PATHS: Record<IconName, React.ReactNode> = {
@@ -67,6 +68,13 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <path d="M5 11l6-6" />
       <path d="M6.25 5H11v4.75" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="m6.5 9.5-1.75 1.75a2 2 0 0 1-2.83-2.83L5 5.34a2 2 0 0 1 2.83 0" />
+      <path d="m9.5 6.5 1.75-1.75a2 2 0 1 1 2.83 2.83L11 10.66a2 2 0 0 1-2.83 0" />
+      <path d="m6 10 4-4" />
     </>
   )
 };

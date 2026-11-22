@@ -33,9 +33,12 @@ it.each([false, true])("copies the hash heading in compact=%s and clears feedbac
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
   act(() => root.render(createElement(DocumentOutline, { headings, compact, onSelect: vi.fn() })));
-  await act(async () => host.querySelector("button")!.click());
+  const button = host.querySelector<HTMLButtonElement>('button[aria-label="outline.copyLink"]')!;
+  expect(button.title).toBe("outline.copyLink");
+  expect(button.querySelector("svg")).not.toBeNull();
+  await act(async () => button.click());
   expect(writeText).toHaveBeenCalledWith(new URL(location.href).toString());
-  expect(host.querySelector('[aria-live="polite"]')?.textContent).toBe("outline.linkCopied");
+  expect(host.querySelector('[role="status"][aria-live="polite"]')?.textContent).toBe("outline.linkCopied");
   act(() => vi.advanceTimersByTime(3000));
   expect(host.querySelector('[aria-live="polite"]')?.textContent).toBe("");
 });
@@ -45,7 +48,14 @@ it("uses the current heading when the hash is unknown and reports clipboard fail
   const writeText = vi.fn().mockRejectedValue(new Error("denied"));
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
   act(() => root.render(createElement(DocumentOutline, { headings, onSelect: vi.fn() })));
-  await act(async () => host.querySelector("button")!.click());
+  await act(async () =>
+    host.querySelector<HTMLButtonElement>('button[aria-label="outline.copyLink"]')!.click()
+  );
   expect(writeText).toHaveBeenCalledWith(new URL("/page#first", location.href).toString());
-  expect(host.querySelector('[aria-live="polite"]')?.textContent).toBe("outline.copyFailed");
+  expect(host.querySelector('[role="status"][aria-live="polite"]')?.textContent).toBe("outline.copyFailed");
+});
+
+it("disables copy when there are no headings", () => {
+  act(() => root.render(createElement(DocumentOutline, { headings: [], onSelect: vi.fn() })));
+  expect(host.querySelector<HTMLButtonElement>('button[aria-label="outline.copyLink"]')?.disabled).toBe(true);
 });
