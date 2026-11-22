@@ -166,16 +166,12 @@ export const steps = [
       await ctx.fs.unlink(file);
     }
     await ctx.check("問題が0件になり、有効Pageと既存YAMLが変わっていないことを確認する。", async () => {
-      try {
-        await button(page, "再検査").click();
-      } finally {
-        // Even when the required manual recheck action is missing, verify cleanup.
-        await ctx.expect(page.getByRole("region", { name: "読み込みの問題" })).toContainText("読み込めない文書はありません。");
-        assert.equal(ctx.cli(root, "validate").status, 0);
-        assert.deepEqual(await sources(ctx, fixture), before);
-        ctx.note("fixture除去後、監視による問題0件・CLI成功・既存YAML完全一致は確認済み。");
-        await openPage(ctx, fixture);
-      }
+      // The watcher must clear the diagnostic without a manual recheck action.
+      await ctx.expect(page.getByRole("region", { name: "読み込みの問題" })).toContainText("読み込めない文書はありません。", { timeout: 15000 });
+      assert.equal(ctx.cli(root, "validate").status, 0);
+      assert.deepEqual(await sources(ctx, fixture), before);
+      ctx.note("fixture除去後、watcherによる問題0件・CLI成功・既存YAML完全一致を確認済み。");
+      await openPage(ctx, fixture);
     });
   } },
   { id: "CORE-MANUAL-A14", title: "未対応blockを非破壊に扱う", async run(ctx) {
