@@ -57,6 +57,16 @@ function displayText(
   return option.symbol ? `${option.symbol} ${label}` : label;
 }
 
+/** `reference`の索引値を、単数・複数を問わず名前の配列として読む。 */
+function referenceNames(field: PluginFieldDescriptor, row: PluginViewRow | undefined): string[] {
+  const value = row?.values[valueKeyOf(field)];
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .filter((item): item is string => typeof item === "string" && item !== "")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 /** 繰り返し行の入れ替え。並び順が表示順であり、先頭が新規作成時の初期値になる */
 /**
  * プラグインが宣言した詳細descriptorを描く汎用レンダラ。
@@ -167,6 +177,9 @@ export function PluginDetailView({
     Object.keys(draft).some((id) => draft[id] !== initial[id]) ||
     false;
   const undeclared = undeclaredEntries(descriptor, row);
+  const referenceTargets = new Map(
+    payload.referenceTargets?.map((target) => [target.name, target.title])
+  );
 
 
   const notices = payload.targetDiagnostics ?? [];
@@ -205,12 +218,30 @@ export function PluginDetailView({
                 </label>
               )}
             </dt>
-            <dd>
+              <dd>
               {mode === "read" ? (
                 // 参照は読むだけ。入力欄を出さない。ここに来る空欄は必須の項目だけで、「―」で示す。
-                <span className={styles["plugin-detail-value"]}>
-                  {displayText(field, draft[field.id] ?? "", locale) || "—"}
-                </span>
+                field.type === "reference" ? (
+                  <span className={styles["plugin-detail-value"]}>
+                    {referenceNames(field, row).length ? referenceNames(field, row).map((name, index) => {
+                      const title = referenceTargets.get(name);
+                      return (
+                        <span key={`${field.id}:${name}`}>
+                          {index ? "、" : null}
+                          {title
+                            ? onOpenResource
+                              ? <Button className={styles["plugin-detail-referenced-link"]} onClick={() => onOpenResource(name)}>{title}</Button>
+                              : <span>{title}</span>
+                          : `${name}（見つかりません）`}
+                        </span>
+                      );
+                    }) : "—"}
+                  </span>
+                ) : (
+                  <span className={styles["plugin-detail-value"]}>
+                    {displayText(field, draft[field.id] ?? "", locale) || "—"}
+                  </span>
+                )
               ) : (
                 <FieldInput
                   field={field}

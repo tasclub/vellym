@@ -83,6 +83,8 @@
   }
   .plugin-detail-field dd {
     margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   /*
    * 参照のときの値。入力欄の枠を出さず、地の文として読ませる。

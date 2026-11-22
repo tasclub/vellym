@@ -53,6 +53,8 @@ export interface PluginViewPayload {
   targetDiagnostics?: Array<{ code: string; message: string; path?: string }>;
   /** Resources whose reference fields point at the target (see runtime-node referencedByOf). */
   referencedBy?: Array<{ name: string; title: string; fieldId: string; fieldLabel: PluginLocalizedText; status?: string; statusLabel?: PluginLocalizedText }>;
+  /** Resources in this detail's scope, used to resolve reference values to titles. */
+  referenceTargets?: Array<{ name: string; title: string }>;
   /** 同じkindに登録された他のビュー */
   siblings?: Array<{ id: string; type: "list" | "detail"; label?: PluginLocalizedText }>;
 }

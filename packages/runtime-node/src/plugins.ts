@@ -481,6 +481,27 @@ export interface PluginReferencedBy {
   statusLabel?: PluginLocalizedText;
 }
 
+/** 参照値を題名で表示するための、同じ一覧範囲にあるリソース。 */
+export interface PluginReferenceTarget {
+  name: string;
+  title: string;
+}
+
+/**
+ * 詳細の参照項目が名前から題名を引けるようにする。
+ *
+ * `rows`はすでに同じTracker（または同じビューの範囲）に絞られている。値を持つ
+ * 行だけに限定すると、未解決値と区別できなくなるため、対象行自身を含めて全行を
+ * 渡す。
+ */
+export function referenceTargetsOf(
+  descriptor: PluginDetailViewDescriptor,
+  rows: readonly PluginViewRow[]
+): PluginReferenceTarget[] {
+  if (!descriptor.fields.some((field) => field.type === "reference")) return [];
+  return rows.map(({ name, title }) => ({ name, title }));
+}
+
 /**
  * Who points at `target`: rows whose values for the descriptor's reference fields equal its
  * name (or contain it, for multiple references). Generic: only field types are consulted.
@@ -530,6 +551,8 @@ export interface PluginViewPayload {
   targetDiagnostics?: PluginDiagnostic[];
   /** Resources whose reference fields point at the target (detail views declaring `referencedBy`). */
   referencedBy?: PluginReferencedBy[];
+  /** 同じ範囲にある参照先。reference型の詳細項目で名前から題名を引くために使う */
+  referenceTargets?: PluginReferenceTarget[];
   /** 同じkindに登録された他のビュー。画面の切り替えに使う */
   siblings?: Array<{ id: string; type: "list" | "detail"; label?: PluginLocalizedText }>;
   /** このビューから起こせるコマンド。静的出力では使えないものを除く */
@@ -765,6 +788,11 @@ export function buildPluginView(options: {
     ...(descriptor.type === "detail" && options.targetDiagnostics?.length
       ? { targetDiagnostics: [...options.targetDiagnostics] }
       : {}),
+    ...(() => {
+      if (descriptor.type !== "detail") return {};
+      const referenceTargets = referenceTargetsOf(descriptor, options.rows);
+      return referenceTargets.length ? { referenceTargets } : {};
+    })(),
     ...(() => {
       if (descriptor.type !== "detail" || !descriptor.referencedBy || !options.targetRow) return {};
       const referencedBy = referencedByOf(descriptor, options.targetRow, options.rows, options.locale);
