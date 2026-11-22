@@ -142,9 +142,6 @@ export function ReferencePicker({
           )}
         </Popover>
       </ComboBox>
-      {query && !filtered.length ? (
-        <span className={styles.empty} role="status">{t("plugin.referenceNoCandidates")}</span>
-      ) : null}
       {!multiple && selected.length ? (
         <span className={styles.selected}>
           {byName.has(selected[0] ?? "")
