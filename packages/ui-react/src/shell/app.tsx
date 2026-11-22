@@ -1844,17 +1844,17 @@ export function App() {
           localeDrafts={editSession?.locales
             .filter(({ removed }) => !removed)
             .map(({ locale, title, blocks }) => ({ locale, title, blocks }))}
-          onLocaleTitleChange={(locale, value) => {
+          onLocaleTitleChange={editSession ? (locale, value) => {
             setEditSession((current) => current ? {
               ...current,
               locales: current.locales.map((draft) =>
                 draft.locale === locale ? { ...draft, title: value } : draft
               )
             } : current);
-            if (editSession?.activeLocale === locale) setTitle(value);
+            if (editSession.activeLocale === locale) setTitle(value);
             markDirty();
-          }}
-          onLocaleBlockChange={(locale, index, content) => {
+          } : undefined}
+          onLocaleBlockChange={editSession ? (locale, index, content) => {
             setEditSession((current) => current ? {
               ...current,
               locales: current.locales.map((draft) =>
@@ -1868,13 +1868,13 @@ export function App() {
                   : draft
               )
             } : current);
-            if (editSession?.activeLocale === locale) {
+            if (editSession.activeLocale === locale) {
               setBlocks((current) => current.map((block, blockIndex) =>
                 blockIndex === index ? { ...block, content } : block
               ));
             }
             markDirty();
-          }}
+          } : undefined}
         />
         )}
         </div>

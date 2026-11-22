@@ -112,12 +112,38 @@ try {
     await entries["ticket list"](page);
     await page.waitForURL(/\/pages\/ticket-[0-9a-z]+\/$/);
     const draftUrl = page.url();
+    const title = page.getByRole("textbox", { name: "Page title", exact: true });
+    await title.fill("Typed title");
+    await expect(title).toHaveValue("Typed title");
+    const body = page.locator('[contenteditable="true"]').first();
+    await body.fill("Typed body");
+    await expect(body).toContainText("Typed body");
+    // Milkdown coalesces its change callback briefly after DOM input.
+    await page.waitForTimeout(600);
+    // The ticket fields are rendered from the tracker definition. Change one so
+    // the same save covers title, body, and plugin-owned attributes.
+    await page.locator("#plugin-field-assignee").fill("Alice");
+    await page.getByRole("button", { name: "Save", exact: true }).first().click();
+    await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+    const savedName = draftUrl.match(/ticket-[0-9a-z]+/)?.[0];
+    if (!savedName) throw new Error(`draft URL has no Ticket name: ${draftUrl}`);
+    const saved = await readFile(path.join(content, "demo-tickets/+tickets", `${savedName}.yaml`), "utf8");
+    expect(saved).toContain("title: Typed title");
+    expect(saved).toContain("Typed body");
+    expect(saved).toContain("assignee: Alice");
+    expect(saved).not.toContain("title: New ticket");
+
+    // A changed draft still warns before a destructive navigation.
+    await page.goto(listUrl, { waitUntil: "networkidle" });
+    await entries["ticket list"](page);
+    await page.waitForURL(/\/pages\/ticket-[0-9a-z]+\/$/);
+    const unsavedDraftUrl = page.url();
     await page.getByRole("textbox").first().fill("Typed title");
     let asked = false;
     page.once("dialog", (dialog) => { asked = true; void dialog.dismiss(); });
     await page.reload().catch(() => undefined);
     expect(asked, "reloading a typed draft did not ask first").toBe(true);
-    expect(page.url()).toBe(draftUrl);
+    expect(page.url()).toBe(unsavedDraftUrl);
     await context.close();
   }
 
