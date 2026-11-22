@@ -5,6 +5,7 @@ import {
   type PluginIndexValue
 } from "@vellym/plugin-api";
 import styles from "./field-input.module.css";
+import { ReferencePicker, type ReferenceCandidate } from "./reference-picker.js";
 
 /** 保存へ渡す値。宣言したpathへそのまま書き戻す */
 export type PluginSpecValue =
@@ -81,6 +82,8 @@ export function FieldInput({
   locale,
   disabled,
   autoFocus,
+  referenceCandidates,
+  referenceExclude,
   onChange
 }: {
   field: PluginFieldDescriptor;
@@ -89,9 +92,25 @@ export function FieldInput({
   locale: string;
   disabled?: boolean;
   autoFocus?: boolean;
+  referenceCandidates?: ReferenceCandidate[];
+  referenceExclude?: string;
   onChange(next: string): void;
 }) {
   const { t } = useTranslation();
+  if (field.type === "reference" && referenceCandidates) {
+    return (
+      <ReferencePicker
+        id={id}
+        candidates={referenceCandidates}
+        value={field.multiple ? asText(value).split(",").map((item) => item.trim()).filter(Boolean) : value}
+        multiple={field.multiple}
+        exclude={referenceExclude}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        onChange={(next) => onChange(Array.isArray(next) ? next.join(", ") : next)}
+      />
+    );
+  }
   if (field.options) {
     return (
       <select

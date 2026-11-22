@@ -249,6 +249,8 @@ export function PluginDetailView({
                   value={draft[field.id] ?? ""}
                   locale={locale}
                   disabled={field.readOnly}
+                  referenceCandidates={payload.referenceTargets}
+                  referenceExclude={row?.name}
                   onChange={(next) => updateField(field.id, next)}
                 />
               )}
