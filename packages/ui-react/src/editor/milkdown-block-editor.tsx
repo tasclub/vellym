@@ -7,13 +7,13 @@ import {
 } from "./editor-adapter.js";
 import { errorMessage } from "../shared/error-message.js";
 import { isStaticApp, uploadImage } from "../shared/api.js";
-import { Button } from "../shared/button.js";
 
 export function MilkdownBlockEditor(props: {
   value: string;
   label: string;
   onChange(value: string): void;
-  onReady(adapter?: VellymEditorAdapter): void;
+  onReady(adapter?: VellymEditorAdapter, upload?: (files: File[]) => void): void;
+  onUploadStatus(uploading: number, error: string): void;
   onFocus(adapter: VellymEditorAdapter): void;
   onStateChange(
     adapter: VellymEditorAdapter,
@@ -28,7 +28,6 @@ export function MilkdownBlockEditor(props: {
   const [uploading, setUploading] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const adapterRef = useRef<VellymEditorAdapter | undefined>(undefined);
-  const inputRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<(files: File[], position?: number) => void>(() => {});
   const controllers = useRef(new Set<AbortController>());
   uploadRef.current = (files, position) => {
@@ -52,6 +51,10 @@ export function MilkdownBlockEditor(props: {
     }
   };
   callbacks.current = props;
+
+  useEffect(() => {
+    callbacks.current.onUploadStatus(uploading, uploadError);
+  }, [uploading, uploadError]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -84,7 +87,7 @@ export function MilkdownBlockEditor(props: {
         editorElement?.setAttribute("aria-label", callbacks.current.label);
         editorElement?.setAttribute("aria-multiline", "true");
         setReady(true);
-        callbacks.current.onReady(created);
+        callbacks.current.onReady(created, (files) => uploadRef.current(files));
       })
       .catch((reason: unknown) => {
         if (!disposed) {
@@ -104,18 +107,6 @@ export function MilkdownBlockEditor(props: {
 
   return (
     <section className="block-editor" aria-label={props.label}>
-      {ready && !isStaticApp() && <>
-        <Button onMouseDown={(event) => event.preventDefault()}
-          onClick={() => inputRef.current?.click()}>{t("editor.insertImage")}</Button>
-        <input ref={inputRef} type="file" hidden multiple
-          accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
-          onChange={(event) => {
-            uploadRef.current(Array.from(event.target.files ?? []));
-            event.target.value = "";
-          }} />
-        {uploading > 0 && <p role="status">{t("editor.imageUploading")}</p>}
-        {uploadError && <p role="alert">{uploadError}</p>}
-      </>}
       {error ? (
         <p className="editor-load-error" role="alert">
           エディタを読み込めませんでした: {error}

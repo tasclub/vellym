@@ -26,6 +26,7 @@ import { DocumentView } from "./view.js";
 import { HistoryDocument } from "./git-history.js";
 import { errorMessage } from "../shared/error-message.js";
 import { Button } from "../shared/button.js";
+import { isStaticApp } from "../shared/api.js";
 import styles from "./editor-workspace.module.css";
 import { useShortcutAction } from "../shell/shortcuts.js";
 
@@ -277,6 +278,10 @@ export function EditorWorkspace(props: {
   onNavigatePage?(pageId: string, heading?: string): void;
 }) {
   const adapters = useRef(new Map<string, VellymEditorAdapter>());
+  const uploads = useRef(new Map<VellymEditorAdapter, (files: File[]) => void>());
+  const imageInput = useRef<HTMLInputElement>(null);
+  const imageAdapter = useRef<VellymEditorAdapter | undefined>(undefined);
+  const [imageStatuses, setImageStatuses] = useState<Record<string, { uploading: number; error: string }>>({});
   const workspaceRef = useRef<HTMLElement | null>(null);
   const lastFocusedInput = useRef<HTMLElement | undefined>(undefined);
   const previousFocusRequest = useRef(props.focusRequest);
@@ -518,6 +523,18 @@ export function EditorWorkspace(props: {
                 {action.text}
               </Button>
             ))}
+            {!isStaticApp() && <><Button aria-label={t("editor.insertImage")}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                imageAdapter.current = activeAdapter.current ?? adapters.current.values().next().value;
+                if (imageAdapter.current) imageInput.current?.click();
+              }}>{t("editor.insertImage")}</Button>
+            <input ref={imageInput} type="file" hidden multiple
+              accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
+              onChange={(event) => {
+                if (imageAdapter.current) uploads.current.get(imageAdapter.current)?.(Array.from(event.target.files ?? []));
+                event.target.value = "";
+              }} /></>}
             <details className={styles["more-actions"]}>
               <summary
                 aria-label={t("editor.moreFormats")}
@@ -573,6 +590,8 @@ export function EditorWorkspace(props: {
               ))}
             </div>
           )}
+          {Object.values(imageStatuses).some((status) => status.uploading > 0) && <span role="status">{t("editor.imageUploading")}</span>}
+          {Object.entries(imageStatuses).map(([key, status]) => status.error && <span key={key} role="alert">{status.error}</span>)}
           <span className={`status ${props.saveState}`} aria-live="polite">
             {props.saveState === "dirty"
               ? t("editor.statusDirty")
@@ -729,13 +748,23 @@ export function EditorWorkspace(props: {
                       activeAdapter.current = adapter;
                       setEditorState(adapter.state());
                     }}
-                    onReady={(adapter) => {
+                    onUploadStatus={(uploading, error) => setImageStatuses((previous) => ({
+                      ...previous, [adapterKey]: { uploading, error }
+                    }))}
+                    onReady={(adapter, upload) => {
                       if (adapter) {
                         adapters.current.set(adapterKey, adapter);
+                        if (upload) uploads.current.set(adapter, upload);
                         if (isActive && !activeAdapter.current) activeAdapter.current = adapter;
                       } else {
                         const removed = adapters.current.get(adapterKey);
+                        if (removed) uploads.current.delete(removed);
                         adapters.current.delete(adapterKey);
+                        setImageStatuses((previous) => {
+                          const next = { ...previous };
+                          delete next[adapterKey];
+                          return next;
+                        });
                         if (activeAdapter.current === removed) activeAdapter.current = undefined;
                       }
                     }}
