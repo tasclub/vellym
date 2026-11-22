@@ -422,6 +422,8 @@
   "structure.applyFailed": "Couldn't apply this change",
   "structure.archiveAction": "Archive",
   "structure.archiveNote": "Files aren't deleted — they're moved to _archive.",
+  "structure.archiveSource": "Source",
+  "structure.archiveDestination": "Destination",
   "structure.cancel": "Cancel",
   "structure.checking": "Checking…",
   "structure.chooseDestination": "Choose a destination",

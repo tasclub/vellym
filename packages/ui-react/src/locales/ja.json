@@ -423,6 +423,8 @@
   "structure.applyFailed": "変更を適用できません",
   "structure.archiveAction": "アーカイブ",
   "structure.archiveNote": "ファイルは削除せず、_archiveへ移動します。",
+  "structure.archiveSource": "移動元",
+  "structure.archiveDestination": "移動先",
   "structure.cancel": "キャンセル",
   "structure.checking": "確認しています…",
   "structure.chooseDestination": "移動先を選択",
