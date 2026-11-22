@@ -68,7 +68,7 @@ spec:
         - **作成**: 上部の「チケットを作成」、または行の「行の操作」の「子タスクを追加」。最初の保存までファイルは作られない
         - **親の変更**: 「行の操作」の「親を変更…」。保存されるのは操作したチケットだけ
         - **並べ替え**: 同じ階層の中で、ドラッグハンドルを動かす。キーボードではハンドルにフォーカスして`Alt + ↑ / ↓`
-        - **日付タイムライン**: 右側に、表示対象のチケットの開始・終了から決めた範囲で表示する。「表示開始」「表示終了」と、日ごと・週ごとの目盛りを変えられる。目盛りが重ならないよう、日ごとは最大31日、週ごとは最大182日で区切る。範囲の外の行は、どちらの方向にあるかを示す
+        - **日付タイムライン**: 右側に、表示対象のチケットの開始・終了から決めた範囲で表示する。範囲は「2週間」「1か月」「3か月」「6か月」または「期間を指定…」を選べる。2週間はその週の月曜から、月単位の範囲はその月の1日から始まる。期間を指定するときは「表示開始」「表示終了」に入れた日付をそのまま表示し、入力欄から移動するかEnterで反映する。日ごと・週ごとの目盛りも変えられ、範囲の外の行はどちらの方向にあるかを示す
         - 日程の無いチケットや、親の見つからないチケット・親子が循環しているチケットも、印を付けて表示する
 
         ## 静的版
@@ -150,8 +150,10 @@ spec:
             - **Reorder**: drag the handle within the same level. With the keyboard, focus the handle and
               press `Alt + ↑ / ↓`
             - **Date timeline**: the right side covers the range of the displayed tickets' start and end
-              dates. Change **Range start**, **Range end**, and the daily or weekly scale. To keep labels
-              apart, daily view is limited to 31 days and weekly view to 182 days. Rows outside the range
+              dates. Choose **2 weeks**, **1 month**, **3 months**, **6 months**, or **Custom range…**.
+              Two weeks starts on that week's Monday; month-based ranges start on the first day of the month.
+              With a custom range, **Range start** and **Range end** use the entered dates when the field loses
+              focus or Enter is pressed. You can also change the daily or weekly scale. Rows outside the range
               show which way they lie
             - Tickets without dates, with a missing parent, or in a parent cycle are still shown, with a marker
 

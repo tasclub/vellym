@@ -18,9 +18,9 @@ export interface Timeline {
 
 export type TimelineMode = "day" | "week";
 export const DAY_MS = DAY;
-export const MAX_TIMELINE_DAYS: Record<TimelineMode, number> = { day: 182, week: 182 };
+export const MAX_TIMELINE_DAYS: Record<TimelineMode, number> = { day: 182, week: 186 };
 
-export const TIMELINE_PRESETS = [14, 35, 91, 182] as const;
+export const TIMELINE_PRESETS = ["2w", "1m", "3m", "6m"] as const;
 export type TimelinePreset = typeof TIMELINE_PRESETS[number];
 
 /** UTC Monday on or before the given date, independent of the browser timezone. */
@@ -29,9 +29,24 @@ export function mondayOnOrBefore(timestamp: number): number {
   return day - ((new Date(day).getUTCDay() + 6) % 7) * DAY;
 }
 
-export function presetRange(timestamp: number, days: TimelinePreset): { start: number; end: number; mode: TimelineMode } {
-  const start = mondayOnOrBefore(timestamp);
-  return { start, end: start + days * DAY, mode: days <= 35 ? "day" : "week" };
+/** Read ranges saved by versions which used their length in days as the preset value. */
+export function timelinePreset(value: unknown): TimelinePreset | undefined {
+  const legacy: Record<string, TimelinePreset> = { "14": "2w", "35": "1m", "91": "3m", "182": "6m" };
+  const text = String(value);
+  return (TIMELINE_PRESETS as readonly string[]).includes(text)
+    ? text as TimelinePreset : legacy[text];
+}
+
+export function presetRange(timestamp: number, preset: TimelinePreset): { start: number; end: number; mode: TimelineMode } {
+  if (preset === "2w") {
+    const start = mondayOnOrBefore(timestamp);
+    return { start, end: start + 14 * DAY, mode: "day" };
+  }
+  const date = new Date(timestamp);
+  const start = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1);
+  const months = preset === "1m" ? 1 : preset === "3m" ? 3 : 6;
+  return { start, end: Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1),
+    mode: preset === "1m" ? "day" : "week" };
 }
 
 /** Return the available label form; callers must also clip text to its cell. */
@@ -62,7 +77,8 @@ export function buildTimeline(rows: readonly PluginIndexRow[], startField?: stri
   const requestedStart = parseDate(range.from);
   const requestedEnd = parseDate(range.to);
   if (min === Infinity && requestedStart === undefined) return undefined;
-  const start = range.mode ? mondayOnOrBefore(requestedStart ?? min) : requestedStart ?? min;
+  // A requested date is authoritative. Only automatically derived ranges align to Monday.
+  const start = requestedStart ?? (range.mode ? mondayOnOrBefore(min) : min);
   const requestedEndExclusive = requestedEnd !== undefined ? requestedEnd + DAY : Math.max(max + DAY, start + DAY);
   if (requestedEndExclusive <= start) return undefined;
   const end = range.mode ? Math.min(requestedEndExclusive,

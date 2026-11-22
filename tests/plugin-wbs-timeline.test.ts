@@ -1,14 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline, timelineBar, presetRange, TIMELINE_PRESETS, timelineLabelSize, timelineCells, DAY_MS } from "../packages/plugin-wbs/src/timeline.js";
+import { buildTimeline, timelineBar, presetRange, TIMELINE_PRESETS, timelineLabelSize, timelineCells, DAY_MS, timelinePreset } from "../packages/plugin-wbs/src/timeline.js";
 
 describe("WBS timeline", () => {
-  it("aligns presets to Monday and chooses the default scale", () => {
-    for (const days of TIMELINE_PRESETS) {
-      const range = presetRange(Date.parse("2026-08-19T15:00:00Z"), days);
-      expect(new Date(range.start).toISOString()).toBe("2026-08-17T00:00:00.000Z");
-      expect((range.end - range.start) / DAY_MS).toBe(days);
-      expect(range.mode).toBe(days <= 35 ? "day" : "week");
-    }
+  it("uses calendar presets in UTC and reads legacy saved values", () => {
+    expect(presetRange(Date.parse("2026-08-19T15:00:00Z"), "2w")).toMatchObject({
+      start: Date.parse("2026-08-17T00:00:00Z"), end: Date.parse("2026-08-31T00:00:00Z"), mode: "day"
+    });
+    expect(presetRange(Date.parse("2026-11-15T00:00:00Z"), "3m")).toMatchObject({
+      start: Date.parse("2026-11-01T00:00:00Z"), end: Date.parse("2027-02-01T00:00:00Z"), mode: "week"
+    });
+    expect(presetRange(Date.parse("2024-02-29T00:00:00Z"), "1m")).toMatchObject({
+      start: Date.parse("2024-02-01T00:00:00Z"), end: Date.parse("2024-03-01T00:00:00Z"), mode: "day"
+    });
+    expect(presetRange(Date.parse("2026-11-01T00:00:00Z"), "6m")).toMatchObject({
+      start: Date.parse("2026-11-01T00:00:00Z"), end: Date.parse("2027-05-01T00:00:00Z"), mode: "week"
+    });
+    expect(TIMELINE_PRESETS).toEqual(["2w", "1m", "3m", "6m"]);
+    expect(["14", "35", "91", "182"].map(timelinePreset)).toEqual(TIMELINE_PRESETS);
   });
 
   it("suppresses labels below the tier minimum", () => {
@@ -48,7 +56,7 @@ describe("WBS timeline", () => {
       mode: "day", from: "2026-01-01", to: "2026-12-31"
     })!;
     expect(daily.ticks).toHaveLength(182);
-    expect(new Date(daily.start).getUTCDay()).toBe(1);
+    expect(new Date(daily.start).toISOString().slice(0, 10)).toBe("2026-01-01");
     expect((daily.end - daily.start) / DAY_MS).toBe(182);
     expect(timelineBar(daily, "2025-12-01", "2025-12-28")).toMatchObject({
       outside: "before", before: true, after: false
@@ -62,19 +70,19 @@ describe("WBS timeline", () => {
     const weekly = buildTimeline(rows, "start", "end", {
       mode: "week", from: "2026-01-01", to: "2026-02-01"
     })!;
-    expect(weekly.ticks).toHaveLength(5);
-    expect(weekly.ticks[0]?.label).toBe("2025-12-29");
+    expect(weekly.ticks).toHaveLength(4);
+    expect(weekly.ticks[0]?.label).toBe("2026-01-05");
     expect(weekly.ticks.at(-1)!.position).toBeLessThan(100);
     expect(buildTimeline(rows, "start", "end", { from: "2026-02-01", to: "2026-01-01" }))
       .toBeUndefined();
   });
   it("uses seven days for partial dates and rejects reversed dates, but not a one-day period", () => {
-    const range = presetRange(Date.parse("2026-08-17"), 35);
+    const range = presetRange(Date.parse("2026-08-17"), "1m");
     const timeline = { ...range, ticks: [] };
-    expect(timelineBar(timeline, "2026-08-20", undefined)?.width).toBe(20);
-    expect(timelineBar(timeline, undefined, "2026-08-30")?.width).toBe(20);
+    expect(timelineBar(timeline, "2026-08-20", undefined)?.width).toBeCloseTo(7 / 31 * 100);
+    expect(timelineBar(timeline, undefined, "2026-08-30")?.width).toBeCloseTo(7 / 31 * 100);
     expect(timelineBar(timeline, "2026-08-20", "2026-08-19")).toBeUndefined();
-    expect(timelineBar(timeline, "2026-08-20", "2026-08-20")?.width).toBeCloseTo(100 / 35);
+    expect(timelineBar(timeline, "2026-08-20", "2026-08-20")?.width).toBeCloseTo(100 / 31);
   });
   it("bounds all tier labels to nonoverlapping cells for every preset and scale", () => {
     for (const days of TIMELINE_PRESETS) for (const mode of ["day", "week"] as const) {

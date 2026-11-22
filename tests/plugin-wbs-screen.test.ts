@@ -122,6 +122,7 @@ describe("WBS screen", () => {
       const input = container.querySelector<HTMLInputElement>(`input[aria-label="${name}"]`)!;
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
       input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
     });
     setDate("表示終了", "2026-09-20"); setDate("表示開始", "2026-08-17");
     expect(container.querySelector('[data-ticket-name="cross"] [data-before][data-after]')).not.toBeNull();
@@ -426,7 +427,7 @@ describe("WBS screen", () => {
     act(() => root.unmount());
   });
 
-  it("switches scales without changing the range, and applies Monday-aligned presets", () => {
+  it("switches scales without changing the range, and applies calendar presets", () => {
     const { container, root } = fixture(false, [
       { name: "first", title: "First", values: { "field:start": "2026-10-01" } },
       { name: "last", title: "Last", values: { "field:start": "2026-12-01" } }
@@ -438,15 +439,18 @@ describe("WBS screen", () => {
       scale.value = "day";
       scale.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    expect(container.querySelectorAll('.wbs-tick-tier > span')).toHaveLength(91);
+    expect(container.querySelectorAll('.wbs-tick-tier > span')).toHaveLength(92);
     const range = container.querySelector<HTMLSelectElement>('select[aria-label="範囲"]')!;
-    for (const days of [14, 35, 91, 182]) {
-      act(() => { range.value = String(days); range.dispatchEvent(new Event("change", { bubbles: true })); });
-      expect(scale.value).toBe(days <= 35 ? "day" : "week");
-      expect(container.querySelectorAll('.wbs-tick-tier > span')).toHaveLength(days <= 35 ? days : days / 7);
-      expect(container.querySelector('.wbs-tick-tier > span')?.getAttribute("title")).toBe("2026-09-28");
+    for (const [preset, mode, ticks, first] of [
+      ["2w", "day", 14, "2026-09-28"], ["1m", "day", 30, "2026-09-01"],
+      ["3m", "week", 13, "2026-09-01"], ["6m", "week", 26, "2026-09-01"]
+    ] as const) {
+      act(() => { range.value = preset; range.dispatchEvent(new Event("change", { bubbles: true })); });
+      expect(scale.value).toBe(mode);
+      expect(container.querySelectorAll('.wbs-tick-tier > span')).toHaveLength(ticks);
+      expect(container.querySelector('.wbs-tick-tier > span')?.getAttribute("title")).toBe(first);
     }
-    act(() => { range.value = "14"; range.dispatchEvent(new Event("change", { bubbles: true })); });
+    act(() => { range.value = "2w"; range.dispatchEvent(new Event("change", { bubbles: true })); });
     expect(container.querySelector('[data-ticket-name="last"]')?.textContent).toContain("範囲より後");
     act(() => container.querySelector<HTMLButtonElement>('[data-ticket-name="last"] .wbs-track button')!.click());
     expect(container.querySelector('[data-ticket-name="last"] [data-schedule="start-only"]')).not.toBeNull();

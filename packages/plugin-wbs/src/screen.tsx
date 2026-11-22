@@ -5,7 +5,7 @@ import { Button, ChoiceControl, InputControl } from "@vellym/plugin-api/ui";
 import { buildTicketHierarchy, fieldKey } from "@vellym-internal/ticket-engine";
 import { excludedParents, rankForAppend, rankForInsert, flattenRows, rowWindow, DEFAULT_ROW_RENDERING, type RowRendering, type WBSRow } from "./model.js";
 import { buildTimeline, parseDate, timelineBar, DAY_MS, mondayOnOrBefore, presetRange, TIMELINE_PRESETS, timelineCells,
-  type Timeline, type TimelineMode, type TimelinePreset } from "./timeline.js";
+  timelinePreset, type Timeline, type TimelineMode, type TimelinePreset } from "./timeline.js";
 import type { WBSRendererData } from "./view.js";
 
 const label = (ja: string, en: string, locale: string) => resolveLocalizedText({ ja, en }, locale);
@@ -247,13 +247,15 @@ export function WBSScreen({ context }: PluginViewProps) {
   const available = buildTimeline(rows, data?.startField, data?.endField);
   const [mode, setMode] = useState<TimelineMode>(() => available &&
     (available.end - available.start) / DAY_MS > 35 ? "week" : "day");
-  const initialDays = available && (available.end - available.start) / DAY_MS > 35 ? 91 : 35;
+  const initialPreset = timelinePreset(settings(context).timelinePreset) ??
+    (available && (available.end - available.start) / DAY_MS > 31 ? "3m" : "1m");
   const iso = (timestamp: number) => new Date(timestamp).toISOString().slice(0, 10);
-  const [preset, setPreset] = useState<string>(String(initialDays));
+  const [preset, setPreset] = useState<TimelinePreset | "custom">(initialPreset);
   const [range, setRange] = useState(() => {
-    const initial = presetRange(available?.start ?? Date.now(), initialDays);
+    const initial = presetRange(available?.start ?? Date.now(), initialPreset);
     return { from: iso(initial.start), to: iso(initial.end - DAY_MS) };
   });
+  const [draftRange, setDraftRange] = useState(range);
   const timeline = buildTimeline(rows, data?.startField, data?.endField, {
     mode, ...(range.from ? { from: range.from } : {}), ...(range.to ? { to: range.to } : {})
   });
@@ -261,11 +263,12 @@ export function WBSScreen({ context }: PluginViewProps) {
     const start = parseDate(from);
     const finish = parseDate(to);
     if (start === undefined || finish === undefined) return;
-    const aligned = mondayOnOrBefore(start);
-    const limit = 182;
-    const bounded = Math.min(Math.max(aligned, finish), aligned + (limit - 1) * DAY_MS);
+    const limit = nextMode === "week" ? 186 : 182;
+    const bounded = Math.min(Math.max(start, finish), start + (limit - 1) * DAY_MS);
     setMode(nextMode);
-    setRange({ from: iso(aligned), to: iso(bounded) });
+    const next = { from: iso(start), to: iso(bounded) };
+    setRange(next);
+    setDraftRange(next);
     setMessage(finish > bounded ? label(
       `表示範囲は最大${limit}日です。終了日を調整しました。`,
       `The visible range is limited to ${limit} days. End date adjusted.`, context.locale
@@ -420,20 +423,30 @@ export function WBSScreen({ context }: PluginViewProps) {
     {busy || message ? <p role="status">{busy ? label("○ 保存中…", "○ Saving…", context.locale) : message}</p> : null}
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
       <label>{label("範囲", "Range", context.locale)} <ChoiceControl mode="select" aria-label={label("範囲", "Range", context.locale)} value={preset}
-        options={[...TIMELINE_PRESETS.map((days) => ({ value: String(days), label: label(`${days}日`, `${days} days`, context.locale) })),
+        options={[...TIMELINE_PRESETS.map((item) => ({ value: item, label: label(
+          item === "2w" ? "2週間" : item === "1m" ? "1か月" : item === "3m" ? "3か月" : "6か月",
+          item === "2w" ? "2 weeks" : item === "1m" ? "1 month" : item === "3m" ? "3 months" : "6 months",
+          context.locale) })),
           { value: "custom", label: label("期間を指定…", "Custom range…", context.locale) }]}
         onChange={(value) => {
-          setPreset(value);
-          if (value === "custom") return;
-          const next = presetRange(parseDate(range.from) ?? Date.now(), Number(value) as TimelinePreset);
+          if (value === "custom") { setPreset("custom"); setDraftRange(range); return; }
+          const nextPreset = timelinePreset(value);
+          if (!nextPreset) return;
+          setPreset(nextPreset);
+          context.setViewSettings({ ...settings(context), timelinePreset: nextPreset });
+          const next = presetRange(parseDate(range.from) ?? Date.now(), nextPreset);
           changeRange(iso(next.start), iso(next.end - DAY_MS), next.mode);
         }} /></label>
       <Button onClick={() => reveal(Date.now() - 7 * DAY_MS)}>{label("今日", "Today", context.locale)}</Button>
       {preset === "custom" ? <>
-      <label>{label("表示開始", "Range start", context.locale)}{" "}<InputControl type="date" aria-label={label("表示開始", "Range start", context.locale)}
-        value={range.from} onChange={(event) => changeRange(event.target.value, range.to || event.target.value)} /></label>
-      <label>{label("表示終了", "Range end", context.locale)}{" "}<InputControl type="date" aria-label={label("表示終了", "Range end", context.locale)}
-        value={range.to} onChange={(event) => changeRange(range.from || event.target.value, event.target.value)} /></label>
+       <label>{label("表示開始", "Range start", context.locale)}{" "}<InputControl type="date" aria-label={label("表示開始", "Range start", context.locale)}
+         value={draftRange.from} onChange={(event) => setDraftRange((current) => ({ ...current, from: event.target.value }))}
+         onBlur={(event) => changeRange(event.currentTarget.value, draftRange.to || event.currentTarget.value)}
+         onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Tab") changeRange(event.currentTarget.value, draftRange.to || event.currentTarget.value); }} /></label>
+       <label>{label("表示終了", "Range end", context.locale)}{" "}<InputControl type="date" aria-label={label("表示終了", "Range end", context.locale)}
+         value={draftRange.to} onChange={(event) => setDraftRange((current) => ({ ...current, to: event.target.value }))}
+         onBlur={(event) => changeRange(draftRange.from || event.currentTarget.value, event.currentTarget.value)}
+         onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Tab") changeRange(draftRange.from || event.currentTarget.value, event.currentTarget.value); }} /></label>
       </> : null}
       <label>{label("目盛り", "Scale", context.locale)}{" "}<ChoiceControl mode="select" aria-label={label("目盛り", "Scale", context.locale)}
         value={mode} onChange={(value) => changeRange(range.from, range.to, value as TimelineMode)} options={[
