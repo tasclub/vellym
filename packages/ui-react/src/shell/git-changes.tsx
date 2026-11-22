@@ -75,7 +75,19 @@ export function GitChanges({ status, pages, unsaved, initialPath, refresh, onHis
         <Button onClick={() => setSelected(selected.length === status.files.length ? [] : status.files.map((f) => f.path))}>{t(selected.length === status.files.length ? "changes.clearAll" : "changes.selectAll")}</Button>
         <div className={styles.content}><ul className={styles.files}>{status.files.map((item) => <li key={item.path}>
           <input type="checkbox" aria-label={t("changes.select", { title: title(item.path) })} checked={selected.includes(item.path)} onChange={(e) => setSelected((old) => e.target.checked ? [...old, item.path] : old.filter((p) => p !== item.path))} />
-          <Button aria-pressed={file === item.path} onClick={() => setFile(item.path)}><span>{kind(item.status)} · {title(item.path)}</span><small>{item.oldPath ? `${item.oldPath} → ` : ""}{item.path}</small></Button>
+          <Button
+            aria-pressed={file === item.path}
+            style={{
+              minHeight: "36px",
+              padding: "var(--space-1) var(--space-2)",
+              border: 0,
+              borderRadius: "var(--radius-lg)",
+              background: file === item.path ? "var(--selected-bg)" : "transparent",
+              color: file === item.path ? "var(--text-primary)" : "var(--text-secondary)",
+              fontWeight: file === item.path ? 650 : 400
+            }}
+            onClick={() => setFile(item.path)}
+          ><span>{kind(item.status)} · {title(item.path)}</span><small>{item.oldPath ? `${item.oldPath} → ` : ""}{item.path}</small></Button>
         </li>)}</ul><div className={styles.diff}>{diffError ? <p role="alert">{t("git.diffError")}</p> : diff === undefined ? <p>{t("git.loading")}</p> : <GitDiff source={diff} comparison={`${file ?? ""}: HEAD → ${t("git.current")}`} />}</div></div>
       </>}
       <div className={styles.write}><label htmlFor="commit-message">{t("changes.messageLabel")}</label><textarea id="commit-message" rows={3} value={message} onChange={(e) => setMessage(e.target.value)} disabled={!!busy} />

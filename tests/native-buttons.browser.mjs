@@ -17,8 +17,12 @@ metadata: { name: ${name}, title: ${title} }
 spec:
   locale: en
   blocks:
-    - { id: body, type: rich-text, content: "${body}" }
+    - id: body
+      type: rich-text
+      content: |-
+${body.split("\n").map((line) => `        ${line}`).join("\n")}
 `;
+const diffBody = Array.from({ length: 16 }, (_, index) => `Paragraph ${index + 1}`).join("\n");
 await symlink(path.resolve("node_modules"), path.join(root, "node_modules"), "dir");
 await write("vellym.config.yaml", 'schemaVersion: "1.0"\ncontentRoot: content\noutputDir: dist\nui:\n  language: en\ni18n:\n  defaultLocale: en\nplugins:\n  - "@vellym/tickets"\n  - "@vellym/kanban"\n  - "@vellym/wbs"\n');
 await write("content/docs/_index.yaml", `apiVersion: vellym.tasclub.com/v1
@@ -26,8 +30,8 @@ kind: Folder
 metadata: { title: Documents }
 spec: { locale: en }
 `);
-await write("content/docs/one.yaml", page("one", "One", "First page"));
-await write("content/docs/two.yaml", page("two", "Two", "Second page"));
+await write("content/docs/one.yaml", page("one", "One", diffBody));
+await write("content/docs/two.yaml", page("two", "Two", diffBody));
 await write("content/tracker.yaml", `apiVersion: vellym.tasclub.com/v1
 kind: TicketTracker
 metadata: { name: tracker, title: Work }
@@ -49,6 +53,8 @@ spec:
 execFileSync("git", ["init", "-q", root]);
 execFileSync("git", ["-C", root, "add", "content"]);
 execFileSync("git", ["-C", root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", "Fixture"]);
+await write("content/docs/one.yaml", page("one", "One", diffBody.replace("Paragraph 8", "Edited paragraph eight")));
+await write("content/docs/two.yaml", page("two", "Two", diffBody.replace("Paragraph 9", "Edited paragraph nine")));
 
 const port = 4198;
 const base = `http://127.0.0.1:${port}`;
@@ -156,6 +162,27 @@ try {
   await expect(tab.getByRole("group", { name: "Row actions" })).toBeVisible();
   await expectNoNativeButtons(tab, "WBS");
 
+  await tab.goto(`${base}/en/pages/one/`, { waitUntil: "networkidle" });
+  await tab.getByRole("button", { name: /^Changes \(/ }).first().click();
+  await expect(tab.getByRole("heading", { name: "Uncommitted changes", exact: true })).toBeVisible();
+  await expect(tab.getByRole("checkbox")).toHaveCount(2);
+  await expect(tab.getByRole("button", { name: /unchanged lines/ }).first()).toBeVisible();
+  await expectNoNativeButtons(tab, "git changes");
+  const rowStyle = await tab.locator('section[aria-labelledby="uncommitted-heading"] ul button[aria-pressed="true"]').evaluate((button) => {
+    const style = getComputedStyle(button);
+    return { background: style.backgroundColor, border: style.borderTopWidth };
+  });
+  const selectedTreeBackground = await tab.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = "var(--selected-bg)";
+    document.body.append(probe);
+    const background = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return background;
+  });
+  expect(rowStyle.background).toBe(selectedTreeBackground);
+  expect(rowStyle.border).toBe("0px");
+
   const setupRoot = await mkdtemp(path.join(tmpdir(), "native-buttons-setup-"));
   await symlink(path.resolve("node_modules"), path.join(setupRoot, "node_modules"), "dir");
   const setupPort = 4199;
@@ -170,7 +197,7 @@ try {
   await expect(setup.getByRole("heading", { level: 1 })).toBeVisible();
   await expectNoNativeButtons(setup, "setup without config");
   await rm(setupRoot, { recursive: true, force: true });
-  console.log("Native buttons: document, tree, settings, search, ticket list, kanban, WBS, and setup: passed");
+  console.log("Native buttons: document, tree, settings, search, ticket list, kanban, WBS, Git changes, and setup: passed");
 } catch (error) {
   console.error(output);
   throw error;
