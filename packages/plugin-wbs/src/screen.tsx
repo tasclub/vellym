@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { resolveLocalizedText, summarizeRows, type PluginIndexRow, type PluginRenderContext } from "@vellym/plugin-api";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
-import { Button, ChoiceControl, InputControl } from "@vellym/plugin-api/ui";
+import { Button, ChoiceControl, FieldInput, InputControl } from "@vellym/plugin-api/ui";
+import type { PluginFieldDescriptor, PluginSpecWrite } from "@vellym/plugin-api";
 import { buildTicketHierarchy, fieldKey } from "@vellym-internal/ticket-engine";
 import { excludedParents, rankForAppend, rankForInsert, flattenRows, rowWindow, type WBSRow } from "./model.js";
 import { buildTimeline, parseDate, timelineBar, DAY_MS, mondayOnOrBefore, presetRange, TIMELINE_PRESETS, timelineCells,
@@ -11,6 +12,24 @@ import { formatCell, type WBSColumn, type WBSRendererData } from "./view.js";
 const label = (ja: string, en: string, locale: string) => resolveLocalizedText({ ja, en }, locale);
 const date = (value: unknown): string | undefined =>
   parseDate(value) !== undefined ? value as string : undefined;
+const cellKey = (name: string, id: string) => `${name}\u0000${id}`;
+const cellValue = (row: PluginIndexRow, id: string) => row.values[id === "status" ? "status" : fieldKey(id)];
+const normalizeCell = (value: unknown) => value === "" || value == null || Array.isArray(value) && !value.length ? null : value;
+export function equalCell(a: unknown, b: unknown): boolean {
+  a = normalizeCell(a); b = normalizeCell(b);
+  return Array.isArray(a) && Array.isArray(b) ? a.length === b.length && a.every((v, i) => v === b[i]) : a === b;
+}
+export function cellWrite(id: string, value: unknown): PluginSpecWrite {
+  return { path: id === "status" ? ["status"] : ["fields", id], value: normalizeCell(value) as PluginSpecWrite["value"] };
+}
+export function pruneCellOverrides(overrides: Record<string, unknown>, rows: readonly PluginIndexRow[], saving: ReadonlySet<string>) {
+  return Object.fromEntries(Object.entries(overrides).filter(([key, value]) => {
+    const [name, id] = key.split("\u0000");
+    const row = rows.find((item) => item.name === name);
+    return saving.has(key) || !!row && !equalCell(cellValue(row, id!), value);
+  }));
+}
+type CellEditing = { key: string; value: unknown };
 
 type Panes = { title: boolean; details: boolean; schedule: boolean };
 function readPanes(value: unknown): Panes {
@@ -66,7 +85,7 @@ function Indent({ depth, children }: { depth: number; children: ReactNode }) {
   return content;
 }
 
-function WBSRows({ items, data, context, all, review, timeline, panes, busy, movedName, collapsed, onToggle, onParent, onOrder, onDropOrder, onRenumber, onCreate, onReveal }: {
+function WBSRows({ items, data, context, all, review, timeline, panes, busy, movedName, collapsed, editing, overrides, saving, onEdit, onCommit, onToggle, onParent, onOrder, onDropOrder, onRenumber, onCreate, onReveal }: {
   items: readonly WBSRow[];
   data: WBSRendererData;
   context: PluginRenderContext;
@@ -77,6 +96,11 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
   panes: Panes;
   busy: boolean;
   collapsed: ReadonlySet<string>;
+  editing?: CellEditing;
+  overrides: Record<string, unknown>;
+  saving: ReadonlySet<string>;
+  onEdit(edit?: CellEditing): void;
+  onCommit(row: PluginIndexRow, column: WBSColumn, value: unknown): void;
   onToggle(name: string): void;
   onParent(row: PluginIndexRow, parent: string): void;
   onOrder(rows: readonly PluginIndexRow[], index: number, delta: -1 | 1): void;
@@ -207,9 +231,46 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
            </div> : null}
             </div> : null}
           </div> : null}
-          {panes.details ? data.columns.map((column, index) => <div role="gridcell" className="wbs-status" key={`${column.id}-${index}`}>
-            {formatCell(column, column.id === "status" ? row.values.status : row.values[fieldKey(column.id)], referenceRows, data)}
-          </div>) : null}
+          {panes.details ? data.columns.map((column, index) => {
+            const key = cellKey(row.name, column.id);
+            const value = editing?.key === key ? editing.value : Object.hasOwn(overrides, key) ? overrides[key] : cellValue(row, column.id);
+            const text = Array.isArray(value) ? value.join(", ") : value == null ? "" : String(value);
+            const field = data.tracker?.fields.find((item) => item.id === column.id);
+            const descriptor = { ...field, id: column.id, label: column.label, type: column.type,
+              path: ["fields", column.id] } as PluginFieldDescriptor;
+            const immediate = !["text", "number"].includes(column.type);
+            const convert = (next: string): unknown => !next ? null : column.type === "number" ? Number(next)
+              : column.type === "boolean" ? next === "true"
+              : column.type === "multiselect" || descriptor.multiple ? next.split(",").map((item) => item.trim()).filter(Boolean) : next;
+            return <div role="gridcell" className="wbs-status" data-cell={column.id} data-editing={editing?.key === key || undefined}
+              data-saving={saving.has(key) || undefined} key={`${column.id}-${index}`}>
+              {editable && !needsReview ? editing?.key === key ? <div className="wbs-cell-editor"
+                onBlur={(event) => {
+                  if (!immediate && !event.currentTarget.contains(event.relatedTarget as Node | null)) onCommit(row, column, editing.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") { event.preventDefault(); onEdit(undefined); }
+                  else if (!immediate && event.key === "Enter") { event.preventDefault(); onCommit(row, column, editing.value); }
+                }}>
+                {column.id === "status" ? <ChoiceControl mode="select" aria-label={`${row.title}: ${column.label}`}
+                  value={text} options={[{ value: "", label: label("未設定", "Unset", context.locale) },
+                    ...(data.tracker?.statuses ?? []).map((status) => ({ value: status.id, label: status.label }))]}
+                  onChange={(next) => onCommit(row, column, next || null)} /> :
+                  column.type === "multiselect" && descriptor.options ? <>
+                    {(Array.isArray(value) ? value : []).map((item) => <Button key={String(item)}
+                      aria-label={`${label("削除", "Remove", context.locale)} ${String(item)}`}
+                      onClick={() => onCommit(row, column, (value as unknown[]).filter((v) => v !== item))}>× {String(item)}</Button>)}
+                    <FieldInput id={`wbs-${row.name}-${column.id}`} field={descriptor} value="" locale={context.locale} autoFocus
+                      onChange={(next) => { if (next) onCommit(row, column, [...(Array.isArray(value) ? value : []), next]); }} />
+                  </> :
+                  <FieldInput id={`wbs-${row.name}-${column.id}`} field={descriptor} value={text} locale={context.locale} autoFocus
+                    referenceCandidates={column.type === "reference" ? referenceRows : undefined}
+                    onChange={(next) => { if (immediate) onCommit(row, column, convert(next)); else onEdit({ key, value: next }); }} />}
+                </div> : <Button disabled={saving.has(key)} aria-label={`${row.title}: ${column.label}`}
+                  onClick={() => onEdit({ key, value })}>{formatCell(column, value, referenceRows, data)}</Button>
+                : formatCell(column, value, referenceRows, data)}
+            </div>;
+          }) : null}
           {panes.schedule ? <div role="gridcell" className="wbs-timeline-cell" title={`${start || label("未設定", "Unset", context.locale)} – ${end || label("未設定", "Unset", context.locale)}`}
             {...dropTarget}>
             <TimelineTrack timeline={timeline} start={start} end={end} locale={context.locale} closed={status?.category === "closed"} onReveal={onReveal} />
@@ -225,6 +286,10 @@ export function WBSScreen({ context }: PluginViewProps) {
   const data: WBSRendererData | undefined = base ? { ...base, ...configuration, columns: selectedColumns ?? base.columns ?? [{ id: "status", label: label("状態", "Status", context.locale), type: "status" }] } : undefined;
   const [parents, setParents] = useState<Record<string, string>>({});
   const [orders, setOrders] = useState<Record<string, number>>({});
+  const [editing, setEditing] = useState<CellEditing>();
+  const [overrides, setOverrides] = useState<Record<string, unknown>>({});
+  const [saving, setSaving] = useState<Set<string>>(() => new Set());
+  const savingRef = useRef(new Set<string>());
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [panes, setPanes] = useState(() => readPanes(settings(context).panes));
@@ -248,6 +313,9 @@ export function WBSScreen({ context }: PluginViewProps) {
       return row && (!orderField || row.values[fieldKey(orderField)] !== value);
     })));
   }, [context.rows, parentField, orderField]);
+  useEffect(() => {
+    setOverrides((current) => pruneCellOverrides(current, context.rows, saving));
+  }, [context.rows, saving]);
   const rows: PluginIndexRow[] = context.rows.map((row) => ({ ...row, values: {
     ...row.values,
     ...(parentField && parents[row.name] !== undefined ? { [fieldKey(parentField)]: parents[row.name]! } : {}),
@@ -303,6 +371,35 @@ export function WBSScreen({ context }: PluginViewProps) {
       ? label("他で変更されました。表示は操作前のままです。再読み込みしてください。", "Changed elsewhere. The previous display is preserved; reload.", context.locale)
       : result.message);
   };
+  async function commitCell(row: PluginIndexRow, column: WBSColumn, value: unknown) {
+    const key = cellKey(row.name, column.id);
+    if (savingRef.current.has(key)) return;
+    setEditing(undefined);
+    if (column.type === "number" && typeof value === "string" && value !== "") {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return;
+      value = parsed;
+    }
+    const previous = Object.hasOwn(overrides, key) ? overrides[key] : cellValue(row, column.id);
+    const hadPreviousOverride = Object.hasOwn(overrides, key);
+    if (equalCell(previous, value)) return;
+    savingRef.current.add(key);
+    setSaving(new Set(savingRef.current));
+    setOverrides((current) => ({ ...current, [key]: normalizeCell(value) }));
+    try {
+      const result = await context.save([cellWrite(column.id, value)], { targetName: row.name });
+      if (!result.ok) setOverrides((current) => {
+        const next = { ...current }; if (hadPreviousOverride) next[key] = previous; else delete next[key]; return next;
+      });
+      saveMessage(result);
+    } catch (error) {
+      setOverrides((current) => { const next = { ...current }; if (hadPreviousOverride) next[key] = previous; else delete next[key]; return next; });
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      savingRef.current.delete(key);
+      setSaving(new Set(savingRef.current));
+    }
+  }
   async function changeParent(row: PluginIndexRow, parent: string) {
     if (!parentField || busy || !editable ||
       (parent && (excludedParents(rows, row.name, parentField).has(parent) || review.has(parent)))) return;
@@ -491,6 +588,7 @@ export function WBSScreen({ context }: PluginViewProps) {
     </div>
     {tracker ? <WBSGrid key={context.target?.name} context={context} data={data!} roots={hierarchy.roots}
       rows={rows} review={review} timeline={timeline} busy={busy} movedName={movedName}
+      editing={editing} overrides={overrides} saving={saving} onEdit={setEditing} onCommit={(row, column, value) => void commitCell(row, column, value)}
       mode={mode} panes={panes} onReveal={reveal}
       onParent={(row, parent) => void changeParent(row, parent)}
       onOrder={(siblings, index, delta) => void moveOrder(siblings, index, delta)}
@@ -506,7 +604,7 @@ function settings(context: PluginRenderContext): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, busy, movedName, ...actions }: {
+function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, busy, movedName, editing, overrides, saving, ...actions }: {
   context: PluginRenderContext;
   data: WBSRendererData;
   roots: Parameters<typeof flattenRows>[0];
@@ -517,7 +615,10 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, bu
   panes: Panes;
   busy: boolean;
   movedName?: string;
-} & Pick<Parameters<typeof WBSRows>[0], "onParent" | "onOrder" | "onDropOrder" | "onRenumber" | "onCreate" | "onReveal">) {
+  editing?: CellEditing;
+  overrides: Record<string, unknown>;
+  saving: ReadonlySet<string>;
+} & Pick<Parameters<typeof WBSRows>[0], "onEdit" | "onCommit" | "onParent" | "onOrder" | "onDropOrder" | "onRenumber" | "onCreate" | "onReveal">) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
     const stored = settings(context).collapsed;
     return new Set(Array.isArray(stored) ? stored.filter((name): name is string =>
@@ -697,7 +798,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, bu
            ? label("親に指定されたチケットが存在しません。親を変更するか、親を空にしてください。", "The parent ticket does not exist. Change or clear the parent.", context.locale)
            : label("親をたどると自分に戻ります。どちらかの親を変更してください。", "Following parents returns to the same ticket. Change one of the parents.", context.locale) : null}
        </span></div> : null}
-        <WBSRows items={visible.flatMap((entry) => entry.group === index && entry.item ? [entry.item] : [])} data={data} context={context} all={rows} review={review} movedName={movedName} panes={panes}
+         <WBSRows items={visible.flatMap((entry) => entry.group === index && entry.item ? [entry.item] : [])} data={data} context={context} all={rows} review={review} movedName={movedName} panes={panes} editing={editing} overrides={overrides} saving={saving}
         timeline={timeline} busy={busy} collapsed={collapsed} onToggle={(name) => {
           const next = new Set(collapsed);
           if (next.has(name)) next.delete(name); else next.add(name);

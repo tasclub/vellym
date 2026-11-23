@@ -16,11 +16,24 @@ vi.mock("@vellym/plugin-api/ui", () => ({
     onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onChange(event.target.value)
   }, ...options.map((option) => createElement("option", { key: option.value, value: option.value }, option.label))),
   InputControl: (props: React.InputHTMLAttributes<HTMLInputElement>) => createElement("input", props)
+  ,FieldInput: ({ value, onChange, field, ...props }: { value: string; onChange(value: string): void; field: { type: string } } & Record<string, unknown>) =>
+    createElement("input", { ...props, type: field.type === "date" ? "date" : "text", value,
+      onChange: (event: React.ChangeEvent<HTMLInputElement>) => onChange(event.target.value) })
 }));
-import { WBSScreen } from "../packages/plugin-wbs/src/screen.js";
+import { WBSScreen, cellWrite, equalCell, pruneCellOverrides } from "../packages/plugin-wbs/src/screen.js";
 import { formatCell, wbsView, type WBSRendererData } from "../packages/plugin-wbs/src/view.js";
 
 describe("WBS detail formatting", () => {
+  it("prepares cell writes and reconciles indexed values", () => {
+    expect(cellWrite("status", "done")).toEqual({ path: ["status"], value: "done" });
+    expect(cellWrite("start", "")).toEqual({ path: ["fields", "start"], value: null });
+    expect(equalCell(["a", "b"], ["a", "b"])).toBe(true);
+    expect(equalCell(undefined, null)).toBe(true);
+    const key = "root\u0000start";
+    const rows = [{ name: "root", title: "Root", values: { "field:start": "2026-01-01" } }];
+    expect(pruneCellOverrides({ [key]: "2026-01-01" }, rows, new Set())).toEqual({});
+    expect(pruneCellOverrides({ [key]: "2026-01-01" }, rows, new Set([key]))).toEqual({ [key]: "2026-01-01" });
+  });
   it("formats values by type", () => {
     const data = { columns: [], diagnostics: [], statusSymbols: { todo: "○" },
       tracker: { statuses: [{ id: "todo", label: "Todo", category: "open" }] } } as unknown as WBSRendererData;
@@ -76,6 +89,36 @@ function editParent(container: HTMLElement, name: string) {
 }
 
 describe("WBS screen", () => {
+  it("saves cells once, retains optimistic values until indexed, and rolls back conflicts", async () => {
+    const { context, container, root, save } = fixture(false, [{ name: "root", title: "Root",
+      values: { status: "todo", "field:start": "2026-01-01" } }]);
+    const data = context.rendererData as WBSRendererData;
+    const next = { ...context, rendererData: { ...data, columns: [
+      { id: "status", label: "状態", type: "status" }, { id: "start", label: "開始", type: "date" }
+    ], tracker: { ...data.tracker!, statuses: [{ id: "todo", label: "Todo", category: "open" as const },
+      { id: "done", label: "Done", category: "closed" as const }] } } };
+    act(() => root.render(createElement(WBSScreen, { context: next })));
+    const cell = (id: string) => container.querySelector<HTMLElement>(`[data-ticket-name="root"] [data-cell="${id}"]`)!;
+    act(() => cell("status").querySelector("button")!.click());
+    await act(async () => { const select = cell("status").querySelector("select")!; select.value = "done"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(save).toHaveBeenCalledWith([{ path: ["status"], value: "done" }], { targetName: "root" });
+    expect(cell("status").textContent).toContain("Done");
+    act(() => cell("status").querySelector("button")!.click());
+    await act(async () => { const select = cell("status").querySelector("select")!; select.value = "done"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(save).toHaveBeenCalledTimes(1);
+    save.mockImplementationOnce(async () => ({ ok: false, reason: "conflict", message: "conflict" }));
+    act(() => cell("start").querySelector("button")!.click());
+    await act(async () => {
+      const input = cell("start").querySelector("input")!;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(save).toHaveBeenLastCalledWith([{ path: ["fields", "start"], value: null }], { targetName: "root" });
+    expect(cell("start").textContent).toContain("2026-01-01");
+    expect(container.querySelector('[role="status"]')?.textContent).toContain("他で変更");
+    act(() => root.unmount());
+  });
   it("validates pane settings and preserves one visible pane in live and static views", () => {
     for (const isStatic of [false, true]) for (const value of [undefined, {}, { title: false, details: false, schedule: false }, { title: true, details: "bad", schedule: false }]) {
       const { context, container, root, save } = fixture(isStatic);

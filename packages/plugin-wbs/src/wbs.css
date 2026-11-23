@@ -70,6 +70,10 @@
 .wbs-level-badge, .wbs-number { flex: 0 0 auto; font-size: var(--size-caption); }
 .wbs-number:empty { display: none; }
 .wbs-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-content: center; padding-inline: 4px; }
+.wbs-row .wbs-status > button { width: 100%; min-height: 0; height: 30px; padding: 0 2px; text-align: start; overflow: hidden; text-overflow: ellipsis; border: 0; background: none; color: inherit; }
+.wbs-status[data-editing] { outline: 1px solid var(--border-strong); outline-offset: -1px; }
+.wbs-status[data-saving] { opacity: .55; }
+.wbs-cell-editor, .wbs-cell-editor input, .wbs-cell-editor select { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .wbs-narrow-status { display: none; }
 /* Host ancestor+button rules otherwise defeat fixed-height, single-line cells. */
 .wbs-row .wbs-title {
