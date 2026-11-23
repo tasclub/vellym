@@ -1,10 +1,11 @@
 // Run after npm run build: node tests/git-history-layout.browser.mjs
 import { spawn, execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { chromium, expect } from "@playwright/test";
 
-const root = await mkdtemp("/tmp/opencode/git-history-layout-");
+const root = await mkdtemp(path.join(tmpdir(), "git-history-layout-"));
 const git = (...args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8" }).trim();
 await mkdir(path.join(root, "content"));
 await writeFile(path.join(root, "vellym.config.yaml"), 'schemaVersion: "1.0"\ncontentRoot: content\noutputDir: dist\nui:\n  language: en\nplugins: []\n');
@@ -84,7 +85,7 @@ try {
   expect(await selected.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThan(65);
   expect(await selected.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
   expect(await selected.locator("[title]").first().evaluate((node) => getComputedStyle(node).textOverflow)).toBe("ellipsis");
-  const shots = process.env.VELLYM_SCREENSHOT_DIR || "/tmp/opencode";
+  const shots = process.env.VELLYM_SCREENSHOT_DIR || tmpdir();
   await mkdir(shots, { recursive: true });
   await page.screenshot({ path: path.join(shots, "git-history-1400.png") });
 

@@ -2,11 +2,12 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServer } from "node:net";
 import { chromium, expect } from "@playwright/test";
 
-const root = await mkdtemp("/tmp/opencode/archive-preview-");
+const root = await mkdtemp(path.join(tmpdir(), "archive-preview-"));
 const content = path.join(root, "content");
 await mkdir(path.join(content, "empty"), { recursive: true });
 await mkdir(path.join(content, "full"));
