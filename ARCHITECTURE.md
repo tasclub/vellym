@@ -144,6 +144,11 @@ The snapshot is the only thing the HTTP layer and the static builder read from.
 
 ## Writing path
 
+Plugin renderers can use the optional `createResourceNow` to create a resource without
+opening a draft or navigating away. It uses the same server path as a draft's first
+save, including content-root boundaries, validation and same-name conflict handling,
+then refreshes the current view. Static output cannot create resources.
+
 Saving is deliberately conservative, because the file on disk is the source of truth
 and may contain things Vellym does not understand yet.
 

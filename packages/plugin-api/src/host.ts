@@ -275,6 +275,10 @@ export type PluginSaveResult =
   /** 競合や検証の失敗。利用者へ見せる1行を持つ */
   | { ok: false; message: string; reason: "conflict" | "error" };
 
+export type PluginCreateResult =
+  | { ok: true; name: string }
+  | { ok: false; reason: "conflict" | "error"; message: string };
+
 export type PluginOpenResourceResult =
   | { ok: true }
   | { ok: false; message: string; reason: "not-found" | "unavailable" };
@@ -310,6 +314,8 @@ export interface PluginRenderContext extends PluginViewContext {
    */
   /** Run a registered view command through the host's draft-creation flow. */
   runCommand?(id: string, input: Readonly<Record<string, PluginInputValue>>): Promise<PluginSaveResult>;
+  /** Create a resource immediately without navigating to a draft. */
+  createResourceNow?(draft: PluginResourceDraft & { name: string }): Promise<PluginCreateResult>;
   /**
    * 開いているリソースの正本へ書き戻す。
    *
