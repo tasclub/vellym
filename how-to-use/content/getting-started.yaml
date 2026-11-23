@@ -31,6 +31,8 @@ spec:
            個別に選びながら始めたい場合は、初期化せずに`vellym dev`を起動し、ブラウザの3段階
            セットアップから開始する。指定できるオプションは[[cli-reference|CLIリファレンス]]を参照。
 
+           CLIの`init`はcontent root（既定`docs/`）に、人やAI向けの設定・書き方の案内`VELLYM.md`も作る。自由に編集でき、既存ファイルは上書きしない。
+
         2. **依存をインストールする**
 
            ```bash
@@ -174,6 +176,10 @@ spec:
                `package.json`'s `devDependencies`. To choose folders and pages individually
                instead, skip `init` and run `vellym dev` to use the three-step browser setup. See
                [[cli-reference|CLI Reference]] for the available options.
+
+               CLI `init` also creates `VELLYM.md` in the content root (default `docs/`),
+               a guide to configuration and writing for people and AI. You can edit it freely;
+               an existing file is never overwritten.
 
             2. **Install dependencies**
 

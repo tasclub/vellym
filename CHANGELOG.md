@@ -12,6 +12,7 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 ### 追加
 
+- `vellym init`でcontent rootに人とAI向けの`VELLYM.md`を生成する。
 - プラグイン画面からドラフトを開かずリソースを作成できる。
 - TicketTrackerに条件ルールを宣言し、違反を警告できる。
 

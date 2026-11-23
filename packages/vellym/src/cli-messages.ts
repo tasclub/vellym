@@ -44,6 +44,7 @@ export interface CliMessages {
   initNext(): string;
   initLinks(): string;
   initGuides(): string;
+  initAgentGuide(contentRoot: string): string;
   initPackageJsonKept(): string;
   initPackageJsonUnreadable(): string;
   initInstallPlugins(): string;
@@ -182,6 +183,7 @@ Options:
   initNext: () => "次のコマンド:",
   initLinks: () => "利用ガイド: https://vellym.tasclub.com/\nAI向け案内: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "プラグインの使い方:",
+  initAgentGuide: (root) => `AIエージェントには${root}/VELLYM.mdを読ませてください。`,
   initPackageJsonKept: () => "既存のpackage.jsonは変更していません。",
   initPackageJsonUnreadable: () => "注意: package.jsonがJSONとして読めません。変更していないので、手で直してください。",
   initInstallPlugins: () => "vellymとプラグインをプロジェクトに入れるには次を実行します:",
@@ -328,6 +330,7 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   initNext: () => "Next commands:",
   initLinks: () => "User guide: https://vellym.tasclub.com/en/\nAI guide: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "How to use the plugins:",
+  initAgentGuide: (root) => `Have AI agents read ${root}/VELLYM.md.`,
   initPackageJsonKept: () => "The existing package.json was left unchanged.",
   initPackageJsonUnreadable: () => "Warning: package.json is not valid JSON. It was left unchanged; fix it by hand.",
   initInstallPlugins: () => "To add vellym and the plugins to the project, run:",

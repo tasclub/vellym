@@ -1,6 +1,7 @@
 import path from "node:path";
 import { OFFICIAL_PLUGINS, VELLYM_VERSION } from "./version.js";
 import { getMessages } from "./cli-messages.js";
+import { vellymGuide } from "./vellym-guide.js";
 import {
   applyProjectSetup,
   inspectContentRoot,
@@ -52,6 +53,7 @@ export async function initializeProject(
     method: options.method!,
     level: options.level ?? "standard",
     contentRoot: options.contentRoot ?? "docs",
+    agentGuide: { content: vellymGuide({ language: options.language!, contentRoot: (options.contentRoot ?? "docs").normalize("NFC").replace(/\/+$/, ""), plugins: names.map((id) => ({ id, ...OFFICIAL_PLUGINS[id]! })), version: VELLYM_VERSION }) },
     pluginPackages,
     hostVersion: VELLYM_VERSION,
     language: options.language!
@@ -116,4 +118,5 @@ export async function initializeProject(
     return chosen ? [chosen] : [];
   }))];
   if (guides.length) process.stdout.write(`${messages.initGuides()}\n${guides.map((url) => `  ${url}`).join("\n")}\n`);
+  process.stdout.write(`${messages.initAgentGuide(plan.contentRoot)}\n`);
 }

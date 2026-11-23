@@ -74,6 +74,35 @@ function run(args: string[]) {
   });
 }
 
+describe("init agent guide", () => {
+  for (const contentRoot of ["docs", "content"]) {
+    it(`creates and validates ${contentRoot}/VELLYM.md`, async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-guide-"));
+      const result = run(["init", root, "--size", "small-team", "--method", "hybrid", "--language", "ja", "--content-root", contentRoot]);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain(`${contentRoot}/VELLYM.md`);
+      const guide = await readFile(path.join(root, contentRoot, "VELLYM.md"), "utf8");
+      expect(guide).toContain(`${contentRoot}/VELLYM.md`);
+      expect(guide).toContain(`${contentRoot}/`);
+      if (contentRoot === "content") expect(guide).not.toContain("docs/");
+      const validation = run(["validate", "--strict", "--json", "--config", path.join(root, "vellym.config.yaml")]);
+      expect(validation.status, validation.stderr + validation.stdout).toBe(0);
+      expect(JSON.parse(validation.stdout).diagnostics).toEqual([]);
+    });
+  }
+  it("skips an existing guide in dry-run and leaves it unchanged", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-guide-existing-"));
+    await mkdir(path.join(root, "docs"));
+    await writeFile(path.join(root, "docs", "VELLYM.md"), "custom");
+    const result = run(initArgs(root, ["--dry-run", "--json"]));
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout).skip).toContain("docs/VELLYM.md");
+    const actual = run(initArgs(root, ["--use-existing-content-root"]));
+    expect(actual.status, actual.stderr).toBe(0);
+    expect(await readFile(path.join(root, "docs", "VELLYM.md"), "utf8")).toBe("custom");
+  });
+});
+
 /** The same rule as scripts/build.mjs: public packages/plugin-* with a vellym.id, by id. */
 function officialPluginIds(): string[] {
   return readdirSync(path.resolve("packages"), { withFileTypes: true })
@@ -893,7 +922,7 @@ spec:
       expect(plan(root).create).toEqual(standard.create);
       expect(pages(light.create).length).toBeLessThan(pages(standard.create).length);
       expect(pages(standard.create).length).toBeLessThanOrEqual(pages(strict.create).length);
-      // The browser's "light" plans with the estimated selection; the CLI must produce the same files.
+      // The browser uses the same selection, but only the CLI creates VELLYM.md.
       const { setupCatalog, planProjectSetup } = await import("../packages/runtime-node/src/index.js");
       const { buildCatalogIndex, estimateSelection } = await import("../packages/ui-react/src/setup/setup-catalog-tree.js");
       const estimate = estimateSelection(
@@ -904,7 +933,7 @@ spec:
         mode: "recommended", size: "small-team", method: "hybrid", level: "light", contentRoot: "docs", language: "en",
         selectedTemplateIds: [...estimate.pageIds], pluginPackages: []
       });
-      expect(browser.files.filter((file) => file.status === "create").map((file) => file.relativePath).sort()).toEqual([...light.create].sort());
+      expect(browser.files.filter((file) => file.status === "create").map((file) => file.relativePath).sort()).toEqual(light.create.filter((file: string) => file !== "docs/VELLYM.md").sort());
       const invalid = run(initArgs(root, ["--language", "en", "--level", "huge"]));
       expect(invalid.status).toBe(2);
       expect(invalid.stderr).toContain("--level must be light, standard, or strict");
