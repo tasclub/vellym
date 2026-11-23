@@ -103,6 +103,7 @@ export function SetupWizard(props: {
   const [filterReference, setFilterReference] = useState("");
   const [pageFileNames, setPageFileNames] = useState<Record<string, string>>({});
   const [pageTitles, setPageTitles] = useState<Record<string, string>>({});
+  const [detailOverrides, setDetailOverrides] = useState<Record<string, boolean>>({});
   const [conflictResolutions, setConflictResolutions] = useState<
     Record<string, "skip" | "alternate">
   >({});
@@ -363,6 +364,53 @@ export function SetupWizard(props: {
     const generated = selectionIds(resolved);
     return new Set([...reviewScope].filter((id) => !generated.has(id)));
   }, [resolved, reviewScope]);
+
+  function detailNeedsAttention(node: SetupTreeNode): boolean {
+    const file = plan?.files.find((item) => item.nodeId === node.id);
+    if (
+      file?.status === "conflict" ||
+      file?.conflictReason === "path" ||
+      file?.conflictReason === "page-id"
+    ) {
+      return true;
+    }
+    if (node.kind === "folder") {
+      const folder = index?.folderById.get(node.id);
+      return Boolean(
+        folder && (folderNames[node.id] ?? folder.defaultName) !== folder.defaultName
+      );
+    }
+    const page = index?.pageById.get(node.id);
+    if (!page) return false;
+    const title = pageTitles[node.id] ?? file?.title ?? page.title;
+    const fileName =
+      pageFileNames[node.id] ??
+      (file ? file.relativePath.split("/").pop() : page.defaultFileName) ??
+      page.defaultFileName;
+    return title !== page.title || fileName !== page.defaultFileName;
+  }
+
+  function detailIsOpen(node: SetupTreeNode): boolean {
+    return detailOverrides[node.id] ?? detailNeedsAttention(node);
+  }
+
+  function toggleDetail(nodeId: string): void {
+    const node = index?.byId.get(nodeId);
+    if (!node) return;
+    setDetailOverrides((current) => ({
+      ...current,
+      [nodeId]: !(current[nodeId] ?? detailNeedsAttention(node))
+    }));
+  }
+
+  const detailOpenIds = new Set<string>();
+  function collectOpenDetails(nodes: SetupTreeNode[]): void {
+    for (const node of nodes) {
+      if (detailIsOpen(node)) detailOpenIds.add(node.id);
+      collectOpenDetails(node.children);
+    }
+  }
+  collectOpenDetails(reviewTree);
 
   function levelPreview(value: DocumentationLevel) {
     if (!index) return { folders: 0, pages: 0, tree: [] as SetupTreeNode[] };
@@ -775,6 +823,8 @@ export function SetupWizard(props: {
                 omittedIds={omittedIds}
                 onToggleExpanded={toggleExpanded}
                 onToggleSelected={toggleSelected}
+                detailOpenIds={detailOpenIds}
+                onToggleDetail={toggleDetail}
                 renderDetail={detailFor}
               />
             </div>

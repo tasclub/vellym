@@ -43,6 +43,8 @@ export function SetupTree(props: {
   onToggleExpanded(nodeId: string): void;
   onToggleSelected?(nodeId: string, checked: boolean): void;
   renderDetail?(node: SetupTreeNode): React.ReactNode;
+  detailOpenIds?: Set<string>;
+  onToggleDetail?(nodeId: string): void;
 }) {
   const ja = props.language === "ja";
   const flat = visibleNodes(props.nodes, props.expanded);
@@ -111,6 +113,7 @@ export function SetupTree(props: {
       const open = props.expanded.has(node.id);
       const reason = props.reasons?.[node.id];
       const omitted = props.omittedIds?.has(node.id) ?? false;
+      const detailOpen = props.detailOpenIds?.has(node.id) ?? false;
       return (
         <li key={node.id} role="none">
           <div
@@ -127,10 +130,12 @@ export function SetupTree(props: {
             {...(props.readOnly
               ? {}
               : { "aria-checked": state === "indeterminate" ? "mixed" : state === "checked" })}
-            aria-describedby={reason ? `${node.id}-reason` : undefined}
+            title={reason || undefined}
             className={[styles["setup-tree-item"], styles[node.kind], props.readOnly ? styles["readonly"] : "", omitted ? styles["omitted"] : ""].filter(Boolean).join(" ")}
             onKeyDown={(event) => onKeyDown(event, node)}
-            onFocus={() => setActiveId(node.id)}
+            onFocus={(event) => {
+              if (event.target === event.currentTarget) setActiveId(node.id);
+            }}
           >
             {expandable ? (
               <Button
@@ -165,21 +170,33 @@ export function SetupTree(props: {
                   </span>
                 )}
               </span>
-              <small className={styles["setup-tree-description"]}>{node.description}</small>
-              {(node.referenceModels.length > 0 || reason) && (
-                <small id={reason ? `${node.id}-reason` : undefined} className={styles["setup-tree-meta"]}>
-                  {node.referenceModels.length > 0 && (
+              <span className={styles["setup-tree-secondary"]}>
+                <small className={styles["setup-tree-description"]}>{node.description}</small>
+                {node.referenceModels.length > 0 && (
+                  <small className={styles["setup-tree-meta"]}>
                     <span>
                       {ja ? "参考: " : "Reference: "}
                       {node.referenceModels.map(referenceLabel).join(ja ? "、" : ", ")}
                     </span>
-                  )}
-                  {reason && <span>{reason}</span>}
-                </small>
-              )}
+                  </small>
+                )}
+              </span>
             </span>
+            {props.renderDetail && state === "checked" && props.onToggleDetail && (
+              <Button
+                className={styles["setup-tree-edit"]}
+                aria-label={ja ? `名前を変更: ${node.title}` : `Rename: ${node.title}`}
+                aria-expanded={detailOpen}
+                onClick={() => props.onToggleDetail?.(node.id)}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                {ja ? "名前を変更" : "Rename"}
+              </Button>
+            )}
           </div>
-          {props.renderDetail && state === "checked" ? props.renderDetail(node) : undefined}
+          {props.renderDetail && state === "checked" && detailOpen
+            ? props.renderDetail(node)
+            : undefined}
           {expandable && open && (
             <ul role="group">{render(node.children, level + 1)}</ul>
           )}

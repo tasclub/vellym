@@ -53,15 +53,45 @@ try {
   await expect(screen.getByRole("status")).toHaveText(
     /作成 \d+件・既存のため作成しない \d+件・競合 \d+件/
   );
+  await expect(screen.getByRole("button", { name: "この内容で生成" })).toBeEnabled();
   await expect(screen).not.toContainText(
     "生成する階層だけを表示しています。名前を確認し、不要なものは解除してください。"
   );
   await expect(screen).not.toContainText(
     "既存のファイルは上書きしません。「この内容で生成」を押すまで、ファイルは書き込みません。"
   );
+  await expect(screen).not.toContainText(
+    "規模 small-team / 開発方式 hybrid / 文書化レベル standard に該当します"
+  );
+  await expect(screen.locator('[role="treeitem"][title*="規模 small-team"]').first()).toBeVisible();
+  await expect(screen.locator(".setup-tree-detail")).toHaveCount(0);
+  const reviewHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+  expect(reviewHeight).toBeLessThanOrEqual(7000);
 
-  await page.getByRole("button", { name: "戻る", exact: true }).click();
-  await page.getByRole("button", { name: "戻る", exact: true }).click();
+  const editProjectCharter = screen.getByRole("button", {
+    name: "名前を変更: プロジェクト憲章",
+    exact: true
+  });
+  const projectCharterRow = editProjectCharter.locator("xpath=../..");
+  await editProjectCharter.click();
+  await expect(editProjectCharter).toHaveAttribute("aria-expanded", "true");
+  const projectCharterTitle = projectCharterRow.getByLabel("Page名");
+  await expect(projectCharterTitle).toBeVisible();
+  await projectCharterTitle.fill("変更後のプロジェクト憲章");
+  await editProjectCharter.click();
+  await expect(editProjectCharter).toHaveAttribute("aria-expanded", "false");
+  await expect(projectCharterRow.getByLabel("Page名")).toHaveCount(0);
+  await editProjectCharter.click();
+  await expect(projectCharterRow.getByLabel("Page名")).toHaveValue("変更後のプロジェクト憲章");
+
+  // Start the locale checks from a clean setup state rather than carrying a
+  // Japanese custom name into the English catalog.
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(
+    page.locator('section[aria-labelledby="setup-title"]')
+      .getByRole("heading", { level: 1, name: "開始方法と基本情報" })
+  ).toBeVisible();
+
   await page.getByRole("combobox").first().selectOption("en");
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(screen.getByRole("heading", { level: 1, name: "Recommended structure" })).toBeVisible();
@@ -80,9 +110,17 @@ try {
   await expect(screen).not.toContainText(
     'Existing files are never overwritten. Nothing is written until you press "Create project".'
   );
+  const editProjectCharterEnglish = screen.getByRole("button", {
+    name: "Rename: Project charter",
+    exact: true
+  });
+  await expect(editProjectCharterEnglish).toBeVisible();
+  await editProjectCharterEnglish.click();
+  await expect(screen.getByLabel("Page title")).toBeVisible();
+  await editProjectCharterEnglish.click();
 
   if (server.exitCode !== null) throw new Error(`dev exited with ${server.exitCode}\n${output}`);
-  console.log("Setup text: Japanese and English explanations removed, recommendation marker and review counts retained: passed");
+  console.log("Setup text: localized reasons, compact review, and collapsible name fields passed");
 } catch (error) {
   console.error(output);
   throw error;
