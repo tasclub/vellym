@@ -120,6 +120,7 @@ export interface SetupPlanFile {
 export interface SetupPlan {
   operation: SetupOperation;
   pluginPackages?: { name: string; version: string }[];
+  hostVersion?: string;
   mode?: SetupMode;
   size?: ProjectSize;
   method?: DevelopmentMethod;
@@ -193,16 +194,23 @@ function configSource(contentRoot: string, language: SetupLanguage, plugins: { n
 
 /**
  * `plugins`をconfigDir起点で解決するためのアンカー。プラグインの導入先でもある。
- * `scripts`も`dependencies`もVellymは読まないため、最小構成だけを書く。
+ * Vellym自身の版は`devDependencies`へ記録し、npm install後の実行版を固定する。
  */
-function packageJsonSource(projectRoot: string, plugins: { name: string; version: string }[] = []): string {
+function packageJsonSource(
+  projectRoot: string,
+  plugins: { name: string; version: string }[] = [],
+  hostVersion?: string
+): string {
   return `${JSON.stringify(
     {
       name: packageNameFrom(projectRoot),
       version: "0.0.0",
       private: true,
       type: "module",
-      ...(plugins.length ? { dependencies: Object.fromEntries(plugins.map((p) => [p.name, `^${p.version}`])) } : {})
+      ...(plugins.length
+        ? { dependencies: Object.fromEntries(plugins.map((p) => [p.name, `^${p.version}`])) }
+        : {}),
+      ...(hostVersion ? { devDependencies: { vellym: `^${hostVersion}` } } : {})
     },
     undefined,
     2
@@ -489,6 +497,7 @@ export async function planProjectSetup(
   options: {
     operation?: SetupOperation;
     pluginPackages?: { name: string; version: string }[];
+    hostVersion?: string;
     mode?: SetupMode;
     size?: ProjectSize;
     method?: DevelopmentMethod;
@@ -717,6 +726,7 @@ export async function planProjectSetup(
       JSON.stringify({
         operation,
         pluginPackages: options.pluginPackages ?? [],
+        hostVersion: options.hostVersion,
         mode: options.mode,
         size: options.size,
         method: options.method,
@@ -741,6 +751,7 @@ export async function planProjectSetup(
   return {
     operation,
     pluginPackages: options.pluginPackages ?? [],
+    ...(options.hostVersion ? { hostVersion: options.hostVersion } : {}),
     ...(options.mode ? { mode: options.mode } : {}),
     ...(options.size ? { size: options.size } : {}),
     ...(options.method ? { method: options.method } : {}),
@@ -889,7 +900,9 @@ Vellym does not infer semantic duplication or contradictions, and it never runs 
 }
 
 function sourceFor(plan: SetupPlan, file: SetupPlanFile): string {
-  if (file.kind === "package-json") return packageJsonSource(plan.projectRoot, plan.pluginPackages);
+  if (file.kind === "package-json") {
+    return packageJsonSource(plan.projectRoot, plan.pluginPackages, plan.hostVersion);
+  }
   if (file.kind === "config") return configSource(plan.contentRoot, plan.language, plan.pluginPackages);
   if (file.kind === "page") {
     const page = setupPage(file.templateId!)!;
@@ -925,6 +938,7 @@ export async function applyProjectSetup(expected: SetupPlan): Promise<void> {
   const current = await planProjectSetup(expected.projectRoot, {
     operation: expected.operation,
     pluginPackages: expected.pluginPackages,
+    hostVersion: expected.hostVersion,
     mode: expected.mode,
     size: expected.size,
     method: expected.method,

@@ -816,7 +816,7 @@ spec:
 
     const packageJson = JSON.parse(
       await readFile(path.join(root, "package.json"), "utf8")
-    ) as { dependencies?: Record<string, string> };
+    ) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
     const expected = {
       "@vellym/tickets": (await workspaceVersion("plugin-tickets")),
       "@vellym/kanban": (await workspaceVersion("plugin-kanban")),
@@ -826,6 +826,9 @@ spec:
       "@vellym/tickets": `^${expected["@vellym/tickets"]}`,
       "@vellym/kanban": `^${expected["@vellym/kanban"]}`,
       "@vellym/wbs": `^${expected["@vellym/wbs"]}`
+    });
+    expect(packageJson.devDependencies).toEqual({
+      vellym: `^${await workspaceVersion("vellym")}`
     });
 
     // initはnpm installを実行しない。TicketTrackerも作らない。
@@ -837,18 +840,21 @@ spec:
     expect(result.stdout).toContain("  npx vellym dev");
   });
 
-  it("leaves package.json dependency-free when no plugins are requested", async () => {
+  it("adds only vellym as a devDependency when no plugins are requested", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-noplugins-"));
     const result = run(initArgs(root, ["--language", "en"]));
     expect(result.status, result.stderr).toBe(0);
     const packageJson = JSON.parse(
       await readFile(path.join(root, "package.json"), "utf8")
-    ) as { dependencies?: Record<string, string> };
+    ) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
     expect(packageJson.dependencies).toBeUndefined();
+    expect(packageJson.devDependencies).toEqual({
+      vellym: `^${await workspaceVersion("vellym")}`
+    });
     const config = await readFile(path.join(root, "vellym.config.yaml"), "utf8");
     expect(config).toContain("plugins: []");
     expect(result.stdout).toContain("  npx vellym dev");
-    expect(result.stdout).not.toContain("  npm install");
+    expect(result.stdout).toContain("  npm install");
   });
 
   describe("init --level, --dry-run and existing content roots (ticket-01m7ety1e647x33mq7jwkns67c)", () => {
@@ -933,6 +939,7 @@ spec:
       expect(await readFile(path.join(root, "package.json"), "utf8")).toBe(original);
       await access(path.join(root, "vellym.config.yaml"));
       expect(result.stdout).toContain("The existing package.json was left unchanged.");
+      expect(result.stdout).toMatch(/npm install -D vellym@\S+/);
       const plan = JSON.parse(run(initArgs(root, ["--language", "en", "--dry-run", "--json"])).stdout);
       expect(plan.skip).toContain("package.json");
     });
@@ -947,13 +954,14 @@ spec:
       await access(path.join(root, "vellym.config.yaml"));
     });
 
-    it("prints the npm install line instead of adding dependencies with --plugins", async () => {
+    it("prints install commands instead of adding dependencies with --plugins", async () => {
       const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-pkg-plugins-"));
       await writeFile(path.join(root, "package.json"), '{ "name": "existing" }\n');
       const result = run(initArgs(root, ["--language", "en", "--plugins", "tickets"]));
       expect(result.status, result.stderr).toBe(0);
       expect(await readFile(path.join(root, "package.json"), "utf8")).toBe('{ "name": "existing" }\n');
-      expect(result.stdout).toMatch(/npm install vellym@\S+ @vellym\/tickets@\S+/);
+      expect(result.stdout).toMatch(/npm install -D vellym@\S+/);
+      expect(result.stdout).toMatch(/npm install @vellym\/tickets@\S+/);
       expect(await readFile(path.join(root, "vellym.config.yaml"), "utf8")).toContain("@vellym/tickets");
     });
   });

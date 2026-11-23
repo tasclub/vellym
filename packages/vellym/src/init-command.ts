@@ -53,6 +53,7 @@ export async function initializeProject(
     level: options.level ?? "standard",
     contentRoot: options.contentRoot ?? "docs",
     pluginPackages,
+    hostVersion: VELLYM_VERSION,
     language: options.language!
   };
   const contentRootState = await inspectContentRoot(target, baseOptions.contentRoot);
@@ -95,12 +96,18 @@ export async function initializeProject(
   process.stdout.write(`${messages.initComplete(target, created.length, skipped.length)}\n`);
   for (const file of skipped) process.stdout.write(`skip: ${file.relativePath}\n`);
   if (keptPackage) process.stdout.write(`${messages.initPackageJsonKept()}\n`);
-  // An existing package.json gets no dependencies from init; say exactly what to install.
-  if (keptPackage && pluginPackages.length) {
-    const packages = [`vellym@${VELLYM_VERSION}`, ...pluginPackages.map((item) => `${item.name}@${item.version}`)];
-    process.stdout.write(`${messages.initInstallPlugins()}\n  npm install ${packages.join(" ")}\n`);
+  // Existing package.json files stay untouched; print the exact commands needed
+  // to install this Vellym version and any selected plugins.
+  if (keptPackage) {
+    const commands = [
+      `npm install -D vellym@${VELLYM_VERSION}`,
+      ...(pluginPackages.length
+        ? [`npm install ${pluginPackages.map((item) => `${item.name}@${item.version}`).join(" ")}`]
+        : [])
+    ];
+    process.stdout.write(`${messages.initInstallPlugins()}\n${commands.map((command) => `  ${command}`).join("\n")}\n`);
   }
-  process.stdout.write(`${messages.initNext()}\n${pluginPackages.length && !keptPackage ? "  npm install\n" : ""}  npx vellym dev\n`);
+  process.stdout.write(`${messages.initNext()}\n${keptPackage ? "" : "  npm install\n"}  npx vellym dev\n`);
   // Each selected plugin names its own guide (package.json vellym.guideUrl); the host knows no plugin.
   const guides = [...new Set(names.flatMap((name) => {
     const url = OFFICIAL_PLUGINS[name]!.guideUrl;

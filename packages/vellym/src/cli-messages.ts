@@ -178,7 +178,7 @@ Options:
   initGuides: () => "プラグインの使い方:",
   initPackageJsonKept: () => "既存のpackage.jsonは変更していません。",
   initPackageJsonUnreadable: () => "注意: package.jsonがJSONとして読めません。変更していないので、手で直してください。",
-  initInstallPlugins: () => "プラグインを入れるには次を実行します:",
+  initInstallPlugins: () => "vellymとプラグインをプロジェクトに入れるには次を実行します:",
   initPlan: (target, create, skip, conflict) => [
     `初期化の計画（何も書いていません）: ${target}`,
     `作成: ${create.length}件、skip: ${skip.length}件、競合: ${conflict.length}件`,
@@ -319,7 +319,7 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   initGuides: () => "How to use the plugins:",
   initPackageJsonKept: () => "The existing package.json was left unchanged.",
   initPackageJsonUnreadable: () => "Warning: package.json is not valid JSON. It was left unchanged; fix it by hand.",
-  initInstallPlugins: () => "To install the plugins, run:",
+  initInstallPlugins: () => "To add vellym and the plugins to the project, run:",
   initPlan: (target, create, skip, conflict) => [
     `Setup plan (nothing written): ${target}`,
     `Create: ${create.length}, skip: ${skip.length}, conflicts: ${conflict.length}`,

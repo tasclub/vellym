@@ -792,7 +792,10 @@ export async function startDevServer(options: {
         const input = setupInput(await readJson(request));
         if (input.operation === "add") requireReady();
         else requireSetup();
-        const plan = await planProjectSetup(projectRoot, input);
+        const plan = await planProjectSetup(projectRoot, {
+          ...input,
+          ...(options.hostVersion ? { hostVersion: options.hostVersion } : {})
+        });
         json(response, 200, envelope(publicPlan(plan)));
         return;
       }
@@ -819,7 +822,10 @@ export async function startDevServer(options: {
         const input = setupInput(raw);
         if (input.operation === "add") requireReady();
         else requireSetup();
-        const plan = await planProjectSetup(projectRoot, input);
+        const plan = await planProjectSetup(projectRoot, {
+          ...input,
+          ...(options.hostVersion ? { hostVersion: options.hostVersion } : {})
+        });
         if (plan.planHash !== expectedHash) {
           throw new RuntimeError(
             "preview後に対象が変更されました。もう一度確認してください",
