@@ -1,6 +1,6 @@
 {
   "name": "@vellym/tickets",
-  "version": "0.1.0-beta",
+  "version": "0.2.0-beta",
   "description": "Official ticket management plugin for Vellym",
   "keywords": [
     "vellym",
@@ -22,7 +22,7 @@
   "type": "module",
   "engines": {
     "node": ">=22.12.0",
-    "vellym": ">=0.4.0-beta"
+    "vellym": ">=0.5.0-beta"
   },
   "exports": {
     ".": {
@@ -42,21 +42,27 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api/ui"
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api --external:@vellym/plugin-api/react --external:@vellym/plugin-api/ui && node -e \"require('node:fs').copyFileSync('src/tickets-settings.css', 'dist/browser/tickets-settings.css')\""
   },
   "publishConfig": {
     "access": "public"
   },
   "peerDependencies": {
-    "@vellym/plugin-api": "^0.1.0-beta",
+    "@vellym/plugin-api": "^0.2.0-beta",
     "react": ">=18"
   },
   "devDependencies": {
+    "@vellym-internal/ticket-engine": "*",
     "@vellym/plugin-api": "*",
     "esbuild": "^0.28.1"
   },
   "vellym": {
     "id": "tickets",
+    "guideUrl": {
+      "ja": "https://vellym.tasclub.com/pages/ticket-management/",
+      "en": "https://vellym.tasclub.com/en/pages/ticket-management/"
+    },
+    "styles": ["tickets-settings.css"],
     "contributes": {
       "kinds": [
         {

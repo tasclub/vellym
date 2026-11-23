@@ -7,11 +7,25 @@ const workspaceRoot = process.cwd();
 function sourceText(packageName: string, exclude: readonly string[] = []): string {
   const sourceRoot = path.join(workspaceRoot, "packages", packageName, "src");
   return readdirSync(sourceRoot)
-    .filter((name) => name.endsWith(".ts") || name.endsWith(".tsx"))
+    .filter((name) => !name.startsWith(".") && (name.endsWith(".ts") || name.endsWith(".tsx")))
     .filter((name) => !exclude.includes(name))
     .sort()
     .map((name) => readFileSync(path.join(sourceRoot, name), "utf8"))
     .join("\n");
+}
+
+/** Every .ts/.tsx file under packages/<name>/src, comments removed, with its path. */
+function sourceFilesWithoutComments(packageName: string): Array<{ file: string; lines: string[] }> {
+  const sourceRoot = path.join(workspaceRoot, "packages", packageName, "src");
+  return (readdirSync(sourceRoot, { recursive: true }) as string[])
+    .filter((name) => /\.tsx?$/.test(name) && !name.endsWith(".d.ts"))
+    .sort()
+    .map((name) => {
+      const text = readFileSync(path.join(sourceRoot, name), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, " "))
+        .replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
+      return { file: `packages/${packageName}/src/${name}`, lines: text.split("\n") };
+    });
 }
 
 function packageJson(packageName: string): {
@@ -70,9 +84,52 @@ describe("package boundaries", () => {
     // 公式プラグインが内部モジュールを使えてしまうと、契約が痩せているかを
     // 確認できない。第三者と同じ条件で書く。
     const source = sourceText("plugin-tickets");
-    expect(source).not.toMatch(/@vellym-internal\//);
+    // ticket-engineは公開物へbundleするビュー非依存の実装。Core/UIの内部APIは使わない。
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).toMatch(/@vellym-internal\/ticket-engine/);
     expect(source).not.toMatch(/from ["']node:/);
     expect(packageJson("plugin-tickets").dependencies).toBeUndefined();
+  });
+
+  it("keeps the bundled ticket engine private and on the public contract", () => {
+    const source = sourceText("ticket-engine");
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).not.toMatch(/from ["'](?:node:|react)/);
+    const manifest = packageJson("ticket-engine");
+    expect(manifest.private).toBe(true);
+    expect(manifest.dependencies).toBeUndefined();
+  });
+
+  it("keeps the Kanban plugin independent from tickets and internal host code", () => {
+    const source = sourceText("plugin-kanban");
+    expect(source).not.toMatch(/from ["']@vellym\/tickets/);
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).toMatch(/@vellym-internal\/ticket-engine/);
+    expect(source).not.toMatch(/from ["']node:/);
+    expect(packageJson("plugin-kanban").dependencies).toBeUndefined();
+  });
+
+  it("keeps WBS standalone and independent from both ticket plugins", () => {
+    const source = sourceText("plugin-wbs");
+    expect(source).not.toMatch(/@vellym\/(?:tickets|kanban)/);
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).toMatch(/@vellym-internal\/ticket-engine/);
+    expect(source).not.toMatch(/from ["']node:/);
+    expect(packageJson("plugin-wbs").dependencies).toBeUndefined();
+  });
+
+  it("keeps the design plugin standalone and on the public contract only", () => {
+    // 段階1aはVanilla DOMの仮画面。キャンバス画面でReact Flowを入れても
+    // devDependenciesへ入れesbuildで同梱し、`dependencies`には入れない。
+    // 配置はアートボード側の`spec`だけを読み、ticket-engineにも触れない。
+    const source = sourceText("plugin-design");
+    expect(source).not.toMatch(/@vellym-internal\/(?:core|runtime-node|ui-react)/);
+    expect(source).not.toMatch(/@vellym\/(?:tickets|kanban|wbs)/);
+    expect(source).not.toMatch(/from ["']node:/);
+    expect(source).toMatch(/from ["']@vellym\/plugin-api["']/);
+    const manifest = packageJson("plugin-design");
+    expect(manifest.dependencies).toBeUndefined();
+    expect(manifest.publishConfig?.access).toBe("public");
   });
 
   it("keeps core independent from UI, runtime, CLI, and Node.js", () => {
@@ -107,15 +164,26 @@ describe("package boundaries", () => {
       "@vellym-internal/core": "*"
     });
     expect(dependencies).toMatchObject({
-      "@milkdown/core": "^7.21.3",
-      "@milkdown/plugin-history": "^7.21.3",
-      "@milkdown/plugin-listener": "^7.21.3",
-      "@milkdown/prose": "^7.21.3",
-      "@milkdown/preset-commonmark": "^7.21.3"
+      "@milkdown/core": "^7.23.0",
+      "@milkdown/plugin-history": "^7.23.0",
+      "@milkdown/plugin-listener": "^7.23.0",
+      "@milkdown/prose": "^7.23.0",
+      "@milkdown/preset-commonmark": "^7.23.0"
     });
     expect(dependencies).not.toHaveProperty("@milkdown/kit");
     expect(dependencies).not.toHaveProperty("@milkdown/crepe");
     expect(dependencies).not.toHaveProperty("@milkdown/react");
     expect(source).not.toMatch(/@milkdown\/(?:kit|crepe|react)/);
+  });
+});
+
+describe("host stays plugin-agnostic", () => {
+  it("keeps ticket, tracker, kanban and WBS words out of core, runtime-node and ui-react code", () => {
+    // ticket-01m7nxtafpw05vjnsa0j85nqpx: the host must not know plugin kinds. Comments may explain them.
+    const words = [/\b(tickets?|trackers?|kanban|wbs)\b/i, /\b(Ticket|TicketTracker)\b/];
+    const hits = ["core", "runtime-node", "ui-react"].flatMap((name) => sourceFilesWithoutComments(name)
+      .flatMap(({ file, lines }) => lines.flatMap((line, index) =>
+        words.some((word) => word.test(line)) ? [`${file}:${index + 1}: ${line.trim()}`] : [])));
+    expect(hits).toEqual([]);
   });
 });

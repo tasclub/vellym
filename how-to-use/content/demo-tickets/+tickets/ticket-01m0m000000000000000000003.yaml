@@ -11,6 +11,7 @@ spec:
     due: 2026-10-01
     notes: |
       同じ概念に別の訳語が当たっている箇所がある。
+    sequence: 2
   blocks:
     - id: description
       type: rich-text

@@ -1,8 +1,11 @@
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DataTable } from "../packages/ui-react/src/shared/table.js";
 import { Button } from "../packages/ui-react/src/shared/button.js";
+import { ChoiceControl } from "../packages/ui-react/src/shared/choice-control.js";
+import { InputControl } from "../packages/ui-react/src/shared/input-control.js";
 import {
   KindIcon,
   KindIconProvider
@@ -89,6 +92,28 @@ describe("DataTable", () => {
   });
 });
 
+describe("symbol-only host buttons", () => {
+  it("uses the shared icon dimensions for the structure dialog close button", () => {
+    const source = readFileSync(
+      "packages/ui-react/src/editor/structure-dialog.tsx",
+      "utf8"
+    );
+    expect(source).toMatch(/<HostButton\s+icon\s+className=\{styles\.close\}/);
+    expect(source).toMatch(/aria-label=\{t\("structure\.close"\)\}/);
+  });
+
+  it("uses accessible shared icon buttons for editor history and symbol actions", () => {
+    const source = readFileSync(
+      "packages/ui-react/src/editor/editor-workspace.tsx",
+      "utf8"
+    );
+    expect(source).toMatch(/<Button\s+icon\s+aria-label=\{t\("editor\.undo"\)\}/);
+    expect(source).toMatch(/<Button\s+icon\s+aria-label=\{t\("editor\.redo"\)\}/);
+    expect(source).toMatch(/icon=\{action\.command === "bullet-list" \|\| action\.command === "link"\}/);
+    expect(source).not.toMatch(/<button[\s\S]{0,180}aria-label=\{t\("editor\.(?:undo|redo)"\)\}/);
+  });
+});
+
 describe("Button", () => {
   it("defaults to type=button so a stray button cannot submit a form", () => {
     expect(renderToStaticMarkup(createElement(Button, {}, "作成"))).toContain(
@@ -100,6 +125,34 @@ describe("Button", () => {
     expect(
       renderToStaticMarkup(createElement(Button, { type: "submit" }, "保存"))
     ).toContain('type="submit"');
+  });
+});
+
+describe("ChoiceControl and InputControl", () => {
+  const options = [{ value: "list", label: "一覧" }, { value: "board", label: "ボード" }];
+
+  it("renders one selected value as an accessible select control", () => {
+    const html = renderToStaticMarkup(createElement(ChoiceControl, {
+      mode: "select", options, value: "board", "aria-label": "表示", onChange: () => undefined
+    }));
+    expect(html).toContain('aria-label="表示"');
+    expect(html).toContain('<option value="board" selected="">ボード</option>');
+  });
+
+  it("renders segmented choices with the selected value announced", () => {
+    const html = renderToStaticMarkup(createElement(ChoiceControl, {
+      mode: "segmented", options, value: "board", "aria-label": "表示", onChange: () => undefined
+    }));
+    expect(html).toContain('role="group" aria-label="表示"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("ボード");
+  });
+
+  it("applies the host input control to checkbox and date inputs", () => {
+    expect(renderToStaticMarkup(createElement(InputControl, { type: "checkbox", "aria-label": "列" })))
+      .toContain('type="checkbox"');
+    expect(renderToStaticMarkup(createElement(InputControl, { type: "date", "aria-label": "開始" })))
+      .toContain('type="date"');
   });
 });
 

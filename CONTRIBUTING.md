@@ -2,7 +2,7 @@
 
 ## Before opening a change
 
-- Use an issue form for reproducible bugs, user problems, or template proposals.
+- Use an issue form for usage questions, reproducible bugs, feature requests, or template proposals. Japanese or English is fine.
 - Do not attach private project documents. Reduce YAML to a synthetic fixture.
 - Discuss breaking YAML, CLI, config, or JSON-output changes before implementation.
 
@@ -18,13 +18,38 @@ npm run typecheck
 npm test
 ```
 
-Run `npm run pack:smoke` for packaging changes and `npm run verify:core` for browser, accessibility, and 100-page verification. Pull requests must describe YAML read/write and compatibility impact.
+Run `npm run pack:smoke` for packaging changes, `npm run verify:core` for browser, accessibility, and 100-page verification, `npm run verify:browser` for all `tests/*.browser.mjs` checks (including Git commit/push and image upload), `npm run verify:ui-locale` to check that an English-only project shows no Japanese UI text on the main screens, and `npm run verify:scale:git` to check that related commits stay fast in a 10,000-commit repository. The browser checks require Playwright Chromium; see *Seeing the screen* below. Pull requests must describe YAML read/write and compatibility impact.
 
 ## Changing the UI
 
+Run `npm run verify:acceptance` for the automated manual-acceptance scenarios in
+`scripts/acceptance/`. It builds the CLI, uses disposable projects and headless
+Chromium, and prints PASS / FAIL / BLOCKED / NOT RUN counts. Evidence (commit,
+execution time, per-check details and durations) is in `dist/acceptance/result.json`.
+Any FAIL exits with code 1; BLOCKED and NOT RUN are reported, not counted as passes.
+Run only selected modules with `node scripts/verify-acceptance.mjs --file core-a`
+(repeat `--file`, e.g. `--file core-a --file ticket-d`). Build first when changing
+code. Unknown module names exit with code 2 and list available names.
+Each module runs in its own process group with fresh state, browser and servers.
+The parent prints each step's start/end and kills the whole group if no worker
+line arrives for 10 minutes (`--step-timeout-ms 600000` to override), escalating
+from SIGTERM to SIGKILL after 5 seconds. The active step becomes FAIL and remaining
+steps in that module become NOT RUN; subsequent modules still run. Server shutdown
+also escalates after 5 seconds and records a warning in detail.
+`result.json` is replaced at startup, on progress, after each module, and at the end.
+It includes `runId`, `startedAt`, `filter`, `running`, and `complete`; only
+`complete: true` means the run finished. SIGINT/SIGTERM stop the active group,
+save `complete: false, interrupted: true`, and exit 130.
+Modules export `steps = [{ id, title, run(ctx) }]`; `ctx` provides temporary roots,
+CLI/Git commands, filesystem access, dev servers on available ports, browser pages,
+`check(title, fn)` (aggregated assertions), `note(text)`, and `blocked(reason)`.
+Real macOS IME candidate selection is not emulated; unautomated parts are recorded
+in each scenario's detail. Scenario expectations must not be weakened to fit the UI.
+
 A green `npm run typecheck` and `npm test` do not mean a screen is finished.
-Open the affected screen in a browser before proposing the change, and check the
-list below. Each item has caused a real regression.
+Open the affected screen in a browser before proposing the change — see
+*Seeing the screen* at the end of this section for how — and check the list
+below. Each item has caused a real regression.
 
 **Global CSS wins by default.** `packages/ui-react/src/styles.css` contains
 ancestor-plus-element selectors such as `.setup-shell button`. Their specificity
@@ -57,6 +82,76 @@ Accessibility is not optional here: `role="tree"`/`treeitem`/`group`,
 `aria-level`, `aria-expanded`, `aria-checked` (`mixed` for partial), roving
 tabindex, and arrow/Home/End/Space/Enter handling are all verified by
 `tests/setup-tree.test.ts` and `npm run verify:core`.
+
+### Seeing the screen
+
+The dev container publishes no ports, so a browser on the host cannot reach
+`npm run dev` inside it. Drive Chromium **inside the container** instead. The
+dev container already has it: the `development` image installs Chromium's
+system libraries, and `postCreateCommand` downloads the browser. Outside the
+dev container, install them once:
+
+```bash
+npx playwright install chromium
+sudo npx playwright install-deps chromium
+```
+
+`install-deps` also pulls `fonts-ipafont-gothic` and `fonts-wqy-zenhei`. Without
+them Japanese renders as boxes, which hides the wrapping and truncation problems
+you are looking for — do not skip it and judge the layout from a Latin-only
+screenshot. When you bump `@playwright/test`, bump `PLAYWRIGHT_VERSION` in the
+`Dockerfile` with it.
+
+Then write a throwaway script that spawns the built CLI and screenshots it. Put
+it at the repository root — importing `@playwright/test` from `/tmp` fails with
+`ERR_MODULE_NOT_FOUND`, because the only `node_modules` is the workspace's. Do
+not add it to `scripts/`; delete it when you are done.
+
+```js
+const server = spawn(process.execPath, [
+  "packages/vellym/dist/cli.mjs", "dev",
+  "--config", configPath, "--port", String(port)
+]);
+// poll GET /api/v1/repository until it answers, then:
+const context = await browser.newContext({
+  locale: "ja-JP", viewport: { width: 1440, height: 900 }
+});
+```
+
+Run `npm run build` first — the script runs `packages/vellym/dist/cli.mjs`, not
+the sources.
+
+**Pick the config that exposes the problem.** `how-to-use/vellym.config.yaml`
+loads the tickets, kanban, and WBS plugins, and is the only way to reach a
+screen that is not a Page. It is a small tree, so density and overflow do not
+show up there — generate a large one with
+`node scripts/bench-fixture.mjs --out /tmp/big --pages 200` and point `--config`
+at the `vellym.config.yaml` it writes. A few dozen pages is enough; the real
+sidebar and outline problems appear well before the 3000-page scale fixture.
+
+**Measure, do not eyeball.** `getBoundingClientRect()` and `getComputedStyle()`
+on the real nodes, printed as JSON. A screenshot showed a cramped table of
+contents; the measurement showed a 28px grid column reserved for a button that
+no longer exists, and a `text-overflow: ellipsis` that could never fire because
+`white-space` was `normal`. Neither is visible by looking.
+
+**The document tree is a `treegrid`.** Its rows are `role="row"`, not
+`role="treeitem"`. A locator written against `treeitem` matches nothing and
+reports no error, so the check silently passes without having run.
+
+**Reload and look again.** State that is held only in React — the tree's
+expanded folders, for one — looks correct for the whole session and resets on
+every reload. One reload at the end of the script catches it.
+
+### README screenshots
+
+The README shows four screenshots of the public guide's demo (`.github/readme/`). Retake them with one command:
+
+```bash
+npm run readme:screenshots
+```
+
+It builds the static guide and photographs the document view, ticket list, Kanban, and WBS at 1280×800 in Japanese; each file must stay at or below 300 KB. Retake them when a change alters how the document screen or the ticket screens look. Only the `how-to-use` demo is photographed, so no other documents appear. The images are not part of any npm package; the READMEs refer to them by absolute `raw.githubusercontent.com` URLs.
 
 ## Evolving the document format
 
@@ -130,6 +225,26 @@ with workflow filename `publish.yml` and no environment.
 
 If only the publish step fails, re-run the workflow with `workflow_dispatch` and the tag
 name instead of recreating the tag and release.
+
+### Publishing a package for the first time
+
+A trusted publisher is registered per npm package, so a package that has never been
+published (for example `@vellym/wbs` before 0.5.0-beta) needs one more step:
+
+1. On npmjs.com, open the package's **Settings → Trusted publishing** and add a GitHub
+   Actions publisher: organization `tasclub`, repository `vellym`, workflow `publish.yml`,
+   no environment.
+2. If npm does not let you register a publisher for a package that does not exist yet,
+   publish its first version once by hand from an account with access to the `@vellym`
+   scope (`npm publish --access public` in the package directory, after `npm run build`),
+   then register the publisher as above. Later versions go through the workflow.
+3. Add the package's step to `.github/workflows/publish.yml` in dependency order
+   (`@vellym/plugin-api` first, plugins next, `vellym` last). Packages with
+   `"private": true` (such as `@vellym/design`) are never added; `npm run release:check`
+   fails if one is.
+
+When `@vellym/plugin-api` gains public types, raise its minor version while below 1.0, and
+move every plugin's `peerDependencies["@vellym/plugin-api"]` to the new range together.
 
 ## Design boundaries
 

@@ -1,5 +1,6 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 import type { Nodes, Parent, Root, Text } from "mdast";
+import type { PluginLocalizedText } from "@vellym/plugin-api";
 import { headingId, type DocumentHeading } from "./navigation.js";
 import type { RichTextBlock } from "./types.js";
 
@@ -170,7 +171,7 @@ export interface PageReferenceDiagnostic {
   locale: string;
   blockId: string;
   target: string;
-  message: string;
+  message: PluginLocalizedText;
 }
 
 export interface PageReferenceView {
@@ -306,21 +307,30 @@ export function pageReferenceDiagnostic(
     return {
       ...shared,
       code: "BROKEN_PAGE_REFERENCE",
-      message: `参照先Page ${reference.target} が見つかりません`
+      message: {
+        ja: `参照先Page ${reference.target} が見つかりません`,
+        en: `Referenced page ${reference.target} was not found.`
+      }
     };
   }
   if (reference.status === "missing-heading") {
     return {
       ...shared,
       code: "BROKEN_HEADING_REFERENCE",
-      message: `参照先Page ${reference.target} に見出し ${reference.targetHeading} がありません`
+      message: {
+        ja: `参照先Page ${reference.target} に見出し ${reference.targetHeading} がありません`,
+        en: `Referenced page ${reference.target} does not have heading ${reference.targetHeading}.`
+      }
     };
   }
   if (reference.status === "ambiguous") {
     return {
       ...shared,
       code: "AMBIGUOUS_PAGE_REFERENCE",
-      message: `${reference.target} は複数のPageに一致します。参照先を metadata.name で指定するか、titleを変更してください`
+      message: {
+        ja: `${reference.target} は複数のPageに一致します。参照先を metadata.name で指定するか、titleを変更してください`,
+        en: `${reference.target} matches multiple pages. Specify the target by metadata.name or change the title.`
+      }
     };
   }
   return undefined;

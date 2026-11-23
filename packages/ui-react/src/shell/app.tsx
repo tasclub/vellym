@@ -24,6 +24,7 @@ import {
   runPluginCommand,
   fetchPageEdit,
   fetchPages,
+  type RepositoryData,
   patchPage,
   applyStructure,
   previewStructure,
@@ -34,6 +35,8 @@ import {
   type StructurePlan
 } from "../shared/api.js";
 import { AdminView } from "./admin-view.js";
+import { GitChanges } from "./git-changes.js";
+import { fetchGitStatus, type GitStatus } from "../shared/api.js";
 import { EditorWorkspace } from "../editor/editor-workspace.js";
 import { resolveLocalizedText } from "@vellym/plugin-api";
 import { DocumentView } from "../editor/view.js";
@@ -49,6 +52,8 @@ import type {
 import type { PluginSpecValue } from "../shared/field-input.js";
 import type {
   PluginInputValue,
+  PluginOpenResourceResult,
+  PluginRenderContext,
   PluginPendingResource,
   PluginSpecWrite
 } from "@vellym/plugin-api";
@@ -71,12 +76,14 @@ import {
   pageEditExport,
   pageEditPatch,
   pageEditSessionDirty,
+  rebasePageEditSession,
   type PageEditSession
 } from "../editor/page-edit-session.js";
 import { planTreeMove } from "./tree-move.js";
 import { KindIconProvider } from "../shared/kind-icon.js";
 import { usePluginRenderers } from "../plugin/plugin-renderers.js";
 import { createRenderContext } from "../plugin/render-context.js";
+import { returnViewForParent, type DetailViewOrigin } from "../plugin/return-view.js";
 // 設定を読み込めない画面は初期セットアップと同じ体裁で出す
 import setupStyles from "../setup/setup.module.css";
 import {
@@ -85,6 +92,9 @@ import {
   staticAppBasePath
 } from "./routing.js";
 import { Button } from "../shared/button.js";
+import { UiLanguageContext } from "../shared/ui-language.js";
+import { pageLanguages, uiLangAttribute } from "./page-languages.js";
+import shellStyles from "./workspace-shell.module.css";
 
 function currentDocumentLocation() {
   return resolveDocumentLocation({
@@ -95,10 +105,31 @@ function currentDocumentLocation() {
   });
 }
 
+const UNREADABLE_DOCUMENT_CODES = new Set([
+  "READ_ERROR",
+  "YAML_PARSE",
+  "YAML_CONVERSION",
+  "PAGE_SCHEMA",
+  "RESOURCE_SCHEMA"
+]);
+
+/** Count files rejected before they can contribute an entry to the repository index. */
+export function countUnreadableDocumentFiles(
+  diagnostics: readonly Diagnostic[]
+): number {
+  return new Set(
+    diagnostics
+      .filter((item) =>
+        item.severity === "error" && UNREADABLE_DOCUMENT_CODES.has(item.code)
+      )
+      .map((item) => item.file)
+  ).size;
+}
+
 type PendingLeave =
-  | { kind: "navigate"; page: string; heading?: string }
+  | { kind: "navigate"; page: string; heading?: string; historyHash?: string }
   | { kind: "folder"; folderPath: string }
-  | { kind: "settings" }
+  | { kind: "settings"; focusProblems?: boolean }
   | { kind: "cancel" }
   | { kind: "reload" };
 
@@ -255,15 +286,37 @@ async function applyBulkArchive(names: string[]): Promise<string[]> {
 
 export function App() {
   const { t } = useTranslation();
+  const bootstrapLanguage =
+    typeof navigator !== "undefined" && /^en(?:-|$)/i.test(navigator.language)
+      ? "en"
+      : "ja";
   const [bootstrap, setBootstrap] = useState<BootstrapData>();
   const [bootstrapDiagnostics, setBootstrapDiagnostics] = useState<Diagnostic[]>([]);
   const [bootstrapError, setBootstrapError] = useState("");
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [folders, setFolders] = useState<FolderSummary[]>([]);
+  const [unknownKinds, setUnknownKinds] = useState<NonNullable<RepositoryData["unknownKinds"]>>([]);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [selected, setSelected] = useState<string>();
   const [selectedFolder, setSelectedFolder] = useState<string>();
-  const [area, setArea] = useState<"documents" | "settings">("documents");
+  const [area, setArea] = useState<"documents" | "changes" | "settings">("documents");
+  const [gitStatus, setGitStatus] = useState<GitStatus>({ available: false });
+  const [changePath, setChangePath] = useState<string>();
+  async function refreshGit() {
+    try {
+      const { data } = await fetchGitStatus();
+      // Optional capability: an old/incompatible response must not take down the workspace.
+      if (data.available && (!Array.isArray(data.files) || typeof data.ahead !== "number" || typeof data.upstream !== "string")) return;
+      setGitStatus(data);
+    } catch { /* Git is optional. */ }
+  }
+  useEffect(() => {
+    if (bootstrap?.state !== "ready" || !bootstrap.capabilities.live) return;
+    void refreshGit();
+    const timer = window.setInterval(() => void refreshGit(), 5000);
+    return () => window.clearInterval(timer);
+  }, [bootstrap?.state, bootstrap?.capabilities.live, area]);
+  const [focusProblems, setFocusProblems] = useState(false);
   const [view, setView] = useState<PageView>();
   // プラグインが登録したビュー。開いたリソースのkindに対応するものがあれば、
   // 本文の代わりにこれを描く。無ければ通常の文書表示のままにする。
@@ -275,6 +328,8 @@ export function App() {
   // 次に開くリソースと、そこで開くビュー。対象が一致したときだけ使い、
   // 一度使ったら既定へ戻す。作成直後に設定画面を開くために使う。
   const pendingViewRef = useRef<{ name: string; viewId: string } | undefined>(undefined);
+  // Detailの親へ戻るときだけ復元する。pendingViewRefは別資源へ移ると消えるため別に持つ。
+  const detailOriginRef = useRef<DetailViewOrigin | undefined>(undefined);
   /**
    * 読み込みの通し番号。**古い応答で新しい表示を上書きしない。**
    *
@@ -295,6 +350,7 @@ export function App() {
   // ツリーから起こしたプラグインのコマンド。入力を尋ねてから実行する。
   const [pluginCommand, setPluginCommand] = useState<{
     commandId: string;
+    pluginId: string;
     parentPath: string;
   }>();
   const [editSession, setEditSession] = useState<PageEditSession>();
@@ -307,11 +363,14 @@ export function App() {
   const [editing, setEditing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [message, setMessage] = useState("");
+  // A failed page load, shown where the page would be (no view to carry `message`).
+  const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [savedAt, setSavedAt] = useState<number>();
   const [copyMessage, setCopyMessage] = useState("");
   const [conflictView, setConflictView] = useState<PageView>();
   const [pendingLeave, setPendingLeave] = useState<PendingLeave>();
+  const [editorFocusRequest, setEditorFocusRequest] = useState(0);
   /**
    * プラグインのブラウザ側エントリ。読み込みに失敗しても**SPAは起動したまま**
    * にする。宣言で描ける画面はそのまま出る。
@@ -357,6 +416,14 @@ export function App() {
     specChanges.length > 0 ||
     (editSession ? pageEditSessionDirty(editSession) : legacyUnsavedChanges);
 
+  useEffect(() => {
+    if (!focusProblems || area !== "settings") return;
+    const heading = document.getElementById("problems-title");
+    heading?.scrollIntoView({ block: "start" });
+    heading?.focus({ preventScroll: true });
+    setFocusProblems(false);
+  }, [area, focusProblems]);
+
   async function loadBootstrap(signal?: AbortSignal) {
     try {
       const routeLocale = currentDocumentLocation().locale;
@@ -377,6 +444,7 @@ export function App() {
       const result = await fetchPages(signal, locale);
       setPages(result.data.pages);
       setFolders(result.data.folders);
+      setUnknownKinds(result.data.unknownKinds ?? []);
       setDiagnostics(result.diagnostics);
       const location = currentDocumentLocation();
       const requestedPage = result.data.pages.find(
@@ -395,7 +463,7 @@ export function App() {
           )
         );
       }
-      if (initial && location.page) {
+      if (initial && location.page && initial !== selected) {
         setPendingLocation({ page: initial, heading: location.heading });
       }
       setSelected((current) => {
@@ -454,6 +522,7 @@ export function App() {
       );
       // 自分より新しい読み込みが始まっていれば、この応答は捨てる。
       if (seq !== loadSeqRef.current) return;
+      setLoadError("");
       setPluginView(nextPluginView);
       if (
         viewRef.current?.hash === next.hash &&
@@ -466,6 +535,7 @@ export function App() {
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setMessage(errorMessage(error, t));
+      if (seq === loadSeqRef.current) setLoadError(errorMessage(error, t));
     }
   }
 
@@ -475,7 +545,10 @@ export function App() {
     if (!route.legacy && route.locale && route.page) {
       const canonical = documentPagePath(route.locale, route.page, route.heading);
       if (`${window.location.pathname}${window.location.hash}` !== canonical) {
-        window.history.replaceState(null, "", canonical);
+        // Document subviews (such as ?history) are independent of path normalization.
+        const canonicalUrl = new URL(canonical, window.location.href);
+        canonicalUrl.search = window.location.search;
+        window.history.replaceState(null, "", canonicalUrl);
       }
     }
     void loadBootstrap(controller.signal);
@@ -639,14 +712,79 @@ export function App() {
    * 保存後は読み直す。`applyView`が保存状態とメッセージを消すため、
    * 結果の表示は読み直しのあとで行う。
    */
+  const pluginOpenResourceRef = useRef<(name: string) => Promise<PluginOpenResourceResult>>(
+    async () => ({ ok: false, reason: "unavailable", message: t("app.resourceOpenUnavailable") })
+  );
+  const pluginRunCommandRef = useRef<NonNullable<PluginRenderContext["runCommand"]>>(
+    async () => ({ ok: false, reason: "error", message: t("app.commandUnavailable") })
+  );
+  pluginRunCommandRef.current = async (id, input) => {
+    if (!pluginView || !view || !bootstrap || !bootstrap.capabilities.editing) {
+      return { ok: false, reason: "error", message: t("app.commandCreateUnavailable") };
+    }
+    if (!pluginView.commands.some((command) => command.id === id)) {
+      return { ok: false, reason: "error", message: t("app.commandNotDeclared") };
+    }
+    try {
+      const created = await runPluginCommand(id, {
+        pluginId: pluginView.pluginId,
+        target: view.page.metadata.name,
+        input: { ...input },
+        locale: requestedLocale ?? bootstrap.project.requestedLocale
+      });
+      openPendingResource(created, view.page.metadata.name);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, reason: "error", message: errorMessage(error, t) };
+    }
+  };
+  pluginOpenResourceRef.current = async (name) => {
+    if (!name.trim()) {
+      return {
+        ok: false,
+        reason: "not-found",
+        message: t("app.resourceNotFound", { name })
+      };
+    }
+    try {
+      // `pages` is the document-tree projection and intentionally omits plugin resources
+      // such as Ticket. Resolve by metadata.name through the resource API instead.
+      await fetchPage(name, undefined, requestedLocale ?? bootstrap?.project.requestedLocale ?? "ja");
+      if (pluginView?.descriptor.type === "list" && view) {
+        detailOriginRef.current = {
+          detailName: name,
+          hostName: view.page.metadata.name,
+          viewId: pluginView.viewId
+        };
+      }
+      navigate(name);
+      return { ok: true };
+    } catch (error) {
+      const notFound = error instanceof ApiError && error.status === 404;
+      return {
+        ok: false,
+        reason: notFound ? "not-found" : "unavailable",
+        message: notFound
+          ? t("app.resourceNotFound", { name })
+          : errorMessage(error, t)
+      };
+    }
+  };
   const pluginRenderContext = useMemo(() => {
-    if (!pluginView || !view) return undefined;
+    if (!pluginView || !view || !bootstrap) return undefined;
     return createRenderContext({
       payload: pluginView,
-      locale: view.locale ?? view.baseLocale ?? "ja",
+      // プラグインの画面の文字列は**UI言語**で選ぶ。`view.locale`は文書の
+      // 要求言語なので、`/en/`のページでUIを日本語にしているときに日本語が
+      // 残る（逆に`/ja/`でUIを英語にすると日本語が残った）。
+      locale: bootstrap.project.uiLocale,
+      projectRoot: bootstrap.project.projectRoot,
+      targetKind: view.page.kind,
       targetName: view.page.metadata.name,
       targetTitle: view.page.metadata.title,
       targetPath: view.relativePath,
+      onOpenResource: (name) => pluginOpenResourceRef.current(name),
+      onRunCommand: (id, input) => pluginRunCommandRef.current(id, input),
       ...(pendingResource
         ? {
             saveDraft: async (writes: readonly PluginSpecWrite[]) => {
@@ -675,7 +813,7 @@ export function App() {
     });
     // 読み直しの関数は毎回作り直されるため、依存に含めない。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pluginView, view, pendingResource, title, slug, blocks, t]);
+  }, [pluginView, view, bootstrap, pendingResource, title, slug, blocks, t]);
 
   const missingRequired = useMemo(() => {
     const descriptor = pluginView?.descriptor;
@@ -760,10 +898,14 @@ export function App() {
             : "Vellym";
   }, [area, selectedFolderNode, view]);
 
+  // `<html lang>` is the document language; the UI chrome carries the UI language
+  // (UiLanguageContext) when it differs. Setup and config screens are all UI.
+  const languages = pageLanguages(bootstrap?.project, view?.locale);
+  const uiLang = bootstrap?.state === "ready" ? uiLangAttribute(languages) : undefined;
   useEffect(() => {
-    document.documentElement.lang = bootstrap?.project.uiLocale ?? "ja";
+    document.documentElement.lang = bootstrap?.state === "ready" ? languages.document : languages.ui;
     document.documentElement.dir = "ltr";
-  }, [bootstrap?.project.uiLocale]);
+  }, [bootstrap?.state, languages.document, languages.ui]);
 
   useEffect(() => {
     if (!view || pendingLocation?.page !== view.page.metadata.name) return;
@@ -840,6 +982,12 @@ export function App() {
       return;
     }
     commitNavigation(name, heading);
+  }
+
+  function navigateHistory(name: string, hash: string) {
+    commitNavigation(name);
+    const url = new URL(window.location.href); url.searchParams.set("history", ""); url.searchParams.set("commit", hash);
+    window.history.replaceState(null, "", url); window.dispatchEvent(new PopStateEvent("popstate"));
   }
 
   function acceptStructureResult(
@@ -938,13 +1086,15 @@ export function App() {
   function leaveTo(action: PendingLeave) {
     if (!view) return;
     if (action.kind === "navigate") {
-      commitNavigation(action.page, action.heading);
+      if (action.historyHash) navigateHistory(action.page, action.historyHash);
+      else commitNavigation(action.page, action.heading);
     } else if (action.kind === "folder") {
       setSelectedFolder(action.folderPath);
       setArea("documents");
     } else if (action.kind === "settings") {
       setSelectedFolder(undefined);
       setArea("settings");
+      if (action.focusProblems) setFocusProblems(true);
     } else if (action.kind === "reload") {
       void loadPage(view.page.metadata.name, true);
     }
@@ -1114,6 +1264,12 @@ export function App() {
           setSaveState("conflict");
           setExternalChange(true);
           setSaveError(error.message);
+          try {
+            const locale = requestedLocale ?? bootstrap?.project.defaultLocale ?? editSession.baseLocale;
+            setConflictView((await fetchPage(editSession.pageId, undefined, locale)).data);
+          } catch {
+            setSaveError(t("app.saveErrorReloadNeeded", { message: error.message }));
+          }
           return false;
         }
         setSaveState("failure");
@@ -1173,6 +1329,7 @@ export function App() {
     if (!target) return;
     try {
       const created = await runPluginCommand(target.commandId, {
+        pluginId: target.pluginId,
         input: { ...input, folder: target.parentPath },
         locale: requestedLocale ?? bootstrap?.project.requestedLocale
       });
@@ -1243,11 +1400,11 @@ export function App() {
     return (
       <main className="startup-state">
         <p role={bootstrapError ? "alert" : "status"}>
-          {bootstrapError || "Vellymを読み込んでいます…"}
+          {bootstrapError || t("app.bootstrapLoading", { lng: bootstrapLanguage })}
         </p>
         {bootstrapError && (
           <Button onClick={() => void loadBootstrap()}>
-            もう一度試す
+            {t("app.bootstrapRetry", { lng: bootstrapLanguage })}
           </Button>
         )}
       </main>
@@ -1269,20 +1426,15 @@ export function App() {
     return (
       <main className="startup-state config-error">
         <div>
-          <p className={setupStyles["setup-kicker"]}>設定を読み込めません</p>
-          <h1>設定ファイルを確認してください</h1>
-          <p>
-            設定ファイルは存在するため、未初期化として上書きしません。
-            内容を修正してから再読み込みしてください。
-          </p>
-          {bootstrapDiagnostics.map((item) => (
-            <p className={setupStyles["setup-error"]} key={`${item.code}:${item.message}`}>
-              <strong>■ {item.code}</strong><br />
-              {item.message}
-            </p>
-          ))}
+          <p className={setupStyles["setup-kicker"]}>{t("app.configErrorKicker", { lng: bootstrapLanguage })}</p>
+          <h1>{t("app.configErrorTitle", { lng: bootstrapLanguage })}</h1>
+          <p>{t("app.configErrorDescription", { lng: bootstrapLanguage })}</p>
+          <ConfigErrorDiagnostics
+            diagnostics={bootstrapDiagnostics}
+            language={bootstrapLanguage}
+          />
           <Button onClick={() => void loadBootstrap()}>
-            再読み込み
+            {t("app.configErrorReload", { lng: bootstrapLanguage })}
           </Button>
         </div>
       </main>
@@ -1343,18 +1495,36 @@ export function App() {
       }}
     />
   ) : undefined;
+  const treeCommands = (bootstrap.plugins?.documentTreeCommands ?? []).filter(
+    (command, index, commands) => commands.findIndex((item) => item.id === command.id) === index
+  );
+  const unreadableDocumentCount = countUnreadableDocumentFiles(diagnostics);
+
+  function openUnreadableDocuments() {
+    const action: PendingLeave = { kind: "settings", focusProblems: true };
+    if (hasUnsavedChanges) {
+      setPendingLeave(action);
+      return;
+    }
+    setSelectedFolder(undefined);
+    setArea("settings");
+    setFocusProblems(true);
+  }
 
   return (
     // 種別ごとのアイコンはプラグインが渡したものだけを配る。
     // **hostが種別名から推測しない。**
+    <UiLanguageContext.Provider value={uiLang}>
     <KindIconProvider value={bootstrap.plugins?.kindIcons ?? {}}>
       <WorkspaceShell
         navigation={navigation}
         pages={pages}
         folders={folders}
+        projectRoot={bootstrap.project.projectRoot}
         selected={selectedFolder !== undefined ? undefined : selected}
         selectedFolder={selectedFolder}
         area={area}
+        gitChanges={gitStatus.available ? { uncommitted: gitStatus.files.length, ahead: gitStatus.ahead } : undefined}
         diagnosticCount={diagnostics.length}
         headings={headings}
         structureAvailable={
@@ -1363,14 +1533,16 @@ export function App() {
         canSearch={bootstrap.capabilities.search}
         canManage={bootstrap.capabilities.structure}
         canConfigure={bootstrap.capabilities.structure}
-        pluginCreateOptions={(bootstrap.plugins?.documentTreeCommands ?? []).map(
+        pluginCreateOptions={treeCommands.map(
           (command) => ({
-            id: command.id,
+            id: `${command.pluginId}:${command.id}`,
+            commandId: command.id,
+            pluginId: command.pluginId,
             label: resolveLocalizedText(command.title, bootstrap.project.uiLocale)
           })
         )}
-        onRunTreeCommand={(commandId, parentPath) =>
-          setPluginCommand({ commandId, parentPath })
+        onRunTreeCommand={(commandId, pluginId, parentPath) =>
+          setPluginCommand({ commandId, pluginId, parentPath })
         }
         uiLocale={bootstrap.project.uiLocale}
         currentLocale={activeLocale}
@@ -1411,6 +1583,41 @@ export function App() {
           void loadList();
         }}
       >
+        {/* Match the rendered history, not a second copy of its URL state. */}
+        <style>{`
+        .${shellStyles.shell}:has([data-git-history]):not(:has([hidden] [data-git-history])) {
+          display: grid; height: 100dvh; overflow: clip;
+          grid-template: "rail header header header" 54px "rail navigation content outline" minmax(0, 1fr)
+            / 52px var(--navigation-width) minmax(0, 1fr) 0px;
+        }
+        .${shellStyles.contentColumn}:has([data-git-history]):not(:has([hidden] [data-git-history])) { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+        .${shellStyles.contentColumn}:has([data-git-history]):not(:has([hidden] [data-git-history])) > details,
+        .${shellStyles.shell}:has([data-git-history]):not(:has([hidden] [data-git-history])) > .${shellStyles.outlineColumn},
+        .${shellStyles.content}:has([data-git-history]):not(:has([hidden] [data-git-history])) > .${shellStyles.pageTurner} { display: none; }
+        .${shellStyles.content}:has([data-git-history]):not(:has([hidden] [data-git-history])) { overflow: hidden; }
+        .${shellStyles.content}:has([data-git-history]):not(:has([hidden] [data-git-history])) > div:not([hidden]) { height: 100%; }
+        .workspace:has(> .document-paper > [data-git-history]) { height: 100%; padding: 0; }
+        .document-paper:has(> [data-git-history]) {
+          width: 100%; max-width: none; height: 100%; min-height: 0;
+          margin: 0; padding: 0; border: 0; box-shadow: none; background: transparent;
+        }
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .${shellStyles.shell}:has([data-git-history]):not(:has([hidden] [data-git-history])) { grid-template-columns: 52px 0 minmax(0, 1fr) 0; }
+        }
+        @media (max-width: 767px) {
+          .${shellStyles.shell}:has([data-git-history]):not(:has([hidden] [data-git-history])) {
+            grid-template: "header" 54px "content" minmax(0, 1fr) / minmax(0, 1fr);
+          }
+        }
+      `}</style>
+        {area === "changes" && gitStatus.available && (
+          <GitChanges status={gitStatus} pages={pages} unsaved={hasUnsavedChanges} initialPath={changePath} refresh={refreshGit} onHistory={(page, hash) => {
+            if (hasUnsavedChanges) { setPendingLeave({ kind: "navigate", page: page.name, historyHash: hash }); return; }
+            navigateHistory(page.name, hash);
+          }} />
+        )}
+        {/* Keep the editor alive while inspecting changes: its pending Markdown callbacks and undo state belong to the unsaved draft. */}
+        <div hidden={area === "changes"}>
         {area === "settings" ? (
           <AdminView
             projectRoot={bootstrap.project.projectRoot}
@@ -1418,6 +1625,8 @@ export function App() {
             resolvedContentRoot={bootstrap.project.resolvedContentRoot}
             configPath={bootstrap.project.configPath}
             diagnostics={diagnostics}
+            unknownKinds={unknownKinds}
+            onOpenResource={(name) => { setArea("documents"); navigate(name); }}
             language={bootstrap.project.language}
             canManageStructure={bootstrap.capabilities.structure}
             onConfigApplied={() => {
@@ -1443,22 +1652,32 @@ export function App() {
           />
         ) : !editing && pluginView && pluginView.descriptor.type === "list" && view ? (
           <PluginListPage
-            notice={
-              message ||
-              pluginRendererMessage ||
-              (diagnostics.some((item) => item.severity === "error")
-                ? t("app.diagnosticsMessage")
-                : "")
-            }
+            notice={message || pluginRendererMessage || ""}
+            uiLocale={bootstrap.project.uiLocale}
+            diagnosticsNotice={unreadableDocumentCount > 0
+              ? t("app.unreadableDocumentsMessage", { count: unreadableDocumentCount })
+              : undefined}
+            diagnosticsAction={unreadableDocumentCount > 0
+              ? t("app.unreadableDocumentsAction")
+              : undefined}
+            onOpenDiagnostics={openUnreadableDocuments}
             renderer={pluginRenderers.byViewId.get(pluginView.viewId)}
             {...(pluginRenderContext ? { renderContext: pluginRenderContext } : {})}
             payload={pluginView}
             view={view}
-            uiLocale={bootstrap.project.uiLocale}
+            projectRoot={bootstrap.project.projectRoot}
+            targetName={view.page.metadata.name}
             showAll={showAllRows}
             editable={bootstrap.capabilities.editing}
             onToggleShowAll={setShowAllRows}
-            onNavigate={navigate}
+            onNavigate={(name) => {
+              detailOriginRef.current = {
+                detailName: name,
+                hostName: view.page.metadata.name,
+                viewId: pluginView.viewId
+              };
+              navigate(name);
+            }}
             onSwitchView={async (viewId) => {
               pendingViewRef.current = { name: view.page.metadata.name, viewId };
               await loadPage(view.page.metadata.name, true);
@@ -1466,6 +1685,7 @@ export function App() {
             onRunCommand={async (commandId, input) => {
               try {
                 const created = await runPluginCommand(commandId, {
+                  pluginId: pluginView.pluginId,
                   target: view.page.metadata.name,
                   input,
                   locale: requestedLocale ?? bootstrap.project.requestedLocale
@@ -1488,6 +1708,8 @@ export function App() {
           />
         ) : (
         <EditorWorkspace
+          focusRequest={editorFocusRequest}
+          onOpenChanges={view && gitStatus.available && gitStatus.files.some((f) => f.path === view.relativePath) ? () => { setChangePath(view.relativePath); setArea("changes"); } : undefined}
           view={view}
           onNavigatePage={navigate}
           beforeBody={
@@ -1495,6 +1717,8 @@ export function App() {
               <PluginDetailPanel
                 payload={pluginView}
                 view={view}
+                onOpenResource={(name) => navigate(name)}
+                uiLocale={bootstrap.project.uiLocale}
                 editing={editing}
                 renderer={pluginRenderers.byViewId.get(pluginView.viewId)}
                 {...(pluginRenderContext ? { renderContext: pluginRenderContext } : {})}
@@ -1531,8 +1755,8 @@ export function App() {
                 payload={pluginView}
                 uiLocale={bootstrap.project.uiLocale}
                 onBack={(name) => {
-                  // 既定のビュー（一覧）へ戻す。
-                  pendingViewRef.current = undefined;
+                  pendingViewRef.current = returnViewForParent(detailOriginRef.current, selected, name);
+                  detailOriginRef.current = undefined;
                   if (name === selected) {
                     // **同じ資源のビューを変えるだけなので`navigate`では動かない。**
                     // 読み込みは`selected`の変化で起きるため、値が同じだと何も
@@ -1564,6 +1788,7 @@ export function App() {
           blockAssessments={editAssessment.blocks}
           saveState={saveState}
           hasUnsavedChanges={hasUnsavedChanges}
+          loadError={loadError}
           message={
             message ||
             // プラグインのブラウザ側が読み込めなかったことは黙って隠さない。
@@ -1582,7 +1807,9 @@ export function App() {
           watchMessage={watchMessage}
           externalChange={externalChange}
           onStartEdit={() => {
-            if (editAssessment.supported) void startMultilingualEdit();
+            // The same rule as the Edit button: a plugin detail (fields above an optional body)
+            // is editable even when the resource has no body blocks.
+            if (editAssessment.supported || pluginDetailEditable) void startMultilingualEdit();
           }}
           onCancel={() => {
             if (hasUnsavedChanges) {
@@ -1621,6 +1848,7 @@ export function App() {
           onKeepDraft={() => {
             if (!conflictView) return;
             setView(conflictView);
+            setEditSession((current) => current ? rebasePageEditSession(current, conflictView.hash) : current);
             setConflictView(undefined);
             setExternalChange(false);
             setSaveState("dirty");
@@ -1631,7 +1859,7 @@ export function App() {
           }}
           onReload={() => {
             if (!view) return;
-            if (hasUnsavedChanges) {
+            if (hasUnsavedChanges && saveState !== "conflict") {
               setPendingLeave({ kind: "reload" });
             } else {
               void loadPage(view.page.metadata.name, true);
@@ -1644,17 +1872,17 @@ export function App() {
           localeDrafts={editSession?.locales
             .filter(({ removed }) => !removed)
             .map(({ locale, title, blocks }) => ({ locale, title, blocks }))}
-          onLocaleTitleChange={(locale, value) => {
+          onLocaleTitleChange={editSession ? (locale, value) => {
             setEditSession((current) => current ? {
               ...current,
               locales: current.locales.map((draft) =>
                 draft.locale === locale ? { ...draft, title: value } : draft
               )
             } : current);
-            if (editSession?.activeLocale === locale) setTitle(value);
+            if (editSession.activeLocale === locale) setTitle(value);
             markDirty();
-          }}
-          onLocaleBlockChange={(locale, index, content) => {
+          } : undefined}
+          onLocaleBlockChange={editSession ? (locale, index, content) => {
             setEditSession((current) => current ? {
               ...current,
               locales: current.locales.map((draft) =>
@@ -1668,22 +1896,26 @@ export function App() {
                   : draft
               )
             } : current);
-            if (editSession?.activeLocale === locale) {
+            if (editSession.activeLocale === locale) {
               setBlocks((current) => current.map((block, blockIndex) =>
                 blockIndex === index ? { ...block, content } : block
               ));
             }
             markDirty();
-          }}
+          } : undefined}
         />
         )}
+        </div>
       </WorkspaceShell>
       <AppOverlays
         unsavedChanges={{
           isOpen: Boolean(pendingLeave),
           destination: leaveDestination,
           busy: saveState === "saving",
-          onStay: () => setPendingLeave(undefined),
+          onStay: () => {
+            setPendingLeave(undefined);
+            setEditorFocusRequest((request) => request + 1);
+          },
           onSaveAndLeave: () => void saveAndLeave(),
           onDiscard: discardAndLeave
         }}
@@ -1714,5 +1946,33 @@ export function App() {
         }
       />
     </KindIconProvider>
+    </UiLanguageContext.Provider>
   );
+}
+
+export function ConfigErrorDiagnostics({
+  diagnostics,
+  language
+}: {
+  diagnostics: Diagnostic[];
+  language: "ja" | "en";
+}) {
+  const { t, i18n } = useTranslation();
+  return diagnostics.map((item, index) => {
+    const translationKey = `error.${item.code}`;
+    const hasTranslation = i18n.exists(translationKey, { lng: language });
+    const originalMessage = resolveLocalizedText(item.message, language);
+    return (
+      <div
+        className={setupStyles["setup-error"]}
+        key={`${item.file}:${item.code}:${index}`}
+      >
+        <strong>■ {item.code}</strong>
+        {hasTranslation && (
+          <p>{t(translationKey, { lng: language })}</p>
+        )}
+        <pre className={setupStyles["setup-error-detail"]}>{originalMessage}</pre>
+      </div>
+    );
+  });
 }

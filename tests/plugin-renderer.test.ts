@@ -28,6 +28,9 @@ function renderContext(
     records: () => [],
     rows: [],
     save: async () => ({ ok: true }),
+    openResource: async () => ({ ok: true }),
+    getViewSettings: () => undefined,
+    setViewSettings: () => {},
     ...overrides
   };
 }

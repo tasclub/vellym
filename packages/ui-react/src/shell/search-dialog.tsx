@@ -14,6 +14,7 @@ import { Icon } from "../shared/icon.js";
 import { fetchSearch } from "../shared/api.js";
 import styles from "./search-dialog.module.css";
 import { errorMessage } from "../shared/error-message.js";
+import { useUiLang } from "../shared/ui-language.js";
 
 export function SearchDialog(props: {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export function SearchDialog(props: {
   onSelect(pageId: string, headingId?: string): void;
   locale: string;
 }) {
+  const uiLang = useUiLang();
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -78,7 +80,7 @@ export function SearchDialog(props: {
       onOpenChange={props.onOpenChange}
       isDismissable
     >
-      <Modal className={styles.modal}>
+      <Modal lang={uiLang} className={styles.modal}>
         <Dialog aria-label={t("search.title")} className={styles.dialog}>
           <div className={styles.searchRow}>
             <Icon name="search" size={16} />

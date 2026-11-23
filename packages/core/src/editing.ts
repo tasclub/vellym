@@ -13,6 +13,7 @@ const SUPPORTED_NODE_TYPES = new Set<Nodes["type"]>([
   "emphasis",
   "strong",
   "link",
+  "image",
   "list",
   "listItem",
   "blockquote",

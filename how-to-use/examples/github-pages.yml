@@ -1,0 +1,49 @@
+name: Deploy Vellym site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build static site
+        id: build
+        run: |
+          BUILD_JSON="$(npx --no-install vellym build --json)"
+          printf '%s\n' "$BUILD_JSON"
+          OUTPUT_DIR="$(node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(input).data.outputDir));' <<< "$BUILD_JSON")"
+          echo "path=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.build.outputs.path }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

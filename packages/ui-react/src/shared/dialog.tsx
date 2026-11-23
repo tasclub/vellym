@@ -7,6 +7,7 @@ import {
 } from "react-aria-components";
 
 import styles from "./dialog.module.css";
+import { useUiLang } from "../shared/ui-language.js";
 
 /**
  * ダイアログ。**素の`div`で作らない。**
@@ -27,6 +28,7 @@ export function Dialog(props: {
   /** 下端へ右寄せで並べる操作。`DialogActions`を使わずに済ませたい場合は省く */
   actions?: ReactNode;
 }) {
+  const uiLang = useUiLang();
   return (
     <ModalOverlay
       className={styles.overlay}
@@ -36,7 +38,7 @@ export function Dialog(props: {
         if (!open) props.onClose();
       }}
     >
-      <Modal className={styles.modal}>
+      <Modal lang={uiLang} className={styles.modal}>
         <AriaDialog className={styles.dialog}>
           <Heading slot="title" className={styles.title}>
             {props.title}

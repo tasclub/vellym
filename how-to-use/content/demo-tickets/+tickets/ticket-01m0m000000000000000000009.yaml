@@ -1,0 +1,19 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-01m0m000000000000000000009
+  title: 翻訳を準備する
+spec:
+  status: todo
+  fields:
+    priority: mid
+    estimate: 5
+    sprint: sprint-2
+    parent: ticket-01m0m000000000000000000005
+    start: "2026-09-15"
+    due: "2026-09-25"
+  blocks:
+    - id: description
+      type: rich-text
+      content: |
+        公開ガイドを改善するためのサンプル作業です。

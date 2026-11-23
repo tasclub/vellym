@@ -18,6 +18,8 @@ import styles from "./admin-view.module.css";
 import { errorMessage } from "../shared/error-message.js";
 import { SetupWizard } from "../setup/setup-wizard.js";
 import { Button } from "../shared/button.js";
+import { resolveLocalizedText } from "@vellym/plugin-api";
+import { useOpenShortcutHelp } from "./shortcuts.js";
 
 export function AdminView(props: {
   contentRoot: string;
@@ -25,6 +27,9 @@ export function AdminView(props: {
   resolvedContentRoot: string;
   configPath: string;
   diagnostics: Diagnostic[];
+  /** Resources no installed plugin interprets, by kind. */
+  unknownKinds?: Array<{ kind: string; count: number; resources: Array<{ name: string; title: string; relativePath: string }> }>;
+  onOpenResource?(name: string): void;
   language: SupportedLanguage;
   canManageStructure: boolean;
   onConfigApplied(): void;
@@ -46,6 +51,7 @@ export function AdminView(props: {
   useEffect(() => setContentRoot(props.contentRoot), [props.contentRoot]);
   useEffect(() => setUiLanguage(props.language), [props.language]);
   const { t } = useTranslation();
+  const openShortcutHelp = useOpenShortcutHelp();
 
   const { canManageStructure, onConfigApplied } = props;
   const loadArchived = useCallback(async () => {
@@ -192,11 +198,11 @@ export function AdminView(props: {
       <section className={styles.panel} aria-labelledby="source-title">
         <h2 id="source-title">{t("admin.sourceTitle")}</h2>
         <dl>
-          <div><dt>{t("admin.projectRoot")}</dt><dd><code>{props.projectRoot}</code></dd></div>
-          <div><dt>{t("admin.configFile")}</dt><dd><code>{props.configPath}</code></dd></div>
-          <div><dt>{t("admin.contentRootRelative")}</dt><dd><code>{props.contentRoot}</code></dd></div>
-          <div><dt>{t("admin.resolvedContentRoot")}</dt><dd><code>{props.resolvedContentRoot}</code></dd></div>
-          <div><dt>{t("admin.saveMethod")}</dt><dd>{t("admin.saveMethodValue")}</dd></div>
+          <div><dt>{t("admin.projectRoot")}</dt><dd><code>{props.projectRoot}</code><p>{t("admin.projectRootHelp")}</p></dd></div>
+          <div><dt>{t("admin.configFile")}</dt><dd><code>{props.configPath}</code><p>{t("admin.configFileHelp")}</p></dd></div>
+          <div><dt>{t("admin.contentRootRelative")}</dt><dd><code>{props.contentRoot}</code><p>{t("admin.contentRootRelativeHelp")}</p></dd></div>
+          <div><dt>{t("admin.resolvedContentRoot")}</dt><dd><code>{props.resolvedContentRoot}</code><p>{t("admin.resolvedContentRootHelp")}</p></dd></div>
+          <div><dt>{t("admin.saveMethod")}</dt><dd>{t("admin.saveMethodValue")}<p>{t("admin.saveMethodHelp")}</p></dd></div>
         </dl>
       </section>
       <section className={styles.panel} aria-labelledby="language-title">
@@ -211,8 +217,9 @@ export function AdminView(props: {
               setUiLanguage(event.target.value as SupportedLanguage)
             }
           >
-            <option value="ja">日本語</option>
-            <option value="en">English</option>
+            {/* Each language is named in itself; lang lets screen readers say it right. */}
+            <option value="ja" lang="ja">日本語</option>
+            <option value="en" lang="en">English</option>
           </select>
         </label>
         {languageError && <p role="alert">{languageError}</p>}
@@ -225,6 +232,15 @@ export function AdminView(props: {
           </Button>
         </div>
       </section>
+      {openShortcutHelp ? (
+        <section className={styles.panel} aria-labelledby="shortcuts-title">
+          <h2 id="shortcuts-title">{t("shortcuts.title")}</h2>
+          <p>{t("shortcuts.settingsDescription")}</p>
+          <div className={styles.configActions}>
+            <Button onClick={openShortcutHelp}>{t("shortcuts.open")}</Button>
+          </div>
+        </section>
+      ) : null}
       <section className={styles.panel} aria-labelledby="content-root-title">
         <h2 id="content-root-title">{t("admin.contentRootTitle")}</h2>
         <p>{t("admin.contentRootDescription", { root: props.projectRoot })}</p>
@@ -268,6 +284,7 @@ export function AdminView(props: {
           既定で折りたたんでおく。 */}
       <details className={`${styles.panel} ${styles.advancedPanel}`}>
         <summary>
+          <span className={styles.advancedMarker} aria-hidden="true">▶</span>
           {t("admin.slugMigrationTitle")}
           <span className={styles.advancedSummaryNote}>
             {t("admin.advancedLabel")}
@@ -336,10 +353,31 @@ export function AdminView(props: {
           )}
         </section>
       )}
+      {props.unknownKinds?.length ? (
+        <section className={styles.panel} aria-labelledby="unknown-kinds-title">
+          <h2 id="unknown-kinds-title">{t("admin.unknownKindsTitle")}</h2>
+          <p>{t("admin.unknownKindsDescription")}</p>
+          {props.unknownKinds.map((group) => (
+            <details key={group.kind}>
+              <summary>{t("admin.unknownKindsCount", { kind: group.kind, count: group.count })}</summary>
+              <ul>
+                {group.resources.map((item) => (
+                  <li key={item.relativePath}>
+                    {props.onOpenResource
+                      ? <Button onClick={() => props.onOpenResource!(item.name)}>{item.title}</Button>
+                      : item.title}{" "}
+                    <code>{item.relativePath}</code>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
+        </section>
+      ) : null}
       <section className={styles.panel} aria-labelledby="problems-title">
         <div className={styles.panelHeading}>
           <div>
-            <h2 id="problems-title">{t("admin.problemsTitle")}</h2>
+            <h2 id="problems-title" tabIndex={-1}>{t("admin.problemsTitle")}</h2>
             <p>
               {props.diagnostics.length === 0
                 ? t("admin.problemsNone")
@@ -352,7 +390,7 @@ export function AdminView(props: {
             {props.diagnostics.map((item, index) => (
               <li key={`${item.file}:${item.code}:${index}`}>
                 <strong>■ {item.file}</strong>
-                <span>{item.message}</span>
+                <span>{resolveLocalizedText(item.message, props.language)}</span>
                 <small>{item.code}{item.path ? ` · ${item.path}` : ""}</small>
               </li>
             ))}

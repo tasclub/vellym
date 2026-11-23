@@ -12,8 +12,9 @@
 // 本文は必ずページごとに異なる語を含める。seedを固定すれば再現する。
 //
 //   node scripts/bench-fixture.mjs --out <dir> --pages 30000 [--seed 1]
+//   node scripts/bench-fixture.mjs --out <dir> --tickets 1000
 
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 
 function option(args, name) {
@@ -25,6 +26,51 @@ const args = process.argv.slice(2);
 const outDir = path.resolve(option(args, "--out") ?? "bench-fixture");
 const totalPages = Number(option(args, "--pages") ?? "30000");
 const seed = Number(option(args, "--seed") ?? "1");
+
+// A separate fixture preserves the existing Page benchmark and gives the
+// plugins real Ticket resources rather than Pages labelled as tickets.
+if (args.includes("--tickets")) {
+  const count = Number(option(args, "--tickets"));
+  if (!Number.isInteger(count) || count < 1) throw new Error("--tickets must be a positive integer");
+  await rm(outDir, { recursive: true, force: true });
+  await mkdir(path.join(outDir, "content", "+tickets"), { recursive: true });
+  await symlink(path.resolve("node_modules"), path.join(outDir, "node_modules"), "dir");
+  await writeFile(path.join(outDir, "vellym.config.yaml"), 'schemaVersion: "1.0"\ncontentRoot: content\noutputDir: dist\nui:\n  language: ja\nplugins: ["@vellym/tickets", "@vellym/kanban", "@vellym/wbs"]\n');
+  await writeFile(path.join(outDir, "content", "tracker.yaml"), `apiVersion: vellym.tasclub.com/v1
+kind: TicketTracker
+metadata: { name: bench-tracker, title: Benchmark }
+spec:
+  statuses:
+    - { id: todo, label: Todo, category: open }
+    - { id: doing, label: Doing, category: open }
+    - { id: done, label: Done, category: closed }
+  fields:
+    - { id: parent, label: Parent, type: reference }
+    - { id: start, label: Start, type: date }
+    - { id: due, label: Due, type: date }
+  hierarchy: { parentField: parent }
+  wbs: { startField: start, endField: due }
+`);
+  const id = (i) => `bench-ticket-${String(i).padStart(4, "0")}`;
+  for (let i = 0; i < count; i += 100) {
+    await Promise.all(Array.from({ length: Math.min(100, count - i) }, (_, j) => {
+      const n = i + j;
+      return writeFile(path.join(outDir, "content", "+tickets", `${id(n)}.yaml`), `apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata: { name: ${id(n)}, title: "Benchmark ticket ${String(n).padStart(4, "0")}" }
+spec:
+  status: ${["todo", "doing", "done"][n % 3]}
+  fields:
+    ${n % 5 ? `parent: ${id(n - n % 5)}\n    ` : ""}start: "2026-01-01"
+    due: "2026-02-01"
+  blocks:
+    - { id: body, type: rich-text, content: "Benchmark description ${n}" }
+`);
+    }));
+  }
+  console.log(JSON.stringify({ outDir, tickets: count }));
+  process.exit(0);
+}
 
 if (!Number.isInteger(totalPages) || totalPages < 1) {
   throw new Error(`--pages must be a positive integer: ${totalPages}`);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Icon } from "../shared/icon.js";
+import { Button } from "../shared/button.js";
 import {
   checkState,
   type SetupCatalogIndex,
@@ -132,15 +133,14 @@ export function SetupTree(props: {
             onFocus={() => setActiveId(node.id)}
           >
             {expandable ? (
-              <button
-                type="button"
+              <Button
                 className={styles["setup-tree-twisty"]}
                 tabIndex={-1}
                 aria-hidden="true"
                 onClick={() => props.onToggleExpanded(node.id)}
               >
                 <Icon name={open ? "chevronDown" : "chevronRight"} size={12} />
-              </button>
+              </Button>
             ) : (
               <span className={styles["setup-tree-twisty"]} aria-hidden="true" />
             )}

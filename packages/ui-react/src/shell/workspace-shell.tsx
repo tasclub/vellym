@@ -22,6 +22,7 @@ import {
   type DropPosition
 } from "react-aria-components";
 import { Icon } from "../shared/icon.js";
+import { Button as AppButton } from "../shared/button.js";
 import { DocumentTree } from "./document-tree.js";
 import { DocumentOutline } from "./document-outline.js";
 import type {
@@ -33,23 +34,69 @@ import {
   StructureActionDialog,
   type StructureAction
 } from "../editor/structure-dialog.js";
+import {
+  DEVICE_SCOPE,
+  HOST_OWNER,
+  userSettingsKey
+} from "../shared/user-settings.js";
 import styles from "./workspace-shell.module.css";
+import { useUiLang } from "../shared/ui-language.js";
+import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog.js";
+import { ShortcutContext, isMacPlatform, matchShortcut, type ShortcutId } from "./shortcuts.js";
 
 const DEFAULT_TREE_WIDTH = 268;
 const MIN_TREE_WIDTH = 220;
 const MAX_TREE_WIDTH = 420;
-const TREE_WIDTH_KEY = "vellym.navigation.width";
-const TREE_OPEN_KEY = "vellym.navigation.open";
+const TREE_WIDTH_KEY = userSettingsKey(DEVICE_SCOPE, HOST_OWNER, "navigation.width");
+const TREE_OPEN_KEY = userSettingsKey(DEVICE_SCOPE, HOST_OWNER, "navigation.open");
+const LEGACY_TREE_WIDTH_KEY = "vellym.navigation.width";
+const LEGACY_TREE_OPEN_KEY = "vellym.navigation.open";
 
-function storedTreeWidth(): number {
-  const value = Number(window.localStorage.getItem(TREE_WIDTH_KEY));
-  return Number.isFinite(value)
-    ? Math.min(MAX_TREE_WIDTH, Math.max(MIN_TREE_WIDTH, value))
-    : DEFAULT_TREE_WIDTH;
+function navigationStorage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> | undefined {
+  try {
+    return typeof window === "undefined" ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
 }
 
-function storedTreeOpen(): boolean {
-  return window.localStorage.getItem(TREE_OPEN_KEY) !== "false";
+// 規則より前の鍵。幅と開閉はプロジェクトの内容を含まないので、値は端末単位の
+// 新しい鍵へ1対1で移せる。旧鍵は掃除し、以降読まない。
+function migrateLegacyNavigationValue(
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem">,
+  legacyKey: string,
+  newKey: string
+): void {
+  const legacy = storage.getItem(legacyKey);
+  if (legacy !== null && storage.getItem(newKey) === null) {
+    storage.setItem(newKey, legacy);
+  }
+  storage.removeItem(legacyKey);
+}
+
+export function storedTreeWidth(): number {
+  const storage = navigationStorage();
+  if (!storage) return DEFAULT_TREE_WIDTH;
+  try {
+    migrateLegacyNavigationValue(storage, LEGACY_TREE_WIDTH_KEY, TREE_WIDTH_KEY);
+    const value = Number(storage.getItem(TREE_WIDTH_KEY));
+    return Number.isFinite(value)
+      ? Math.min(MAX_TREE_WIDTH, Math.max(MIN_TREE_WIDTH, value))
+      : DEFAULT_TREE_WIDTH;
+  } catch {
+    return DEFAULT_TREE_WIDTH;
+  }
+}
+
+export function storedTreeOpen(): boolean {
+  const storage = navigationStorage();
+  if (!storage) return true;
+  try {
+    migrateLegacyNavigationValue(storage, LEGACY_TREE_OPEN_KEY, TREE_OPEN_KEY);
+    return storage.getItem(TREE_OPEN_KEY) !== "false";
+  } catch {
+    return true;
+  }
 }
 
 // アイコンのみのボタンは意味が伝わりにくいので、ホバー／フォーカスでラベルを出す
@@ -79,17 +126,16 @@ function Breadcrumbs(props: {
   return (
     <nav className={styles.breadcrumbs} aria-label={t("nav.breadcrumb")}>
       <ol>
-        <li><button type="button" onClick={() => props.onSelectFolder("")}>{t("nav.allDocuments")}</button></li>
+        <li><AppButton onClick={() => props.onSelectFolder("")}>{t("nav.allDocuments")}</AppButton></li>
         {page.breadcrumbs.map((item, index) => (
           <li key={`${item}:${index}`}>
-            <button
-              type="button"
+            <AppButton
               onClick={() => props.onSelectFolder(page.breadcrumbs.slice(0, index + 1).join("/"))}
             >
               {props.folders.find((folder) =>
                 folder.path === page.breadcrumbs.slice(0, index + 1).join("/")
               )?.title ?? item}
-            </button>
+            </AppButton>
           </li>
         ))}
         <li aria-current="page">{page.title}</li>
@@ -102,9 +148,12 @@ export function WorkspaceShell(props: {
   navigation: DocumentNavigation;
   pages: PageSummary[];
   folders: FolderSummary[];
+  /** 展開状態の個人設定をプロジェクト単位で分けるための絶対パス。 */
+  projectRoot: string;
   selected?: string;
   selectedFolder?: string;
-  area: "documents" | "settings";
+  area: "documents" | "changes" | "settings";
+  gitChanges?: { uncommitted: number; ahead: number };
   diagnosticCount: number;
   headings: DocumentHeading[];
   structureAvailable: boolean;
@@ -112,13 +161,13 @@ export function WorkspaceShell(props: {
   canManage: boolean;
   canConfigure: boolean;
   /** プラグインが文書ツリーの追加メニューへ出すもの */
-  pluginCreateOptions?: Array<{ id: string; label: string }>;
-  onRunTreeCommand?(commandId: string, parentPath: string): void;
+  pluginCreateOptions?: Array<{ id: string; commandId: string; pluginId: string; label: string }>;
+  onRunTreeCommand?(commandId: string, pluginId: string, parentPath: string): void;
   uiLocale: string;
   currentLocale: string;
   onSelect(name: string): void;
   onSelectFolder(path: string): void;
-  onAreaChange(area: "documents" | "settings"): void;
+  onAreaChange(area: "documents" | "changes" | "settings"): void;
   onNavigate(name: string, headingId?: string): void;
   onHeadingSelect(id: string): void;
   onMoveTreeItem(
@@ -133,6 +182,7 @@ export function WorkspaceShell(props: {
   onFolderApplied(folder: FolderSummary): void;
   children: ReactNode;
 }) {
+  const uiLang = useUiLang();
   const { t } = useTranslation();
   const [treeOpen, setTreeOpen] = useState(storedTreeOpen);
   const [treeWidth, setTreeWidth] = useState(storedTreeWidth);
@@ -163,32 +213,65 @@ export function WorkspaceShell(props: {
     selectedFolder?.path ?? selectedPage?.breadcrumbs.join("/") ?? "";
 
   useEffect(() => {
-    window.localStorage.setItem(TREE_OPEN_KEY, String(treeOpen));
+    try {
+      navigationStorage()?.setItem(TREE_OPEN_KEY, String(treeOpen));
+    } catch {
+      // 個人設定を保存できなくてもツリーの操作は続けられる。
+    }
   }, [treeOpen]);
 
   useEffect(() => {
-    window.localStorage.setItem(TREE_WIDTH_KEY, String(treeWidth));
+    try {
+      navigationStorage()?.setItem(TREE_WIDTH_KEY, String(treeWidth));
+    } catch {
+      // 個人設定を保存できなくてもツリーの操作は続けられる。
+    }
   }, [treeWidth]);
 
+  // One keydown listener for every default shortcut (shortcuts.ts). Screens register save,
+  // edit and view switching while they are shown; the shell handles search, tree and help.
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const shortcutHandlers = useRef(new Map<ShortcutId, () => void>());
+  const shortcutRegistry = useMemo(() => ({
+    register(id: ShortcutId, handler: () => void) {
+      shortcutHandlers.current.set(id, handler);
+      return () => {
+        if (shortcutHandlers.current.get(id) === handler) shortcutHandlers.current.delete(id);
+      };
+    },
+    openHelp: () => setShortcutHelpOpen(true)
+  }), []);
+  const shortcutState = useRef({ canSearch: props.canSearch, area: props.area });
+  shortcutState.current = { canSearch: props.canSearch, area: props.area };
   useEffect(() => {
-    if (!props.canSearch) return;
-    function openSearch(event: KeyboardEvent) {
-      const target = event.target;
-      const isInput =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        (target instanceof HTMLElement && target.isContentEditable);
-      if (
-        (event.key === "/" && !isInput) ||
-        ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")
-      ) {
+    const isMac = isMacPlatform();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented) return;
+      const id = matchShortcut(event, isMac);
+      if (!id) return;
+      const state = shortcutState.current;
+      if (id === "search") {
+        if (!state.canSearch) return;
         event.preventDefault();
         setSearchOpen(true);
+      } else if (id === "help") {
+        event.preventDefault();
+        setShortcutHelpOpen(true);
+      } else if (id === "toggleTree") {
+        if (state.area !== "documents" || window.innerWidth < 768) return;
+        event.preventDefault();
+        setTreeOpen((open) => !open);
+      } else {
+        const handler = shortcutHandlers.current.get(id);
+        // Without a handler the browser keeps its own behaviour (Mod+S saves the page).
+        if (!handler) return;
+        event.preventDefault();
+        handler();
       }
     }
-    window.addEventListener("keydown", openSearch);
-    return () => window.removeEventListener("keydown", openSearch);
-  }, [props.canSearch]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   function selectFromDrawer(name: string) {
     props.onSelect(name);
@@ -226,8 +309,9 @@ export function WorkspaceShell(props: {
   }
 
   return (
+    <ShortcutContext.Provider value={shortcutRegistry}>
     <div
-      className={`${styles.shell} ${props.area === "settings" ? styles.adminShell : ""}`}
+      className={`${styles.shell} ${props.area !== "documents" ? styles.adminShell : ""}`}
       style={
         {
           "--navigation-width":
@@ -238,16 +322,28 @@ export function WorkspaceShell(props: {
       <a className={styles.skipLink} href="#document-content">
         {t("nav.skipToContent")}
       </a>
-      <aside className={styles.productRail} aria-label={t("nav.productRail")}>
+      <aside lang={uiLang} className={styles.productRail} aria-label={t("nav.productRail")}>
         <div className={styles.productMark} aria-hidden="true">V</div>
         <IconTooltip label={t("nav.documents")}>
           <Button
             className={styles.railButton}
-            aria-label={t("nav.documents")}
+            aria-label={
+              props.area === "documents" && !treeOpen
+                ? t("nav.openDocumentNav")
+                : t("nav.documents")
+            }
             aria-pressed={props.area === "documents"}
-            onPress={() => props.onAreaChange("documents")}
+            onPress={() => {
+              if (props.area !== "documents") props.onAreaChange("documents");
+              if (!treeOpen) setTreeOpen(true);
+            }}
           ><Icon name="documents" size={20} /></Button>
         </IconTooltip>
+        {props.gitChanges && <IconTooltip label={t("changes.title")}>
+            <Button className={styles.railButton} aria-label={t("changes.rail", { count: props.gitChanges.uncommitted, ahead: props.gitChanges.ahead })} aria-pressed={props.area === "changes"} onPress={() => props.onAreaChange("changes")}>
+              <span aria-hidden="true">⇅{(props.gitChanges.uncommitted > 0 || props.gitChanges.ahead > 0) && <span> •</span>}</span>
+            </Button>
+        </IconTooltip>}
         {props.canConfigure && (
           <IconTooltip label={t("nav.settings")}>
             <Button
@@ -259,8 +355,9 @@ export function WorkspaceShell(props: {
           </IconTooltip>
         )}
       </aside>
-      <header className={styles.header}>
+      <header lang={uiLang} className={styles.header}>
         <div className={styles.headerLeading}>
+          {props.gitChanges && <Button className={styles.mobileMenu} aria-label={t("changes.rail", { count: props.gitChanges.uncommitted, ahead: props.gitChanges.ahead })} onPress={() => props.onAreaChange("changes")}>⇅</Button>}
           <Button
             className={styles.mobileMenu}
             aria-label={t("nav.openDocumentNav")}
@@ -281,25 +378,6 @@ export function WorkspaceShell(props: {
               }
             ><Icon name={props.area === "settings" ? "documents" : "settings"} size={18} /></Button>
           )}
-          <IconTooltip
-            label={
-              treeOpen
-                ? t("nav.closeDocumentNav")
-                : t("nav.openDocumentNav")
-            }
-          >
-            <Button
-              className={styles.desktopToggle}
-              aria-label={
-                treeOpen
-                  ? t("nav.closeDocumentNav")
-                  : t("nav.openDocumentNav")
-              }
-              onPress={() => setTreeOpen((current) => !current)}
-            >
-              <Icon name={treeOpen ? "chevronLeft" : "chevronRight"} size={18} />
-            </Button>
-          </IconTooltip>
           <div>
             <strong>Vellym</strong>
             <span>{t("product.workspace")}</span>
@@ -319,33 +397,45 @@ export function WorkspaceShell(props: {
           </Button>
         )}
       </header>
-      {props.area === "documents" && <aside
+      {props.area === "documents" && <aside lang={uiLang}
         className={styles.navigation}
         aria-label={t("nav.documentNav")}
         aria-hidden={!treeOpen}
       >
         <div className={styles.navigationHeader}>
+          <IconTooltip label={t("nav.closeDocumentNav")}>
+            <Button
+              className={styles.desktopToggle}
+              aria-label={t("nav.closeDocumentNav")}
+              onPress={() => setTreeOpen(false)}
+            >
+              <Icon name="chevronLeft" size={18} />
+            </Button>
+          </IconTooltip>
           <h2>{t("nav.documents")}</h2>
           <div>
             <span>{props.navigation.pages.length}</span>
             {props.canManage && (
             <MenuTrigger>
               <Button
-                className={styles.manageButton}
+                className={`${styles.manageButton} create-action`}
                 isDisabled={!props.structureAvailable}
                 aria-label={t("nav.create")}
               >
                 <Icon name="create" size={16} />
               </Button>
-              <Popover className={styles.createPopover}>
+              <Popover lang={uiLang} className={styles.createPopover}>
                 <Menu
-                  className={styles.createMenu}
+                  className={`${styles.createMenu} create-action`}
                   aria-label={t("nav.create")}
                   onAction={(key) => {
                     const id = String(key);
                     if (id !== "page" && id !== "folder") {
                       // 選択中の場所へ作る。何も選んでいなければcontent root直下。
-                      props.onRunTreeCommand?.(id, contextualParent);
+                      const command = props.pluginCreateOptions?.find((item) => item.id === id);
+                      if (command) {
+                        props.onRunTreeCommand?.(command.commandId, command.pluginId, contextualParent);
+                      }
                       return;
                     }
                     setStructureAction({
@@ -378,6 +468,7 @@ export function WorkspaceShell(props: {
         </div>
         <DocumentTree
           nodes={props.navigation.tree}
+          projectRoot={props.projectRoot}
           selected={props.selected}
           selectedFolder={props.selectedFolder}
           canManage={props.canManage}
@@ -386,7 +477,8 @@ export function WorkspaceShell(props: {
           createOptions={props.pluginCreateOptions ?? []}
           onCreate={(kind, parentPath) => {
             if (kind !== "page" && kind !== "folder") {
-              props.onRunTreeCommand?.(kind, parentPath);
+              const command = props.pluginCreateOptions?.find((item) => item.id === kind);
+              if (command) props.onRunTreeCommand?.(command.commandId, command.pluginId, parentPath);
               return;
             }
             setStructureAction({
@@ -445,18 +537,17 @@ export function WorkspaceShell(props: {
           selectedFolder ? (
             selectedFolder.path ? <nav className={styles.breadcrumbs} aria-label={t("nav.breadcrumb")}>
               <ol>
-                <li><button type="button" onClick={() => props.onSelectFolder("")}>{t("nav.allDocuments")}</button></li>
+                <li><AppButton onClick={() => props.onSelectFolder("")}>{t("nav.allDocuments")}</AppButton></li>
                 {selectedFolder.path.split("/").map((item, index, all) => (
                   <li key={`${item}:${index}`} aria-current={index === all.length - 1 ? "page" : undefined}>
                     {index === all.length - 1 ? selectedFolder.title : (
-                      <button
-                        type="button"
+                      <AppButton
                         onClick={() => props.onSelectFolder(all.slice(0, index + 1).join("/"))}
                       >
                         {props.folders.find((folder) =>
                           folder.path === all.slice(0, index + 1).join("/")
                         )?.title ?? item}
-                      </button>
+                      </AppButton>
                     )}
                   </li>
                 ))}
@@ -468,7 +559,7 @@ export function WorkspaceShell(props: {
             onSelectFolder={props.onSelectFolder}
           />
         ) : <div className={styles.breadcrumbPlaceholder} />}
-        {props.area === "documents" && <DocumentOutline
+        {props.area === "documents" && props.headings.length > 0 && <DocumentOutline
           compact
           headings={props.headings}
           pageId={props.selected}
@@ -479,20 +570,20 @@ export function WorkspaceShell(props: {
           {props.area === "documents" && selectedPage && !props.selectedFolder && (
             <nav className={styles.pageTurner} aria-label={t("nav.previousDocuments")}>
               {selectedPage.previous ? (
-                <button type="button" onClick={() => props.onNavigate(selectedPage.previous!.name)}>
+                <AppButton onClick={() => props.onNavigate(selectedPage.previous!.name)}>
                   <small>{t("nav.previous")}</small><strong>← {selectedPage.previous.title}</strong>
-                </button>
+                </AppButton>
               ) : <span />}
               {selectedPage.next ? (
-                <button type="button" onClick={() => props.onNavigate(selectedPage.next!.name)}>
+                <AppButton onClick={() => props.onNavigate(selectedPage.next!.name)}>
                   <small>{t("nav.next")}</small><strong>{selectedPage.next.title} →</strong>
-                </button>
+                </AppButton>
               ) : <span />}
             </nav>
           )}
         </main>
       </div>
-      {props.area === "documents" && <aside className={styles.outlineColumn}>
+      {props.area === "documents" && props.headings.length > 0 && <aside className={styles.outlineColumn}>
         <DocumentOutline
           headings={props.headings}
           pageId={props.selected}
@@ -505,7 +596,7 @@ export function WorkspaceShell(props: {
         onOpenChange={setDrawerOpen}
         isDismissable
       >
-        <Modal className={styles.drawer}>
+        <Modal lang={uiLang} className={styles.drawer}>
           <Dialog aria-label={t("nav.documentNav")} className={styles.dialog}>
             <div className={styles.drawerHeader}>
               <h2>{t("nav.documents")}</h2>
@@ -519,6 +610,7 @@ export function WorkspaceShell(props: {
             </div>
             <DocumentTree
               nodes={props.navigation.tree}
+              projectRoot={props.projectRoot}
               selected={props.selected}
               selectedFolder={props.selectedFolder}
               canManage={props.canManage}
@@ -531,7 +623,8 @@ export function WorkspaceShell(props: {
               onCreate={(kind, parentPath) => {
                 setDrawerOpen(false);
                 if (kind !== "page" && kind !== "folder") {
-                  props.onRunTreeCommand?.(kind, parentPath);
+                  const command = props.pluginCreateOptions?.find((item) => item.id === kind);
+                  if (command) props.onRunTreeCommand?.(command.commandId, command.pluginId, parentPath);
                   return;
                 }
                 setStructureAction({
@@ -569,6 +662,8 @@ export function WorkspaceShell(props: {
         onApplied={props.onStructureApplied}
         onFolderApplied={props.onFolderApplied}
       />
+      <KeyboardShortcutsDialog isOpen={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
     </div>
+    </ShortcutContext.Provider>
   );
 }

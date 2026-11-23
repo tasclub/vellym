@@ -71,6 +71,79 @@ spec:
         サーバーのサブディレクトリ配下に置いても表示できる（Nginx／Apache等の
         ドキュメントルートに置く配信も可能）。
 
+        ## GitHub Pagesへ公開する
+
+        まず`npm install --save-dev vellym@beta`を実行し、`package.json`と`package-lock.json`を
+        commitして`npm ci`で依存を復元できるようにする。リポジトリのSettings > Pagesで公開元を
+        **GitHub Actions**に設定する。
+        次の例は`main`へのpushで静的サイトをビルドし、GitHub Pagesへ公開する。
+        相対パスで配信するため、GitHub Pagesの`/<repository>/`配下でも読み込める。
+        `how-to-use/examples/github-pages.yml`を`.github/workflows/deploy-pages.yml`へコピーして使う。
+        Actionの版は例のとおり固定する。`init`はworkflowを生成しない。
+
+        ```yaml
+        name: Deploy Vellym site to GitHub Pages
+
+        on:
+          push:
+            branches: [main]
+          workflow_dispatch:
+
+        permissions:
+          contents: read
+
+        concurrency:
+          group: pages
+          cancel-in-progress: true
+
+        jobs:
+          build:
+            runs-on: ubuntu-latest
+            permissions:
+              contents: read
+            steps:
+              - uses: actions/checkout@v4
+              - uses: actions/setup-node@v4
+                with:
+                  node-version: 22
+                  cache: npm
+              - run: npm ci
+              - name: Build static site
+                id: build
+                run: |
+                  BUILD_JSON="$(npx --no-install vellym build --json)"
+                  printf '%s\n' "$BUILD_JSON"
+                  OUTPUT_DIR="$(node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(input).data.outputDir));' <<< "$BUILD_JSON")"
+                  echo "path=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+              - uses: actions/upload-pages-artifact@v3
+                with:
+                  path: ${{ steps.build.outputs.path }}
+
+          deploy:
+            needs: build
+            runs-on: ubuntu-latest
+            permissions:
+              pages: write
+              id-token: write
+            environment:
+              name: github-pages
+              url: ${{ steps.deployment.outputs.page_url }}
+            steps:
+              - id: deployment
+                uses: actions/deploy-pages@v4
+        ```
+
+        ## 公開内容を確認する
+
+        GitHub Pagesのサイトは、アクセス制御を設定しない限り公開される。Vellymの
+        `visibility`は一般的な非公開設定ではない。既定言語のPageは公開され、翻訳に
+        `visibility: draft`を指定するとその翻訳だけが出力されず、既定言語の本文は残る。
+        `visibility`を機密文書の保護に使わない。
+
+        公開前に`vellym build`の出力先を確認し、生成されたHTMLと`data/`内のJSONを含む
+        **出力全体**に非公開の文書・情報が含まれていないことを確認する。例のworkflowは
+        `--json`の`data.outputDir`を使ってその出力をartifactとして公開する。
+
         `static.publicBaseUrl`を設定すると、Page HTMLへcanonicalと、そのPageで公開済みの
         言語だけを指すhreflangを出力する。値は配信先のHTTPS URLで、末尾に`/`が必要である。
         未設定時は誤った公開URLを埋め込まないため、canonicalとhreflangを出力しない。
@@ -164,6 +237,81 @@ spec:
 
             Then open `http://localhost:8080/`. It uses relative paths, so it also works under
             a server subdirectory (or as the document root of Nginx / Apache, etc.).
+
+            ## Publish to GitHub Pages
+
+            First run `npm install --save-dev vellym@beta` and commit `package.json` and
+            `package-lock.json` so `npm ci` can restore the dependencies. In the repository's
+            Settings > Pages, set the publishing source to **GitHub Actions**. The example below
+            builds and publishes the static site on pushes to `main`. It uses relative paths,
+            so it also works under the `/<repository>/` path of a GitHub Pages project site.
+            Copy `how-to-use/examples/github-pages.yml` to
+            `.github/workflows/deploy-pages.yml`. Keep the Action versions pinned as shown.
+            `init` does not generate a workflow.
+
+            ```yaml
+            name: Deploy Vellym site to GitHub Pages
+
+            on:
+              push:
+                branches: [main]
+              workflow_dispatch:
+
+            permissions:
+              contents: read
+
+            concurrency:
+              group: pages
+              cancel-in-progress: true
+
+            jobs:
+              build:
+                runs-on: ubuntu-latest
+                permissions:
+                  contents: read
+                steps:
+                  - uses: actions/checkout@v4
+                  - uses: actions/setup-node@v4
+                    with:
+                      node-version: 22
+                      cache: npm
+                  - run: npm ci
+                  - name: Build static site
+                    id: build
+                    run: |
+                      BUILD_JSON="$(npx --no-install vellym build --json)"
+                      printf '%s\n' "$BUILD_JSON"
+                      OUTPUT_DIR="$(node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(input).data.outputDir));' <<< "$BUILD_JSON")"
+                      echo "path=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+                  - uses: actions/upload-pages-artifact@v3
+                    with:
+                      path: ${{ steps.build.outputs.path }}
+
+              deploy:
+                needs: build
+                runs-on: ubuntu-latest
+                permissions:
+                  pages: write
+                  id-token: write
+                environment:
+                  name: github-pages
+                  url: ${{ steps.deployment.outputs.page_url }}
+                steps:
+                  - id: deployment
+                    uses: actions/deploy-pages@v4
+            ```
+
+            ## Check what will be published
+
+            A GitHub Pages site is public unless access controls are configured. Vellym's
+            `visibility` is not a general privacy setting: the default-locale Page is published,
+            and `visibility: draft` on a translation omits only that translation, not the
+            default-locale content. Do not use `visibility` to protect sensitive documents.
+
+            Before publishing, inspect the `vellym build` output directory and ensure that the
+            entire output — including generated HTML and JSON under `data/` — contains no
+            private documents or information. The example workflow publishes the directory
+            reported as `data.outputDir` by `--json`.
 
             With `static.publicBaseUrl`, Page HTML includes canonical and hreflang links only
             for that Page's published locales. The value must be the public HTTPS URL ending in

@@ -5,6 +5,19 @@
    */
   .scroll {
     overflow-x: auto;
+    background:
+      linear-gradient(to right, var(--surface-page) 30%, transparent),
+      linear-gradient(to left, var(--surface-page) 30%, transparent) 100% 0,
+      radial-gradient(farthest-side at 0 50%, var(--text-muted), transparent),
+      radial-gradient(farthest-side at 100% 50%, var(--text-muted), transparent) 100% 0;
+    background-repeat: no-repeat;
+    background-size: 32px 100%, 32px 100%, 12px 100%, 12px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+
+  .scroll:focus-visible {
+    outline: 2px solid var(--accent-default);
+    outline-offset: -2px;
   }
 
   .table {

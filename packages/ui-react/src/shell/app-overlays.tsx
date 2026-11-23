@@ -12,6 +12,7 @@ import type {
   StructureApplyResult,
   StructurePlan
 } from "../shared/api.js";
+import { Button } from "../shared/button.js";
 
 /**
  * 画面の上に重なるもの。ダイアログと、直後の取り消しの帯。
@@ -71,9 +72,9 @@ export function AppOverlays(props: {
       {props.undo && (
         <div className="structure-undo" role="status">
           <span>{props.undo.message}</span>
-          <button type="button" onClick={props.undo.onUndo}>
+          <Button onClick={props.undo.onUndo}>
             {t("app.undo")}
-          </button>
+          </Button>
         </div>
       )}
     </>

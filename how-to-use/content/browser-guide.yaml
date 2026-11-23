@@ -46,7 +46,7 @@ spec:
 
         ## 画面の構成
 
-        - **プロダクトレール**（左端）: 「文書」と「設定」を切り替える。
+        - **プロダクトレール**（左端）: 「文書」「変更」（Git利用時）と「設定」を切り替える。
         - **文書ナビゲーション**: 文書ツリーを開閉・幅調整できる。ツリーからページを選ぶ。
         - **アウトライン**: 表示中ページの見出し一覧。
         - **パンくず**: 現在位置の階層を示す。
@@ -69,6 +69,8 @@ spec:
 
         ## 編集と保存
 
+        幅768px未満の画面（スマートフォンなど）では閲覧とナビゲーションのみ利用できる。編集は幅768px以上の画面で行う。
+
         - ページ本文はブラウザ上で編集できる。リッチテキスト編集と、YAMLの直接編集の
           両方に対応する。
         - 保存すると、内容は**ローカルのYAMLへ書き戻される**（Gitのcommitは行わない）。
@@ -76,6 +78,33 @@ spec:
           見比べて対応できる。
         - 未保存の変更があるまま画面を離れようとすると、確認ダイアログで下書きの保持や
           破棄を選べる。
+
+        ## Gitの変更・コミット・プッシュ・文書の履歴
+
+        Gitがあり、content rootに追跡されたファイルがある動的版では、レールの「変更」から未コミットの変更を確かめて
+        コミット・プッシュでき、文書の「履歴」から過去の版と差分を読める。「保存」はファイルへの書き込みで、
+        コミットとは別の操作である。手順・エラーの直し方・注意は[[changes-and-history|変更・コミット・文書の履歴]]を参照。
+
+        **注意**: `--host`で外から開けるようにした起動では、画面を開ける人がコミット・プッシュもできる。
+        このサーバーに認証はない。信頼できる環境だけで公開する。
+
+        画像の挿入は[[images|画像]]を参照。
+
+        ## キーボード操作
+
+        主な操作のキー割り当て。どの画面でも`?`で一覧を開ける（設定画面の「キーボード操作を見る」からも開ける）。Macでは`Ctrl`の代わりに`⌘`（Command）を使う。
+
+        | 操作 | キー | 効く場所 |
+        | --- | --- | --- |
+        | 検索を開く | `/`・`Ctrl+K` | どこでも（入力欄の中を除く。Ctrl/⌘+Kは入力欄でも効く） |
+        | 保存 | `Ctrl+S` | 文書・チケットの編集中、チケット管理の設定の編集中 |
+        | 編集を始める | `E` | 文書・チケットを読んでいるとき |
+        | 文書ツリーの開閉 | `Ctrl+\` | 文書の画面（幅768px以上） |
+        | 前のビュー | `[` | ビューを切り替えられる画面（一覧・カンバン・WBS・設定） |
+        | 次のビュー | `]` | ビューを切り替えられる画面（一覧・カンバン・WBS・設定） |
+        | キー一覧を開く | `?` | どこでも（入力欄の中を除く。Ctrl/⌘+Kは入力欄でも効く） |
+
+        入力欄やエディタの中で文字を打っているときは、`Ctrl+K`・`Ctrl+S`・`Ctrl+\`だけが効き、ほかのキーは文字として入る。日本語の変換中はどのキーも反応しない。
 
         ## 言語の追加と編集
 
@@ -157,7 +186,7 @@ spec:
 
             ## Layout
 
-            - **Product rail** (far left): switch between "Documents" and "Settings".
+            - **Product rail** (far left): switch between Documents, Changes (when Git is available), and Settings.
             - **Document navigation**: open/close and resize the document tree; pick a page.
             - **Outline**: the heading list of the current page.
             - **Breadcrumbs**: the hierarchy of your current location.
@@ -181,7 +210,38 @@ spec:
             Open **full-text search** ("Search documents") to find text across page bodies.
             (Full-text search is a dynamic-mode feature and is not in the static build.)
 
+            ## Git changes, commits, push, and document history
+
+            In the dynamic app, when Git is available and the content root has tracked files, **Changes**
+            in the rail lets you review uncommitted changes and commit and push them, and **History** on a
+            document shows its past versions and diffs. **Save** writes a file; committing is separate.
+            See [[changes-and-history|Changes, Commits, and Document History]] for the steps, error fixes,
+            and cautions.
+
+            **Warning:** when started with `--host` for external access, anyone who can open the app can also commit and push.
+            The server has no authentication. Expose it only in a trusted environment.
+
+            See [[images|Images]] for inserting images.
+
+            ## Keyboard shortcuts
+
+            Keys for the main actions. Press `?` on any screen to open the list (or **Show keyboard shortcuts** in Settings). On a Mac, use `⌘` (Command) instead of `Ctrl`.
+
+            | Action | Keys | Where |
+            | --- | --- | --- |
+            | Open search | `/` / `Ctrl+K` | Anywhere (not while typing in a field; Ctrl/⌘+K works there too) |
+            | Save | `Ctrl+S` | While editing a document or ticket, or the tracker settings |
+            | Start editing | `E` | While reading a document or ticket |
+            | Show or hide the document tree | `Ctrl+\` | Document screens (768px wide or more) |
+            | Previous view | `[` | Screens with a view switcher (list, Kanban, WBS, settings) |
+            | Next view | `]` | Screens with a view switcher (list, Kanban, WBS, settings) |
+            | Show keyboard shortcuts | `?` | Anywhere (not while typing in a field; Ctrl/⌘+K works there too) |
+
+            While typing in a field or the editor, only `Ctrl+K`, `Ctrl+S`, and `Ctrl+\` work; other keys type characters. No key reacts during IME composition.
+
             ## Editing and saving
+
+            On screens narrower than 768px (such as smartphones), only reading and navigation are available. Edit on a screen at least 768px wide.
 
             - Page bodies can be edited in the browser, both as rich text and as direct YAML.
             - Saving writes the content back to **local YAML** (it does not create a Git commit).

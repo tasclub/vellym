@@ -24,6 +24,10 @@ export const PLUGIN_MANIFEST_SCHEMA: Readonly<Record<string, unknown>> = schema;
 export interface PluginManifest {
   /** プラグイン識別子。配信path `/plugins/<id>/` に使う。小文字英数と`-`のみ */
   id: string;
+  /** Browser stylesheets, relative to the package's exported browser directory. */
+  styles?: readonly string[];
+  /** The guide `vellym init` points to after setting the plugin up, per UI language (https only). */
+  guideUrl?: Readonly<{ ja?: string; en?: string }>;
   contributes?: PluginContributions;
 }
 

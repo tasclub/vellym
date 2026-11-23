@@ -9,6 +9,9 @@
 //   - GET /api/v1/repository の応答時間と本文サイズ
 //   - GET /api/v1/search の応答時間（初回と再実行）
 //   - GET /api/v1/pages/:id と PATCH の往復時間
+// --tickets: PlaywrightでTicket 1,000件の一覧・絞り込み・カンバン・保存・
+// WBS・縦スクロール・詳細を測る（既定3回、新規サーバ/context、最大値判定）。
+//   npm run verify:scale:tickets
 
 import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -83,6 +86,131 @@ async function timedJson(url, init) {
   };
 }
 
+// Ticket mode uses the real browser and fresh server/context for each sample.
+// It deliberately waits for view-specific DOM, not for the view-switch click.
+async function benchTickets() {
+  const { chromium, expect } = await import("@playwright/test");
+  const runs = Number(option(args, "--runs") ?? "3");
+  if (!Number.isInteger(runs) || runs < 1) throw new Error("--runs must be positive");
+  // Rounded ceilings with headroom over three local cold runs; see the Ticket's
+  // execution record. These are CI regression budgets, not hardware-independent SLAs.
+  const limitsMs = { startupList: 5000, filter: 1000, kanban: 1000,
+    moveSave: 2000, wbs: 1500, scroll: 500, detail: 2000 };
+  const samples = [];
+  const browser = await chromium.launch();
+  try {
+    for (let run = 0; run < runs; run++) {
+      const context = await browser.newContext({ locale: "ja-JP", viewport: { width: 1440, height: 900 } });
+      const page = await context.newPage();
+      page.setDefaultTimeout(30000);
+      const errors = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      let log = "", exited = false;
+      const start = performance.now();
+      const server = spawn(process.execPath, [cli, "dev", "--config", configPath,
+        "--host", "127.0.0.1", "--port", String(port)], { stdio: ["ignore", "pipe", "pipe"] });
+      server.stdout.on("data", (data) => { log += data; });
+      server.stderr.on("data", (data) => { log += data; });
+      server.on("exit", () => { exited = true; });
+      const serverError = new Promise((_, reject) => server.once("error", reject));
+      // Two animation frames leave one paint opportunity after React commits.
+      const paint = () => page.evaluate(() => new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      const measure = async (action) => {
+        const at = performance.now();
+        await action(); await paint();
+        return Math.round(performance.now() - at);
+      };
+      try {
+        await Promise.race([serverError, (async () => {
+          while (performance.now() - start < Math.min(readyTimeoutMs, 120000)) {
+            if (exited) throw new Error(`Ticket server exited: ${log}`);
+            try {
+              const response = await fetch(`${base}/api/v1/bootstrap`);
+              if (response.ok && (await response.json()).data?.state === "ready") return;
+            } catch { /* not listening yet */ }
+            await sleep(100);
+          }
+          throw new Error(`Ticket server readiness timeout: ${log}`);
+        })()]);
+        await page.goto(`${base}/ja/bench-tracker`);
+        const table = page.locator(".plugin-list table");
+        await expect(table).toBeVisible();
+        await expect(table.getByRole("button", { name: "Benchmark ticket 0000", exact: true })).toBeVisible();
+        await paint();
+        const sample = { startupList: Math.round(performance.now() - start) };
+        await page.locator('[aria-controls="plugin-list-filter-controls"]').click();
+        sample.filter = await measure(async () => {
+          await page.locator("#plugin-filter-status").selectOption("doing");
+          await expect(table.getByRole("button", { name: "Benchmark ticket 0003", exact: true })).toHaveCount(0);
+          await expect(table.getByRole("button", { name: "Benchmark ticket 0001", exact: true })).toBeVisible();
+          // Every rendered data row must now have the selected status.
+          await expect.poll(() => table.locator("tbody tr").count()).toBeGreaterThan(0);
+          for (const text of await table.locator("tbody tr").allTextContents()) {
+            if (!text.includes("Doing")) throw new Error(`Unfiltered row: ${text}`);
+          }
+        });
+        sample.kanban = await measure(async () => {
+          await page.getByRole("group", { name: "表示", exact: true }).getByRole("button", { name: "カンバン", exact: true }).click();
+          await expect(page.locator('article[data-ticket-name="bench-ticket-0000"]')).toBeVisible();
+        });
+        // Use the documented keyboard card move; persist alternates across runs.
+        const card = page.locator('article[data-ticket-name="bench-ticket-0000"]');
+        const file = path.join(path.dirname(configPath), "content/+tickets/bench-ticket-0000.yaml");
+        const source = await readFile(file, "utf8");
+        const fromDoing = /status: doing/.test(source);
+        const target = fromDoing ? "todo" : "doing";
+        sample.moveSave = await measure(async () => {
+          const saved = page.waitForResponse((r) => r.request().method() === "PATCH" && r.url().includes("bench-ticket-0000"));
+          await card.getByRole("button", { name: "Benchmark ticket 0000", exact: true }).press(fromDoing ? "Alt+ArrowLeft" : "Alt+ArrowRight");
+          const response = await saved;
+          if (!response.ok()) throw new Error(`Card save failed: ${response.status()}`);
+          await expect.poll(() => readFile(file, "utf8")).toMatch(new RegExp(`status: ${target}\\b`));
+          await expect(page.locator(`#kanban-defined-${target}`).locator("..").locator('[data-ticket-name="bench-ticket-0000"]')).toHaveAttribute("aria-busy", "false");
+        });
+        sample.wbs = await measure(async () => {
+          await page.getByRole("group", { name: "表示", exact: true }).getByRole("button", { name: "WBS", exact: true }).click();
+          await expect(page.getByRole("treegrid", { name: "WBSの階層" })).toHaveAttribute("aria-rowcount", "1001");
+          await expect(page.locator('.wbs-row[data-ticket-name="bench-ticket-0000"]')).toBeVisible();
+        });
+        const firstName = await page.locator(".wbs-row[data-ticket-name]").first().getAttribute("data-ticket-name");
+        await page.locator(".wbs-scroll").scrollIntoViewIfNeeded();
+        sample.scroll = await measure(async () => {
+          const scroll = page.locator(".wbs-scroll");
+          await scroll.evaluate((element) => { element.scrollTop = element.scrollHeight - element.clientHeight; });
+          await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+          await expect(page.locator(`.wbs-row[data-ticket-name="${firstName}"]`)).not.toBeInViewport();
+          await expect(page.locator('.wbs-row[data-ticket-name="bench-ticket-0999"]')).toBeInViewport();
+        });
+        sample.detail = await measure(async () => {
+          await page.locator('.wbs-row[data-ticket-name="bench-ticket-0999"] .wbs-title').click();
+          await expect(page.getByText("Benchmark description 999", { exact: true })).toBeVisible();
+        });
+        if (errors.length) throw new Error(errors.join("\n"));
+        samples.push(sample);
+      } finally {
+        await context.close();
+        const stopped = new Promise((resolve) => server.once("exit", resolve));
+        server.kill("SIGTERM");
+        if (!exited) await Promise.race([stopped, sleep(2000)]);
+        if (!exited) { server.kill("SIGKILL"); await stopped; }
+      }
+    }
+  } finally { await browser.close(); }
+  const maxMs = Object.fromEntries(Object.keys(limitsMs).map((key) => [key, Math.max(...samples.map((s) => s[key]))]));
+  const result = { label, tickets: 1000, samples, maxMs, limitsMs };
+  const text = `${JSON.stringify(result, null, 2)}\n`;
+  process.stdout.write(text);
+  if (outPath) await writeFile(path.resolve(outPath), text);
+  if (assertThresholds) {
+    const failures = Object.keys(limitsMs).filter((key) => maxMs[key] > limitsMs[key]);
+    if (failures.length) throw new Error(`Ticket scale verification failed: ${failures.map((key) => `${key} ${maxMs[key]}ms > ${limitsMs[key]}ms`).join(", ")}`);
+  }
+}
+
+if (args.includes("--tickets")) {
+  await benchTickets();
+} else {
 const child = spawn(
   process.execPath,
   [cli, "dev", "--config", configPath, "--host", "127.0.0.1", "--port", String(port)],
@@ -231,4 +359,5 @@ try {
   child.kill("SIGTERM");
   await sleep(300);
   if (!exited) child.kill("SIGKILL");
+}
 }

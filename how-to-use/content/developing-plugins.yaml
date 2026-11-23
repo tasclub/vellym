@@ -14,11 +14,13 @@ spec:
         このページでは、独自の`ReadingItem`リソースを文書ツリーへ追加し、URL、
         読了状態、本文を編集できる最小プラグインを作る。
 
+        `@vellym/plugin-api` の `summarizeRows(rows, key, type, method, locale)` は `{ text, excluded }` を返す。型ごとの方式は `SUMMARY_METHODS` を参照する。
+
         ## 開発に必要なもの
 
         - Node.js 22.12.0以上
         - npm
-        - 動作確認に使うVellym 0.4.0-betaのプロジェクト
+        - 動作確認に使うVellym 0.5.0-betaのプロジェクト
 
         プラグインにはNode側の入口が必須である。kind、画面、索引、操作をここで登録する。
         一覧と詳細は宣言だけでVellymが描画できるため、独自UIが必要になるまでは
@@ -46,7 +48,7 @@ spec:
           "files": ["dist"],
           "engines": {
             "node": ">=22.12.0",
-            "vellym": ">=0.4.0-beta <0.5.0"
+            "vellym": ">=0.5.0-beta <0.6.0"
           },
           "exports": {
             ".": {
@@ -262,9 +264,10 @@ spec:
         コードを変更したらプラグインを再ビルドし、必要に応じて動作確認用プロジェクトで
         再インストールしてからVellymを再起動する。
 
-        `npx vellym validate`でもプラグインの読み込み警告と、`specSchema`に合わない
-        リソースの警告を確認できる。プラグインの失敗だけを理由に`validate`、`build`、
-        開発サーバー全体が停止することはない。
+        `npx vellym validate`ではプラグインの読み込み警告と、`specSchema`に合わない
+        リソースの警告を確認できる。どちらもwarningであり、リソースの読み込みや保存を
+        拒否しない。種別固有の値は原文のまま保持する。
+        プラグインの失敗だけを理由に`validate`、`build`、開発サーバー全体が停止することはない。
 
         ## manifestの項目
 
@@ -288,9 +291,10 @@ spec:
 
         | API | 用途 |
         | --- | --- |
-        | `registerKind` | kind、`spec`のJSON Schema、本文の有無、ツリー表示、16×16アイコンを登録する。schema不一致は警告になり、原文は保持される。 |
+        | `registerKind` | kind、`spec` JSON Schema、`engineVersion`、本文の有無、ツリー表示、16×16アイコンを登録する。`engineVersion`はkind契約のsemver。`specSchema`不一致はwarningとして診断し、種別固有の値は原文のまま保持する。 |
         | `registerRecordProjection` | 抽出済みレコードを、一覧と詳細が使う小さな索引行へ変換する。 |
-        | `registerView` | 汎用の一覧・詳細descriptor、または文脈からdescriptorを作る関数を登録する。 |
+        | `registerRecordSetValidator` | 同じkindの索引行全体を、行がそろう後に1回だけ検査する。レコードをまたぐ参照の解決や循環はここで書く。同じkindへ複数登録でき、hostは同じ関数を1回だけ実行し、診断をfile・path・codeで重複を除く。 |
+        | `registerView` | 汎用の一覧・詳細descriptor、または文脈からdescriptorを作る関数を登録する。独自renderer向けの`rendererData`と、一覧の`paperWidth`も宣言できる。ビュー切替の順は`role: "primary"`を先頭、`role: "settings"`を末尾にし、指定なしはその間で`plugins`の設定順・登録順にする。 |
         | `registerCommand` | 入力項目と処理を登録する。新規リソースは`context.createResource()`で未保存ドラフトとして始める。 |
         | `reportDiagnostic` | 例外の代わりに、file、JSON Pointer、severity、安定したcode、messageを持つ診断を出す。 |
 
@@ -298,8 +302,8 @@ spec:
         `date`、`select`、`multiselect`、`reference`である。表示名は文字列、または
         `{ ja: "...", en: "..." }`のようなlocale別の対応で書ける。
 
-        利用者が正本YAMLへ書いた定義を参照する場合は、view providerやprojector
-        factoryの`context.records(kind)`を使う。これは設定リソースのような少数の
+        利用者が正本YAMLへ書いた定義を参照する場合は、view provider・projector factory・
+        record set validatorの`context.records(kind)`を使う。これは設定リソースのような少数の
         集合にだけ使い、大量の本体リソースはprojectionで索引化する。
 
         ## 独自のブラウザ画面が必要な場合
@@ -353,11 +357,41 @@ spec:
         `mount`は同期でhandleを返し、timerや購読は`unmount`で同期的に解除する。
         書き戻しはrendererへ渡る`context.save()`を使い、静的版では`context.isStatic`を
         見て保存操作を表示しない。ブラウザ資産はES moduleとしてbundleする。
+        **rendererへ渡る`context.locale`はUI言語**（設定画面の「表示言語を変更」で
+        決まる値、静的版では`ui.language`）である。ボタン・見出し・案内文・選択肢・
+        `aria-label`と診断の本文はこれで選ぶ。Node側の`registerView`と`registerCommand`の
+        `context.locale`は文書の要求言語のままで、並び順と、作成するYAMLの既定の題名に使う。
+        `save(writes, { targetName })`はmetadata.nameで指定した別リソースへ保存できる。
+        `openResource(name)`は別リソースを開き、結果を返す。`getViewSettings()` /
+        `setViewSettings()`はブラウザ内の個人設定を読む・保存する。
+        ビュー固有の個人設定には`context.getViewSettings()`と`setViewSettings()`を使う。
+        値はブラウザのlocalStorageに保存され、プロジェクト・プラグイン・ビュー・対象resource
+        ごとに分かれる。他の利用者やYAMLとは共有しない。プロジェクトのrootを移動すると
+        別スコープになり、旧バージョンのスコープなし設定は引き継がれない。
 
         Reactを使う場合は`@vellym/plugin-api/react`の`reactRenderer`でcomponentを包む。
         `react`、`react-dom`、`react/jsx-runtime`、`@vellym/plugin-api/ui`はbundleへ
         同梱せずexternalにする。Vellymが同一の実体を提供するため、Reactを二重に
         同梱するとhooksが壊れる。
+
+        プラグイン独自のCSSはmanifestの`styles`へ、ブラウザ入口からの相対pathで宣言する。
+        CSSのクラス名とselectorはすべてプラグインIDを接頭辞にする
+        （例: `wbs-row`）。他プラグインやホストへの影響を防ぐためである。
+        ホストのCSS変数は参照できるが、プラグイン側で再定義しない。CSSは動的版・静的版の
+        どちらでも読み込まれる。
+
+        ```json
+        {
+          "vellym": {
+            "id": "reading-list",
+            "styles": ["reading-list.css"]
+          }
+        }
+        ```
+
+        manifestの`guideUrl`（任意）に、プラグインの使い方のページを言語ごとに書ける
+        （`{ "ja": "https://…", "en": "https://…" }`、httpsだけ）。公式プラグインでは、
+        `vellym init --plugins`が完了時にこのURLを案内する。
 
         ## データと安全性の規則
 
@@ -406,6 +440,8 @@ spec:
         - id: developing-plugins
           type: rich-text
           content: |
+            `summarizeRows(rows, key, type, method, locale)` from `@vellym/plugin-api` returns `{ text, excluded }`. Use `SUMMARY_METHODS` for supported methods by type.
+
             A Vellym plugin is an npm package. Depend only on the public
             `@vellym/plugin-api` contract; do not import Vellym's internal packages. This page
             builds a minimal plugin that adds a `ReadingItem` resource to the document tree and
@@ -415,7 +451,7 @@ spec:
 
             - Node.js 22.12.0 or later
             - npm
-            - A Vellym 0.4.0-beta project for testing
+            - A Vellym 0.5.0-beta project for testing
 
             Every plugin needs a Node entry to register kinds, views, indexes, and commands.
             Vellym renders declarative lists and details, so a browser entry is unnecessary
@@ -443,7 +479,7 @@ spec:
               "files": ["dist"],
               "engines": {
                 "node": ">=22.12.0",
-                "vellym": ">=0.4.0-beta <0.5.0"
+                "vellym": ">=0.5.0-beta <0.6.0"
               },
               "exports": {
                 ".": {
@@ -660,9 +696,10 @@ spec:
             and saved. After code changes, rebuild the plugin and, when needed, reinstall it in
             the test project before restarting Vellym.
 
-            `npx vellym validate` reports plugin-loading warnings and resources that do not match
-            `specSchema`. A plugin failure alone never stops `validate`, `build`, or the entire
-            development server.
+            `npx vellym validate` reports plugin-loading warnings and warnings for resources that
+            do not match `specSchema`. These are warnings: they do not reject resource loading or
+            saving, and kind-specific values remain preserved as written.
+            A plugin failure alone never stops `validate`, `build`, or the entire development server.
 
             ## Manifest fields
 
@@ -685,9 +722,10 @@ spec:
 
             | API | Purpose |
             | --- | --- |
-            | `registerKind` | Registers a kind, its `spec` JSON Schema, body behavior, tree visibility, and optional 16×16 icon. Schema mismatch is a warning and source is preserved. |
+            | `registerKind` | Registers a kind, its `spec` JSON Schema, `engineVersion`, body behavior, tree visibility, and optional 16×16 icon. `engineVersion` is the kind contract's semver. A `specSchema` mismatch is a warning; kind-specific values remain preserved as written. |
             | `registerRecordProjection` | Reduces extracted records to small index rows used by lists and details. |
-            | `registerView` | Registers a generic list/detail descriptor, or a function that creates one from context. |
+            | `registerRecordSetValidator` | Checks all index rows of one kind once, after they are ready. Cross-record checks — reference resolution and cycles — belong here. Several plugins may register for the same kind; the host runs the same function once and deduplicates diagnostics by file, path, and code. |
+            | `registerView` | Registers a generic list/detail descriptor, or a function that creates one from context. Descriptors may include `rendererData` for a custom renderer and `paperWidth` for list views. In a view switcher, `role: "primary"` is first and `role: "settings"` is last; unspecified views stay between them in `plugins` configuration and registration order. |
             | `registerCommand` | Registers inputs and behavior. Start a resource as an unsaved draft with `context.createResource()`. |
             | `reportDiagnostic` | Reports a file, JSON Pointer, severity, stable code, and message instead of throwing. |
 
@@ -696,8 +734,9 @@ spec:
             locale map such as `{ ja: "...", en: "..." }`.
 
             When behavior depends on definitions in source YAML, call `context.records(kind)`
-            from a view provider or projector factory. Use it only for small sets such as
-            configuration resources. Index large resource sets through projections.
+            from a view provider, projector factory, or record set validator. Use it only for
+            small sets such as configuration resources. Index large resource sets through
+            projections.
 
             ## Add a custom browser view only when needed
 
@@ -750,11 +789,29 @@ spec:
             `mount` returns a handle synchronously. Stop timers and subscriptions synchronously
             in `unmount`. Write through `context.save()` and hide saving controls when
             `context.isStatic` is true. Bundle browser assets as ES modules.
+            **The `context.locale` a renderer receives is the UI language** (the value chosen by
+            "Change display language" in the settings screen, and `ui.language` in static
+            output). Buttons, headings, guidance text, options, `aria-label` values and
+            diagnostic messages use it. The `context.locale` handed to Node-side `registerView`
+            and `registerCommand` stays the document request language, used for sorting and for
+            default content such as a new ticket's title.
+            Use `save(writes, { targetName })` to save another resource by `metadata.name`,
+            `openResource(name)` to navigate to one and inspect the result, and
+            `getViewSettings()` / `setViewSettings()` for browser-local personal preferences.
+            Store view-specific personal preferences with `context.getViewSettings()` and
+            `setViewSettings()`. Values remain in the browser's localStorage and are scoped by
+            project, plugin, view, and target resource. They are not shared with other users or
+            written to YAML. Moving the project root creates a new scope; legacy unscoped values
+            are not migrated.
 
             For React, wrap a component with `reactRenderer` from
             `@vellym/plugin-api/react`. Mark `react`, `react-dom`, `react/jsx-runtime`, and
             `@vellym/plugin-api/ui` as external. Vellym supplies shared instances; bundling a
             second React instance breaks hooks.
+
+            The optional manifest field `guideUrl` names the page that explains how to use the
+            plugin, per language (`{ "ja": "https://…", "en": "https://…" }`, https only). For
+            official plugins, `vellym init --plugins` points to this URL when it finishes.
 
             ## Data and safety rules
 

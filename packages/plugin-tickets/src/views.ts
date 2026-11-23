@@ -7,20 +7,24 @@ import type {
   PluginValueType,
   PluginViewContext
 } from "@vellym/plugin-api";
-import { readTrackers, trackerFor, type Tracker } from "./definitions.js";
+import { readTrackers, trackerFor, type Tracker } from "@vellym-internal/ticket-engine";
 import {
   FIELD_KEY_PREFIX,
   LABELS_KEY,
   STATUS_KEY,
+  STATUS_UNDEFINED_KEY,
   TRACKERS_KEY,
   fieldKey
-} from "./projection.js";
+} from "@vellym-internal/ticket-engine";
 
 export const LIST_VIEW_ID = "ticket-list";
 export const DETAIL_VIEW_ID = "ticket-detail";
 export const SETTINGS_VIEW_ID = "ticket-tracker-settings";
-export const CREATE_COMMAND_ID = "ticket.create";
-export const CREATE_TRACKER_COMMAND_ID = "ticket.create-tracker";
+export {
+  CREATE_TICKET_COMMAND_ID as CREATE_COMMAND_ID,
+  CREATE_TRACKER_COMMAND_ID
+} from "@vellym-internal/ticket-engine";
+import { CREATE_TICKET_COMMAND_ID } from "@vellym-internal/ticket-engine";
 
 /**
  * ステータスの選択肢。記号は`category`からだけ決める。
@@ -75,24 +79,31 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
       label: { ja: "ステータス", en: "Status" },
       type: "select",
       options: statusOptions(tracker),
+      // 自分の定義（最も近い祖先のチケット管理）に無いステータスは「定義外」と示す。
+      marker: { valueKey: STATUS_UNDEFINED_KEY, label: { ja: "定義外", en: "undefined" } },
       sortable: true,
       filterable: true,
       // まとめて変えられるのはステータスと単一選択まで。自由入力は対象にしない。
       editPath: ["status"]
     });
   }
-  // 列にするのは`listColumn`を宣言した項目だけ。項目が増えても一覧が
-  // 横に伸び続けないようにする。宣言の無い項目は詳細で読む。
+  // 列に出すのは`listColumn`を宣言した項目だけ。項目が増えても一覧が
+  // 横に伸び続けないようにするためである。`filter`・`sort`だけの項目は
+  // `hidden`の列として作り、表には出さず絞り込みと並べ替えにだけ使う。
+  // 宣言の無い項目は詳細で読む。
   for (const field of tracker?.fields ?? []) {
-    if (!field.listColumn) continue;
+    if (!field.listColumn && !field.filter && !field.sort) continue;
     columns.push({
       id: fieldKey(field.id),
       label: field.label,
       type: field.type,
       ...(field.options ? { options: field.options } : {}),
-      sortable: true,
-      filterable: true,
-      ...(field.type === "select" ? { editPath: ["fields", field.id] } : {})
+      ...(field.listColumn ? {} : { hidden: true }),
+      sortable: field.sort,
+      filterable: field.filter,
+      // まとめて変えられる列は、表に出ている単一選択だけ。隠れた列を
+      // 一括編集に混ぜると、見えない行が変わる。
+      ...(field.listColumn && field.type === "select" ? { editPath: ["fields", field.id] } : {})
     });
   }
   // 既定で隠すのは完了だけとする。未設定も定義外も「まだ終わっていないもの」であり、
@@ -118,7 +129,17 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
     kind: "Ticket",
     title: tracker?.title ?? { ja: "チケット", en: "Tickets" },
     columns,
-    defaultSort: { columnId: "title", direction: "asc" },
+    ...(tracker?.summary?.length ? { summary: tracker.summary.map(({ field, method, groupBy }) => ({
+      valueKey: fieldKey(field.id), type: field.type, method, label: field.label,
+      ...(field.options ? { options: field.options } : {}),
+      ...(groupBy ? { groupBy: { valueKey: fieldKey(groupBy.id), type: groupBy.type,
+        ...(groupBy.type === "select" ? { order: groupBy.options?.map((option) => option.value) } : {}),
+        ...(groupBy.options ? { options: groupBy.options } : {}) } } : {})
+    })) } : {}),
+    // `spec.defaultSort`が解決できていればそれを、無ければタイトル昇順。
+    defaultSort: tracker?.defaultSort
+      ? { columnId: fieldKey(tracker.defaultSort.field.id), direction: tracker.defaultSort.direction }
+      : { columnId: "title", direction: "asc" },
     // 他の工程のチケットを混ぜない。これは利用者が外せない。
     // 子フォルダに別のチケット管理があっても、そこのチケットはここにも出る。
     scopeFilters: [
@@ -146,7 +167,7 @@ export function ticketListView(context: PluginViewContext): PluginListViewDescri
       tracker && tracker.statuses.length
         ? {
             message: { ja: "チケットがありません", en: "No tickets yet" },
-            ...(context.isStatic ? {} : { commandId: CREATE_COMMAND_ID })
+            ...(context.isStatic ? {} : { commandId: CREATE_TICKET_COMMAND_ID })
           }
         : {
             message: {
@@ -174,7 +195,15 @@ export function ticketDetailView(context: PluginViewContext): PluginDetailViewDe
       options: statusOptions(tracker)
     });
   }
-  for (const field of tracker?.fields ?? []) {
+  // Most important first, keeping the definition order inside each group: the fields
+  // shown as list columns, then single-line fields, then multi-line ones.
+  const declared = tracker?.fields ?? [];
+  const ordered = [
+    ...declared.filter((field) => field.listColumn),
+    ...declared.filter((field) => !field.listColumn && field.type !== "multiline"),
+    ...declared.filter((field) => !field.listColumn && field.type === "multiline")
+  ];
+  for (const field of ordered) {
     fields.push({
       id: field.id,
       label: field.label,
@@ -182,6 +211,8 @@ export function ticketDetailView(context: PluginViewContext): PluginDetailViewDe
       path: ["fields", field.id],
       valueKey: fieldKey(field.id),
       ...(field.options ? { options: field.options } : {}),
+      // 参照の複数値。編集・表示はmultiselectと同じ入力欄を使う。
+      ...(field.multiple ? { multiple: true } : {}),
       ...(field.required ? { required: true } : {})
     });
   }
@@ -195,6 +226,10 @@ export function ticketDetailView(context: PluginViewContext): PluginDetailViewDe
     undeclaredFields: "read-only",
     // 索引行のうち、利用者が定義した項目はこの接頭辞を持つ。
     undeclaredKeyPrefix: FIELD_KEY_PREFIX,
+    // チケットから参照しているチケット（親・依存など）を、状態つきで見せる。
+    referencedBy: { statusField: STATUS_KEY },
+    // コミットメッセージにチケットの名前を書いたコミットを、詳細に並べる（動的版だけ）。
+    relatedCommits: true,
     // 保存したら、属するチケット管理の一覧へ戻る。
     ...(tracker ? { parent: { name: tracker.name, title: tracker.title } } : {})
   };

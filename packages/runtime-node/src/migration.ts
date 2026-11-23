@@ -59,7 +59,10 @@ export async function planMigration(configPath: string): Promise<MigrationPlan> 
         file: relativePath,
         severity: "error",
         code: "MIGRATION_YAML",
-        message: document?.errors[0]?.message ?? "単一YAML documentではありません"
+        message: document?.errors[0]?.message ?? {
+          ja: "単一YAML documentではありません",
+          en: "The file does not contain exactly one YAML document."
+        }
       });
       continue;
     }
@@ -79,7 +82,10 @@ export async function planMigration(configPath: string): Promise<MigrationPlan> 
         file: relativePath,
         severity: "error",
         code: "MIGRATION_UNSAFE_YAML",
-        message: `${[...unsafeReasons].join("、")}を含むため安全にmigrationできません`
+        message: {
+          ja: `${[...unsafeReasons].join("、")}を含むため安全にmigrationできません`,
+          en: `Migration cannot be performed safely because it contains ${[...unsafeReasons].join(", ")}.`
+        }
       });
       continue;
     }
@@ -92,7 +98,10 @@ export async function planMigration(configPath: string): Promise<MigrationPlan> 
         file: relativePath,
         severity: "error",
         code: "MIGRATION_KIND",
-        message: "v1alpha1 resourceのkindはPageまたはFolderである必要があります"
+        message: {
+          ja: "v1alpha1 resourceのkindはPageまたはFolderである必要があります",
+          en: "A v1alpha1 resource kind must be Page or Folder."
+        }
       });
       continue;
     }

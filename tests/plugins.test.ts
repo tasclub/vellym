@@ -1,13 +1,16 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile, symlink, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  buildPluginView,
   loadPlugins,
   loadRepository,
   localizedPageSummaries,
   parsePagePatch,
+  pluginKinds,
   savePage,
+  startDevServer,
   unknownKindGroups
 } from "@vellym-internal/runtime-node";
 
@@ -18,6 +21,7 @@ interface FakePlugin {
   engines?: string;
   manifest?: unknown;
   entry?: string;
+  browser?: boolean;
   /** `exports`を持つ実際の公開パッケージの形にする */
   useExports?: boolean;
 }
@@ -34,8 +38,11 @@ async function installPlugin(configDir: string, plugin: FakePlugin): Promise<voi
       type: "module",
       // exportsを持つパッケージは"./package.json"を公開しない。hostはそれでも
       // manifestへ辿り着けなければならない。
-      ...(plugin.useExports
-        ? { exports: { ".": "./index.mjs" } }
+      ...(plugin.useExports || plugin.browser
+        ? { exports: {
+            ".": "./index.mjs",
+            ...(plugin.browser ? { "./browser": "./browser/index.js" } : {})
+          } }
         : { main: "index.mjs" }),
       ...(plugin.engines === undefined ? {} : { engines: { vellym: plugin.engines } }),
       ...(plugin.manifest === undefined ? {} : { vellym: plugin.manifest })
@@ -46,6 +53,10 @@ async function installPlugin(configDir: string, plugin: FakePlugin): Promise<voi
     plugin.entry ??
       `export function activate(host) { host.registerKind({ kind: "Ticket" }); }`
   );
+  if (plugin.browser) {
+    await mkdir(path.join(directory, "browser"), { recursive: true });
+    await writeFile(path.join(directory, "browser/index.js"), "export default { activate() {} };\n");
+  }
 }
 
 async function projectWith(plugins: FakePlugin[]): Promise<string> {
@@ -57,6 +68,23 @@ async function projectWith(plugins: FakePlugin[]): Promise<string> {
 const ticketManifest = { id: "tickets", contributes: { kinds: [{ kind: "Ticket" }] } };
 
 describe("loadPlugins", () => {
+  it("serves only real files inside the browser asset directory", async () => {
+    const dir = await projectWith([{ name: "safe-plugin", engines: ">=0.3.0-beta.1", manifest: { id: "safe-plugin" }, browser: true }]);
+    const browser = path.join(dir, "node_modules/safe-plugin/browser");
+    await mkdir(path.join(dir, "content"));
+    await writeFile(path.join(dir, "secret.js"), "secret");
+    await symlink(path.join(dir, "secret.js"), path.join(browser, "link.js"));
+    await symlink(dir, path.join(browser, "outside"));
+    const configPath = path.join(dir, "vellym.config.yaml");
+    await writeFile(configPath, 'schemaVersion: "1.0"\ncontentRoot: content\noutputDir: dist\nui:\n  language: en\nplugins:\n  - safe-plugin\n');
+    const server = await startDevServer({ configPath, uiRoot: dir, port: 0, hostVersion: HOST_VERSION });
+    try {
+      expect((await fetch(`${server.url}/plugins/safe-plugin/index.js`)).status).toBe(200);
+      for (const file of ["link.js", "outside/secret.js", "%2e%2e%2fsecret.js", "%2fsecret.js"]) {
+        expect((await fetch(`${server.url}/plugins/safe-plugin/${file}`)).status).toBe(404);
+      }
+    } finally { await server.close(); await rm(dir, { recursive: true, force: true }); }
+  });
   it("activates a plugin resolved from the project directory", async () => {
     const configDir = await projectWith([
       { name: "vellym-plugin-tickets", engines: ">=0.3.0-beta.1", manifest: ticketManifest }
@@ -116,6 +144,25 @@ describe("loadPlugins", () => {
     expect(registry.plugins.map((plugin) => plugin.id)).toEqual(["tickets"]);
   });
 
+  it("resolves stylesheet declarations relative to the exported browser directory", async () => {
+    const configDir = await projectWith([{
+      name: "@scope/styled",
+      engines: ">=0.3.0-beta.1",
+      manifest: { id: "styled", styles: ["styled.css"] },
+      browser: true
+    }]);
+    const registry = await loadPlugins({
+      configDir,
+      packageNames: ["@scope/styled"],
+      hostVersion: HOST_VERSION
+    });
+    expect(registry.diagnostics).toEqual([]);
+    expect(registry.plugins[0]).toMatchObject({
+      browserEntry: "index.js",
+      browserStyles: ["styled.css"]
+    });
+  });
+
   it("keeps the first plugin that claims a kind", async () => {
     const configDir = await projectWith([
       { name: "first", engines: ">=0.3.0-beta.1", manifest: ticketManifest },
@@ -132,6 +179,130 @@ describe("loadPlugins", () => {
     });
     expect(registry.kinds.get("Ticket")?.packageName).toBe("first");
     expect(registry.diagnostics.map((item) => item.code)).toEqual(["PLUGIN_KIND_CONFLICT"]);
+  });
+
+  it("resolves duplicate kinds by declared semver independent of plugin order", async () => {
+    const first = {
+      name: "engine-old",
+      engines: ">=0.3.0-beta.1",
+      manifest: { id: "engine-old", contributes: { kinds: [{ kind: "Ticket" }] } },
+      entry: `export function activate(host) { host.registerKind({ kind: "Ticket", engineVersion: "1.2.0-beta.2" }); }`
+    };
+    const second = {
+      name: "engine-new",
+      engines: ">=0.3.0-beta.1",
+      manifest: { id: "engine-new", contributes: { kinds: [{ kind: "Ticket" }] } },
+      entry: `export function activate(host) { host.registerKind({ kind: "Ticket", engineVersion: "1.2.0" }); }`
+    };
+    for (const plugins of [[first, second], [second, first]]) {
+      const configDir = await projectWith(plugins);
+      const registry = await loadPlugins({
+        configDir,
+        packageNames: plugins.map((plugin) => plugin.name),
+        hostVersion: HOST_VERSION
+      });
+      expect(registry.kinds.get("Ticket")?.id).toBe("engine-new");
+      expect(registry.diagnostics.map((item) => item.code)).toEqual([
+        "PLUGIN_KIND_VERSION_MISMATCH"
+      ]);
+    }
+  });
+
+  it("does not warn when duplicate kind registrations declare the same version", async () => {
+    const plugins = ["engine-a", "engine-b"].map((name) => ({
+      name,
+      engines: ">=0.3.0-beta.1",
+      manifest: { id: name, contributes: { kinds: [{ kind: "Ticket" }] } },
+      entry: `export function activate(host) { host.registerKind({ kind: "Ticket", engineVersion: "1.2.0" }); }`
+    }));
+    const configDir = await projectWith(plugins);
+    const registry = await loadPlugins({
+      configDir,
+      packageNames: plugins.map((plugin) => plugin.name),
+      hostVersion: HOST_VERSION
+    });
+    expect(registry.kinds.get("Ticket")?.id).toBe("engine-a");
+    expect(registry.diagnostics).toEqual([]);
+  });
+});
+
+describe("plugin view siblings", () => {
+  it("includes labeled views from other plugins and filters by static availability", async () => {
+    const listDescriptor = (id: string) => ({
+      type: "list",
+      id,
+      kind: "Ticket",
+      title: { en: id },
+      columns: []
+    });
+    const plugins: FakePlugin[] = [
+      {
+        name: "views-one",
+        engines: ">=0.3.0-beta.1",
+        manifest: {
+          id: "views-one",
+          contributes: {
+            views: [
+              { id: "tracker-list", kind: "TicketTracker", type: "list", static: true },
+              { id: "hidden-label", kind: "TicketTracker", type: "list", static: true },
+              { id: "dynamic", kind: "TicketTracker", type: "list", static: false }
+            ]
+          }
+        },
+        entry: `export function activate(host) {
+          host.registerView({ id: "tracker-list", opensKind: "TicketTracker", label: { en: "List" }, static: true, view: ${JSON.stringify(listDescriptor("tracker-list"))} });
+          host.registerView({ id: "hidden-label", opensKind: "TicketTracker", static: true, view: ${JSON.stringify(listDescriptor("hidden-label"))} });
+          host.registerView({ id: "dynamic", opensKind: "TicketTracker", label: { en: "Dynamic" }, static: false, view: ${JSON.stringify(listDescriptor("dynamic"))} });
+        }`
+      },
+      {
+        name: "views-two",
+        engines: ">=0.3.0-beta.1",
+        manifest: {
+          id: "views-two",
+          contributes: {
+            views: [
+              { id: "board", kind: "TicketTracker", type: "detail", static: true }
+            ]
+          }
+        },
+        entry: `export function activate(host) {
+          host.registerView({ id: "board", opensKind: "TicketTracker", label: { en: "Board" }, static: true, view: ${JSON.stringify(listDescriptor("board"))} });
+        }`
+      }
+    ];
+    const configDir = await projectWith(plugins);
+    const registry = await loadPlugins({
+      configDir,
+      packageNames: plugins.map((plugin) => plugin.name),
+      hostVersion: HOST_VERSION
+    });
+    const payload = (isStatic: boolean) =>
+      buildPluginView({
+        registry,
+        target: {
+          kind: "TicketTracker",
+          name: "tracker-1",
+          title: "Tracker",
+          relativePath: "tracker.yaml",
+          spec: {},
+          readOnly: true
+        },
+        rows: [],
+        definitions: () => [],
+        locale: "en",
+        isStatic
+      });
+
+    const devPayload = payload(false)!;
+    const staticPayload = payload(true)!;
+    expect(devPayload.siblings!.map((item) => item.id)).toEqual([
+      "tracker-list",
+      "dynamic",
+      "board"
+    ]);
+    expect(devPayload.siblings![2]?.type).toBe("detail");
+    expect(staticPayload.siblings!.map((item) => item.id)).toEqual(["tracker-list", "board"]);
   });
 });
 
@@ -286,6 +457,154 @@ describe("record projections", () => {
     // 定義が変わったので、変更していない項目の索引行も作り直される。
     const row = second.pages.find((entry) => entry.name === "item-01")?.indexRow;
     expect(row).toEqual({ label: "結合テスト", status: "open" });
+  });
+});
+
+describe("record set validators", () => {
+  /** 索引行が2件と、`_`始まりで索引に載らない行が1件ある領域 */
+  async function contentRootWithItems(): Promise<string> {
+    const contentRoot = await mkdtemp(path.join(tmpdir(), "vellym-validators-"));
+    await mkdir(path.join(contentRoot, "tests", "_保留"), { recursive: true });
+    const write = async (relativePath: string, lines: string[]) => {
+      await writeFile(path.join(contentRoot, relativePath), `${lines.join("\n")}\n`);
+    };
+    await write("tests/tracker.yaml", [
+      "apiVersion: vellym.tasclub.com/v1",
+      "kind: Demo",
+      "metadata:",
+      "  name: demo-tracker",
+      "  title: デモ"
+    ]);
+    for (const name of ["item-01", "item-02"]) {
+      await write(`tests/${name}.yaml`, [
+        "apiVersion: vellym.tasclub.com/v1",
+        "kind: DemoItem",
+        "metadata:",
+        `  name: ${name}`,
+        `  title: 項目 ${name}`,
+        "spec:",
+        "  status: open"
+      ]);
+    }
+    await write("tests/_保留/item-03.yaml", [
+      "apiVersion: vellym.tasclub.com/v1",
+      "kind: DemoItem",
+      "metadata:",
+      "  name: item-03",
+      "  title: 対象外の項目",
+      "spec:",
+      "  status: open"
+    ]);
+    return contentRoot;
+  }
+
+  const projectorFactory = () => (record: {
+    relativePath: string;
+    spec: Record<string, unknown>;
+  }) =>
+    record.relativePath.includes("/_")
+      ? undefined
+      : { values: { status: String(record.spec.status ?? "") } };
+
+  it("runs once after the index rows are ready and keeps returned diagnostics", async () => {
+    const contentRoot = await contentRootWithItems();
+    let calls = 0;
+    let seenNames: string[] = [];
+    let seenStatuses: unknown[] = [];
+    const validate = (rows: readonly { name: string; values: Record<string, unknown> }[]) => {
+      calls += 1;
+      seenNames = rows.map((row) => row.name).sort();
+      seenStatuses = rows.map((row) => row.values.status);
+      return [
+        {
+          file: rows[0]?.name ?? "",
+          path: "/spec/status",
+          severity: "warning" as const,
+          code: "DEMO_SET_CHECK",
+          message: { ja: "索引行の検査", en: "Index row check" }
+        }
+      ];
+    };
+    const snapshot = await loadRepository(contentRoot, undefined, {
+      knownKinds: new Set(["Demo", "DemoItem"]),
+      treeKinds: new Set(["Demo"]),
+      projections: new Map([["DemoItem", projectorFactory]]),
+      recordSetValidators: new Map([["DemoItem", [validate]]])
+    } as unknown as Parameters<typeof loadRepository>[2]);
+    expect(calls).toBe(1);
+    // 索引に載らない行は渡らない。identity（name・title）と索引行の値が渡る。
+    expect(seenNames).toEqual(["item-01", "item-02"]);
+    expect(seenStatuses).toEqual(["open", "open"]);
+    const warnings = snapshot.diagnostics.filter((item) => item.code === "DEMO_SET_CHECK");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ file: "item-01", severity: "warning" });
+  });
+
+  it("warns and keeps loading when a validator throws", async () => {
+    const contentRoot = await contentRootWithItems();
+    const snapshot = await loadRepository(contentRoot, undefined, {
+      knownKinds: new Set(["Demo", "DemoItem"]),
+      treeKinds: new Set(["Demo"]),
+      projections: new Map([["DemoItem", projectorFactory]]),
+      recordSetValidators: new Map([
+        [
+          "DemoItem",
+          [
+            () => {
+              throw new Error("検査器が壊れた");
+            }
+          ]
+        ]
+      ])
+    } as unknown as Parameters<typeof loadRepository>[2]);
+    // 例外でも読み込みは続き、索引行は残る。
+    const rows = snapshot.pages.filter((entry) => entry.kind === "DemoItem");
+    expect(rows.filter((entry) => entry.indexRow).map((entry) => entry.name).sort())
+      .toEqual(["item-01", "item-02"]);
+    const warnings = snapshot.diagnostics.filter(
+      (item) => item.code === "PLUGIN_RECORD_SET_VALIDATION_FAILED"
+    );
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ severity: "warning" });
+  });
+
+  it("reports the same diagnostic once when the same check runs twice", async () => {
+    // 3つのプラグインが同じエンジンを別々に同梱した状態を模す。関数の参照は
+    // 別だが返す診断は同じなので、file・path・codeで重複を除く。
+    const contentRoot = await contentRootWithItems();
+    const makeCopy = () => () => [
+      {
+        file: "item-01",
+        path: "/spec/status",
+        severity: "warning" as const,
+        code: "DEMO_SHARED_CHECK",
+        message: { ja: "共通の検査", en: "Shared check" }
+      }
+    ];
+    const snapshot = await loadRepository(contentRoot, undefined, {
+      knownKinds: new Set(["Demo", "DemoItem"]),
+      treeKinds: new Set(["Demo"]),
+      projections: new Map([["DemoItem", projectorFactory]]),
+      recordSetValidators: new Map([["DemoItem", [makeCopy(), makeCopy(), makeCopy()]]])
+    } as unknown as Parameters<typeof loadRepository>[2]);
+    const warnings = snapshot.diagnostics.filter((item) => item.code === "DEMO_SHARED_CHECK");
+    expect(warnings).toHaveLength(1);
+  });
+
+  it("runs a shared validator function once for the same kind", () => {
+    // 同じエンジンを共有モジュールとして読み込んだプラグインは、同じ参照を
+    // 登録する。kind別の集約時点で1本になる。
+    const shared = () => [];
+    const registry = {
+      plugins: [
+        { kinds: [], views: [], commands: [], projections: new Map(), recordSetValidators: new Map([["DemoItem", [shared, shared]]]) },
+        { kinds: [], views: [], commands: [], projections: new Map(), recordSetValidators: new Map([["DemoItem", [shared]]]) }
+      ],
+      kinds: new Map(),
+      diagnostics: []
+    } as unknown as Parameters<typeof pluginKinds>[0];
+    const kinds = pluginKinds(registry);
+    expect(kinds.recordSetValidators.get("DemoItem")).toHaveLength(1);
   });
 });
 

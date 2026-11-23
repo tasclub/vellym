@@ -1,6 +1,6 @@
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, readFile, realpath, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { createServer, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
 import {
@@ -18,6 +18,9 @@ import {
   type ContentRootPlan
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
+import { readAsset, saveAsset } from "./assets.js";
+import { readGitHistory } from "./git-history.js";
+import { readGitChanges, writeGitChanges, readChangeDiff } from "./git-changes.js";
 import {
   createPluginResource,
   parsePluginResourceDraft,
@@ -39,6 +42,7 @@ import { parseFolderPatch, saveFolder } from "./folder-store.js";
 import { parsePagePatch, savePage } from "./page-store.js";
 import { isInside } from "./path-utils.js";
 import {
+  unknownKindGroups,
   editablePage,
   editableFolder,
   loadRepository,
@@ -136,7 +140,10 @@ function availableProjectLocales(
   ])];
 }
 
-async function readJson(request: AsyncIterable<Uint8Array>): Promise<unknown> {
+async function readJson(request: IncomingMessage): Promise<unknown> {
+  if ((request.headers["content-type"] ?? "").split(";")[0]!.trim().toLowerCase() !== "application/json") {
+    throw new RuntimeError("Expected application/json", 415, "INVALID_JSON");
+  }
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of request) {
@@ -440,6 +447,8 @@ export async function startDevServer(options: {
   uiRoot: string;
   host?: string;
   port: number;
+  /** Embedders may disable image writes independently of read access. */
+  editorPolicy?: { images: boolean };
   /**
    * 実行中のVellym本体のversion。`engines.vellym`の判定に使う。
    * 省略するとプラグインを読み込まない。
@@ -456,9 +465,12 @@ export async function startDevServer(options: {
   let snapshot: RepositorySnapshot | undefined;
   // プラグインが解釈できるkindと、そのうち文書ツリーへ出すもの。
   // 読み込み直すたびに解決し直す。
-  let kindOptions: { knownKinds: ReadonlySet<string>; treeKinds: ReadonlySet<string> } = {
+  let kindOptions: ReturnType<typeof pluginKinds> = {
     knownKinds: new Set<string>(),
-    treeKinds: new Set<string>()
+    treeKinds: new Set<string>(),
+    projections: new Map(),
+    recordSetValidators: new Map(),
+    kindSchemas: new Map()
   };
   let pluginDiagnostics: Diagnostic[] = [];
   let pluginRegistry: PluginRegistry | undefined;
@@ -497,10 +509,12 @@ export async function startDevServer(options: {
   const startWatcher = () => {
     if (!loadedConfig || watcher) return;
     watcherState = "connecting";
+    // External asset stores (including NAS mounts) are intentionally not watched.
+    // Only files below contentRoot participate in repository invalidation.
     const activeWatcher = watch(loadedConfig.contentRoot, {
       ignoreInitial: true,
       followSymlinks: false,
-      ignored: /(^|[/\\])\.[^/\\]*\.vellym-[^/\\]*\.tmp$/
+      ignored: [/(^|[/\\])\.[^/\\]*\.vellym-[^/\\]*\.tmp$/, /(^|[/\\])\.git([/\\]|$)/]
     });
     watcher = activeWatcher;
     activeWatcher.once("ready", () => {
@@ -549,7 +563,13 @@ export async function startDevServer(options: {
       : undefined;
     const nextKinds = registry
       ? pluginKinds(registry)
-      : { knownKinds: new Set<string>(), treeKinds: new Set<string>() };
+      : {
+          knownKinds: new Set<string>(),
+          treeKinds: new Set<string>(),
+          projections: new Map(),
+          recordSetValidators: new Map(),
+          kindSchemas: new Map()
+        };
     const nextSnapshot = await loadRepository(
       nextConfig.contentRoot,
       undefined,
@@ -639,6 +659,27 @@ export async function startDevServer(options: {
         request.headers.origin,
         request.headers.host
       );
+      if (url.pathname === "/api/v1/assets" && request.method === "GET") {
+        const { loadedConfig: config } = requireReady();
+        const asset = await readAsset(config.assetsRoot, url.searchParams.get("path") ?? "");
+        response.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": asset.mime, "Content-Length": asset.body.length });
+        response.end(asset.body);
+        return;
+      }
+      if (url.pathname === "/api/v1/assets" && request.method === "POST") {
+        const { loadedConfig: config } = requireReady();
+        if (options.editorPolicy?.images === false) throw new RuntimeError("Image writes are disabled", 403, "ASSET_DISABLED");
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const chunk of request) {
+          size += chunk.length;
+          if (size > config.assetsMaxBytes) throw new RuntimeError("Image is too large", 413, "ASSET_LIMIT");
+          chunks.push(Buffer.from(chunk));
+        }
+        const saved = await saveAsset(config, Buffer.concat(chunks), (request.headers["content-type"] ?? "").split(";")[0]!.trim());
+        json(response, 201, envelope(saved));
+        return;
+      }
       if (
         url.pathname === "/api/v1/bootstrap" &&
         request.method === "GET"
@@ -681,7 +722,10 @@ export async function startDevServer(options: {
                   .filter((plugin) => plugin.browserEntry)
                   .map((plugin) => ({
                     id: plugin.id,
-                    url: `/plugins/${plugin.id}/${plugin.browserEntry}`
+                    url: `/plugins/${plugin.id}/${plugin.browserEntry}`,
+                    ...(plugin.browserStyles?.length
+                      ? { styles: plugin.browserStyles.map((style) => `/plugins/${plugin.id}/${style}`) }
+                      : {})
                   })),
                 kindIcons: Object.fromEntries(
                   (pluginRegistry?.plugins ?? []).flatMap((plugin) =>
@@ -706,6 +750,7 @@ export async function startDevServer(options: {
                       });
                       return {
                         id: command.id,
+                        pluginId: plugin.id,
                         title: command.title,
                         ...(inputs ? { inputs } : {})
                       };
@@ -796,6 +841,39 @@ export async function startDevServer(options: {
         );
         return;
       }
+      if (request.method === "GET" && url.pathname === "/api/v1/git/status") {
+        json(response, 200, envelope(await readGitChanges(requireReady().loadedConfig.contentRoot)));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/v1/git/change-diff") {
+        json(response, 200, envelope(await readChangeDiff(requireReady().loadedConfig.contentRoot, url.searchParams.get("path") ?? "")));
+        return;
+      }
+      if (request.method === "POST" && /^\/api\/v1\/git\/(commit|push)$/.test(url.pathname)) {
+        const body = await readJson(request);
+        if (!body || typeof body !== "object") throw new RuntimeError("Invalid request", 400, "INVALID_NAME");
+        if (url.pathname.endsWith("/push") && (Array.isArray(body) || Object.keys(body).length !== 0)) {
+          throw new RuntimeError("Push accepts no parameters", 400, "INVALID_NAME");
+        }
+        const result = await writeGitChanges(requireReady().loadedConfig.contentRoot, url.pathname.endsWith("/commit") ? "commit" : "push", body);
+        if (result.ok) publishChange("git-write");
+        json(response, 200, envelope(result));
+        return;
+      }
+      if (request.method === "GET" && /^\/api\/v1\/git\/(history|diff|content|recent|mentions)$/.test(url.pathname)) {
+        const ready = requireReady();
+        // Mentions are looked up by a resource name; only names that exist in the content root.
+        if (url.pathname.endsWith("/mentions")) {
+          const name = url.searchParams.get("name") ?? "";
+          if (/^[A-Za-z0-9._-]{1,200}$/.test(name) && !ready.snapshot.byName.has(name)) {
+            throw new RuntimeError("リソースがありません", 404, "NOT_FOUND");
+          }
+        }
+        json(response, 200, envelope(await readGitHistory(
+          ready.loadedConfig.contentRoot, url.pathname.split("/").at(-1)!, url.searchParams
+        )));
+        return;
+      }
       if (
         url.pathname === "/api/v1/repository" &&
         request.method === "GET"
@@ -822,7 +900,8 @@ export async function startDevServer(options: {
                 ready.snapshot,
                 localeState.requestedLocale,
                 localeState.defaultLocale
-              )
+              ),
+              unknownKinds: unknownKindGroups(ready.snapshot)
             },
             ready.snapshot.diagnostics
           )
@@ -1185,6 +1264,7 @@ export async function startDevServer(options: {
         const ready = requireReady();
         const localeState = localeRequest(url, ready.loadedConfig.config);
         const body = (await readJson(request)) as {
+          pluginId?: unknown;
           target?: unknown;
           input?: unknown;
         };
@@ -1208,7 +1288,9 @@ export async function startDevServer(options: {
             }
           }
         }
+        const requestedPluginId = typeof body?.pluginId === "string" ? body.pluginId : undefined;
         const command = pluginRegistry?.plugins
+          .filter((plugin) => !requestedPluginId || plugin.id === requestedPluginId)
           .flatMap((plugin) => plugin.commands)
           .find((item) => item.id === commandMatch[1]);
         if (!command) {
@@ -1469,7 +1551,10 @@ export async function startDevServer(options: {
         }
         let assetBody: Buffer;
         try {
-          assetBody = await readFile(assetFile);
+          const root = await realpath(owner.browserRoot);
+          const resolved = await realpath(assetFile);
+          if (!isInside(root, resolved)) throw new Error("Outside plugin root");
+          assetBody = await readFile(resolved);
         } catch {
           throw new RuntimeError("Not found", 404, "NOT_FOUND");
         }

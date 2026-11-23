@@ -39,6 +39,9 @@ try {
     await page.waitForURL(`${origin}/en/pages/overview/`);
     await page.waitForLoadState("networkidle");
     await page.getByRole("heading", { level: 1, name: "What is Vellym", exact: true }).waitFor();
+    // <html lang> follows the document; the Japanese UI chrome carries its own lang.
+    const htmlLang = await page.evaluate(() => document.documentElement.lang);
+    if (htmlLang !== "en") throw new Error(`English document has html lang=${htmlLang}`);
     const englishPageCount = await page.getByRole("treegrid").getByRole("row").count();
     if (englishPageCount !== initialPageCount) {
       throw new Error(`document count changed by locale: ${initialPageCount} -> ${englishPageCount}`);

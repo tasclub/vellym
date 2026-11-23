@@ -3,6 +3,9 @@ description: Describe a user problem before proposing a feature.
 title: "feature: "
 labels: [enhancement]
 body:
+  - type: markdown
+    attributes:
+      value: Japanese or English is fine.
   - type: textarea
     id: problem
     attributes:

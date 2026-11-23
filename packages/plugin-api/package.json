@@ -1,6 +1,6 @@
 {
   "name": "@vellym/plugin-api",
-  "version": "0.1.0-beta",
+  "version": "0.2.0-beta",
   "description": "Public contract for Vellym plugins: host API types, manifest schema, record types",
   "keywords": [
     "vellym",

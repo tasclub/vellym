@@ -1,0 +1,160 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: changes-and-history
+  title: 変更・コミット・文書の履歴
+spec:
+  locale: ja
+  blocks:
+    - id: changes-and-history
+      type: rich-text
+      content: |
+        `vellym dev`の画面から、Gitの未コミットの変更を確かめてコミット・プッシュでき、
+        文書ごとの過去の版と差分を読める。どちらも動的版だけの機能で、静的版には出ない。
+
+        ## 使える条件
+
+        - プロジェクトがGitのリポジトリの中にあり、content rootの中に追跡されたファイルがある
+        - `git`コマンドが使える
+        - Gitが無い、またはcontent rootがリポジトリの外にあるときは、入口を表示しない
+
+        ## 変更を確かめてコミットする
+
+        1. 左のレールの「変更」を開く。点の印と読み上げラベルで、未コミットと未プッシュの件数が分かる。
+           文書の「コミットしていない変更があります」からも開ける。
+        2. 一覧で、文書の題名・相対パス・追加と削除の行数を確かめる。行を選ぶと差分が出る。
+        3. コミットするファイルを選ぶ。既定ではすべて選ばれている。
+        4. メッセージを入力して「コミット」を押す。
+
+        「保存」はファイルへの書き込みで、コミットとは別の操作である。保存していない編集はコミットされない。
+        content rootの外のファイルや、選んでいないステージ済みのファイルはコミットに含めない。
+        Gitの作者名とメールは、コマンドラインの`git config user.name`・`git config user.email`の設定を使う。
+
+        ## プッシュする
+
+        上流ブランチがあり、未プッシュのコミットがあると「プッシュ」を押せる。プッシュは今のブランチ全体が対象で、
+        Vellymの外で作ったコミットも含む。最初のプッシュ（上流の設定）・pull・マージ・ブランチの操作は
+        コマンドラインで行う。認証はPCのGitの設定を使い、Vellymは認証情報を保存しない。
+
+        失敗したときは「詳細」を開くとGitの出力が読める。よくある原因は次のとおり。
+
+        | 状況 | 直し方 |
+        | --- | --- |
+        | 作者が設定されていない | `git config user.name`と`git config user.email`を設定する |
+        | 上流が無い | コマンドラインで`git push -u origin <ブランチ>`を一度実行する |
+        | リモートが先に進んでいる | コマンドラインでpullまたはrebaseしてから、もう一度プッシュする |
+        | 認証に失敗した | PCのGitの認証（SSH鍵・認証情報ヘルパー）を確かめる |
+
+        「最近の変更」は30件ずつ表示し、展開した文書の題名からその版の履歴へ移れる。
+        幅768px未満では一覧と差分を読むだけで、コミット・プッシュは表示しない。
+
+        **注意**: `--host`で外から開けるようにした起動では、画面を開ける人がコミット・プッシュもできる。
+        このサーバーに認証は無い。信頼できるネットワークだけで使う。
+
+        ## 文書の履歴を読む
+
+        文書の見出しの横の「履歴」を押すと、その文書の版の一覧（新しい順、50件ずつ。「さらに表示」で続きを読む）が出る。
+        移動（ファイル名の変更）があっても、移動前の版までたどる。
+
+        履歴は紙面と目次を外して幅いっぱいに開く。左に細い版の一覧、右に広い差分を表示し、それぞれ別にスクロールできる。
+        選んだ版の情報と比較・表示・hashのコピーは差分の上にあり、「文書に戻る」は見出しの左にある。
+        幅768px未満では一覧が上、1列の差分が下に並ぶ。
+
+        - **差分**: 「1つ前との差分」か「今との差分」を選ぶ。既定では各列の本文を400px以上取れるときに「左右」、それ以外は「1列」になる。
+          「左右」と「1列」を自分で選ぶと、その並べ方を個人設定として覚えておく（幅768px未満では常に1列）。
+          変更の無い行は折りたたまれ、「n行の変更なし」を押すと開く。
+        - **この版を表示**: その版の文書を読むだけの形で表示する。「今の版に戻る」で戻る。
+          その版のYAMLが今のVellymで読めない形のときは表示できないが、差分は見られる。
+        - URLに`?history`が付くので、再読込やブラウザの戻る操作でも同じ画面に戻る。
+
+        次の表示が出ることがある。
+
+        - 「このファイルはまだコミットされていません。」— Gitの履歴にまだ無い
+        - 「これより前の履歴は、このリポジトリに含まれていません（shallow clone）。」— 浅いcloneでは古い版が無い。`git fetch --unshallow`で取れる
+        - 「履歴を取得できませんでした。」— 「再試行」を押すか、コマンドラインで`git log`を確かめる
+
+        関連: [[browser-guide|ブラウザ画面の使い方]]・[[limitations|現段階の範囲と制約]]
+  translations:
+    en:
+      visibility: published
+      title: Changes, Commits, and Document History
+      blocks:
+        - id: changes-and-history
+          type: rich-text
+          content: |
+            In `vellym dev` you can review uncommitted Git changes, commit and push them, and read
+            past versions and diffs of each document. Both are live-only features; the static site
+            does not show them.
+
+            ## Requirements
+
+            - The project is inside a Git repository and the content root contains tracked files
+            - The `git` command is available
+            - Without Git, or with a content root outside the repository, the entry points are hidden
+
+            ## Review changes and commit
+
+            1. Open **Changes** in the left rail. A dot and its screen-reader label tell you how many
+               files are uncommitted and how many commits are unpushed. You can also open it from
+               **This document has uncommitted changes** on a document.
+            2. Check each document's title, relative path, and added and removed line counts. Select a
+               row to see its diff.
+            3. Choose the files to commit. All files are selected by default.
+            4. Enter a message and press **Commit**.
+
+            **Save** writes a file; it is not a commit. Unsaved edits are not committed. Files outside
+            the content root and staged files you did not select are left out of the commit. The author
+            name and email come from `git config user.name` and `git config user.email`.
+
+            ## Push
+
+            When the branch has an upstream and unpushed commits, **Push** becomes available. A push
+            covers the whole current branch, including commits made outside Vellym. Do the first push
+            (setting the upstream), pulls, merges, and branch operations on the command line.
+            Authentication uses your computer's Git settings; Vellym stores no credentials.
+
+            If something fails, open **Details** to read Git's output. Common causes:
+
+            | Situation | What to do |
+            | --- | --- |
+            | No author is set | Set `git config user.name` and `git config user.email` |
+            | No upstream | Run `git push -u origin <branch>` once on the command line |
+            | The remote is ahead | Pull or rebase on the command line, then push again |
+            | Authentication failed | Check your Git authentication (SSH key or credential helper) |
+
+            **Recent changes** shows 30 commits at a time; open a document title there to jump to that
+            version's history. Below 768px wide you can read the list and diffs, but commit and push
+            are hidden.
+
+            **Caution**: when you start the server with `--host` so others can reach it, anyone who can
+            open the page can also commit and push. The server has no authentication. Use it only on a
+            trusted network.
+
+            ## Read a document's history
+
+            Press **History** next to a document's heading to list its versions (newest first, 50 at a
+            time; **Show more** loads the next ones). Renames are followed back to the versions before
+            the move.
+
+            History uses the full area beside the document tree, without the paper or outline. A narrow
+            version list is on the left and a wide diff on the right; each scrolls independently.
+            Selected version details, comparison, display and hash-copy actions sit above the diff.
+            **Back to document** is left of the heading. Below 768px, the list sits above a one-column diff.
+
+            - **Diff**: choose **Diff with previous** or **Diff with current**. By default, **Side by side**
+              is used when each text column can be at least 400px wide; otherwise it uses **One column**.
+              Your explicit choice is remembered as a personal setting (below 768px it is always one column).
+              Unchanged lines are folded; press
+              **n unchanged lines** to open them.
+            - **Show this version**: shows that version read-only. **Return to current version** returns.
+              If that version's YAML cannot be read by this Vellym, it cannot be shown, but its diff can.
+            - The URL gets `?history`, so a reload or the browser's back button returns to the same view.
+
+            You may see these messages:
+
+            - "This file hasn't been committed yet." — it is not in the Git history yet
+            - "Earlier history isn't included in this repository (shallow clone)." — a shallow clone lacks older
+              versions; `git fetch --unshallow` brings them in
+            - "Couldn't load the history." — press **Retry**, or check `git log` on the command line
+
+            Related: [[browser-guide|Using the Browser]] · [[limitations|Current Scope and Limitations]]

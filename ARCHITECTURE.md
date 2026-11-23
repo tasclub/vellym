@@ -13,17 +13,25 @@ introduce a second place where document content lives.
 
 ## Packages
 
-The repository is an npm workspaces monorepo. Three packages are published; the
-internal ones are bundled into `vellym` at build time.
+The repository is an npm workspaces monorepo. Public host packages are published
+individually; host internals are bundled into `vellym` at build time. The ticket engine
+is private and bundled into each ticket plugin that uses it.
 
 | Package | Published | Responsibility |
 | --- | --- | --- |
 | `@vellym/plugin-api` | **yes** | The public plugin contract: host API types, record types, view descriptors, manifest schema |
 | `@vellym/tickets` | **yes** | The official ticket management plugin. Not bundled — installed by the project that wants it |
+| `@vellym/kanban` | **yes** | Optional Kanban view plugin for Ticket resources |
+| `@vellym/wbs` | **yes** | Optional WBS view plugin for Ticket resources |
+| `@vellym-internal/ticket-engine` | no | Shared Ticket schemas and projections, bundled into ticket plugins |
 | `@vellym-internal/core` | no | Types, JSON Schema validation, navigation, search projection, editing rules |
 | `@vellym-internal/runtime-node` | no | Filesystem access, repository loading, saving, structure changes, the local HTTP server |
 | `@vellym-internal/ui-react` | no | The browser UI, used by both the dev server and the static build |
 | `vellym` | **yes** | The CLI (`init` / `dev` / `validate` / `build` / `migrate`) and the static site builder |
+
+The ticket plugins depend on the private ticket engine and bundle it into their own
+Node and browser entries. Projects install the public plugins; they do not install or
+resolve the private engine as a separate package.
 
 ### Dependency direction
 
@@ -31,7 +39,8 @@ internal ones are bundled into `vellym` at build time.
 vellym  ──▶  runtime-node  ──▶  core  ──▶  plugin-api
    │                             ▲            ▲
    └──────▶  ui-react  ──────────┘            │
-                                    plugins ──┘
+                         ticket plugins ──▶ ticket-engine ──┘
+                              └─────────────────────────────▶ plugin-api
 ```
 
 Enforced constraints:
@@ -46,6 +55,55 @@ Enforced constraints:
   `core` imports it and implements it. Reversing that direction would turn our internals
   into the public contract. It must not import `core`, Node.js, or React — a plugin's
   browser entry uses the host's React through an import map, not a dependency.
+- **`ticket-engine` is private domain logic.** Ticket plugins bundle it; neither the host
+  nor project configuration loads it as a separate plugin.
+
+## Personal settings
+
+Personal preferences — anything one user chooses for their own screen, such as tree
+width, expanded folders, a view's visible columns or filters — stay in the user's
+browser `localStorage`. They are not part of the YAML source of truth and are not
+shared with other users. Putting them in YAML would make one person's choice everyone's.
+
+Every personal setting, from the host or from a plugin, uses one key shape. Each
+component is `encodeURIComponent`-encoded, so a `:` inside a component cannot be
+mistaken for a separator:
+
+```text
+vellym.user-settings.v2:<scope>:<owner>:<setting>[:<resourceName>]
+```
+
+| Component | Value |
+| --- | --- |
+| `scope` | The normalized absolute `projectRoot` from bootstrap when the value names or depends on project content (folder paths, resource names, field values, filters). `_device` when it does not (a width, whether a panel is open). |
+| `owner` | The plugin ID for a plugin, `_host` for the host. Plugin IDs match `^[a-z0-9]+(?:-[a-z0-9]+)*$`, so neither `_host` nor `_device` can collide with one. |
+| `setting` | For a plugin view, the view ID. For the host, a stable dotted ID such as `navigation.expanded`. |
+| `resourceName` | The hosting resource's `metadata.name`, when the setting belongs to one resource (for example one TicketTracker). Omitted otherwise. |
+
+A plugin view's key is therefore
+`vellym.user-settings.v2:<projectRoot>:<pluginId>:<viewId>:<resourceName>`.
+
+Why these choices:
+
+- **`projectRoot`, not the origin.** Two projects can run on the same port, and changing
+  a port must not reset a project's preferences. `contentRoot` is not used because
+  moving the content directory does not change project identity. Moving the project
+  directory does create a new scope.
+- **When in doubt, scope to the project.** A device-scoped value that turns out to
+  contain project content leaks between projects; a project-scoped value that could have
+  been device-wide only costs the user one extra choice per project.
+- **The value is JSON, and reading it may fail.** A missing, unparseable, or unavailable
+  entry falls back to the default, and a failed write is ignored. Personal settings must
+  never block a screen. A reader also drops stored entries that no longer match the
+  project (for example a folder that was removed).
+- **Raise the `v2` segment only when existing keys would be misread.** Adding a new
+  setting needs no new version. Old keys are migrated only when they can be assigned to
+  exactly one new key; otherwise they are ignored and the preference resets once, with a
+  `CHANGELOG` entry. The project-agnostic v1 plugin keys are not migrated for this reason:
+  they cannot be assigned unambiguously to a project or resource.
+- **One place builds keys.** Both plugin view keys and host settings build their
+  keys through `userSettingsKey` in `packages/ui-react/src/shared/user-settings.ts`,
+  never through hand-written strings.
 
 Inside the workspace, `@vellym/plugin-api` resolves to its TypeScript source through the
 `vellym-source` export condition, so nothing has to be built before `typecheck` or the
@@ -69,6 +127,7 @@ conditions differently for client and SSR).
 | Create / move / reorder / archive | `packages/runtime-node/src/structure.ts` |
 | HTTP endpoints | `packages/runtime-node/src/server.ts` |
 | First-run setup and templates | `packages/runtime-node/src/setup.ts` |
+| Ticket schemas and projections shared by ticket plugins | `packages/ticket-engine/src/` |
 | Screens and interactions | `packages/ui-react/src/` |
 | CLI commands and messages | `packages/vellym/src/cli.ts`, `cli-messages.ts` |
 | Static site output | `packages/vellym/src/static-builder.ts` |
@@ -133,6 +192,25 @@ comes from being local:
 If you add an endpoint, it inherits the header and origin handling from the shared
 helpers — but the path boundary check is per-operation and must be written explicitly.
 
+## Read-only Git endpoints (dynamic server only)
+
+`GET /api/v1/git/history?path=…&limit=50` returns newest-first commits
+(`hash`, `date`, `author`, `subject`). `content?path=…&revision=<hash>` returns raw
+YAML as `source`; `diff?path=…&from=<hash>&to=<hash>` returns unified `diff`.
+Omitting `to` compares with the working file; omitting both revisions compares
+the last commit with the working file. `recent?limit=50` returns content-root
+commits and their changed `files` (`path`, `status`). Limits are 1–100.
+All use the existing envelope. Data has `available: false` when Git/history is
+unavailable, otherwise `available: true`, `shallow`, and operation-specific data.
+File operations also return `boundaryTruncated` when rename following stops at
+the content-root boundary. They follow the first-parent history from HEAD;
+revisions must be ancestors of HEAD. A rename outside the root terminates the
+chain permanently, even if older history re-enters the root. Historical symlinks
+and submodules are not read. Request paths use the write path's realpath boundary
+check; historical paths are checked in the Git tree, not today's filesystem.
+No Git paths outside the content root are returned. This independent read path
+does not alter repository loading, writing, bootstrap or static output.
+
 ## Version identifiers
 
 Several independent contracts carry their own version. They are **not** meant to move
@@ -144,6 +222,7 @@ for a new contract.
 | package `version` | `packages/vellym/package.json` | The released product (semver) | Maintainers |
 | `engines.vellym` | a plugin's `package.json` | Which product versions the plugin supports | Plugin authors |
 | `apiVersion` | Page / Folder YAML | The canonical document format | Users' files |
+| `engineVersion` | a registered plugin kind | The kind's schema / engine contract (semver) | Plugin authors |
 | `schemaVersion` | `vellym.config.yaml` | The config file format | Users' files |
 | `apiSchemaVersion` | HTTP responses and baked static data | The response envelope shape | Server / static builder |
 | `buildSchemaVersion` | `vellym-build.json` | The static build manifest | Static builder |

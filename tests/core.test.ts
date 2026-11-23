@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import {
   API_VERSION,
   STABLE_API_VERSION,
@@ -70,8 +71,13 @@ describe("page schema", () => {
       metadata: { name: "test-page" }
     };
     const { diagnostics } = validatePage(value, "page.yaml");
-    expect(diagnostics.some((item) => item.message.includes("必須項目"))).toBe(
-      true
+    const diagnostic = diagnostics.find((item) => item.code === "PAGE_SCHEMA");
+    expect(diagnostic?.code).toBe("PAGE_SCHEMA");
+    expect(resolveLocalizedText(diagnostic?.message ?? "", "ja")).toContain(
+      "必須項目"
+    );
+    expect(resolveLocalizedText(diagnostic?.message ?? "", "en")).toContain(
+      "Required property"
     );
   });
 

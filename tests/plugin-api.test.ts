@@ -30,11 +30,14 @@ describe("plugin-api contract", () => {
       path: "/spec/status",
       severity: "warning",
       code: "TICKET_STATUS_UNDEFINED",
-      message: "定義に無いステータスです"
+      message: { ja: "定義に無いステータスです", en: "The status is not defined." }
     };
     const asCore: Diagnostic = fromPlugin;
     const backToPlugin: PluginDiagnostic = asCore;
     expect(backToPlugin).toBe(fromPlugin);
+    expect(resolveLocalizedText(backToPlugin.message, "en")).toBe("The status is not defined.");
+    expect(resolveLocalizedText("A legacy string diagnostic", "ja"))
+      .toBe("A legacy string diagnostic");
   });
 
   it("resolves localized text with a fallback that is never empty", () => {
@@ -45,6 +48,9 @@ describe("plugin-api contract", () => {
     expect(resolveLocalizedText(label, "fr")).toBe("Priority");
     expect(resolveLocalizedText({ ja: "優先度" }, "fr")).toBe("優先度");
     expect(resolveLocalizedText("Priority", "ja")).toBe("Priority");
+    expect(resolveLocalizedText({ en: "", ja: "優先度" }, "en")).toBe("優先度");
+    expect(resolveLocalizedText({ en: "", ja: " " }, "en")).toBe("（未翻訳）");
+    expect(resolveLocalizedText("", "ja")).toBe("（未翻訳）");
   });
 
   it("resolves a region locale through its base language", () => {
@@ -54,6 +60,7 @@ describe("plugin-api contract", () => {
   it("accepts a manifest that declares the four contribution points", () => {
     const manifest: PluginPackageManifest["vellym"] = {
       id: "tickets",
+      styles: ["tickets.css", "theme/tickets.css"],
       contributes: {
         kinds: [
           { kind: "Ticket" },
@@ -87,6 +94,7 @@ describe("plugin-api contract", () => {
   it("rejects manifests the host cannot act on", () => {
     expect(validateManifest({})).toBe(false);
     expect(validateManifest({ id: "Tickets" })).toBe(false);
+    expect(validateManifest({ id: "tickets", styles: ["../global.css"] })).toBe(false);
     expect(validateManifest({ id: "tickets", contributes: { unknown: [] } })).toBe(false);
     // staticの宣言が無いviewは、静的版へ出すかを決められない。
     expect(
@@ -111,6 +119,7 @@ describe("plugin-api contract", () => {
       registerView: () => {},
       registerCommand: () => {},
       registerRecordProjection: (kind, project) => projections.set(kind, project),
+      registerRecordSetValidator: () => {},
       reportDiagnostic: () => {}
     };
 
@@ -172,7 +181,10 @@ describe("plugin-api contract", () => {
       isStatic: false,
       records: () => [],
       rows: [],
-      save: async () => ({ ok: true })
+      save: async () => ({ ok: true }),
+      openResource: async () => ({ ok: true }),
+      getViewSettings: () => undefined,
+      setViewSettings: () => {}
     };
     // hostは要素の中身へ触らない。rendererに渡すだけである。
     const element = {} as HTMLElement;
@@ -194,7 +206,10 @@ describe("plugin-api contract", () => {
       isStatic: false,
       records: () => [],
       rows: [],
-      save: async () => ({ ok: true })
+      save: async () => ({ ok: true }),
+      openResource: async () => ({ ok: true }),
+      getViewSettings: () => undefined,
+      setViewSettings: () => {}
     });
     expect(handle.update).toBeUndefined();
   });

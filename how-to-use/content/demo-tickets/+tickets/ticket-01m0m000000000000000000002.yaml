@@ -4,9 +4,13 @@ metadata:
   name: ticket-01m0m000000000000000000002
   title: 用語集のページを作る
 spec:
-  status: todo
+  status: done
   fields:
     priority: mid
+    parent: ticket-01m0m000000000000000000001
+    sequence: 1
+    start: "2026-09-02"
+    due: "2026-09-04"
     notes: |
       「正本」「索引行」など、説明なしで使っている語をまとめる。
   blocks:

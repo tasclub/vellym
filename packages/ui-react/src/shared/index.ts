@@ -8,6 +8,7 @@
  * ここへ足したものは公開契約になる。**画面固有の部品を混ぜない。**
  */
 export { Button, type ButtonTone } from "./button.js";
+export { ChoiceControl, type ChoiceOption, type ChoiceControlProps } from "./choice-control.js";
 export { Dialog } from "./dialog.js";
 export {
   DataTable,
@@ -17,4 +18,5 @@ export {
 } from "./table.js";
 export { FieldInput, RequiredMark, type PluginSpecValue } from "./field-input.js";
 export { Icon, type IconName } from "./icon.js";
+export { InputControl } from "./input-control.js";
 export { KindIcon } from "./kind-icon.js";

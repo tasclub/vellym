@@ -21,6 +21,8 @@ import {
 } from "./folder-edit-session.js";
 import styles from "./structure-dialog.module.css";
 import { errorMessage } from "../shared/error-message.js";
+import { Button as HostButton } from "../shared/button.js";
+import { useUiLang } from "../shared/ui-language.js";
 
 export type StructureAction =
   | { type: "create-page"; parentPath: string; chooseParent?: boolean }
@@ -54,6 +56,7 @@ export function StructureActionDialog(props: {
   onApplied(plan: StructurePlan, result: StructureApplyResult): void;
   onFolderApplied?(folder: FolderSummary): void;
 }) {
+  const uiLang = useUiLang();
   const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -64,6 +67,9 @@ export function StructureActionDialog(props: {
   // RELUX-03: 作成は「確認→作成」の2段階にする。preview があるときだけ
   // ファイルを作る（確定するまで作らない）。入力が変わったら破棄する。
   const [preview, setPreview] = useState<StructurePlan>();
+  const [archivePreview, setArchivePreview] = useState<{ action: StructureAction; plan: StructurePlan }>();
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveAttempt, setArchiveAttempt] = useState(0);
   const [folderSession, setFolderSession] = useState<FolderEditSession>();
   const action = props.action;
   const selectedPage = action && "pageId" in action
@@ -77,13 +83,6 @@ export function StructureActionDialog(props: {
   const selectedFolder = action && "folderPath" in action
     ? props.folders.find((folder) => folder.path === action.folderPath)
     : undefined;
-  const affectedPages = action?.type === "archive-page"
-    ? 1
-    : action?.type === "archive-folder"
-      ? props.pages.filter((page) =>
-          page.relativePath.startsWith(`${action.folderPath}/`)
-        ).length
-      : 0;
   const folderOptions = useMemo(
     () => [...props.folders].sort((left, right) =>
       left.path.localeCompare(right.path)
@@ -114,7 +113,31 @@ export function StructureActionDialog(props: {
     } else {
       setDestinationPath("");
     }
-  }, [action, props.folders, props.pages]);
+    // Repository refreshes must not clear a preview failure (or reset edits) in
+    // an already open dialog. Only selecting another action resets its state.
+  }, [action]);
+
+  useEffect(() => {
+    setArchivePreview(undefined);
+    if (action?.type !== "archive-page" && action?.type !== "archive-folder") {
+      setArchiveLoading(false);
+      return;
+    }
+    let active = true;
+    setArchiveLoading(true);
+    setError("");
+    const archiveInput: StructureInput = action.type === "archive-page"
+      ? { type: action.type, pageId: action.pageId }
+      : { type: action.type, folderPath: action.folderPath };
+    void previewStructure(archiveInput).then(({ data }) => {
+      if (active) setArchivePreview({ action, plan: data });
+    }).catch((caught) => {
+      if (active) setError(errorMessage(caught, t));
+    }).finally(() => {
+      if (active) setArchiveLoading(false);
+    });
+    return () => { active = false; };
+  }, [action, archiveAttempt]);
 
   useEffect(() => {
     if (action?.type !== "update-folder") return;
@@ -190,7 +213,10 @@ export function StructureActionDialog(props: {
         props.onOpenChange(false);
         return;
       }
-      const plan = (await previewStructure(input())).data;
+      const plan = action.type === "archive-page" || action.type === "archive-folder"
+        ? archivePreview?.action === action ? archivePreview.plan : undefined
+        : (await previewStructure(input())).data;
+      if (!plan) return;
       if (!plan.executable) {
         setError(plan.conflict ?? t("structure.applyFailed"));
         return;
@@ -199,6 +225,7 @@ export function StructureActionDialog(props: {
       props.onApplied(plan, result);
       props.onOpenChange(false);
     } catch (caught) {
+      if (action.type === "archive-page" || action.type === "archive-folder") setArchivePreview(undefined);
       setError(errorMessage(caught, t));
     } finally {
       setBusy(false);
@@ -236,6 +263,7 @@ export function StructureActionDialog(props: {
   }
 
   const isArchive = action?.type.startsWith("archive");
+  const archivePlan = archivePreview && archivePreview.action === action ? archivePreview.plan : undefined;
   const isMove = action?.type === "move-page" || action?.type === "move-folder";
   const isCreate =
     action?.type === "create-page" || action?.type === "create-folder";
@@ -266,7 +294,7 @@ export function StructureActionDialog(props: {
       isDismissable={!busy}
       className={styles.overlay}
     >
-      <Modal className={styles.modal}>
+      <Modal lang={uiLang} className={styles.modal}>
         <Dialog
           aria-label={action ? t(titleKeys[action.type]) : t("structure.fallbackLabel")}
           className={styles.dialog}
@@ -276,13 +304,14 @@ export function StructureActionDialog(props: {
               <h2>{action ? t(titleKeys[action.type]) : ""}</h2>
               {isArchive && <p>{t("structure.noRestore")}</p>}
             </div>
-            <Button
+            <HostButton
+              icon
               className={styles.close}
               aria-label={t("structure.close")}
-              onPress={() => props.onOpenChange(false)}
+              onClick={() => props.onOpenChange(false)}
             >
               ×
-            </Button>
+            </HostButton>
           </div>
           <div className={styles.form}>
             {(action?.type === "create-page" ||
@@ -363,10 +392,22 @@ export function StructureActionDialog(props: {
                 <strong>
                   {selectedPage?.title ?? selectedFolder?.title}
                 </strong>
-                {affectedPages > 0 && (
-                  <span>{t("structure.affectedPages", { count: affectedPages })}</span>
-                )}
+                {archiveLoading && <span role="status">{t("structure.checking")}</span>}
+                {archivePlan?.changes.filter((change) => change.operation === "archive").map((change, index) => (
+                  <div key={index}>
+                    <span>{t("structure.archiveSource")}: {change.source}</span>
+                    <span>{t("structure.archiveDestination")}: {change.destination}</span>
+                  </div>
+                ))}
+                {archivePlan && <span>{t("structure.affectedPages", { count: archivePlan.affectedPages })}</span>}
+                {archivePlan?.warnings.map((warning, index) => <span key={index}>▲ {warning}</span>)}
+                {archivePlan && !archivePlan.executable && <span className={styles.error}>{archivePlan.conflict ?? t("structure.applyFailed")}</span>}
                 <span>{t("structure.archiveNote")}</span>
+                {!archiveLoading && (!archivePlan || !archivePlan.executable) && (
+                  <Button className={styles.secondary} onPress={() => setArchiveAttempt((value) => value + 1)}>
+                    {t("structure.reviewCreate")}
+                  </Button>
+                )}
               </div>
             )}
             {isCreate && preview && (
@@ -427,6 +468,7 @@ export function StructureActionDialog(props: {
                   className={isArchive ? styles.danger : styles.primary}
                   isDisabled={
                     busy ||
+                    (isArchive && (archiveLoading || !archivePlan?.executable)) ||
                     (action?.type === "update-folder" && (
                       !folderSession ||
                       !folderEditSessionDirty(folderSession) ||

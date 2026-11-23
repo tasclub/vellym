@@ -1,3 +1,5 @@
+import type { PluginLocalizedText } from "@vellym/plugin-api";
+
 /**
  * HTTP応答と静的データの封筒（apiSchemaVersion/data/diagnostics）の形式の版。
  * 動的APIとstatic builderで必ず同じ値を使う。
@@ -110,6 +112,7 @@ export interface VellymConfig {
   outputDir: string;
   ui: { language: "ja" | "en"; [key: string]: unknown };
   i18n?: I18nConfig;
+  assets?: { root?: string; maxBytes?: number; [key: string]: unknown };
   static?: { publicBaseUrl?: string; [key: string]: unknown };
   plugins: string[];
   [key: string]: unknown;
@@ -194,7 +197,7 @@ export interface Diagnostic {
   path?: string;
   severity: DiagnosticSeverity;
   code: string;
-  message: string;
+  message: PluginLocalizedText;
 }
 
 export interface PageSummary {

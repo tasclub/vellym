@@ -1,6 +1,7 @@
 import type { PluginDiagnostic } from "./diagnostics.js";
 import type {
   PluginRecordProjectorFactory,
+  PluginRecordSetValidator,
   PluginPendingResource,
   PluginResourceDraft
 } from "./records.js";
@@ -52,6 +53,11 @@ export interface PluginKindIcon {
 export interface PluginKindContribution {
   kind: string;
   /**
+   * Semver版のkind契約／エンジン。複数プラグインが同じkindを登録した場合、
+   * 最も新しい版の登録を採用する。省略時は従来の先着順になる。
+   */
+  engineVersion?: string;
+  /**
    * 種別固有`spec`のJSON Schema。省略すると共通契約の範囲だけを検証する。
    *
    * schemaに合わないリソースは**エラーにならない**。警告として示し、読める
@@ -77,6 +83,13 @@ export interface PluginKindContribution {
 export interface PluginViewContribution {
   id: string;
   view: PluginViewProvider;
+  /**
+   * 同じ入口kindのビュー切替での位置。
+   *
+   * `"primary"`は先頭、`"settings"`は末尾に置く。省略したビューはその間に、
+   * `vellym.config.yaml`の`plugins`と、そのプラグイン内での登録の順で並ぶ。
+   */
+  role?: "primary" | "settings";
   /**
    * このビューを開く入口になるリソースのkind。
    *
@@ -128,6 +141,14 @@ export interface PluginCommandContribution {
 }
 
 export interface PluginCommandContext extends PluginDefinitionContext {
+  /**
+   * 文書の要求locale。ブラウザのUI言語ではない。
+   *
+   * **作成するリソースの内容に使う。** `ticket-engine`の「チケットを作成」は
+   * これを見て既定の題名（`新しいチケット`／`New ticket`）を選ぶ。题名は文書の
+   * 内容なので、要求言語側で決めるのが正しい。ボタンや案内文の言語は
+   * ブラウザ側の`PluginRenderContext.locale`（UI言語）が既に決めている。
+   */
   locale: string;
   /**
    * `inputs`で宣言した項目に、利用者が入れた値。IDから値への対応。
@@ -188,6 +209,23 @@ export interface VellymPluginHost {
    */
   registerRecordProjection(kind: string, createProjector: PluginRecordProjectorFactory): void;
   /**
+   * 同じkindの索引行全体を検査する関数を登録する。
+   *
+   * projectorはリソース1件ずつしか見えないため、別リソースを参照する値の
+   * 検査が書けなかった。ここでは**索引行がすべてそろった後**に1回呼ばれ、
+   * そのkindの行すべてが渡される。参照先の存在や循環のように、行をまたぐ
+   * 検査だけをここでやる。
+   *
+   * 渡すのは索引行であり、`spec`もpathも渡さない。診断の`file`は索引行の
+   * `name`かcontent root相対pathをそのまま使う（hostは書き換えない）。
+   * 例外を投げても読み込みは続き、`PLUGIN_RECORD_SET_VALIDATION_FAILED`の
+   * 警告になる。
+   *
+   * 同じkindへ複数のプラグインが登録してよい。同じ関数（同じ参照）の再登録は
+   * 1回だけ実行され、診断は`file`・`path`・`code`で重複を除く。
+   */
+  registerRecordSetValidator(kind: string, validate: PluginRecordSetValidator): void;
+  /**
    * 利用者へ診断を出す。例外を投げる代わりにこれを使う。
    * 例外は握られて診断になるが、そのとき位置情報は残らない。
    */
@@ -235,7 +273,11 @@ export interface PluginSpecWrite {
 export type PluginSaveResult =
   | { ok: true }
   /** 競合や検証の失敗。利用者へ見せる1行を持つ */
-  | { ok: false; message: string };
+  | { ok: false; message: string; reason: "conflict" | "error" };
+
+export type PluginOpenResourceResult =
+  | { ok: true }
+  | { ok: false; message: string; reason: "not-found" | "unavailable" };
 
 /** 索引行1件。**`spec`は持たない。** 一覧の絞り込みと数え上げに使う */
 export interface PluginIndexRow {
@@ -252,15 +294,47 @@ export interface PluginIndexRow {
  * こちらは「宣言では表せない画面」を自分で描くときに使う。
  */
 export interface PluginRenderContext extends PluginViewContext {
+  /*
+   * `locale`の意味は、この文脈を組み立てる場所が決める。
+   *
+   * - **ブラウザの`mount`・`update`へ渡す版はUI言語**を入れる。画面の文字列
+   *   （ボタン・見出し・案内文・選択肢・`aria-label`）と診断の本文はこれで選ぶ。
+   *   設定画面の「表示言語を変更」で切り替わる値であり、URLの`/ja/`・`/en/`は
+   *   関係ない。
+   * - **静的出力も同じ**で、`ui.language`で決まった言語が入る。
+   * - Node側がdescriptorを組み立てる`PluginViewContext`と、コマンドの
+   *   `PluginCommandContext`は、今までどおり文書の要求言語が入る。
+   *
+   * 自前rendererでも`context.locale`で`resolveLocalizedText`を使っていれば、
+   * この規則がそのまま効く。
+   */
+  /** Run a registered view command through the host's draft-creation flow. */
+  runCommand?(id: string, input: Readonly<Record<string, PluginInputValue>>): Promise<PluginSaveResult>;
   /**
    * 開いているリソースの正本へ書き戻す。
    *
    * **Coreの保存経路を通る。** 非破壊往復、realpath境界、hash競合の検出は
    * この経路でも同じく効く。プラグインが独自にファイルへ書く口は開けない。
    *
+   * 書き込み先を省略すると開いているリソースを更新する。別リソースを更新する場合は
+   * `metadata.name`を`options.targetName`へ渡す。パスは指定できない。
+   * ハッシュ競合は`reason: "conflict"`で区別する。
+   *
    * 静的出力では常に失敗する。`isStatic`を見て操作自体を出さないこと。
    */
-  save(writes: readonly PluginSpecWrite[]): Promise<PluginSaveResult>;
+  save(
+    writes: readonly PluginSpecWrite[],
+    options?: { targetName?: string }
+  ): Promise<PluginSaveResult>;
+  /** metadata.nameで別リソースを開く。URLの組み立てはhostが行う。 */
+  openResource(name: string): Promise<PluginOpenResourceResult>;
+  /**
+   * ブラウザ内だけに保存する個人設定。keyはprojectRoot・plugin・view・対象resourceで
+   * 分離する。正本YAMLや別ブラウザには同期しない。取得失敗時は`undefined`を返す。
+   */
+  getViewSettings(): unknown;
+  /** JSON化またはブラウザ保存に失敗しても例外を投げない。 */
+  setViewSettings(value: unknown): void;
   /**
    * 一覧に載る索引行。**使用中の値の件数を数えるために渡す。**
    *

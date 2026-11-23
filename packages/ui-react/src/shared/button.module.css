@@ -1,7 +1,19 @@
 @layer components {
+  /*
+   * 高さは**罫を含むmin-heightで作る。** 上下の余白で高さを作ると、`font: inherit`
+   * で受け継いだ`line-height`の分行が高くなり、同じ行に並ぶ記号ボタンと揃わない。
+   * 実際に一覧の操作列では「削除」が39px、「↑ ↓」が34pxだった。
+   * 上下の余白は0にし、文字は`align-items: center`で垂直中央へ置く。
+   * 長い文言が折り返したときは`min-height`なのでボタン自身が伸びる。
+   */
   .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-height: 34px;
-    padding: var(--space-2) var(--space-4);
+    padding: 0 var(--space-4);
+    /* 置く場所の`line-height`で高さが変わらないように、ここで決める */
+    line-height: 1.3;
     border: var(--border-width) solid var(--border-strong);
     border-radius: var(--radius-sm);
     background: var(--surface-raised);
@@ -53,8 +65,8 @@
 
   /* 記号1つだけを置く小さな操作。↑ ↓ など */
   .icon {
-    min-width: 32px;
-    padding: var(--space-1) var(--space-2);
+    min-width: 34px;
+    padding: 0 var(--space-2);
     font-weight: 700;
   }
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { PageView } from "@vellym-internal/core";
 import {
@@ -18,7 +18,10 @@ import {
 import type { PluginSpecValue } from "../shared/field-input.js";
 import { PluginRendererView } from "./plugin-renderer-view.js";
 import { Button } from "../shared/button.js";
+import { ChoiceControl } from "../shared/choice-control.js";
+import { PluginCommandDialog } from "./plugin-command-dialog.js";
 import styles from "./plugin.module.css";
+import { useShortcutAction } from "../shell/shortcuts.js";
 
 /**
  * プラグインが一覧を出すときの画面。文書の紙の中へ一覧を差し込む。
@@ -29,6 +32,8 @@ import styles from "./plugin.module.css";
 export function PluginListPage(props: {
   payload: PluginViewPayload;
   view: PageView;
+  projectRoot: string;
+  targetName: string;
   uiLocale: string;
   showAll: boolean;
   onToggleShowAll(value: boolean): void;
@@ -52,19 +57,49 @@ export function PluginListPage(props: {
    * 知らせが出ると思い込むと、ここだけ黙って何も出なくなる。実際にそうなった。
    */
   notice?: string;
+  /** 読み込めなかった文書の件数。診断本文はここへ渡さない。 */
+  diagnosticsNotice?: string;
+  diagnosticsAction?: string;
+  onOpenDiagnostics?(): void;
 }) {
   const { payload, view } = props;
+  const [command, setCommand] = useState<PluginViewPayload["commands"][number]>();
+  // The server orders views by role, plugin configuration, and registration. Keep that
+  // order for both the switcher and [ / ] navigation.
+  const switchable = (payload.siblings ?? []).filter((sibling) => sibling.label);
+  const position = switchable.findIndex((sibling) => sibling.id === payload.viewId);
+  const previous = position > 0 ? switchable[position - 1] : undefined;
+  const next = position >= 0 && position < switchable.length - 1 ? switchable[position + 1] : undefined;
+  useShortcutAction("previousView", previous ? () => void props.onSwitchView(previous.id) : undefined);
+  useShortcutAction("nextView", next ? () => void props.onSwitchView(next.id) : undefined);
   const body = props.renderer && props.renderContext ? (
-    <PluginRendererView
-      viewId={payload.viewId}
-      renderer={props.renderer}
-      context={props.renderContext}
-    />
+    <>
+      <div className={styles["plugin-list-toolbar"]}>
+        <span className={styles["plugin-list-count"]}>{resolveLocalizedText({
+          ja: `${payload.allRows.length}件`,
+          en: payload.allRows.length === 1 ? "1 item" : `${payload.allRows.length} items`
+        }, props.uiLocale)}</span>
+        {props.editable ? payload.commands.map((item) => <Button key={item.id} onClick={() => {
+          if (item.inputs?.length) setCommand(item);
+          else props.onRunCommand(item.id, {});
+        }}>{resolveLocalizedText(item.title, props.uiLocale)}</Button>) : null}
+      </div>
+      <PluginRendererView
+        viewId={payload.viewId}
+        renderer={props.renderer}
+        context={props.renderContext}
+      />
+      <PluginCommandDialog command={command} locale={props.uiLocale}
+        onCancel={() => setCommand(undefined)}
+        onSubmit={(input) => { props.onRunCommand(command!.id, input); setCommand(undefined); }} />
+    </>
   ) : (
     <PluginListView
       payload={payload}
+      projectRoot={props.projectRoot}
+      targetName={props.targetName}
       hideTitle
-      locale={view.locale ?? view.baseLocale ?? "ja"}
+      locale={props.uiLocale}
       allRows={payload.allRows}
       showAll={props.showAll}
       onToggleShowAll={props.onToggleShowAll}
@@ -85,20 +120,38 @@ export function PluginListPage(props: {
           {props.notice}
         </p>
       ) : null}
-      <div className="document-paper">
+      {props.diagnosticsNotice ? (
+        <div className="notice warning" role="status">
+          <span>{props.diagnosticsNotice}</span>
+          {props.diagnosticsAction && props.onOpenDiagnostics ? (
+            <Button onClick={props.onOpenDiagnostics}>{props.diagnosticsAction}</Button>
+          ) : null}
+        </div>
+      ) : null}
+      <div
+        className="document-paper"
+        {...(payload.descriptor.type === "list" && payload.descriptor.paperWidth
+          ? { "data-plugin-paper-width": payload.descriptor.paperWidth }
+          : {})}
+      >
         <DocumentView
           view={view}
           onNavigatePage={props.onNavigate}
-          headerActions={(payload.siblings ?? [])
-            .filter((sibling) => sibling.id !== payload.viewId && sibling.label)
-            .map((sibling) => (
-              <Button
-                key={sibling.id}
-                onClick={() => void props.onSwitchView(sibling.id)}
-              >
-                {resolveLocalizedText(sibling.label!, props.uiLocale)}
-              </Button>
-            ))}
+          headerActions={payload.siblings?.some((sibling) => sibling.label) ? [
+            <ChoiceControl
+              key="plugin-view-switcher"
+              mode="segmented"
+              aria-label={resolveLocalizedText({ ja: "表示", en: "View" }, props.uiLocale)}
+              value={payload.viewId}
+              // Keep mode switches together regardless of plugin activation order.
+              options={switchable
+                .map((sibling) => ({
+                  value: sibling.id,
+                  label: resolveLocalizedText(sibling.label!, props.uiLocale)
+                }))}
+              onChange={(id) => void props.onSwitchView(id)}
+            />
+          ] : []}
           beforeBody={body}
         />
       </div>
@@ -115,14 +168,18 @@ export function PluginListPage(props: {
 export function PluginDetailPanel(props: {
   payload: PluginViewPayload;
   view: PageView;
+  /** 画面の文字列を選ぶUI言語。`view.locale`は文書の要求言語なので使わない */
+  uiLocale: string;
   editing: boolean;
   /** プラグインが自分で描くrenderer。あれば宣言の詳細の代わりにこれを描く */
   renderer?: PluginViewRenderer;
   renderContext?: PluginRenderContext;
   onChange(changes: Array<{ path: string[]; value: PluginSpecValue }>): void;
   onSave(changes: Array<{ path: string[]; value: PluginSpecValue }>): Promise<void>;
+  /** Opens another resource by name ("Referenced by"). */
+  onOpenResource?(name: string): void;
 }): ReactNode {
-  const { payload, view } = props;
+  const { payload } = props;
   if (payload.descriptor.type !== "detail") return undefined;
   if (props.renderer && props.renderContext) {
     return (
@@ -136,7 +193,7 @@ export function PluginDetailPanel(props: {
   return (
     <PluginDetailView
       payload={payload}
-      locale={view.locale ?? view.baseLocale ?? "ja"}
+      locale={props.uiLocale}
       mode={
         payload.descriptor.body === "none"
           ? "settings"
@@ -146,6 +203,7 @@ export function PluginDetailPanel(props: {
       }
       onChange={props.onChange}
       onSave={props.onSave}
+      {...(props.onOpenResource ? { onOpenResource: props.onOpenResource } : {})}
     />
   );
 }

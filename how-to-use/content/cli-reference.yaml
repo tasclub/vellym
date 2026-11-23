@@ -13,7 +13,7 @@ spec:
       content: |
         ## 概要
 
-        現在のCLIは、`init`・`dev`・`validate`・`build`の4コマンドを提供する。
+        現在のCLIは、`init`・`dev`・`validate`・`list`・`schema`・`build`・`migrate`を提供する。
         以下は生成済みCLIを直接呼ぶ例で示す。
 
         ```bash
@@ -42,8 +42,31 @@ spec:
         | `--method <value>` | `agile`、`hybrid`、`waterfall`のいずれか。 |
         | `--language ja\|en` | UIと初期文書の言語。 |
         | `--content-root <path>` | 正本を置くディレクトリ（project rootからの相対path）。 |
-        CLIは対話選択を行わず、指定した規模と開発方式の厳格構成を一括生成する。
+        | `--plugins <list>` | 公式プラグインの短縮名をカンマ区切り（例`tickets,kanban,wbs`）。設定ファイルと`package.json`の依存に公式パッケージを追加する。未知の名前は候補を一覧にして終了コード`1`。完了時に、選んだプラグインの使い方のページを案内する。 |
+        | `--level light\|standard\|strict` | 作る構成の大きさ。ブラウザの初期セットアップの「軽量・標準・厳格」と同じ。省略時は`standard`。`--size`・`--method`とは独立。 |
+        | `--dry-run` | 作成・skip・競合するファイルを一覧にし、何も書かない。`--json`を付けるとJSONで出す。 |
+        | `--use-existing-content-root` | Vellymの文書ではないファイルがあるcontent rootへ、そのまま書く。 |
+
+        CLIは対話選択を行わず、指定した規模・開発方式・大きさ（`--level`）の構成を一括生成する。
         個別候補の追加・除外はブラウザの初期セットアップまたは設定画面で行う。
+
+        content rootのフォルダ（省略時は`docs`）に、Vellymの文書（PageやFolder）ではないファイルだけがあるときは、
+        既存の文書を混ぜないよう、何も書かずに終了コード`1`で止まる。別の場所を`--content-root`で指定するか、
+        そのまま使うなら`--use-existing-content-root`を付ける。`--dry-run`では止まらず警告を出す。
+
+        **必須引数の候補表示**
+
+        `--size`・`--method`・`--language`のどれかが無い場合は、足りないオプションと
+        指定できる値、実行例を一覧表示して終了コード`1`で終わる。`--language`が未指定なら
+        候補は日英の両方で表示される。値を決められる側（AIエージェントを含む）は、
+        一覧から選んで必要なオプションをすべて指定し直して実行する。
+
+        **公式プラグインの導入**
+
+        `--plugins`は公式パッケージを`vellym.config.yaml`の`plugins`と`package.json`の
+        `dependencies`に書き込むだけで、`npm install`は実行しない。生成されたプロジェクトの
+        ルートで`npm install`してから`vellym dev`を起動する。公式プラグインの導入は
+        [[using-plugins|プラグインを使う]]を参照。
 
         **安全な初期化**
 
@@ -65,14 +88,38 @@ spec:
 
         設定ファイルが無いディレクトリで起動すると、ブラウザの初期セットアップを表示する。
 
+        ## list — 索引の一覧
+
+        `vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]`はリソースを変更せず索引行を表示する。`--where`は完全一致、配列は要素の一致、複数条件はAND。`--json`は`data: { kind, rows }`と診断を出す。診断があっても終了コードは0、kind省略・未知のkind・不正な条件は2。検証は`validate`を使う。
+
+        ## schema — JSON Schema
+
+        ```bash
+        vellym schema --kind <kind> [--config <path>] [--language ja|en]
+        vellym schema --list [--config <path>] [--language ja|en]
+        ```
+
+        `--kind`はインストール済みの版に対応するkind全体のJSON Schemaを、整形JSONで標準出力へ出す（`--json`は不要）。
+        `--list`はkind名を1行ずつ表示する。`--config`を指定すると、その設定の`plugins`が登録したkindも含める。
+        省略時はCoreの`Page`・`Folder`・`PageTranslation`・`FolderTranslation`だけを扱う。
+        プラグインkindのschemaは`registerKind`の`specSchema`から作る。未知のkindは終了コード`1`となり、指定可能なkindを表示する。
+
+        ```bash
+        vellym schema --kind Page
+        vellym schema --kind Ticket --config vellym.config.yaml
+        vellym schema --list --config vellym.config.yaml
+        ```
+
         ## validate — 検証
 
         ```bash
-        vellym validate [--json] [--config <path>]
+        vellym validate [--json] [--strict] [--config <path>]
         ```
 
         正本を読み込み、ページ数と診断（エラー・警告）を表示する。エラーが1件でもあれば
-        終了コードは`1`になる。`--json`で機械可読な出力にできる。
+        終了コードは`1`になり、それ以外は`0`。`--strict`では警告も終了コード`1`の対象になる。
+        `--json`で機械可読な出力にでき、AI・CIでは`vellym validate --strict --json`を使える。
+        JSONの診断の重大度は変わらない。
 
         ## build — 静的サイト生成
 
@@ -84,6 +131,11 @@ spec:
         既定言語はルートへ、公開済みtranslationはlocale別pathへ一回のbuildで生成する。
         出力先・配信手順・注意点は[[self-hosting|静的配信と自己ホスト]]を参照。
 
+        設定の`outputDir`は、出力先そのものではなく「版フォルダの置き場所と名前の元」である。
+        `outputDir: dist/vellym`なら、`dist/`の下に`<YYYYMMDD-HHmmss>-vellym/`という
+        日時つきのフォルダを毎回新しく作る。公開中の版を上書きせず、生成に失敗しても前の版が残るための作りである。
+        実際の出力先は`--json`の`data.outputDir`で分かる。古い版は自動では消さないので、不要になったら手で消す。
+
         ## migrate — Page形式の移行
 
         ```bash
@@ -94,6 +146,9 @@ spec:
         `v1alpha1`のPageとFolderを明示的に`v1`へ移行する。最初のコマンドで対象と診断を確認し、
         Gitへcommitしてから2番目のコマンドで適用する。コメント、未知キー、未知blockを保持し、
         preview後に対象が変わった場合は書き込みを中止する。自動migrationは行わない。
+
+        古い形式（`v1alpha1`）のままのファイルが残っていないかは、`--plan`の対象一覧で分かる。
+        `validate`は`v1alpha1`を警告しない（現役の形式として読める）。
 
         ## 関連
 
@@ -111,7 +166,7 @@ spec:
           content: |
             ## Overview
 
-            The CLI provides four commands: `init`, `dev`, `validate`, and `build`.
+            The CLI provides `init`, `dev`, `validate`, `list`, `schema`, `build`, and `migrate`.
             The examples below invoke the built CLI directly.
 
             ```bash
@@ -141,9 +196,35 @@ spec:
             | `--method <value>` | One of `agile`, `hybrid`, or `waterfall`. |
             | `--language ja\|en` | Language of the UI and initial documents. |
             | `--content-root <path>` | Directory that holds the source (relative to project root). |
-            The CLI is non-interactive and creates the strict structure for the selected size
-            and development method. Add or remove individual candidates in the browser setup
-            or later from Settings.
+            | `--plugins <list>` | Official plugin short names, comma-separated (example: `tickets,kanban,wbs`). Adds the official packages to the config file and to `package.json` dependencies. An unknown name lists the candidates and exits with code `1`. When init finishes, it points to the guide of each selected plugin. |
+            | `--level light\|standard\|strict` | How large a set to create; the same as light, standard, and strict in the browser setup. Defaults to `standard`. Independent of `--size` and `--method`. |
+            | `--dry-run` | Lists the files to create, skip, or conflict, and writes nothing. Add `--json` for JSON. |
+            | `--use-existing-content-root` | Writes into a content root that holds files that are not Vellym documents. |
+
+            The CLI is non-interactive and creates the structure for the selected size,
+            development method, and `--level`. Add or remove individual candidates in the
+            browser setup or later from Settings.
+
+            When the content root folder (`docs` if omitted) holds only files that are not
+            Vellym documents (Pages or Folders), init writes nothing and exits with code `1`,
+            so existing documents are not mixed in. Choose another place with `--content-root`,
+            or add `--use-existing-content-root` to use it as it is. `--dry-run` warns instead
+            of stopping.
+
+            **Candidate list for missing options**
+
+            If `--size`, `--method`, or `--language` is missing, the CLI lists the missing
+            options, the values they accept, and example commands, then exits with code `1`.
+            When `--language` itself is unset, the candidates appear in both Japanese and
+            English. Whoever chooses the values (an AI agent included) picks from that list
+            and reruns with every required option.
+
+            **Official plugin installation**
+
+            `--plugins` only writes the official packages into `plugins` in
+            `vellym.config.yaml` and `dependencies` in `package.json`; it never runs
+            `npm install`. Run `npm install` in the generated project root, then start
+            `vellym dev`. See [[using-plugins|Using Plugins]] for the official plugins.
 
             **Safe initialization**
 
@@ -169,15 +250,41 @@ spec:
 
             Started in a directory with no config file, it shows the in-browser setup.
 
+            ## list — index rows
+
+            `vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]` lists index rows without modifying resources. `--where` matches exactly, including array elements; repeated conditions are ANDed. `--json` emits `data: { kind, rows }` and diagnostics. Diagnostics do not change exit code 0; missing or unknown kind and invalid filters exit 2. Use `validate` to check resources.
+
+            ## schema — JSON Schema
+
+            ```bash
+            vellym schema --kind <kind> [--config <path>] [--language ja|en]
+            vellym schema --list [--config <path>] [--language ja|en]
+            ```
+
+            `--kind` prints the complete JSON Schema for a kind in the installed version as
+            formatted JSON on stdout (`--json` is not needed). `--list` prints one kind per line.
+            With `--config`, the list also includes kinds registered by that config's plugins.
+            Without it, only the Core kinds `Page`, `Folder`, `PageTranslation`, and
+            `FolderTranslation` are available. Plugin schemas are built from the `specSchema`
+            passed to `registerKind`. An unknown kind exits with code `1` and lists available kinds.
+
+            ```bash
+            vellym schema --kind Page
+            vellym schema --kind Ticket --config vellym.config.yaml
+            vellym schema --list --config vellym.config.yaml
+            ```
+
             ## validate — validate
 
             ```bash
-            vellym validate [--json] [--config <path>]
+            vellym validate [--json] [--strict] [--config <path>]
             ```
 
             Loads the source and reports the page count and diagnostics (errors / warnings).
-            If there is at least one error the exit code is `1`. Use `--json` for
-            machine-readable output.
+            If there is at least one error the exit code is `1`, otherwise `0`. With
+            `--strict`, warnings also cause exit code `1`. Use `--json` for machine-readable
+            output; AI and CI can use `vellym validate --strict --json`. Diagnostic severities
+            in JSON remain unchanged.
 
             ## build — static site
 
@@ -190,6 +297,13 @@ spec:
             translations under locale-specific paths. See [[self-hosting|Static Publishing and Self-Hosting]]
             for output location, serving, and caveats.
 
+            The config's `outputDir` is not the output folder itself but the place and base
+            name for versioned folders. With `outputDir: dist/vellym`, each build creates a new
+            timestamped folder `<YYYYMMDD-HHmmss>-vellym/` under `dist/`. This keeps the published
+            version intact and leaves the previous one in place if a build fails. The actual
+            location is reported as `data.outputDir` by `--json`. Old versions are never removed
+            automatically; delete them by hand when you no longer need them.
+
             ## migrate — Page format migration
 
             ```bash
@@ -201,6 +315,10 @@ spec:
             targets and diagnostics first, commit the project to Git, and then apply. The
             migration preserves comments, unknown keys, and unknown blocks and aborts if a
             target changes after preview. Vellym never migrates files automatically.
+
+            To find files still in the old `v1alpha1` format, look at the targets listed by
+            `--plan`. `validate` does not warn about `v1alpha1`, because it is still read as a
+            supported format.
 
             ## Related
 

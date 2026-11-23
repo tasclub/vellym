@@ -22,6 +22,14 @@ RUN apt-get update \
     && echo "node ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/node \
     && chmod 0440 /etc/sudoers.d/node
 
+# Chromium's system libraries and the Japanese fonts, for `npm run verify:core`
+# and screenshots. They need root, so they belong in the image. The browser
+# itself is downloaded by postCreateCommand, from the version in
+# package-lock.json. Keep this in step with `@playwright/test` there.
+ARG PLAYWRIGHT_VERSION=1.62.0
+RUN npx -y playwright@${PLAYWRIGHT_VERSION} install-deps chromium \
+    && rm -rf /var/lib/apt/lists/* /root/.npm
+
 USER node
 
 FROM base AS builder

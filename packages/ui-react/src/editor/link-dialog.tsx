@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { formatWikiLink, type PageSummary } from "@vellym-internal/core";
 import styles from "./link-dialog.module.css";
+import { useUiLang } from "../shared/ui-language.js";
 
 // Milkdown側も適用時にサニタイズするが、明らかに危険なスキームはここでも弾く。
 // このダイアログのURL欄は外部リンク（http(s)・mailto・相対path・見出しアンカー）
@@ -33,6 +34,7 @@ export function LinkDialog(props: {
   onRemove(): void;
   onCancel(): void;
 }) {
+  const uiLang = useUiLang();
   const { t } = useTranslation();
   const [href, setHref] = useState(props.initialHref);
   const [touched, setTouched] = useState(false);
@@ -75,7 +77,7 @@ export function LinkDialog(props: {
       }}
       isDismissable
     >
-      <Modal className={styles.modal}>
+      <Modal lang={uiLang} className={styles.modal}>
         <Dialog className={styles.dialog}>
           <Heading slot="title">
             {props.isActive ? t("link.editTitle") : t("link.insertTitle")}

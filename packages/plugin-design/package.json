@@ -1,0 +1,66 @@
+{
+  "name": "@vellym/design",
+  "version": "0.1.0-beta",
+  "private": true,
+  "description": "Design canvas plugin for Vellym (artboard boards on a canvas)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0",
+    "vellym": ">=0.5.0-beta"
+  },
+  "exports": {
+    ".": {
+      "vellym-source": "./src/node.ts",
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
+    "./package.json": "./package.json",
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --outfile=dist/browser/index.js --external:@vellym/plugin-api"
+  },
+  "publishConfig": { "access": "public" },
+  "peerDependencies": {
+    "@vellym/plugin-api": "^0.2.0-beta"
+  },
+  "devDependencies": {
+    "@vellym/plugin-api": "*",
+    "esbuild": "^0.28.1"
+  },
+  "vellym": {
+    "id": "design",
+    "contributes": {
+      "kinds": [
+        { "kind": "DesignCanvas", "showInDocumentTree": true, "hasBlocks": false },
+        { "kind": "DesignBoard", "showInDocumentTree": false, "hasBlocks": false }
+      ],
+      "views": [
+        {
+          "id": "design-canvas",
+          "kind": "DesignCanvas",
+          "type": "detail",
+          "static": false
+        }
+      ],
+      "commands": [
+        {
+          "id": "design.create-canvas",
+          "title": { "ja": "デザインキャンバスを作成", "en": "New design canvas" },
+          "static": false,
+          "placement": "document-tree"
+        },
+        {
+          "id": "design.create-board",
+          "title": { "ja": "アートボードを追加", "en": "New artboard" },
+          "static": false
+        }
+      ]
+    }
+  }
+}

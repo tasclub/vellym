@@ -9,6 +9,9 @@ spec:
     - id: ticket-management
       type: rich-text
       content: |
+        CLIのTicket索引キーは`status`・`tracker`・`trackers`・`labels`・`field:<項目ID>`・`statusCategory`（`open`・`closed`。Trackerの`statuses`定義から引く分類で、状態が未定義なら値は無い）。`vellym list --kind Ticket --where status=ready --json`や`vellym list --kind Ticket --where field:priority=high`で読み取り専用に検索できる。`_`配下はTracker一覧から除外されるが、CLIは読み込んだ全Ticketを出す。`_`配下は索引行がなく`values`は空、その他の所属のないTicketは`values.tracker`が空文字列となる。
+        例えば`vellym list --kind Ticket --json`の`values`から`field:dependsOn`と`statusCategory`を読めば、外部のスクリプトが`vellym list`だけで「依存先のTicketがすべて完了したか」を判定できる。
+
         ## はじめる
 
         先に`@vellym/tickets`をインストールして有効にする。手順は
@@ -48,6 +51,20 @@ spec:
 
         複数行を選ぶと、ステータスまたは単一選択の項目をまとめて変更できる。
         選んだチケットをまとめてアーカイブへ移すこともできる。
+
+        ## 参照元と関連するコミット
+
+        チケットの詳細には、次の2つの節が出る（読むときだけ）。
+
+        - **このページを参照している**: 親（`parent`）や依存などの`reference`型の項目で、このチケットを指している
+          チケットの一覧。項目名と状態が付き、押すとそのチケットを開ける。参照元が無ければ出ない
+        - **関連するコミット**: コミットメッセージ（件名か本文）にこのチケットの名前（`metadata.name`、例:
+          `ticket-01m6…`）をそのまま書いたコミットの一覧。リポジトリ全体が対象で、日時・作者・件名・短いhashが出る。
+          名前の一部や別の名前の前方一致には当たらない。Gitが無いときは理由を出す。静的版には出ない
+
+        ```text
+        git commit -m "一覧の並べ替えを直す" -m "Refs: ticket-01m6sy034fzn60bv6ayw7sbg2n"
+        ```
 
         ## `_`と`+`で始まるフォルダ
 
@@ -96,10 +113,34 @@ spec:
           2値だけで、他の値を書いたその要素は読み飛ばされる。
         - **配列の先頭が新規作成時の初期値**になり、配列順がそのまま表示順になる。
           初期値を指定するキーは無い。並べ替えて変える。
+        - `select`項目の初期値は選択肢の先頭。新しいTicketの`blockReason`を`none`にするなら、
+          `options`の先頭を`{ value: none, label: なし }`にする。
         - `fields[]`は`id`／`label`／`type`が必須。`required`と`listColumn`は省略すると
           `false`。
         - `required`は**画面から新しく作るときだけ**入力を強制する。既存チケットの編集も、
           手書きのYAMLも止めない。正本がファイルである以上、書き込みを塞ぐ手段は無い。
+        - 一覧への参加は列（`listColumn`）・絞り込み（`filter`）・並べ替え（`sort`）を
+          別々に宣言する。`filter`と`sort`を省略すると`listColumn`と同じになる。
+          `listColumn`なしで`filter`か`sort`を宣言した項目は、表に列を出さないまま、
+          絞り込みと並べ替えの選択だけに使える。
+        - `spec.defaultSort: { field: <項目ID>, direction: asc|desc }`は一覧を開いたときの
+          並べ替え。列に出していない項目でも、並べ替えを有効にしていれば指定できる。
+          `direction`の省略時は`asc`。存在しない項目や並べ替えが無効な項目を指すと警告になり、
+          一覧は今までどおりタイトルの昇順で開く。個人設定で並べ替えを変えた場合はそちらが優先される。
+
+        ### 本文テンプレート
+
+        Trackerの`spec.ticketTemplate`にCommonMark文字列を一つ指定すると、新規チケットの
+        本文にコピーされる。省略時は空。言語別に書く場合、作成時の言語を選び、
+        該当言語がなければ最初の値を使う。既存チケットは変更されない。
+
+        ```yaml
+        ticketTemplate:
+          ja: "## 目的\n\n## 完了条件\n"
+          en: "## Purpose\n\n## Acceptance criteria\n"
+        ```
+
+        言語別の代わりに`ticketTemplate: "## 目的"`のように文字列でも指定できる。
 
         ### Ticket
 
@@ -146,12 +187,23 @@ spec:
         | `date` | `2026-09-05`形式の文字列。他の書式は警告になる |
         | `select` | `options[].value`のいずれかと一致する文字列 |
         | `multiselect` | 文字列の配列。`- { }`ではなく`[a, b]`または`- a` |
-        | `reference` | 文字列 |
+        | `reference` | 文字列。`multiple: true`を付けると文字列の配列 |
 
         識別子は**`multiselect`であり、`multi-select`ではない**。
 
+        `reference`の項目には、項目定義へ`multiple: true`を足すと複数のTicketを格納できる。
+        値は参照の配列になり、一覧・検索・並び替え・集計は`multiselect`と同じ扱いになる
+        （件数は値の個数を表示し、並び替えは配列の先頭の値を使う）。型に合わない値も
+        警告として残る。詳細画面ではTicket名のカンマ区切りとして編集し、名称を並べて表示する。
+        `reference`の値は、同じ`TicketTracker`に属するTicketの`metadata.name`である。
+        存在しない名前は`validate`で`TICKET_REFERENCE_UNRESOLVED`警告になる。
+        `multiple: true`ならTicket名の配列を書く。
+        `multiple: true`を付けた項目は、階層の設定で「親を指す参照項目」に選べない
+        （`TICKET_PARENT_FIELD_INVALID`として報告される）。
+
         型に合わない値も、Vellymは削除せず警告として表示する。定義を1つ変えただけで
         大量のチケットが編集不能になるのを避けるためである。
+        `select`や`multiselect`の選択肢にない値も警告され、値は保持される。
 
         機械検証には
         <https://vellym.tasclub.com/schemas/v1/ticket.schema.json> と
@@ -169,6 +221,9 @@ spec:
         - id: ticket-management
           type: rich-text
           content: |
+            Ticket index keys are `status`, `tracker`, `trackers`, `labels`, `field:<id>`, and `statusCategory` (`open` or `closed`, taken from the tracker's `statuses` definition; absent for undefined statuses). Query read-only with `vellym list --kind Ticket --where status=ready --json` or `vellym list --kind Ticket --where field:priority=high`. Tickets under `_` are excluded from tracker lists but the CLI includes all loaded tickets; these have empty `values`, while other tickets without an owner have an empty `values.tracker`.
+            For example, reading `field:dependsOn` and `statusCategory` from the `values` of `vellym list --kind Ticket --json` lets an external script decide whether every dependency of a ticket is done using `vellym list` alone.
+
             ## Get started
 
             Install and enable `@vellym/tickets` first. See
@@ -210,6 +265,21 @@ spec:
 
             Select multiple rows to change their status or a single-select field together.
             You can also move the selected tickets to the archive in one operation.
+
+            ## Referenced by and related commits
+
+            A ticket's detail shows two more sections while reading:
+
+            - **Referenced by**: tickets whose `reference` fields, such as the parent or dependencies,
+              point at this one, with the field name and state. Press one to open it. Hidden when none
+            - **Related commits**: commits whose message (subject or body) contains this ticket's name
+              (`metadata.name`, for example `ticket-01m6…`) exactly, anywhere in the repository, with
+              date, author, subject, and a short hash. Parts of the name or longer names that start
+              with it do not match. Without Git, the reason is shown. Not shown on the static site
+
+            ```text
+            git commit -m "Fix list sorting" -m "Refs: ticket-01m6sy034fzn60bv6ayw7sbg2n"
+            ```
 
             ## Folders beginning with `_` and `+`
 
@@ -260,11 +330,36 @@ spec:
               `open` and `closed`; an entry with any other value is skipped.
             - **The first entry is the initial value** for a new ticket, and array order is
               display order. There is no key for declaring a default. Reorder to change it.
+            - A `select` field uses its first option as the initial value. To start new tickets
+              with `blockReason: none`, put `{ value: none, label: None }` first in `options`.
             - `fields[]` requires `id`, `label`, and `type`. `required` and `listColumn`
               default to `false`.
             - `required` is enforced **only when creating from the screen**. It blocks neither
               editing an existing ticket nor hand-written YAML. While files are the canonical
               form, there is no way to prevent a write.
+            - Joining the list view is declared per axis: column (`listColumn`), filter
+              (`filter`), and sort (`sort`). Omitting `filter` or `sort` follows `listColumn`.
+              A field with `filter` or `sort` but no `listColumn` stays out of the table while
+              the filter and sort selectors offer it.
+            - `spec.defaultSort: { field: <field-id>, direction: asc|desc }` sets the sort used
+              when the list opens. A field outside the columns works as long as its sorting is
+              enabled. `direction` defaults to `asc`. An unknown field or one with sorting
+              disabled raises a warning, and the list opens sorted by title as before. Personal
+              settings override the default.
+
+            ### Body template
+
+            Set one CommonMark string in the Tracker's `spec.ticketTemplate` to copy it into
+            each new ticket's body. Without it the body is empty. A localized map selects the
+            creation language, falling back to its first value; existing tickets are unchanged.
+
+            ```yaml
+            ticketTemplate:
+              ja: "## 目的\n\n## 完了条件\n"
+              en: "## Purpose\n\n## Acceptance criteria\n"
+            ```
+
+            A single string such as `ticketTemplate: "## Purpose"` also works.
 
             ### Ticket
 
@@ -312,12 +407,26 @@ spec:
             | `date` | string in `2026-09-05` form. Other formats raise a warning |
             | `select` | string matching one of `options[].value` |
             | `multiselect` | array of strings |
-            | `reference` | string |
+            | `reference` | string; with `multiple: true`, an array of strings |
 
             The identifier is **`multiselect`, not `multi-select`**.
 
+            A `reference` field can hold several tickets by adding `multiple: true` to the
+            field definition. Its value is an array of references, and lists, searches,
+            sorting and summaries treat it like a `multiselect` field (counts show the
+            number of values, and sorting uses the first value of the array). Values that
+            do not match the type are kept as warnings. The detail screen edits the array
+            as a comma-separated list of ticket names and displays the names side by side.
+            A `reference` value is the `metadata.name` of a ticket in the same `TicketTracker`.
+            A name that does not exist there produces the `TICKET_REFERENCE_UNRESOLVED` warning
+            during `validate`. With `multiple: true`, write an array of ticket names.
+            A field with `multiple: true` cannot be chosen as the parent reference field
+            in the hierarchy settings (`TICKET_PARENT_FIELD_INVALID`).
+
             Values that do not match the type are reported as warnings, never removed. This
             keeps one edit to a definition from making a large number of tickets uneditable.
+            Values outside the defined `select` or `multiselect` options also produce warnings
+            and are retained.
 
             For machine validation, use
             <https://vellym.tasclub.com/schemas/v1/ticket.schema.json> and
