@@ -463,7 +463,7 @@ export function App() {
           )
         );
       }
-      if (initial && location.page) {
+      if (initial && location.page && initial !== selected) {
         setPendingLocation({ page: initial, heading: location.heading });
       }
       setSelected((current) => {
