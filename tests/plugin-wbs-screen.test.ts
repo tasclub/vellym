@@ -455,17 +455,110 @@ describe("WBS screen", () => {
     act(() => root.unmount());
   });
 
-  it("creates a root or child through the host command rather than writing a Ticket directly", async () => {
+  it.each([true, false])("quick-adds children in place (ranked=%s)", async (ranked) => {
     const { context, container, root, save } = fixture();
-    const runCommand = vi.fn(async () => ({ ok: true as const }));
-    act(() => root.render(createElement(WBSScreen, { context: { ...context, runCommand } })));
-    expect(container.querySelector('[aria-label="日程表"] [title="2026-10-01"]')?.textContent).toBe("1");
+    document.body.append(container);
+    const createResourceNow = vi.fn(async (_draft: unknown) => ({ ok: true as const, name: "new" }));
+    const next = { ...context, rows: context.rows.map((row) => ranked ? row : { ...row, values: Object.fromEntries(Object.entries(row.values).filter(([id]) => id !== "field:rank")) }), createResourceNow };
+    act(() => root.render(createElement(WBSScreen, { context: next })));
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="親: 展開・折りたたみ"]')!.click());
     const menu = openMenu(container, "root");
-    await act(async () => { clickText(menu, "子チケットを追加"); await Promise.resolve(); });
-    expect(runCommand).toHaveBeenCalledWith("ticket.create", {
-      parent: "root", parentField: "parent"
+    act(() => clickText(menu, "子チケットを追加"));
+    expect(container.querySelector('[data-ticket-name="child"]')).not.toBeNull();
+    expect(container.querySelector(".wbs-quick-add")?.previousElementSibling?.getAttribute("data-ticket-name")).toBe("child");
+    const input = container.querySelector<HTMLInputElement>('[aria-label="新しいチケットの題名"]')!;
+    expect(document.activeElement).toBe(input);
+    expect([...container.querySelectorAll("button")].find((b) => b.textContent === "追加")?.disabled).toBe(true);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "New child");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
     });
+    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", isComposing: true, bubbles: true })));
+    expect(createResourceNow).not.toHaveBeenCalled();
+    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    expect(createResourceNow).toHaveBeenCalledWith(expect.objectContaining({ title: "New child",
+      spec: expect.objectContaining({ fields: expect.objectContaining({ parent: "root", ...(ranked ? { rank: 3 } : {}) }) }) }));
+    const draft = createResourceNow.mock.calls[0]![0] as { spec: { fields: Record<string, unknown> } };
+    expect(draft.spec.fields.rank).toBe(ranked ? 3 : undefined);
+    expect(input.value).toBe("");
+    expect(document.activeElement).toBe(input);
     expect(save).not.toHaveBeenCalled();
+    act(() => clickText(container, "取り消し"));
+    expect(container.querySelector(".wbs-quick-add")).toBeNull();
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("retains failed root input, retries without an order field, and does not navigate", async () => {
+    const { context, container, root, openResource, save } = fixture();
+    const createResourceNow = vi.fn<NonNullable<PluginRenderContext["createResourceNow"]>>()
+      .mockResolvedValueOnce({ ok: false, reason: "error", message: "Cannot create" })
+      .mockRejectedValueOnce(new Error("Offline"))
+      .mockResolvedValue({ ok: true, name: "new" });
+    const data = context.rendererData as WBSRendererData;
+    act(() => root.render(createElement(WBSScreen, { context: { ...context, createResourceNow,
+      rendererData: { ...data, orderField: undefined } } })));
+    act(() => clickText(container, "＋ 追加"));
+    const input = container.querySelector<HTMLInputElement>('[aria-label="新しいチケットの題名"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, " Root ");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => clickText(container, "追加"));
+    expect(input.value).toBe(" Root ");
+    expect(container.textContent).toContain("Cannot create");
+    await act(async () => clickText(container, "追加"));
+    expect(input.value).toBe(" Root ");
+    expect(container.textContent).toContain("Offline");
+    await act(async () => clickText(container, "追加"));
+    expect(createResourceNow.mock.lastCall?.[0]).toMatchObject({ title: "Root" });
+    expect(createResourceNow.mock.lastCall?.[0].spec.fields).not.toHaveProperty("rank");
+    expect(createResourceNow.mock.lastCall?.[0].spec.fields).not.toHaveProperty("parent");
+    expect(input.value).toBe("");
+    expect(save).not.toHaveBeenCalled();
+    expect(openResource).not.toHaveBeenCalled();
+    act(() => root.unmount());
+  });
+
+  it("windows the add row, opens a folded parent's children and keeps focus after indexed creation", async () => {
+    const { context, container, root } = fixture(false, [
+      { name: "parent", title: "A parent", values: { "field:rank": 1 } },
+      ...Array.from({ length: 350 }, (_, i) => ({ name: `child-${i}`, title: `Child ${i}`,
+        values: { "field:parent": "parent", "field:rank": i + 1 } }))
+    ]);
+    document.body.append(container);
+    const createResourceNow = vi.fn(async () => ({ ok: true as const, name: "new" }));
+    let next = { ...context, createResourceNow };
+    act(() => root.render(createElement(WBSScreen, { context: next })));
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="A parent: 展開・折りたたみ"]')!.click());
+    const menu = openMenu(container, "parent");
+    act(() => clickText(menu, "子チケットを追加"));
+    const input = container.querySelector<HTMLInputElement>('[aria-label="新しいチケットの題名"]')!;
+    expect(input).not.toBeNull();
+    expect(container.querySelector<HTMLElement>(".wbs-scroll")!.scrollTop).toBeGreaterThan(0);
+    expect(document.activeElement).toBe(input);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Next");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => clickText(container, "追加"));
+    next = { ...next, rows: [...next.rows, { name: "new", title: "Next", values: { "field:parent": "parent", "field:rank": 351 } }] };
+    act(() => root.render(createElement(WBSScreen, { context: next })));
+    expect(container.querySelector(".wbs-quick-add")?.previousElementSibling?.getAttribute("data-ticket-name")).toBe("new");
+    expect(document.activeElement).toBe(container.querySelector('[aria-label="新しいチケットの題名"]'));
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("hides quick add without immediate creation support, in static views and on read-only targets", () => {
+    const { context, container, root } = fixture();
+    for (const next of [context, { ...context, isStatic: true, createResourceNow: vi.fn() },
+      { ...context, target: { ...context.target!, readOnly: true }, createResourceNow: vi.fn() }]) {
+      act(() => root.render(createElement(WBSScreen, { context: next })));
+      expect(container.textContent).not.toContain("＋ 追加");
+      const menu = container.querySelector<HTMLElement>(".wbs-row-menu") ?? openMenu(container, "root");
+      expect(menu.textContent).not.toContain("子チケットを追加");
+    }
     act(() => root.unmount());
   });
 

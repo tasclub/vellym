@@ -132,3 +132,19 @@
   .wbs-actions button:not([aria-expanded]) { display: none; }
   .wbs-row:hover .wbs-actions, .wbs-row:focus-within .wbs-actions { flex-basis: 18px; width: 18px; }
 }
+.wbs-add-controls {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.wbs-add-controls input { min-width: 0; width: 100%; flex: 1; }
+.wbs-quick-add .wbs-status input,
+.wbs-quick-add .wbs-status select { min-width: 0; width: 100%; }
+.wbs-add-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+/* Keep host controls inside the same fixed-height row used by windowing. */
+.wbs-quick-add input, .wbs-quick-add select, .wbs-quick-add button {
+  box-sizing: border-box; min-height: 0; height: 30px; padding: 2px 4px;
+}
+.wbs-add-controls button { flex-shrink: 0; white-space: nowrap; }

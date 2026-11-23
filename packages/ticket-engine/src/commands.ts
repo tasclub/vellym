@@ -1,4 +1,5 @@
-import type { PluginCommandContribution } from "@vellym/plugin-api";
+import type { PluginCommandContribution, PluginResourceDraft } from "@vellym/plugin-api";
+import type { Tracker } from "./definitions.js";
 import {
   TICKET_KIND,
   TRACKER_KIND,
@@ -12,6 +13,30 @@ import { ticketName, trackerName } from "./ulid.js";
 export const CREATE_TICKET_COMMAND_ID = "ticket.create";
 export const CREATE_TRACKER_COMMAND_ID = "ticket.create-tracker";
 
+/** Shared defaults for both unsaved command drafts and immediate WBS creation. */
+export function buildTicketDraft(tracker: Tracker | undefined, input: Record<string, unknown> | undefined, locale: string): PluginResourceDraft & { name: string } {
+  const title = typeof input?.title === "string" ? input.title.trim() : "";
+  const initial = initialTicketSpec(tracker);
+  const template = tracker?.ticketTemplate;
+  const description = typeof template === "string" ? template : template
+    ? template[locale === "ja" ? "ja" : "en"] ?? Object.values(template)[0] ?? "" : "";
+  const fields = { ...initial.fields };
+  const parent = input?.parent;
+  const parentField = input?.parentField;
+  if (typeof parent === "string" && parent && typeof parentField === "string" &&
+    tracker?.fields.some((field) => field.id === parentField && field.type === "reference")) fields[parentField] = parent;
+  for (const field of tracker?.fields ?? []) {
+    if (field.required && input?.[field.id] !== undefined) fields[field.id] = input[field.id];
+  }
+  return {
+    kind: TICKET_KIND, name: ticketName(),
+    title: title || (locale === "ja" ? "新しいチケット" : "New ticket"),
+    ...(tracker ? { folder: tracker.folder ? `${tracker.folder}/+tickets` : "+tickets" } : {}),
+    spec: { ...initial, ...(Object.keys(fields).length ? { fields } : {}),
+      blocks: [{ id: "description", type: "rich-text", content: description }] }
+  };
+}
+
 /** Ticket作成処理。ビュー固有の宣言を持たない共有エンジン側に置く。 */
 export function createTicketCommand(): PluginCommandContribution {
   return {
@@ -24,38 +49,7 @@ export function createTicketCommand(): PluginCommandContribution {
         ? trackerFor(trackers, context.target.relativePath) ??
           trackers.find((item) => item.name === context.target?.name)
         : undefined;
-      const title =
-        typeof context.input?.title === "string" ? context.input.title.trim() : "";
-      const initial = initialTicketSpec(tracker);
-      const template = tracker?.ticketTemplate;
-      const description = typeof template === "string" ? template : template
-        ? template[context.locale === "ja" ? "ja" : "en"] ?? Object.values(template)[0] ?? ""
-        : "";
-      const fields = { ...initial.fields };
-      const parent = context.input?.parent;
-      const parentField = context.input?.parentField;
-      if (typeof parent === "string" && parent && typeof parentField === "string" &&
-        tracker?.fields.some((field) => field.id === parentField && field.type === "reference")) {
-        fields[parentField] = parent;
-      }
-      for (const field of tracker?.fields ?? []) {
-        if (!field.required) continue;
-        const value = context.input?.[field.id];
-        if (value !== undefined) fields[field.id] = value;
-      }
-      return context.createResource({
-        kind: TICKET_KIND,
-        name: ticketName(),
-        title: title || (context.locale === "ja" ? "新しいチケット" : "New ticket"),
-        ...(tracker
-          ? { folder: tracker.folder ? `${tracker.folder}/+tickets` : "+tickets" }
-          : {}),
-        spec: {
-          ...initial,
-          ...(Object.keys(fields).length ? { fields } : {}),
-          blocks: [{ id: "description", type: "rich-text", content: description }]
-        }
-      });
+      return context.createResource(buildTicketDraft(tracker, context.input, context.locale));
     }
   };
 }
