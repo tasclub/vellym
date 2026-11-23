@@ -252,5 +252,25 @@ export function projectTicket(
     }
   }
 
+  const fieldValues = Object.fromEntries(entries);
+  const isEmpty = (value: unknown) => value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0);
+  for (const rule of tracker?.rules ?? []) {
+    if (rule.when?.status && !rule.when.status.includes(String(status))) continue;
+    if (rule.when?.statusCategory && (!tracker || typeof status !== "string" || statusById(tracker, status)?.category !== rule.when.statusCategory)) continue;
+    const report = (id: string, ja: string, en: string) => diagnostics.push(warn(record, `/spec/fields/${id.replace(/~/g, "~0").replace(/\//g, "~1")}`, "TICKET_RULE_VIOLATION", {
+      ja: `ルール ${rule.id}: 状態が ${String(status ?? "")} のとき、${ja}${rule.message?.ja ? ` ${rule.message.ja}` : ""}`,
+      en: `Rule ${rule.id}: when status is ${String(status ?? "")}, ${en}${rule.message?.en ? ` ${rule.message.en}` : ""}`
+    }));
+    for (const id of rule.require ?? []) if (isEmpty(fieldValues[id])) report(id, `${id} は空にできません`, `${id} must not be empty.`);
+    for (const id of rule.empty ?? []) if (!isEmpty(fieldValues[id])) report(id, `${id} は空である必要があります`, `${id} must be empty.`);
+    for (const [id, expected] of Object.entries(rule.equals ?? {})) {
+      const allowed = Array.isArray(expected) ? expected : [expected];
+      const actual = fieldValues[id];
+      if (!(Array.isArray(actual) ? actual.some(v => allowed.some(x => x === v)) : allowed.some(x => x === actual))) {
+        report(id, `${id} は ${allowed.join(", ")} である必要があります（今: ${String(actual ?? "")}）`, `${id} must equal ${allowed.join(", ")} (now: ${String(actual ?? "")}).`);
+      }
+    }
+  }
+
   return diagnostics.length ? { values, diagnostics } : { values };
 }
