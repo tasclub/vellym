@@ -270,6 +270,83 @@ describe("WBS screen", () => {
     act(() => root.unmount());
   });
 
+  it("indents and outdents a row with one write and rolls back conflicts", async () => {
+    const { container, root, save } = fixture(false, [
+      { name: "a", title: "A", values: { "field:rank": 1 } },
+      { name: "b", title: "B", values: { "field:rank": 2 } },
+      { name: "c", title: "C", values: { "field:rank": 3 } }
+    ]);
+    let menu = openMenu(container, "b");
+    expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "字下げ")?.disabled).toBe(false);
+    expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "字上げ")?.disabled).toBe(true);
+    await act(async () => clickText(menu, "字下げ"));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0]).toEqual([[{ path: ["fields", "parent"], value: "a" }, { path: ["fields", "rank"], value: 1 }], { targetName: "b" }]);
+    expect(container.querySelector('[data-ticket-name="b"]')?.getAttribute("aria-level")).toBe("2");
+
+    menu = openMenu(container, "b");
+    expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "字下げ")?.disabled).toBe(true);
+    expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "字上げ")?.disabled).toBe(false);
+    await act(async () => clickText(menu, "字上げ"));
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1]).toEqual([[{ path: ["fields", "parent"], value: null }, { path: ["fields", "rank"], value: 2 }], { targetName: "b" }]);
+    expect([...container.querySelectorAll("[data-ticket-name]")].map((row) => row.getAttribute("data-ticket-name"))).toEqual(["a", "b", "c"]);
+    expect(container.querySelector('[data-ticket-name="b"]')?.getAttribute("aria-level")).toBe("1");
+
+    menu = openMenu(container, "c");
+    save.mockImplementationOnce(async () => ({ ok: false, reason: "conflict", message: "conflict" }));
+    await act(async () => clickText(menu, "字下げ"));
+    expect(container.querySelector('[data-ticket-name="c"]')?.getAttribute("aria-level")).toBe("1");
+    expect(container.querySelector('[role="status"]')?.textContent).toContain("他で変更されました");
+    act(() => root.unmount());
+  });
+
+  it("maps Tab and Shift+Tab on a title to indent and outdent, not quick-add input", async () => {
+    const { context, container, root, save } = fixture(false, [
+      { name: "a", title: "A", values: { "field:rank": 1 } },
+      { name: "b", title: "B", values: { "field:rank": 2 } }
+    ]);
+    const title = container.querySelector<HTMLButtonElement>('[data-ticket-name="b"] .wbs-title')!;
+    title.focus();
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    await act(async () => { title.dispatchEvent(tab); });
+    expect(tab.defaultPrevented).toBe(true);
+    expect(save).toHaveBeenCalledWith([{ path: ["fields", "parent"], value: "a" }, { path: ["fields", "rank"], value: 1 }], { targetName: "b" });
+
+    const nestedTitle = container.querySelector<HTMLButtonElement>('[data-ticket-name="b"] .wbs-title')!;
+    nestedTitle.focus();
+    const shiftTab = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true });
+    await act(async () => { nestedTitle.dispatchEvent(shiftTab); });
+    expect(shiftTab.defaultPrevented).toBe(true);
+    expect(save).toHaveBeenLastCalledWith([{ path: ["fields", "parent"], value: null }, { path: ["fields", "rank"], value: 2 }], { targetName: "b" });
+
+    const createResourceNow = vi.fn(async () => ({ ok: true as const, name: "new" }));
+    act(() => root.render(createElement(WBSScreen, { context: { ...context, createResourceNow } })));
+    act(() => clickText(container, "＋ 追加"));
+    const input = container.querySelector<HTMLInputElement>('[aria-label="新しいチケットの題名"]')!;
+    const inputTab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    act(() => { input.dispatchEvent(inputTab); });
+    expect(inputTab.defaultPrevented).toBe(false);
+    expect(createResourceNow).not.toHaveBeenCalled();
+    act(() => root.unmount());
+  });
+
+  it("saves only the parent when indenting without a Tracker order field", async () => {
+    const { context, container, root, save } = fixture(false, [
+      { name: "a", title: "A", values: {} },
+      { name: "b", title: "B", values: {} }
+    ]);
+    const data = context.rendererData as WBSRendererData;
+    act(() => root.render(createElement(WBSScreen, { context: {
+      ...context, rendererData: { ...data, orderField: undefined }
+    } })));
+    const menu = openMenu(container, "b");
+    await act(async () => clickText(menu, "字下げ"));
+    expect(save).toHaveBeenCalledWith([{ path: ["fields", "parent"], value: "a" }], { targetName: "b" });
+    expect(container.querySelector('[data-ticket-name="b"]')?.getAttribute("aria-level")).toBe("2");
+    act(() => root.unmount());
+  });
+
   it("appends a reparented ticket with one save and opens its folded destination", async () => {
     const { container, root, save } = fixture(false, [
       { name: "a", title: "A", values: { "field:rank": 1 } },

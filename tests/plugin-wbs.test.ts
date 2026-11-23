@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import type { PluginDiagnostic, PluginResourceRecord, PluginViewContext, VellymPluginHost } from "@vellym/plugin-api";
+import type { PluginDiagnostic, PluginIndexRow, PluginResourceRecord, PluginViewContext, VellymPluginHost } from "@vellym/plugin-api";
 import { resolveLocalizedText } from "@vellym/plugin-api";
 import type { TicketTreeNode } from "../packages/ticket-engine/src/hierarchy.js";
 import { validatePluginManifest } from "@vellym-internal/core";
 import plugin from "../packages/plugin-wbs/src/node.js";
-import { excludedParents, rankForAppend, rankForInsert, flattenRows, rowWindow, rankForMove, sortedSiblings } from "../packages/plugin-wbs/src/model.js";
+import { excludedParents, indentTarget, outdentTarget, rankForAppend, rankForInsert, flattenRows, rowWindow, rankForMove, sortedSiblings } from "../packages/plugin-wbs/src/model.js";
 import { wbsView } from "../packages/plugin-wbs/src/view.js";
 import { createTicketCommand } from "../packages/ticket-engine/src/commands.js";
 
@@ -128,5 +128,33 @@ describe("WBS as a TicketTracker view", () => {
     expect(rankForAppend([{ name: "max", title: "Max", values: { "field:sequence": Number.MAX_VALUE } }], "sequence")).toBeUndefined();
     expect(rankForInsert(rows, 0, 1, "sequence")).toBeUndefined();
     expect(rows.map((row) => row.values["field:sequence"])).toEqual([4, 4, 4]);
+  });
+
+  it("calculates indent and outdent targets without changing sibling rows", () => {
+    const rows: PluginIndexRow[] = [
+      { name: "a", title: "A", values: { "field:sequence": 1 } },
+      { name: "b", title: "B", values: { "field:sequence": 2 } },
+      { name: "c", title: "C", values: { "field:sequence": 3 } },
+      { name: "a-child", title: "A child", values: { "field:parent": "a", "field:sequence": 4 } }
+    ];
+    expect(indentTarget(rows, "b", "parent", "sequence", "en")).toEqual({ parent: "a", order: 5 });
+    expect(outdentTarget(rows, "a-child", "parent", "sequence", "en")).toEqual({ parent: "", order: 1.5 });
+    expect(indentTarget(rows, "a", "parent", "sequence", "en")).toBeUndefined();
+    expect(outdentTarget(rows, "a", "parent", "sequence", "en")).toBeUndefined();
+    expect(indentTarget(rows, "b", "parent", undefined, "en")).toEqual({ parent: "a" });
+    expect(outdentTarget(rows, "a-child", "parent", undefined, "en")).toEqual({ parent: "" });
+    expect(rows.map((row) => row.values["field:sequence"])).toEqual([1, 2, 3, 4]);
+  });
+
+  it("does not offer hierarchy moves for unresolved or cyclic ancestry", () => {
+    const rows = [
+      { name: "orphan", title: "Orphan", values: { "field:parent": "missing" } },
+      { name: "a", title: "A", values: { "field:parent": "b" } },
+      { name: "b", title: "B", values: { "field:parent": "a" } }
+    ];
+    expect(indentTarget(rows, "orphan", "parent")).toBeUndefined();
+    expect(outdentTarget(rows, "orphan", "parent")).toBeUndefined();
+    expect(indentTarget(rows, "a", "parent")).toBeUndefined();
+    expect(outdentTarget(rows, "b", "parent")).toBeUndefined();
   });
 });

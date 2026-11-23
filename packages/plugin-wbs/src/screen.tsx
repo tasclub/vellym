@@ -4,7 +4,8 @@ import type { PluginViewProps } from "@vellym/plugin-api/react";
 import { Button, ChoiceControl, FieldInput, InputControl } from "@vellym/plugin-api/ui";
 import type { PluginFieldDescriptor, PluginSpecWrite } from "@vellym/plugin-api";
 import { buildTicketDraft, buildTicketHierarchy, fieldKey } from "@vellym-internal/ticket-engine";
-import { excludedParents, rankForAppend, rankForInsert, flattenRows, rowWindow, type WBSRow } from "./model.js";
+import { excludedParents, indentTarget, outdentTarget, rankForAppend, rankForInsert, flattenRows, rowWindow,
+  type ParentMoveTarget, type WBSRow } from "./model.js";
 import { buildTimeline, parseDate, timelineBar, DAY_MS, mondayOnOrBefore, presetRange, TIMELINE_PRESETS, timelineCells,
   timelinePreset, type Timeline, type TimelineMode, type TimelinePreset } from "./timeline.js";
 import { formatCell, type WBSColumn, type WBSRendererData } from "./view.js";
@@ -85,7 +86,7 @@ function Indent({ depth, children }: { depth: number; children: ReactNode }) {
   return content;
 }
 
-function WBSRows({ items, data, context, all, review, timeline, panes, busy, movedName, collapsed, editing, overrides, saving, menu, setMenu, onEdit, onCommit, onToggle, onParent, onOrder, onDropOrder, onRenumber, onCreate, onReveal }: {
+function WBSRows({ items, data, context, all, review, timeline, panes, busy, movedName, collapsed, editing, overrides, saving, menu, setMenu, onEdit, onCommit, onToggle, onParent, onIndent, onOutdent, onOrder, onDropOrder, onRenumber, onCreate, onReveal }: {
   items: readonly WBSRow[];
   data: WBSRendererData;
   context: PluginRenderContext;
@@ -105,6 +106,8 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
   onCommit(row: PluginIndexRow, column: WBSColumn, value: unknown): void;
   onToggle(name: string): void;
   onParent(row: PluginIndexRow, parent: string): void;
+  onIndent(row: PluginIndexRow, target: ParentMoveTarget): void;
+  onOutdent(row: PluginIndexRow, target: ParentMoveTarget): void;
   onOrder(rows: readonly PluginIndexRow[], index: number, delta: -1 | 1): void;
   onDropOrder(rows: readonly PluginIndexRow[], dragged: string, target: number, after: boolean): void;
   onRenumber(rows: readonly PluginIndexRow[]): void;
@@ -148,6 +151,10 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
         const parent = data.parentField ? row.values[fieldKey(data.parentField)] : undefined;
         const status = data.tracker?.statuses.find((item) => item.id === row.values.status);
          const needsReview = review.has(row.name);
+         const indent = !needsReview && data.parentField
+           ? indentTarget(all, row.name, data.parentField, data.orderField, context.locale) : undefined;
+         const outdent = !needsReview && data.parentField
+           ? outdentTarget(all, row.name, data.parentField, data.orderField, context.locale) : undefined;
          const descendants = editingParent === row.name && data.parentField
            ? excludedParents(all, row.name, data.parentField) : new Set<string>();
          const dropTarget = editable && !needsReview && data.orderField ? {
@@ -180,7 +187,14 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
             {collapsed.has(row.name) ? "▸" : "▾"}</Button> : null}</span>
           {depth >= 4 ? <span className="wbs-level-badge">L{depth + 1}</span> : null}
           <span className="wbs-number">{String(row.values.number ?? "")}</span>
-           <Button className="wbs-title" onClick={() => void context.openResource(row.name)}>{row.title || row.name}</Button>
+           <Button className="wbs-title" onClick={() => void context.openResource(row.name)}
+              onKeyDown={(event) => {
+                if (!editable || event.key !== "Tab" || needsReview) return;
+                const target = event.shiftKey ? outdent : indent;
+                if (!target) return;
+                event.preventDefault();
+                if (event.shiftKey) onOutdent(row, target); else onIndent(row, target);
+              }}>{row.title || row.name}</Button>
            {needsReview && !context.isStatic ? <span className="wbs-review-note" title={reviewNote(row)}>{reviewNote(row)}</span> : null}
           <span className="wbs-actions">
            {editable && !needsReview && data.orderField && rows.length > 1 ? <Button icon draggable={!busy} disabled={busy}
@@ -212,6 +226,16 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
                   <Button disabled={busy || index === rows.length - 1} onClick={() => { onOrder(rows, index, 1); setMenu(undefined); }}>{label("下へ", "Move down", context.locale)}</Button>
                 </> : null}
                 {data.parentField ? <>
+                  {!needsReview ? <>
+                    <Button disabled={busy || !indent} onClick={() => {
+                      if (indent) onIndent(row, indent);
+                      setMenu(undefined);
+                    }}>{label("字下げ", "Indent", context.locale)}</Button>
+                    <Button disabled={busy || !outdent} onClick={() => {
+                      if (outdent) onOutdent(row, outdent);
+                      setMenu(undefined);
+                    }}>{label("字上げ", "Outdent", context.locale)}</Button>
+                  </> : null}
                   <Button disabled={busy} onClick={() => setEditingParent(row.name)}>{label("親を変更…", "Change parent…", context.locale)}</Button>
                   {needsReview ? <Button disabled={busy} onClick={() => { onParent(row, ""); setMenu(undefined); }}>{label("親を空にして最上位へ", "Clear parent and move to top level", context.locale)}</Button> : null}
                   {!needsReview && context.createResourceNow ? <Button disabled={busy} onClick={() => { onCreate(row.name); setMenu(undefined); }}>{label("子チケットを追加", "Add child task", context.locale)}</Button> : null}
@@ -401,16 +425,17 @@ export function WBSScreen({ context }: PluginViewProps) {
       setSaving(new Set(savingRef.current));
     }
   }
-  async function changeParent(row: PluginIndexRow, parent: string) {
+  async function changeParent(row: PluginIndexRow, parent: string,
+    position?: { order: number | undefined; allowWithoutOrder?: boolean }) {
     if (!parentField || busy || !editable ||
       (parent && (excludedParents(rows, row.name, parentField).has(parent) || review.has(parent)))) return;
     const currentParent = row.values[fieldKey(parentField)];
     if ((typeof currentParent === "string" ? currentParent : "") === parent) return;
     const destination = rows.filter((item) => item.name !== row.name && !review.has(item.name) &&
       (item.values[fieldKey(parentField)] || "") === parent);
-    const rank = orderField ? rankForAppend(destination, orderField) : undefined;
+    const rank = position ? position.order : orderField ? rankForAppend(destination, orderField) : undefined;
     // A finite rank cannot follow missing ranks. Never silently rewrite siblings.
-    if ((orderField && rank === undefined) || (!orderField && destination.length)) {
+    if ((orderField && rank === undefined) || (!orderField && destination.length && !position?.allowWithoutOrder)) {
       setMessage(renumberMessage); return;
     }
     setBusy(true);
@@ -612,6 +637,8 @@ export function WBSScreen({ context }: PluginViewProps) {
       editing={editing} overrides={overrides} saving={saving} onEdit={setEditing} onCommit={(row, column, value) => void commitCell(row, column, value)}
       mode={mode} panes={panes} onReveal={reveal}
       onParent={(row, parent) => void changeParent(row, parent)}
+      onIndent={(row, target) => void changeParent(row, target.parent, { order: target.order, allowWithoutOrder: true })}
+      onOutdent={(row, target) => void changeParent(row, target.parent, { order: target.order, allowWithoutOrder: true })}
       onOrder={(siblings, index, delta) => void moveOrder(siblings, index, delta)}
       onDropOrder={(siblings, dragged, target, after) => void dropOrder(siblings, dragged, target, after)}
       onRenumber={(siblings) => void renumber(siblings)}
@@ -640,7 +667,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, bu
   overrides: Record<string, unknown>;
   saving: ReadonlySet<string>;
   onAdd(parent: string, title: string, values: Record<string, unknown>): Promise<boolean>;
-} & Pick<Parameters<typeof WBSRows>[0], "onEdit" | "onCommit" | "onParent" | "onOrder" | "onDropOrder" | "onRenumber" | "onReveal">) {
+} & Pick<Parameters<typeof WBSRows>[0], "onEdit" | "onCommit" | "onParent" | "onIndent" | "onOutdent" | "onOrder" | "onDropOrder" | "onRenumber" | "onReveal">) {
   const canAdd = !context.isStatic && !context.target?.readOnly && !!context.createResourceNow && panes.title;
   const [adding, setAdding] = useState<string>();
   const [addTitle, setAddTitle] = useState("");
