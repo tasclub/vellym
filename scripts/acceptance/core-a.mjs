@@ -149,8 +149,9 @@ export const steps = [
       assert.equal(await page.getByRole("tree").innerText(), before);
       await ctx.expect(page.getByText(/既存|競合/).first()).toBeVisible();
     });
-    await ctx.check("適用前に非上書きが説明され、ファイルを変更しない", async () => {
-      await ctx.expect(page.getByText(/上書きしません/).first()).toBeVisible();
+    // 0.5.1で「上書きしません」の説明文を消した（ticket-01m83uitextsetup0000000001）。既存・競合の表示は
+    // 上の確認で見ているので、ここでは適用前にファイルが変わらないことだけを確かめる。
+    await ctx.check("適用前はファイルを変更しない", async () => {
       assert.deepEqual(await files(ctx, root), {});
     });
     await button(page, "この内容で生成").click();

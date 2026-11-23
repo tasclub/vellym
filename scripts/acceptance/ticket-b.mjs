@@ -435,12 +435,20 @@ export const steps = [
       await ctx.expect(button(page, "項目を追加")).toBeVisible();
       await ctx.expect(button(page, "ステータスを追加")).toBeVisible();
     });
+    // 0.5.1で上下ボタンをつまみのドラッグ&ドロップに変えた（ticket-01m83settingsdnd0000000001）。
+    const dragAbove = async (source, target) => {
+      await target.scrollIntoViewIfNeeded();
+      const box = await target.boundingBox();
+      await source.locator('[draggable="true"]').first().dragTo(target, { targetPosition: { x: box.width - 10, y: 5 } });
+    };
     await ctx.check("ステータスと項目の行を上下に並べ替えられる", async () => {
-      await ctx.expect(button(page, "下へ").first()).toBeVisible();
-      await ctx.expect(fieldRow("due").getByRole("button", { name: "上へ" })).toBeVisible();
+      await ctx.expect(page.locator('main [data-row="status"]').first().getByRole("button", { name: /^並び替え: / })).toBeVisible();
+      await ctx.expect(fieldRow("due").getByRole("button", { name: "並び替え: due" })).toBeVisible();
+      await ctx.expect(button(page, "上へ")).toHaveCount(0);
+      await ctx.expect(button(page, "下へ")).toHaveCount(0);
     });
     await ctx.check("並べ替えが一覧の列順と詳細の項目順に反映され、保存がYAMLへの読める差分になる", async () => {
-      await fieldRow("due").getByRole("button", { name: "上へ" }).click();
+      await dragAbove(fieldRow("due"), fieldRow("flag"));
       await button(page, "保存").last().click();
       await page.waitForTimeout(1000);
       const yaml = await ctx.fs.readFile(ctx.path.join(root, "content/work/tracker.yaml"), "utf8");
