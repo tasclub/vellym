@@ -1,4 +1,6 @@
 {
+  "editor.imageZoom": "Zoom image: {{alt}}",
+  "editor.imageClose": "Close",
   "changes.title": "Changes",
   "changes.rail": "Changes ({{count}} uncommitted · {{ahead}} unpushed)",
   "changes.uncommitted": "Uncommitted changes",

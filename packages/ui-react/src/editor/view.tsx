@@ -1,8 +1,13 @@
 import {
   Children,
+  createContext,
   createElement,
   isValidElement,
+  useContext,
+  useEffect,
   useMemo,
+  useState,
+  type ImgHTMLAttributes,
   type MouseEvent,
   type ReactNode
 } from "react";
@@ -23,6 +28,7 @@ import {
 import { resolveLocalizedText } from "@vellym/plugin-api";
 import { Icon } from "../shared/icon.js";
 import { Button } from "../shared/button.js";
+import { Dialog } from "../shared/dialog.js";
 import {
   documentPagePath,
   localeDirection,
@@ -30,6 +36,38 @@ import {
   staticAppBasePath
 } from "../shell/routing.js";
 import styles from "./view.module.css";
+
+const InsideLink = createContext(false);
+
+function MarkdownImage({ node: _node, ...props }: ImgHTMLAttributes<HTMLImageElement> & { node?: unknown }) {
+  const linked = useContext(InsideLink);
+  const { t } = useTranslation();
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [scaled, setScaled] = useState(false);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!image || linked) return;
+    const measure = () => setScaled(image.naturalWidth > image.clientWidth);
+    measure();
+    image.addEventListener("load", measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(image);
+    return () => { image.removeEventListener("load", measure); observer.disconnect(); };
+  }, [image, linked]);
+  const img = <img {...props} ref={setImage} />;
+  if (linked || !scaled) return img;
+  return (
+    <>
+      <button type="button" className={styles["image-zoom"]} aria-label={t("editor.imageZoom", { alt: props.alt ?? "" })} onClick={() => setOpen(true)}>
+        {img}
+      </button>
+      <Dialog isOpen={open} title={t("editor.imageZoom", { alt: props.alt ?? "" })} onClose={() => setOpen(false)}
+        actions={<Button onClick={() => setOpen(false)}>{t("editor.imageClose")}</Button>}>
+        <div className={styles["image-full-scroll"]}><img src={props.src} alt={props.alt} /></div>
+      </Dialog>
+    </>
+  );
+}
 
 function referenceLookupKey(parts: Pick<WikiLinkParts, "target" | "heading">): string {
   return `${parts.target}\u0000${parts.heading ?? ""}`;
@@ -182,7 +220,7 @@ export function DocumentView({
                         onNavigatePage(pageId, heading);
                       }}
                     >
-                      {children}
+                      <InsideLink.Provider value>{children}</InsideLink.Provider>
                     </a>
                   );
                 }
@@ -195,7 +233,7 @@ export function DocumentView({
                     rel={external ? "noreferrer noopener" : undefined}
                     onClick={(event) => handleAnchorClick(event, href)}
                   >
-                    {children}
+                    <InsideLink.Provider value>{children}</InsideLink.Provider>
                     {external && (
                       <span className="external-link-icon" aria-hidden="true">
                         <Icon name="arrowUpRight" size={12} />
@@ -206,6 +244,7 @@ export function DocumentView({
               },
               // 幅広の表は横スクロールのコンテナに入れ、狭い読み幅でもセルが
               // 潰れて読めなくならないようにする。
+              img: MarkdownImage,
               table: ({ children }) => (
                 <div className={styles["table-scroll"]}>
                   <table>{children}</table>

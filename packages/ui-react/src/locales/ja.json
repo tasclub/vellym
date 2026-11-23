@@ -1,4 +1,6 @@
 {
+  "editor.imageZoom": "拡大表示: {{alt}}",
+  "editor.imageClose": "閉じる",
   "changes.title": "変更",
   "changes.rail": "変更（未コミット{{count}}件・未プッシュ{{ahead}}件）",
   "changes.uncommitted": "コミットしていない変更",
