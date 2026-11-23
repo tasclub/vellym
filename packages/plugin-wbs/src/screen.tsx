@@ -33,8 +33,8 @@ function TimelineTrack({ timeline, start, end, locale, closed, onReveal }: {
     : `${closed ? "✓ " : ""}${short(start)}–${short(end)}`;
   if (bar?.outside) return <div className={`wbs-track wbs-outside-${bar.outside}`} data-schedule={`outside-${bar.outside}`}>
     <Button onClick={() => onReveal(bar.outside === "before" ? e ?? s! : s ?? e!)}>{bar.outside === "before"
-      ? label(`◀ 範囲より前 ${text}`, `◀ Before range ${text}`, locale)
-      : label(`範囲より後 ${text} ▶`, `After range ${text} ▶`, locale)}</Button></div>;
+      ? label(`◀ 表示期間より前 ${text}`, `◀ Before range ${text}`, locale)
+      : label(`表示期間より後 ${text} ▶`, `After range ${text} ▶`, locale)}</Button></div>;
   return <div className="wbs-track" aria-label={bar ? `${String(start ?? "")} – ${String(end ?? "")}` : label("日程未設定", "No dates", locale)}>
     {bar ? <>
       <span aria-hidden="true" className="wbs-bar" data-schedule={kind} data-closed={closed || undefined}
@@ -185,7 +185,7 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
                 {data.parentField ? <>
                   <Button disabled={busy} onClick={() => setEditingParent(row.name)}>{label("親を変更…", "Change parent…", context.locale)}</Button>
                   {needsReview ? <Button disabled={busy} onClick={() => { onParent(row, ""); setMenu(undefined); }}>{label("親を空にして最上位へ", "Clear parent and move to top level", context.locale)}</Button> : null}
-                  {!needsReview && context.runCommand ? <Button disabled={busy} onClick={() => { onCreate(row.name); setMenu(undefined); }}>{label("子タスクを追加", "Add child task", context.locale)}</Button> : null}
+                  {!needsReview && context.runCommand ? <Button disabled={busy} onClick={() => { onCreate(row.name); setMenu(undefined); }}>{label("子チケットを追加", "Add child task", context.locale)}</Button> : null}
                 </> : null}
               </> : null}
                {needsReview && !context.isStatic ? <small>{label("親の参照を確認してください。並び替えと子の追加はできません。", "Check the parent reference. Reordering and adding children are unavailable.", context.locale)}</small> : null}
@@ -199,7 +199,7 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
                onChange={(value) => { onParent(row, value); setEditingParent(undefined); setMenu(undefined); }} /></label>
             <Button onClick={() => setEditingParent(undefined)}>{label("閉じる", "Close", context.locale)}</Button>
              {!needsReview && data.orderField && rows.length > 0 ? <Button disabled={busy} onClick={() => onRenumber(rows)}>
-              {label("順序を振り直す", "Renumber order", context.locale)} ({rows.length})</Button> : null}
+              {label("並び順を付け直す", "Renumber order", context.locale)} ({rows.length})</Button> : null}
            </div> : null}
             </div> : null}
           </div>
@@ -288,7 +288,7 @@ export function WBSScreen({ context }: PluginViewProps) {
       for (const name of excludedParents(rows, diagnostic.file, parentField)) review.add(name);
     }
   }
-  const renumberMessage = label("移動先の順序を振り直してから移動してください", "Renumber the destination before moving", context.locale);
+  const renumberMessage = label("先に移動先の並び順を付け直してください", "Renumber the destination before moving", context.locale);
   const saveMessage = (result: Awaited<ReturnType<PluginRenderContext["save"]>>) => {
     setMessage(result.ok ? label("✓ 保存済み", "✓ Saved", context.locale) : result.reason === "conflict"
       ? label("他で変更されました。表示は操作前のままです。再読み込みしてください。", "Changed elsewhere. The previous display is preserved; reload.", context.locale)
@@ -340,7 +340,7 @@ export function WBSScreen({ context }: PluginViewProps) {
     if (!orderField || busy || !editable || review.has(siblings[index]?.name ?? "") || index + delta < 0 || index + delta >= siblings.length) return;
     const rank = rankForInsert(siblings, index, index + delta, orderField);
     if (rank === undefined) {
-      setMessage(label("この位置へ動かすには順序の振り直しが必要です", "Renumber before moving here", context.locale));
+      setMessage(label("この位置へ動かすには、先に並び順を付け直してください", "Renumber before moving here", context.locale));
       return;
     }
     const row = siblings[index]!;
@@ -363,7 +363,7 @@ export function WBSScreen({ context }: PluginViewProps) {
     if (index === source) return;
     const rank = rankForInsert(siblings, source, index, orderField);
     if (rank === undefined) {
-      setMessage(label("この位置へ動かすには順序の振り直しが必要です", "Renumber before moving here", context.locale));
+      setMessage(label("この位置へ動かすには、先に並び順を付け直してください", "Renumber before moving here", context.locale));
       return;
     }
     const row = siblings[source]!;
@@ -380,7 +380,7 @@ export function WBSScreen({ context }: PluginViewProps) {
   }
   async function renumber(siblings: readonly PluginIndexRow[]) {
     if (!orderField || busy || !editable || !window.confirm(label(
-      `${siblings.length}件を1件ずつ振り直します。実行しますか？`,
+      `${siblings.length}件のチケットの並び順を付け直します。実行しますか？`,
       `Renumber ${siblings.length} tickets one by one?`, context.locale))) return;
     setBusy(true);
     for (const [index, row] of siblings.entries()) {
@@ -394,7 +394,7 @@ export function WBSScreen({ context }: PluginViewProps) {
       setOrders((current) => ({ ...current, [row.name]: index + 1 }));
     }
     setBusy(false);
-    setMessage(label("順序を振り直しました", "Order renumbered", context.locale));
+    setMessage(label("並び順を付け直しました", "Order renumbered", context.locale));
   }
   return <section aria-label={label("WBSの階層", "WBS hierarchy", context.locale)}
     style={{ width: "100%", minWidth: 0 }}>
@@ -413,7 +413,7 @@ export function WBSScreen({ context }: PluginViewProps) {
       )}
     </details> : null}
     {!context.isStatic && [...(data?.diagnostics ?? []), ...hierarchy.diagnostics].length > 0 ? (
-      <div role="alert"><h2>{label("WBS定義を確認してください", "Check WBS definition", context.locale)}</h2>
+      <div role="alert"><h2>{label("WBSの設定に問題があります", "Check WBS definition", context.locale)}</h2>
         <ul>{[...(data?.diagnostics ?? []), ...hierarchy.diagnostics].map((diagnostic, index) =>
           <li key={`${diagnostic.code}:${index}`}>
             {resolveLocalizedText(diagnostic.message, context.locale)}
@@ -595,9 +595,9 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
           ...(groupBy ? { groupBy: { key: fieldKey(groupBy.id), type: groupBy.type, order: groupBy.type === "select" ? groupBy.options?.map((option) => option.value) : undefined, labels: groupBy.options, labelOf: groupBy.type === "reference" ? (value: string) => context.rows.find((row) => row.name === value)?.title ?? value : undefined } } : {})
         });
         return <li key={`${field.id}-${method}-${index}`}>
-          {field.label} {result.text}{result.excluded ? ` (${label("型が合わず除外", "Invalid values excluded", context.locale)}: ${result.excluded})` : ""}
-          {result.multiCounted ? <span> {label("複数の値に重複計上", "Counted in multiple groups", context.locale)}</span> : null}
-          {result.groups ? <ul>{result.groups.map((group) => <li key={group.value ?? "__unset"}>{group.label}: {group.text}{group.excluded ? ` (${label("型が合わず除外", "Invalid values excluded", context.locale)}: ${group.excluded})` : ""}</li>)}</ul> : null}
+          {field.label} {result.text}{result.excluded ? ` (${label("値の形式が合わないため集計から除外", "Invalid values excluded", context.locale)}: ${result.excluded})` : ""}
+          {result.multiCounted ? <span> {label("複数の値を持つチケットは、それぞれの値で数えています", "Counted in multiple groups", context.locale)}</span> : null}
+          {result.groups ? <ul>{result.groups.map((group) => <li key={group.value ?? "__unset"}>{group.label}: {group.text}{group.excluded ? ` (${label("値の形式が合わないため集計から除外", "Invalid values excluded", context.locale)}: ${group.excluded})` : ""}</li>)}</ul> : null}
         </li>;
       })}</ul>
     </section> : null}
@@ -611,8 +611,8 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
        {timeline && today >= timeline.start && today < timeline.end ? <span aria-hidden="true" className="wbs-today-line"
          /> : null}
       <div role="row" className="wbs-header wbs-row" ref={headerRef}>
-        <strong role="columnheader" className="wbs-left">{label("作業", "Task", context.locale)}
-          <span role="separator" aria-label={label("作業列の幅", "Task column width", context.locale)}
+        <strong role="columnheader" className="wbs-left">{label("チケット", "Task", context.locale)}
+          <span role="separator" aria-label={label("チケット列の幅", "Task column width", context.locale)}
             aria-orientation="vertical" aria-valuemin={240} aria-valuemax={560} aria-valuenow={width}
             tabIndex={0} className="wbs-resizer"
             onKeyDown={(event) => {
@@ -627,7 +627,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
             onPointerUp={() => { resizeStart.current = undefined; persist({ leftWidth: width }); }}
             onPointerCancel={() => { resizeStart.current = undefined; }} />
         </strong>
-        <div role="columnheader" aria-label={label("日付タイムライン", "Date timeline", context.locale)} className="wbs-date-header">
+        <div role="columnheader" aria-label={label("日程表", "Date timeline", context.locale)} className="wbs-date-header">
           {tiers ? <>
             <div className="wbs-month-tier">{tiers.months.map((cell) => <span key={cell.timestamp}
               style={{ left: `${cell.left / (days * dayWidth) * 100}%`, width: `${cell.width / (days * dayWidth) * 100}%` }}>
@@ -640,7 +640,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
               style={{ left: `${cell.left / (days * dayWidth) * 100}%`, width: `${cell.width / (days * dayWidth) * 100}%` }}>
               {cell.showLabel ? mode === "day" ? new Date(cell.timestamp).getUTCDate() : `${new Date(cell.timestamp).getUTCMonth() + 1}/${new Date(cell.timestamp).getUTCDate()}` : ""}</span>)}</div>
           </>
-            : <span>{label("日程を設定するとタイムラインが表示されます", "Add dates to show the timeline", context.locale)}</span>}
+            : <span>{label("開始日か終了日を入れると、日程表に表示されます", "Add dates to show the timeline", context.locale)}</span>}
         </div>
       </div>
       {window.start > 0 ? <div aria-hidden="true" style={{ height: window.start * viewport.rowHeight }} /> : null}

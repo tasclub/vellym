@@ -82,7 +82,7 @@ describe("WBS screen", () => {
         rendererData: { ...data, tracker: { ...data.tracker, summary: [{ field: { id: "rank", label: "Rank", type: "number" }, method: "sum" }] } }
       } })));
       const summary = container.querySelector('.wbs-summary')!;
-      expect(summary.textContent).toContain(locale === "ja" ? "Rank 合計: 10 (型が合わず除外: 1)" : "Rank Sum: 10 (Invalid values excluded: 1)");
+      expect(summary.textContent).toContain(locale === "ja" ? "Rank 合計: 10 (値の形式が合わないため集計から除外: 1)" : "Rank Sum: 10 (Invalid values excluded: 1)");
       act(() => container.querySelector<HTMLButtonElement>(`[aria-label="Root: ${locale === "ja" ? "展開・折りたたみ" : "Toggle children"}"]`)!.click());
       expect(container.querySelector('[data-ticket-name="child"]')).toBeNull();
       expect(summary.textContent).toContain(locale === "ja" ? "合計: 10" : "Sum: 10");
@@ -129,7 +129,7 @@ describe("WBS screen", () => {
     expect(container.querySelector('[data-ticket-name="cross"]')?.textContent).toContain("◀ 07-27");
     expect(container.querySelector('[data-ticket-name="cross"]')?.textContent).toContain("10-02 ▶");
     for (const [name, kind, text] of [
-      ["before", "outside-before", "◀ 範囲より前"], ["after", "outside-after", "範囲より後"],
+      ["before", "outside-before", "◀ 表示期間より前"], ["after", "outside-after", "表示期間より後"],
       ["start", "start-only", "開始 08-31・終了日なし"], ["end", "end-only", "開始日なし・終了 09-04"],
       ["invalid", "invalid", "△ 終了日が開始日より前です"], ["none", "none", "— 日程なし"]
     ]) {
@@ -235,7 +235,7 @@ describe("WBS screen", () => {
       select.value = "b"; select.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(save).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="status"]')?.textContent).toContain("順序を振り直して");
+    expect(container.querySelector('[role="status"]')?.textContent).toContain("並び順を付け直してください");
     act(() => root.unmount());
   });
 
@@ -248,7 +248,7 @@ describe("WBS screen", () => {
       const menu = openMenu(container, "root");
       expect([...menu.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["詳細"]);
       expect(container.querySelector("[draggable]")).toBeNull();
-      expect(container.textContent).not.toContain("WBSの設定");
+      expect(container.querySelector("summary")).toBeNull();
       act(() => root.unmount());
     }
   });
@@ -301,11 +301,11 @@ describe("WBS screen", () => {
     const { container, root } = fixture(true);
     expect(container.querySelector("[role=alert]")).toBeNull();
     expect(container.querySelector('[data-ticket-name] select')).toBeNull();
-    expect(container.textContent).not.toContain("順序を振り直す");
+    expect(container.textContent).not.toContain("並び順を付け直す");
     expect(container.textContent).toContain("孤児");
-    expect(container.querySelector('[aria-label="日付タイムライン"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="日程表"]')).not.toBeNull();
     expect(container.querySelector('[data-ticket-name="root"] [aria-label="2026-10-01 – "]')).not.toBeNull();
-    expect(container.textContent).not.toContain("タスクを追加");
+    expect(container.textContent).not.toContain("子チケットを追加");
     act(() => root.unmount());
   });
 
@@ -378,9 +378,9 @@ describe("WBS screen", () => {
     const { context, container, root, save } = fixture();
     const runCommand = vi.fn(async () => ({ ok: true as const }));
     act(() => root.render(createElement(WBSScreen, { context: { ...context, runCommand } })));
-    expect(container.querySelector('[aria-label="日付タイムライン"] [title="2026-10-01"]')?.textContent).toBe("1");
+    expect(container.querySelector('[aria-label="日程表"] [title="2026-10-01"]')?.textContent).toBe("1");
     const menu = openMenu(container, "root");
-    await act(async () => { clickText(menu, "子タスクを追加"); await Promise.resolve(); });
+    await act(async () => { clickText(menu, "子チケットを追加"); await Promise.resolve(); });
     expect(runCommand).toHaveBeenCalledWith("ticket.create", {
       parent: "root", parentField: "parent"
     });
@@ -436,7 +436,7 @@ describe("WBS screen", () => {
       expect(container.querySelector('.wbs-tick-tier > span')?.getAttribute("title")).toBe(first);
     }
     act(() => { range.value = "2w"; range.dispatchEvent(new Event("change", { bubbles: true })); });
-    expect(container.querySelector('[data-ticket-name="last"]')?.textContent).toContain("範囲より後");
+    expect(container.querySelector('[data-ticket-name="last"]')?.textContent).toContain("表示期間より後");
     act(() => container.querySelector<HTMLButtonElement>('[data-ticket-name="last"] .wbs-track button')!.click());
     expect(container.querySelector('[data-ticket-name="last"] [data-schedule="start-only"]')).not.toBeNull();
     act(() => root.unmount());

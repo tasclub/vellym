@@ -56,7 +56,7 @@ export function resolveKanbanDefinition(context: PluginViewContext): KanbanRende
         context,
         "/",
         "KANBAN_TRACKER_UNRESOLVED",
-        { ja: "開いているチケット管理の状態定義を解決できません", en: "Could not resolve the opened TicketTracker status definitions." }
+        { ja: "このチケット管理のステータスの定義を読み込めません", en: "Could not resolve the opened TicketTracker status definitions." }
       )
     );
   }

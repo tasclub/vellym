@@ -608,9 +608,9 @@ export function PluginListView({
             });
             return <li key={`${definition.valueKey}-${definition.method}-${index}`}>
               {resolveLocalizedText(definition.label, locale)} {result.text}
-              {result.excluded ? ` (${resolveLocalizedText({ ja: "型が合わず除外", en: "Invalid values excluded" }, locale)}: ${result.excluded})` : ""}
-              {result.multiCounted ? <span> {resolveLocalizedText({ ja: "複数の値に重複計上", en: "Counted in multiple groups" }, locale)}</span> : null}
-              {result.groups ? <ul>{result.groups.map((group) => <li key={group.value ?? "__unset"}>{group.label}: {group.text}{group.excluded ? ` (${resolveLocalizedText({ ja: "型が合わず除外", en: "Invalid values excluded" }, locale)}: ${group.excluded})` : ""}</li>)}</ul> : null}
+              {result.excluded ? ` (${resolveLocalizedText({ ja: "値の形式が合わないため集計から除外", en: "Invalid values excluded" }, locale)}: ${result.excluded})` : ""}
+              {result.multiCounted ? <span> {resolveLocalizedText({ ja: "複数の値を持つチケットは、それぞれの値で数えています", en: "Counted in multiple groups" }, locale)}</span> : null}
+              {result.groups ? <ul>{result.groups.map((group) => <li key={group.value ?? "__unset"}>{group.label}: {group.text}{group.excluded ? ` (${resolveLocalizedText({ ja: "値の形式が合わないため集計から除外", en: "Invalid values excluded" }, locale)}: ${group.excluded})` : ""}</li>)}</ul> : null}
             </li>;
           })}</ul>
         </section>

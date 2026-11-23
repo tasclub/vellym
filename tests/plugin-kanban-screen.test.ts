@@ -323,10 +323,10 @@ describe("Kanban screen interactions", () => {
     }] };
     const rows = [{ name: "ticket-1", title: "One", values: { status: "todo", "field:estimate": "invalid" } }];
     const editor = renderScreen({ rows, rendererData: definition });
-    expect(editor.container.textContent).toContain("型が合わず除外: 1");
+    expect(editor.container.textContent).toContain("値の形式が合わないため集計から除外: 1");
     editor.unmount();
     const published = renderScreen({ rows, rendererData: definition, isStatic: true });
-    expect(published.container.textContent).not.toContain("型が合わず除外");
+    expect(published.container.textContent).not.toContain("値の形式が合わないため集計から除外");
     published.unmount();
   });
 
@@ -384,7 +384,7 @@ describe("Kanban screen interactions", () => {
     expect([...result.container.querySelectorAll('section[aria-labelledby="kanban-defined-todo"] article button[aria-keyshortcuts]')]
       .map((item) => item.textContent)).toEqual(["Two", "One"]);
     const renumber = [...result.container.querySelectorAll<HTMLButtonElement>("button")]
-      .find((button) => button.textContent?.includes("順序を振り直す"))!;
+      .find((button) => button.textContent?.includes("並び順を付け直す"))!;
     await act(async () => { renumber.click(); await Promise.resolve(); });
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining("2件"));
     expect(save).toHaveBeenCalledWith([{ path: ["fields", "order"], value: 1 }], { targetName: "ticket-2" });

@@ -95,7 +95,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
   }));
   const manualField = data.orderField ? fieldKey(data.orderField.id) : undefined;
   const sortOptions = [
-    ...(manualField ? [{ id: manualField, label: resolveLocalizedText({ ja: "手動順", en: "Manual order" }, context.locale) }] : []),
+    ...(manualField ? [{ id: manualField, label: resolveLocalizedText({ ja: "手で並べた順", en: "Manual order" }, context.locale) }] : []),
     { id: "title", label: resolveLocalizedText({ ja: "題名", en: "Title" }, context.locale) },
     ...data.fields.filter((field) => field.id !== data.orderField?.id)
       .map((field) => ({ id: fieldKey(field.id), label: field.label }))
@@ -191,7 +191,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
     const rank = neighboringRank(sorted, index, delta, fieldKey(data.orderField.id));
     if (rank === undefined) {
       setMessage(resolveLocalizedText({
-        ja: "この位置には1件だけの更新で移動できません。先に列を振り直してください。",
+        ja: "この位置へ動かすには、先に列の並び順を付け直してください。",
         en: "This position needs renumbering before a single-card move."
       }, context.locale));
       return;
@@ -211,7 +211,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
   async function renumberColumn(sorted: readonly (typeof rows)[number][]) {
     if (savingOrder || context.isStatic || sorted.length === 0 || !data.orderField) return;
     const message = resolveLocalizedText({
-      ja: `${sorted.length}件のチケットを1件ずつ更新して順序を振り直します。実行しますか？`,
+      ja: `${sorted.length}件のチケットの並び順を付け直します。実行しますか？`,
       en: `Renumber ${sorted.length} tickets one by one?`
     }, context.locale);
     if (!window.confirm(message)) return;
@@ -226,7 +226,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
       }
       setOrderOverrides((current) => ({ ...current, [row.name]: index + 1 }));
     }
-    setMessage(resolveLocalizedText({ ja: "順序を振り直しました", en: "Order renumbered" }, context.locale));
+    setMessage(resolveLocalizedText({ ja: "並び順を付け直しました", en: "Order renumbered" }, context.locale));
     setSavingOrder(false);
   }
 
@@ -281,7 +281,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
     <section aria-label={resolveLocalizedText({ ja: "チケットのカンバン", en: "Ticket Kanban" }, context.locale)}>
       {!context.isStatic && data.diagnostics.length > 0 ? (
         <div role="alert">
-          <strong>{resolveLocalizedText({ ja: "カンバン定義を確認してください", en: "Check the Kanban definition" }, context.locale)}</strong>
+          <strong>{resolveLocalizedText({ ja: "カンバンの設定に問題があります", en: "Check the Kanban definition" }, context.locale)}</strong>
           <ul>
             {data.diagnostics.map((diagnostic) => (
               <li key={`${diagnostic.code}:${diagnostic.path ?? ""}`}>
@@ -440,10 +440,10 @@ export function KanbanScreen({ context }: PluginViewProps) {
           const result = summarizeColumn(filteredRows, definition, context.locale, rows);
           return <li key={`${definition.field.id}:${definition.method}:${index}`}>
             {result.text}{!context.isStatic && result.excluded > 0 ? ` (${resolveLocalizedText({
-              ja: "型が合わず除外", en: "Invalid values excluded"
+              ja: "値の形式が合わないため集計から除外", en: "Invalid values excluded"
             }, context.locale)}: ${result.excluded})` : ""}
-            {result.multiCounted ? <span> {resolveLocalizedText({ ja: "複数の値に重複計上", en: "Counted in multiple groups" }, context.locale)}</span> : null}
-            {result.groups ? <ul>{result.groups.map((group) => <li key={group.value ?? "__unset"}>{group.label}: {group.text}{group.excluded ? ` (${resolveLocalizedText({ ja: "型が合わず除外", en: "Invalid values excluded" }, context.locale)}: ${group.excluded})` : ""}</li>)}</ul> : null}
+            {result.multiCounted ? <span> {resolveLocalizedText({ ja: "複数の値を持つチケットは、それぞれの値で数えています", en: "Counted in multiple groups" }, context.locale)}</span> : null}
+            {result.groups ? <ul>{result.groups.map((group) => <li key={group.value ?? "__unset"}>{group.label}: {group.text}{group.excluded ? ` (${resolveLocalizedText({ ja: "値の形式が合わないため集計から除外", en: "Invalid values excluded" }, context.locale)}: ${group.excluded})` : ""}</li>)}</ul> : null}
           </li>;
         })}</ul>
       </section> : null}
@@ -483,14 +483,14 @@ export function KanbanScreen({ context }: PluginViewProps) {
                 {data.summaries.map((definition, index) => {
                   const result = summarizeColumn(column.rows, definition, context.locale);
                   return <li key={`${definition.field.id}:${definition.method}:${index}`}>
-                    {result.text}{!context.isStatic && result.excluded > 0 ? ` (${resolveLocalizedText({ ja: "型が合わず除外", en: "Invalid values excluded" }, context.locale)}: ${result.excluded})` : ""}
+                    {result.text}{!context.isStatic && result.excluded > 0 ? ` (${resolveLocalizedText({ ja: "値の形式が合わないため集計から除外", en: "Invalid values excluded" }, context.locale)}: ${result.excluded})` : ""}
                   </li>;
                 })}
               </ul>
             ) : null}
             {!context.isStatic && sort.field === manualField && sorted.length > 1 ? (
               <Button disabled={savingOrder} onClick={() => void renumberColumn(sorted)}>
-                {resolveLocalizedText({ ja: `順序を振り直す (${sorted.length}件)`, en: `Renumber order (${sorted.length})` }, context.locale)}
+                {resolveLocalizedText({ ja: `並び順を付け直す (${sorted.length}件)`, en: `Renumber order (${sorted.length})` }, context.locale)}
               </Button>
             ) : null}
             {column.rows.length ? (

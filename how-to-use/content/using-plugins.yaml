@@ -11,7 +11,7 @@ spec:
       content: |
         Trackerの `spec.summary` に `{ field: priority, method: breakdown }` を配列で指定する。一覧では絞り込み後の全行を集計し、型が合わない値は除外件数を示す。WBSでは折りたたみ中・要確認を含む表示対象の全チケットを集計する。静的出力でも表示する。`spec.kanban.summary` があればカンバンではそちらを優先する。
 
-        `{ field: estimate, method: sum, groupBy: sprint }` のように値ごとの集計もできる。`groupBy` は select・multiselect・reference・text の項目ID。未設定はまとめ、multiselect は各値に重複計上する。
+        `{ field: estimate, method: sum, groupBy: sprint }` のように値ごとの集計もできる。`groupBy` は select・multiselect・reference・text の項目ID。未設定はまとめ、複数の値を持つチケットは、それぞれの値で数えています。
 
         ## 入れる前に: プラグインはホストと同じ権限で動く
 

@@ -132,7 +132,7 @@ describe("Kanban plugin", () => {
     const [diagnostic] = resolveKanbanDefinition(context(invalid, [])).diagnostics;
     expect(diagnostic?.code).toBe("KANBAN_TRACKER_UNRESOLVED");
     expect(resolveLocalizedText(diagnostic!.message, "ja"))
-      .toBe("開いているチケット管理の状態定義を解決できません");
+      .toBe("このチケット管理のステータスの定義を読み込めません");
     expect(resolveLocalizedText(diagnostic!.message, "en"))
       .toBe("Could not resolve the opened TicketTracker status definitions.");
     expect(resolveKanbanDefinition(context(invalid, [])).diagnostics.map((item) => item.code)).toEqual([
