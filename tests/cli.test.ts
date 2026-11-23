@@ -217,6 +217,43 @@ describe("published CLI shape", () => {
     expect(result.stderr).toContain("Page");
   });
 
+  it("warns when configured plugins cannot be resolved by schema commands", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-schema-plugin-warning-"));
+    const initialized = run(initArgs(root, ["--plugins", "tickets"]));
+    expect(initialized.status, initialized.stderr).toBe(0);
+    const config = path.join(root, "vellym.config.yaml");
+    expect(existsSync(path.join(root, "node_modules"))).toBe(false);
+
+    const listed = run(["schema", "--list", "--config", config]);
+    expect(listed.status, listed.stderr).toBe(0);
+    expect(listed.stdout.split("\n")).toContain("Page");
+    expect(listed.stdout.split("\n")).not.toContain("Ticket");
+    expect(listed.stderr).toContain("(PLUGIN_RESOLVE_FAILED)");
+    expect(listed.stderr).toContain("@vellym/tickets");
+    expect(listed.stderr).toContain("npm install");
+
+    const ticket = run(["schema", "--kind", "Ticket", "--config", config]);
+    expect(ticket.status).toBe(1);
+    expect(ticket.stderr).toContain("@vellym/tickets");
+    expect(ticket.stderr).toContain("npm install");
+    expect(ticket.stderr).not.toContain("不明なkind");
+    expect(ticket.stderr).not.toContain("Unknown kind");
+
+    const english = run([
+      "schema",
+      "--list",
+      "--config",
+      config,
+      "--language",
+      "en"
+    ]);
+    expect(english.status, english.stderr).toBe(0);
+    expect(english.stderr).toContain(
+      "Kinds from plugins that could not be loaded are missing."
+    );
+    expect(english.stderr).toContain("Run `npm install`");
+  });
+
   it("lists filtered plugin index rows without changing resources", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-list-"));
     expect(run(initArgs(root)).status).toBe(0);

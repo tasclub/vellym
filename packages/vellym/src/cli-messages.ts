@@ -21,6 +21,8 @@ export interface CliMessages {
   schemaHelp(): string;
   schemaKindRequired(): string;
   schemaKindInvalid(kind: string, available: string[]): string;
+  schemaPluginsMissing(): string;
+  schemaKindUnresolved(kind: string, packages: string[]): string;
   schemaModeInvalid(): string;
   buildHelp(): string;
   migrateHelp(): string;
@@ -129,6 +131,8 @@ vellym schema --list [--config <path>] [--language ja|en]
   listSummary: (count) => `${count}件`,
   schemaKindRequired: () => "--kindまたは--listを指定してください",
   schemaKindInvalid: (kind, available) => `不明なkind: ${kind}。指定可能: ${available.join(", ")}`,
+  schemaPluginsMissing: () => "プラグインを読み込めないため、そのkindは一覧にありません。プロジェクトで`npm install`を実行してから、もう一度試してください。",
+  schemaKindUnresolved: (kind, packages) => `${kind}は見つかりません。読み込めないプラグインがあります: ${packages.join(", ")}`,
   schemaModeInvalid: () => "--listと--kindは同時に指定できません",
   buildHelp: () => `vellym build [options]
 
@@ -268,6 +272,8 @@ Prints the installed JSON Schema for a kind. With --kind, stdout contains the JS
   listSummary: (count) => `${count} row(s)`,
   schemaKindRequired: () => "Specify --kind or --list",
   schemaKindInvalid: (kind, available) => `Unknown kind: ${kind}. Available: ${available.join(", ")}`,
+  schemaPluginsMissing: () => "Kinds from plugins that could not be loaded are missing. Run `npm install` in the project, then try again.",
+  schemaKindUnresolved: (kind, packages) => `${kind} was not found. Plugins could not be loaded: ${packages.join(", ")}`,
   schemaModeInvalid: () => "--list and --kind cannot be used together",
   buildHelp: () => `vellym build [options]
 
