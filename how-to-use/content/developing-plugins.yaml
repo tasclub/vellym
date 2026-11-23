@@ -276,7 +276,7 @@ spec:
         | `kinds` | `kind` | 独自リソース種別を宣言する。`showInDocumentTree`の既定は`false`、`hasBlocks`の既定は`true`。 |
         | `views` | `id`, `kind`, `type`, `static` | `list`または`detail`画面を宣言する。別のkindを入口にする場合は`opensKind`も書く。 |
         | `commands` | `id`, `title`, `static` | 操作を宣言する。文書ツリーの追加メニューへ置く場合だけ`placement: "document-tree"`にする。 |
-        | `settings` | `id`, `label`, `type` | 設定のメタ情報を宣言する。0.4.0-betaではmanifest検証の対象だが、設定画面や値を読むhost APIはまだない。 |
+        | `settings` | `id`, `label`, `type` | 設定のメタ情報を宣言する。0.5.0-betaではmanifest検証の対象だが、設定画面や値を読むhost APIはまだない。 |
 
         `static: true`は静的サイトでも読み取り機能として使えるという意味である。
         作成・保存など、サーバーが必要な操作は`false`にする。静的版では`false`の
@@ -708,7 +708,7 @@ spec:
             | `kinds` | `kind` | Declares a custom kind. `showInDocumentTree` defaults to `false`; `hasBlocks` defaults to `true`. |
             | `views` | `id`, `kind`, `type`, `static` | Declares a `list` or `detail` view. Set `opensKind` when a different kind opens it. |
             | `commands` | `id`, `title`, `static` | Declares an action. Set `placement: "document-tree"` only for an item in the tree's add menu. |
-            | `settings` | `id`, `label`, `type` | Declares setting metadata. In 0.4.0-beta it is validated in the manifest, but there is not yet a settings screen or host API for reading values. |
+            | `settings` | `id`, `label`, `type` | Declares setting metadata. In 0.5.0-beta it is validated in the manifest, but there is not yet a settings screen or host API for reading values. |
 
             `static: true` means a contribution works as a read-only feature in a static site.
             Creation and saving require a server and must use `false`. Static output omits views

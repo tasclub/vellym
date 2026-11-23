@@ -222,5 +222,6 @@ describe("GitHub Pages guide example", () => {
       }
       await rm(tempRoot, { recursive: true, force: true });
     }
-  });
+    // ビルドの手順に120秒まで待つので、テスト自体の上限はそれより長くする（既定の5秒ではCIで切れる）。
+  }, 180_000);
 });
