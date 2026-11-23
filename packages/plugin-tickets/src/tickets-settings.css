@@ -123,6 +123,17 @@
   flex-shrink: 0;
 }
 
+.tickets-settings-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--size-caption);
+  line-height: 1.5;
+}
+
 .tickets-settings-row [role="status"] {
   grid-column: 1 / -1;
   min-height: 1.25em;

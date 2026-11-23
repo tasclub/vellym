@@ -106,6 +106,8 @@ function Screen({ context }: { context: PluginRenderContext }) {
     typeof savedHierarchy.parentField === "string" ? savedHierarchy.parentField : "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [confirmingStatusRemoval, setConfirmingStatusRemoval] = useState<string | null>(null);
+  const [confirmingOptionRemoval, setConfirmingOptionRemoval] = useState<string | null>(null);
   const text = (japanese: string, english: string) => resolveLocalizedText(
     { ja: japanese, en: english } satisfies PluginLocalizedText,
     context.locale
@@ -133,12 +135,25 @@ function Screen({ context }: { context: PluginRenderContext }) {
 
   const usedBy = (key: string, value: string) => usage.get(`${key} ${value}`) ?? 0;
 
-  const removalNote = (count: number) =>
+  const usageBadge = (count: number) =>
+    text(`${count}件`, `${count} in use`);
+
+  const usageDescription = (count: number) =>
     text(
-      `${count}件がこの値を使っています。消すと定義外になります`,
-      `${count} item(s) use this value. Removing it leaves them undefined.`
+      `${count}件がこの値を使っています`,
+      `${count} ${count === 1 ? "ticket uses" : "tickets use"} this value`
     );
 
+  const removalConfirmation = (count: number) =>
+    text(
+      `${count}件が使用中です。削除すると定義外になります。`,
+      `${count} ${count === 1 ? "ticket is" : "tickets are"} using this value. Removing it leaves them undefined.`
+    );
+
+  const idTitle = text(
+    "保存した後は変えないでください。変えると、その値を使うチケットが定義外になります",
+    "Do not change this ID after saving. Changing it makes tickets using this value undefined."
+  );
   async function submit() {
     setSaving(true);
     setMessage("");
@@ -186,24 +201,23 @@ function Screen({ context }: { context: PluginRenderContext }) {
   return (
     <div className="tickets-settings" data-plugin="tickets" data-view="tracker-settings">
       <h2>{text("ステータス", "Statuses")}</h2>
-      <p>
-        {text(
-          "idは不変の識別子です。先頭が新しいチケットの初期値になります",
-          "The id is permanent. The first row is the initial status."
-        )}
-      </p>
       <div className="tickets-settings-header tickets-settings-status-grid" aria-hidden="true">
-        <span>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
+        <span title={idTitle}>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
         <span>{text("区分", "Category")}</span><span>{text("操作", "Actions")}</span>
       </div>
       {statuses.map((row, index) => {
         const inUse = usedBy("status", row.id);
-        const patch = (change: Partial<StatusRow>) =>
+        const confirmingRemoval = confirmingStatusRemoval === row.key;
+        const patch = (change: Partial<StatusRow>) => {
+          if (change.id !== undefined) {
+            setConfirmingStatusRemoval((key) => key === row.key ? null : key);
+          }
           setStatuses(
             statuses.map((item, position) =>
               position === index ? { ...item, ...change } : item
             )
           );
+        };
         return (
           <SortableRow key={row.key} rowKey={row.key} group="statuses" label={text(`並び替え: ${row.id}`, `Reorder: ${row.id}`)}
             className="tickets-settings-status-grid tickets-settings-row" rowType="status"
@@ -240,12 +254,36 @@ function Screen({ context }: { context: PluginRenderContext }) {
               </select>
             </label>
             <div className="tickets-settings-actions">
-              <Button onClick={() => setStatuses(statuses.filter((_, position) => position !== index))}>
-                {text("削除", "Remove")}
-              </Button>
+              {index === 0
+                ? <span className="tickets-settings-badge" data-marker="default">{text("初期値", "Default")}</span>
+                : null}
+              {inUse > 0
+                ? <span className="tickets-settings-badge" data-marker="usage" aria-label={usageDescription(inUse)} title={usageDescription(inUse)}>
+                    {usageBadge(inUse)}
+                  </span>
+                : null}
+              {confirmingRemoval ? (
+                <>
+                  <Button onClick={() => {
+                    setStatuses((list) => list.filter((item) => item.key !== row.key));
+                    setConfirmingStatusRemoval(null);
+                  }}>
+                    {text("削除する", "Delete")}
+                  </Button>
+                  <Button onClick={() => setConfirmingStatusRemoval(null)}>
+                    {text("やめる", "Cancel")}
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => {
+                  if (inUse > 0) setConfirmingStatusRemoval(row.key);
+                  else setStatuses((list) => list.filter((item) => item.key !== row.key));
+                }}>
+                  {text("削除", "Remove")}
+                </Button>
+              )}
             </div>
-            {/* 使用中の値は、消す前に件数を出す。消してから気づかせない */}
-            <span role="status">{inUse ? removalNote(inUse) : ""}</span>
+            {confirmingRemoval ? <span role="status">{removalConfirmation(inUse)}</span> : null}
           </SortableRow>
         );
       })}
@@ -260,7 +298,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
 
       <h2>{text("項目", "Fields")}</h2>
       <div className="tickets-settings-header tickets-settings-field-grid" aria-hidden="true">
-        <span>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
+        <span title={idTitle}>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
         <span>{text("型", "Type")}</span><span>{text("必須", "Required")}</span>
         <span>{text("一覧に出す", "Show in list")}</span><span>{text("操作", "Actions")}</span>
       </div>
@@ -344,12 +382,18 @@ function Screen({ context }: { context: PluginRenderContext }) {
                 </div>
                 {row.options.map((option, optionIndex) => {
                   const optionInUse = usedBy(`field:${row.id}`, option.value);
+                  const confirmingRemoval = confirmingOptionRemoval === option.key;
                   const patchOption = (change: Partial<OptionRow>) =>
-                    patch({
-                      options: row.options.map((entry, spot) =>
-                        spot === optionIndex ? { ...entry, ...change } : entry
-                      )
-                    });
+                    {
+                      if (change.value !== undefined) {
+                        setConfirmingOptionRemoval((key) => key === option.key ? null : key);
+                      }
+                      patch({
+                        options: row.options.map((entry, spot) =>
+                          spot === optionIndex ? { ...entry, ...change } : entry
+                        )
+                      });
+                    };
                   return (
                     <SortableRow key={option.key} rowKey={option.key} group={`options:${row.key}`}
                       label={text(`並び替え: ${option.value}`, `Reorder: ${option.value}`)}
@@ -377,11 +421,36 @@ function Screen({ context }: { context: PluginRenderContext }) {
                         />
                       </label>
                       <div className="tickets-settings-actions">
-                        <Button onClick={() => patch({ options: row.options.filter((_, spot) => spot !== optionIndex) })}>
-                          {text("削除", "Remove")}
-                        </Button>
+                        {optionIndex === 0
+                          ? <span className="tickets-settings-badge" data-marker="default">{text("初期値", "Default")}</span>
+                          : null}
+                        {optionInUse > 0
+                          ? <span className="tickets-settings-badge" data-marker="usage" aria-label={usageDescription(optionInUse)} title={usageDescription(optionInUse)}>
+                              {usageBadge(optionInUse)}
+                            </span>
+                          : null}
+                        {confirmingRemoval ? (
+                          <>
+                            <Button onClick={() => {
+                              patch({ options: row.options.filter((entry) => entry.key !== option.key) });
+                              setConfirmingOptionRemoval(null);
+                            }}>
+                              {text("削除する", "Delete")}
+                            </Button>
+                            <Button onClick={() => setConfirmingOptionRemoval(null)}>
+                              {text("やめる", "Cancel")}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button onClick={() => {
+                            if (optionInUse > 0) setConfirmingOptionRemoval(option.key);
+                            else patch({ options: row.options.filter((entry) => entry.key !== option.key) });
+                          }}>
+                            {text("削除", "Remove")}
+                          </Button>
+                        )}
                       </div>
-                      <span role="status">{optionInUse ? removalNote(optionInUse) : ""}</span>
+                      {confirmingRemoval ? <span role="status">{removalConfirmation(optionInUse)}</span> : null}
                     </SortableRow>
                   );
                 })}

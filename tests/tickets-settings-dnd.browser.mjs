@@ -33,6 +33,13 @@ try {
   const statuses = page.locator('[data-row="status"]');
   const fields = page.locator('[data-row="field"]');
   const options = page.locator('[data-options-for="priority"] [data-row="option"]');
+  await expect(page.locator(".tickets-settings-header.tickets-settings-status-grid span").first())
+    .toHaveAttribute("title", "Do not change this ID after saving. Changing it makes tickets using this value undefined.");
+  await expect(statuses.nth(0).locator('[data-marker="default"]')).toHaveText("Default");
+  await expect(statuses.nth(1).locator('[data-marker="default"]')).toHaveCount(0);
+  await expect(statuses.nth(0).locator('[data-marker="usage"]')).toHaveText(/\d+ in use/);
+  await expect(statuses.nth(0).locator('[role="status"]')).toHaveCount(0);
+  await expect(options.nth(0).locator('[data-marker="default"]')).toHaveText("Default");
   async function drag(source, target, below) {
     await target.scrollIntoViewIfNeeded();
     const box = await target.boundingBox();
@@ -44,6 +51,12 @@ try {
   await drag(fields.nth(1), fields.nth(0), false);
   await drag(options.nth(0), options.nth(1), true);
   await drag(statuses.nth(0), options.nth(0), true);
+  await expect(statuses.nth(0).locator('input').first()).toHaveValue("doing");
+  await expect(statuses.nth(0).locator('[data-marker="default"]')).toHaveText("Default");
+  await expect(statuses.nth(2).locator('[data-marker="default"]')).toHaveCount(0);
+  await expect(options.nth(0).locator('input').first()).toHaveValue("mid");
+  await expect(options.nth(0).locator('[data-marker="default"]')).toHaveText("Default");
+  await expect(options.nth(1).locator('[data-marker="default"]')).toHaveCount(0);
   const handle = page.getByRole("button", { name: "Reorder: finish" });
   await handle.focus();
   await page.keyboard.press("Alt+ArrowUp");
@@ -54,10 +67,26 @@ try {
   await expect(statuses.nth(2).locator("input").first()).toHaveValue("todo");
   await expect(fields.nth(0).locator("input").first()).toHaveValue("assignee");
   await expect(options.nth(1).locator("input").first()).toHaveValue("high");
+  const todoRow = statuses.filter({ has: page.locator('input[value="todo"]') });
+  await todoRow.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(todoRow.getByRole("status")).toContainText("6 tickets are using this value. Removing it leaves them undefined.");
+  await expect(todoRow.getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+  await expect(todoRow.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
+  await todoRow.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(todoRow.getByRole("status")).toHaveCount(0);
+  await todoRow.getByRole("button", { name: "Remove", exact: true }).click();
+  await todoRow.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(statuses).toHaveCount(3);
+  const firstOption = options.nth(0);
+  await expect(firstOption.locator('[data-marker="usage"]')).toHaveText(/\d+ in use/);
+  await firstOption.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(firstOption.getByRole("status")).toContainText("tickets are using this value.");
+  await firstOption.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(await readFile(tracker, "utf8")).toBe(original);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   const saved = parse(await readFile(tracker, "utf8"));
-  expect(saved.spec.statuses.map((row) => row.id)).toEqual(["doing", "done", "todo", "finish"]);
+  expect(saved.spec.statuses.map((row) => row.id)).toEqual(["doing", "done", "finish"]);
   expect(saved.spec.fields.slice(0, 2).map((row) => row.id)).toEqual(["assignee", "priority"]);
   expect(saved.spec.fields[1].options.map((row) => row.value)).toEqual(["mid", "high", "low"]);
   expect(saved.spec.fields[1].options.every((row) => !("key" in row))).toBe(true);
