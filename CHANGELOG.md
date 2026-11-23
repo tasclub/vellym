@@ -10,6 +10,8 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 ## [Unreleased]
 
+## [0.5.0-beta] - 2026-11-23
+
 ### 追加
 
 - ページの見出し一覧から現在の見出しへのリンクをコピーでき、開くと同じ見出しにフォーカスするようにした。
@@ -539,6 +541,7 @@ prereleaseの連番をやめた。これまで`beta.2`を出したことが無�
 - 初回公開。CLI（`init`／`dev`／`validate`／`build`）、
   ブラウザでの閲覧・編集・構成管理・全文検索、閲覧専用の静的サイト生成。
 
+[0.5.0-beta]: https://github.com/tasclub/vellym/compare/v0.4.0-beta...v0.5.0-beta
 [0.4.0-beta]: https://github.com/tasclub/vellym/compare/v0.3.0-beta.1...v0.4.0-beta
 [0.3.0-beta.1]: https://github.com/tasclub/vellym/compare/v0.2.0-beta.1...v0.3.0-beta.1
 [0.2.0-beta.1]: https://github.com/tasclub/vellym/compare/v0.1.0-alpha.2...v0.2.0-beta.1
