@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   loadConfig,
   diagnoseAssets,
+  diagnoseFileLinks,
   loadRepository,
   applyMigration,
   isLoopbackHost,
@@ -123,7 +124,7 @@ async function validateCommand(args: string[]): Promise<number> {
     hostVersion: VELLYM_VERSION
   });
   const repository = await loadRepository(loaded.contentRoot, undefined, pluginKinds(plugins));
-  const diagnostics = [...repository.diagnostics, ...plugins.diagnostics, ...await diagnoseAssets(loaded, repository)];
+  const diagnostics = [...repository.diagnostics, ...plugins.diagnostics, ...await diagnoseAssets(loaded, repository), ...await diagnoseFileLinks(loaded, repository)];
   const summary = messages.validateSummary(repository.pages.length, diagnostics.length);
   const text =
     diagnostics.length > 0

@@ -16,6 +16,8 @@ spec:
         このページは、正本YAMLを直接書く・編集する執筆者向けである。ブラウザ上での
         操作は[[browser-guide|ブラウザ画面の使い方]]を参照。
 
+        リポジトリ内のファイルへの相対リンクは`validate`が存在を確かめる。プロジェクトの外は確かめない。
+
         ## Pageの最小構造
 
         一つのYAMLファイルが一つのPageに対応する。最小の構造は次のとおり。
@@ -199,6 +201,8 @@ spec:
 
             This page is for authors writing or editing the source YAML directly. For working
             in the browser, see [[browser-guide|Using the Browser UI]].
+
+            `validate` checks that relative links to files in the repository exist; links outside the project are not checked.
 
             ## Minimal Page structure
 
