@@ -38,6 +38,9 @@ spec:
   kanban:
     card:
       - priority
+    summary:
+      - field: priority
+        method: count
 `);
 
 const tickets = [
@@ -114,6 +117,39 @@ try {
 
   const cards = page.locator(".kanban-board article[data-ticket-name]");
   await expect(cards).toHaveCount(tickets.length);
+  const summary = page.getByRole("region", { name: "Whole board summary" }).locator("p");
+  await expect(summary).toHaveText("All 3 tickets");
+  await expect(summary).toHaveAttribute("title", "Including hidden columns and cards past the first 20");
+
+  const instructions = page.locator("#kanban-keyboard-instructions");
+  await expect(instructions).toHaveClass("visually-hidden");
+  await expect(instructions).toHaveText("To move this card, focus its title and press Alt + Left/Right.");
+  await expect(page.locator("p").filter({ hasText: "To move this card" })).toHaveCount(0);
+  await expect(cards.first().locator("button[aria-keyshortcuts]"))
+    .toHaveAttribute("aria-describedby", "kanban-keyboard-instructions");
+
+  const firstCard = cards.first();
+  await expect(firstCard).toHaveAttribute("draggable", "true");
+  expect(await firstCard.evaluate((card) => getComputedStyle(card).cursor)).toBe("grab");
+  const firstCardTitle = firstCard.locator(".kanban-card-title");
+  expect(await firstCardTitle.evaluate((title) => getComputedStyle(title).cursor)).toBe("grab");
+  await firstCard.evaluate((card) => {
+    card.dispatchEvent(new DragEvent("dragstart", {
+      bubbles: true,
+      dataTransfer: new DataTransfer()
+    }));
+  });
+  await expect(firstCard).toHaveClass(/kanban-card--dragging/);
+  expect(await firstCard.evaluate((card) => getComputedStyle(card).cursor)).toBe("grabbing");
+  expect(await firstCardTitle.evaluate((title) => getComputedStyle(title).cursor)).toBe("grabbing");
+  await firstCard.evaluate((card) => {
+    card.dispatchEvent(new DragEvent("dragend", {
+      bubbles: true,
+      dataTransfer: new DataTransfer()
+    }));
+  });
+  await expect(firstCard).not.toHaveClass(/kanban-card--dragging/);
+
   const measurements = await cards.evaluateAll((elements) => elements.map((card) => {
     const title = card.querySelector("button[aria-keyshortcuts]");
     const firstField = card.querySelector("dt");

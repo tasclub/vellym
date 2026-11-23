@@ -2,6 +2,14 @@
 .kanban-board {
   min-width: 0;
 }
+.kanban-card[draggable="true"],
+.kanban-card[draggable="true"] .kanban-card-title {
+  cursor: grab;
+}
+.kanban-card[draggable="true"].kanban-card--dragging,
+.kanban-card[draggable="true"].kanban-card--dragging .kanban-card-title {
+  cursor: grabbing;
+}
 .kanban-card-title {
   display: block;
   width: 100%;

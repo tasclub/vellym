@@ -293,12 +293,12 @@ export function KanbanScreen({ context }: PluginViewProps) {
       ) : null}
       {message ? <p role="status">{message}</p> : null}
       {!context.isStatic && data.statuses.length > 0 ? (
-        <p style={{ color: "var(--text-muted)", fontSize: "var(--size-caption)" }}>
+        <span id="kanban-keyboard-instructions" className="visually-hidden">
           {resolveLocalizedText({
-            ja: "カードを列へドラッグして移動できます。キーボードではカードにフォーカスして Alt + ← / → を押します。",
-            en: "Drag a card to another column. With a keyboard, focus its title and press Alt + Left/Right."
+            ja: "カードを移動するには、題名にフォーカスして Alt + ← / → を押します。",
+            en: "To move this card, focus its title and press Alt + Left/Right."
           }, context.locale)}
-        </p>
+        </span>
       ) : null}
       {filterFields.length > 0 ? (
         <div className="kanban-filters">
@@ -428,14 +428,21 @@ export function KanbanScreen({ context }: PluginViewProps) {
         ja: "ボード全体の集計", en: "Whole board summary"
       }, context.locale)}>
         <h2>{resolveLocalizedText({ ja: "ボード全体", en: "Whole board" }, context.locale)}</h2>
-        <p>{resolveLocalizedText({
-          ja: activeFilterCount > 0
-            ? `${filteredRows.length} / ${rows.length}件（非表示の列と20件以降も含む）`
-            : `全${rows.length}件（非表示の列と20件以降も含む）`,
-          en: activeFilterCount > 0
-            ? `${filteredRows.length} of ${rows.length} tickets (including hidden columns and cards past the first 20)`
-            : `All ${rows.length} tickets (including hidden columns and cards past the first 20)`
-        }, context.locale)}</p>
+        <p
+          title={resolveLocalizedText({
+            ja: "非表示の列と20件以降も含む",
+            en: "Including hidden columns and cards past the first 20"
+          }, context.locale)}
+        >
+          {resolveLocalizedText({
+            ja: activeFilterCount > 0
+              ? `${filteredRows.length} / ${rows.length}件`
+              : `全${rows.length}件`,
+            en: activeFilterCount > 0
+              ? `${filteredRows.length} of ${rows.length} tickets`
+              : `All ${rows.length} tickets`
+          }, context.locale)}
+        </p>
         <ul>{data.summaries.map((definition, index) => {
           const result = summarizeColumn(filteredRows, definition, context.locale, rows);
           return <li key={`${definition.field.id}:${definition.method}:${index}`}>
@@ -498,6 +505,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
                 {visibleRows.map((row) => (
                   <li key={row.name}>
                      <article
+                       className={`kanban-card${draggingName === row.name ? " kanban-card--dragging" : ""}`}
                        style={cardStyle}
                        data-ticket-name={row.name}
                        aria-busy={movingNames.includes(row.name)}
@@ -518,6 +526,8 @@ export function KanbanScreen({ context }: PluginViewProps) {
                       <div style={{ minWidth: 0, width: "100%" }}>
                         <Button
                           className="kanban-card-title"
+                          aria-describedby={!context.isStatic && data.statuses.length > 0
+                            ? "kanban-keyboard-instructions" : undefined}
                           aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
                           onKeyDown={(event) => handleCardKeyDown(event, row)}
                           onClick={() => {
