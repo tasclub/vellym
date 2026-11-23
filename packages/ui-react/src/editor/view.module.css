@@ -64,12 +64,18 @@
   .rich-text table { width: 100%; border-collapse: collapse; font-size: var(--text-note); }
   .rich-text th,
   .rich-text td {
+    min-width: 6em;
+    max-width: 32em;
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-strong);
     text-align: left;
     vertical-align: top;
   }
-  .rich-text thead th { background: var(--surface-sunken); }
+  .rich-text thead th {
+    padding-block: var(--space-1);
+    background: var(--surface-sunken);
+    white-space: nowrap;
+  }
   /* Distinguish internal ([[...]]) links from external links in the reader. */
   .rich-text a:global(.internal-link) { text-decoration-style: solid; }
   .rich-text :global(.external-link-icon) { margin-left: var(--space-1); font-size: var(--text-note); opacity: .7; }
