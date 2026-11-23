@@ -111,6 +111,7 @@ The [`@vellym/tickets` README](packages/plugin-tickets/README.md) explains the Y
 
 Removing a plugin does not delete or rewrite the YAML it handled. An unrecognized `kind` is not an error: its content remains available through full-text search and internal links.
 
+<!-- npm-readme:skip-start -->
 ## Development
 
 This repository is an npm workspaces monorepo. `@vellym-internal/*` packages are private. Host internals are bundled into `vellym` at build time; the shared ticket engine is bundled into the plugins that use it.
@@ -144,6 +145,7 @@ docker run --rm -p 127.0.0.1:4173:4173 -v "$PWD/myproject:/workspace" vellym:loc
 
 Keep Docker's published address limited to `127.0.0.1:4173`; do not expose it to an untrusted network.
 
+<!-- npm-readme:skip-end -->
 ## Status
 
 Vellym currently provides `init`, `dev`, `validate`, `list`, `build`, and `migrate`. The plugin system (adding resource `kind`s) and the official [`@vellym/tickets`](packages/plugin-tickets/) plugin shipped in `0.4.0-beta`. `0.5.0-beta` adds:
@@ -161,7 +163,8 @@ MIT © tasclub
 ## Community and support
 
 - User guide: <https://vellym.tasclub.com/en/>
-- Full user guide text for AI agents: <https://vellym.tasclub.com/llms.txt>
+- AI guide index: <https://vellym.tasclub.com/llms.txt>
+- Full user guide text for AI agents: <https://vellym.tasclub.com/llms-full.txt> (English: <https://vellym.tasclub.com/en/llms-full.txt>)
 - Bugs and feature requests: <https://github.com/tasclub/vellym/issues/new/choose>
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -271,6 +274,7 @@ plugins:
 
 プラグインを外しても、そのプラグインが扱っていた YAML を Vellym が削除・書き換えすることはない。対応するプラグインがない `kind` はエラーにならず、本文は全文検索と内部リンクから引き続き利用できる。
 
+<!-- npm-readme:skip-start -->
 ## 開発
 
 npm workspaces のモノレポ。`@vellym-internal/*`は非公開の内部パッケージである。ホスト内部は`vellym`へ、チケット共有エンジンはそれを使うプラグインへ、それぞれビルド時にバンドルされる。
@@ -304,6 +308,7 @@ docker run --rm -p 127.0.0.1:4173:4173 -v "$PWD/myproject:/workspace" vellym:loc
 
 Docker の公開先は `127.0.0.1:4173` に限定し、同一ネットワークへ不用意に公開しない。
 
+<!-- npm-readme:skip-end -->
 ## ステータス
 
 現在は `init` / `dev` / `validate` / `list` / `build` / `migrate` を提供する。プラグイン機構（`kind` の追加）と公式の [`@vellym/tickets`](packages/plugin-tickets/) は 0.4.0-beta で提供している。0.5.0-beta で次を加えた。
@@ -321,7 +326,8 @@ MIT © tasclub
 ## 開発参加・サポート
 
 - 利用ガイド: <https://vellym.tasclub.com/>
-- 利用ガイド全文（平文・AIエージェント向け）: <https://vellym.tasclub.com/llms.txt>
+- AI向け案内: <https://vellym.tasclub.com/llms.txt>
+- 利用ガイド全文（平文・AIエージェント向け）: <https://vellym.tasclub.com/llms-full.txt>（英語: <https://vellym.tasclub.com/en/llms-full.txt>）
 - 不具合・要望: <https://github.com/tasclub/vellym/issues/new/choose>
 - 変更履歴: [CHANGELOG.md](CHANGELOG.md)
 - 開発参加: [CONTRIBUTING.md](CONTRIBUTING.md)

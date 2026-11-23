@@ -42,6 +42,7 @@ export interface CliMessages {
   initConflict(paths: string): string;
   initComplete(target: string, created: number, skipped: number): string;
   initNext(): string;
+  initLinks(): string;
   initGuides(): string;
   initPackageJsonKept(): string;
   initPackageJsonUnreadable(): string;
@@ -68,6 +69,10 @@ Usage:
   vellym migrate --to v1 [--config <path>] [--plan] [--json]
 
 コマンド別の詳しい説明・例は「vellym <command> --help」で確認できます。
+
+利用ガイド: https://vellym.tasclub.com/
+AI向け案内: https://vellym.tasclub.com/llms.txt
+スキーマ一覧: vellym schema --list
 `,
   initHelp: () => `vellym init [directory] [options]
 
@@ -175,6 +180,7 @@ Options:
   initConflict: (paths) => `既存ファイルと競合しています: ${paths}`,
   initComplete: (target, created, skipped) => `初期化しました: ${target}\n作成: ${created}件、skip: ${skipped}件`,
   initNext: () => "次のコマンド:",
+  initLinks: () => "利用ガイド: https://vellym.tasclub.com/\nAI向け案内: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "プラグインの使い方:",
   initPackageJsonKept: () => "既存のpackage.jsonは変更していません。",
   initPackageJsonUnreadable: () => "注意: package.jsonがJSONとして読めません。変更していないので、手で直してください。",
@@ -209,6 +215,10 @@ Usage:
   vellym migrate --to v1 [--config <path>] [--plan] [--json]
 
 Run "vellym <command> --help" for per-command details and examples.
+
+User guide: https://vellym.tasclub.com/en/
+AI guide: https://vellym.tasclub.com/llms.txt
+List schemas: vellym schema --list
 `,
   initHelp: () => `vellym init [directory] [options]
 
@@ -316,6 +326,7 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   initConflict: (paths) => `init: already exists (existing_file): ${paths}`,
   initComplete: (target, created, skipped) => `Vellym workspace created: ${target}\nCreated: ${created}, skipped: ${skipped}`,
   initNext: () => "Next commands:",
+  initLinks: () => "User guide: https://vellym.tasclub.com/en/\nAI guide: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "How to use the plugins:",
   initPackageJsonKept: () => "The existing package.json was left unchanged.",
   initPackageJsonUnreadable: () => "Warning: package.json is not valid JSON. It was left unchanged; fix it by hand.",

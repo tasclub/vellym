@@ -100,6 +100,25 @@ function initArgs(root: string, extra: string[] = []): string[] {
   ];
 }
 
+describe("AI discovery links", () => {
+  for (const language of ["ja", "en"]) {
+    it(`includes links in help and init (${language})`, async () => {
+      const guide = `https://vellym.tasclub.com/${language === "en" ? "en/" : ""}`;
+      const help = run(["--help", "--language", language]);
+      expect(help.status).toBe(0);
+      expect(help.stdout).toContain(guide);
+      expect(help.stdout).toContain("https://vellym.tasclub.com/llms.txt");
+      expect(help.stdout).toContain("vellym schema --list");
+      const root = await mkdtemp(path.join(tmpdir(), "vellym-links-"));
+      const init = run(initArgs(root, ["--language", language, "--plugins", "tickets"]));
+      expect(init.status).toBe(0);
+      expect(init.stdout).toContain(guide);
+      expect(init.stdout).toContain("https://vellym.tasclub.com/llms.txt");
+      expect(init.stdout).toContain("ticket-management");
+    });
+  }
+});
+
 async function workspaceVersion(packageDir: string): Promise<string> {
   const manifest = JSON.parse(
     await readFile(path.join(process.cwd(), "packages", packageDir, "package.json"), "utf8")

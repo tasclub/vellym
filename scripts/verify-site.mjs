@@ -184,6 +184,9 @@ try {
     });
     const response = await page.goto(`${baseUrl}${scenario.path}`, { waitUntil: "networkidle" });
     if (!response?.ok()) throw new Error(`${scenario.path} returned ${response?.status()}`);
+    if (await page.locator('head link[rel="alternate"][type="text/plain"][title="llms.txt"][href="https://vellym.tasclub.com/llms.txt"]').count() !== 1) {
+      throw new Error(`${scenario.path} is missing the llms.txt link`);
+    }
     if ((await page.locator("html").getAttribute("lang")) !== scenario.language) {
       throw new Error(`${scenario.path} has the wrong document language`);
     }

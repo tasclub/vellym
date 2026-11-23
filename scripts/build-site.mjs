@@ -108,6 +108,20 @@ const built = JSON.parse(result.stdout).data.outputDir;
 await cp(built, output, { recursive: true });
 await rm(built, { recursive: true, force: true });
 
+const alternate = '<link rel="alternate" type="text/plain" title="llms.txt" href="https://vellym.tasclub.com/llms.txt">';
+async function addAlternate(directory) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) await addAlternate(file);
+    else if (entry.isFile() && entry.name.endsWith(".html")) {
+      const html = await readFile(file, "utf8");
+      if (!html.includes("</head>")) throw new Error(`missing head: ${file}`);
+      await writeFile(file, html.replace("</head>", `${alternate}</head>`));
+    }
+  }
+}
+await addAlternate(output);
+
 const build = JSON.parse(await readFile(path.join(output, "vellym-build.json"), "utf8"));
 const locales = build.locales;
 const defaultLocale = build.defaultLocale;

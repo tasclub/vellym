@@ -108,6 +108,7 @@ export async function initializeProject(
     process.stdout.write(`${messages.initInstallPlugins()}\n${commands.map((command) => `  ${command}`).join("\n")}\n`);
   }
   process.stdout.write(`${messages.initNext()}\n${keptPackage ? "" : "  npm install\n"}  npx vellym dev\n`);
+  process.stdout.write(`${messages.initLinks()}\n`);
   // Each selected plugin names its own guide (package.json vellym.guideUrl); the host knows no plugin.
   const guides = [...new Set(names.flatMap((name) => {
     const url = OFFICIAL_PLUGINS[name]!.guideUrl;
