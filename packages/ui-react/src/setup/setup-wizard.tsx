@@ -598,11 +598,6 @@ export function SetupWizard(props: {
 
             {mode === "recommended" && (
               <>
-                <p>
-                  {ja
-                    ? "管理量を選びます。標準をおすすめします。生成する階層をそのまま確認できます。"
-                    : "Choose how much to manage. Standard is recommended. The hierarchy below is what gets created."}
-                </p>
                 <fieldset className={styles["profile-list"]}>
                   <legend className={"visually-hidden"}>level</legend>
                   {(["light", "standard", "strict"] as DocumentationLevel[]).map((value) => {
@@ -739,13 +734,11 @@ export function SetupWizard(props: {
         {step === 3 && index && (
           <>
             <h1 id="setup-title">{ja ? "生成内容の確認" : "Review generated content"}</h1>
-            <p>
-              {mode === "empty"
-                ? ja ? "標準FolderとPageを作成しません。" : "No standard Folders or Pages will be created."
-                : ja
-                  ? "生成する階層だけを表示しています。名前を確認し、不要なものは解除してください。"
-                  : "Only the hierarchy to be created is shown. Review the names and clear anything you do not need."}
-            </p>
+            {mode === "empty" && (
+              <p>
+                {ja ? "標準FolderとPageを作成しません。" : "No standard Folders or Pages will be created."}
+              </p>
+            )}
             <div className={styles["setup-tree-toolbar"]}>
               <p role="status" className={styles["setup-tree-count"]}>
                 {busy
@@ -763,11 +756,6 @@ export function SetupWizard(props: {
                 </Button>
               </div>
             </div>
-            <p className={styles["setup-tree-hint"]}>
-              {ja
-                ? "既存のファイルは上書きしません。「この内容で生成」を押すまで、ファイルは書き込みません。"
-                : 'Existing files are never overwritten. Nothing is written until you press "Create project".'}
-            </p>
             {omittedIds.size > 0 && (
               <p className={styles["setup-tree-hint"]}>
                 {ja
