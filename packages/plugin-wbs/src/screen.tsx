@@ -12,6 +12,16 @@ const label = (ja: string, en: string, locale: string) => resolveLocalizedText({
 const date = (value: unknown): string | undefined =>
   parseDate(value) !== undefined ? value as string : undefined;
 
+type Panes = { title: boolean; details: boolean; schedule: boolean };
+function readPanes(value: unknown): Panes {
+  const defaults = { title: true, details: true, schedule: true };
+  if (!value || typeof value !== "object" || Array.isArray(value)) return defaults;
+  const panes = value as Record<string, unknown>;
+  if (typeof panes.title !== "boolean" || typeof panes.details !== "boolean" ||
+      typeof panes.schedule !== "boolean" || !(panes.title || panes.details || panes.schedule)) return defaults;
+  return { title: panes.title, details: panes.details, schedule: panes.schedule };
+}
+
 function TimelineTrack({ timeline, start, end, locale, closed, onReveal }: {
   timeline?: Timeline;
   start: unknown;
@@ -61,7 +71,7 @@ function Indent({ depth, children }: { depth: number; children: ReactNode }) {
   return content;
 }
 
-function WBSRows({ items, data, context, all, review, timeline, busy, movedName, collapsed, onToggle, onParent, onOrder, onDropOrder, onRenumber, onCreate, onReveal }: {
+function WBSRows({ items, data, context, all, review, timeline, panes, busy, movedName, collapsed, onToggle, onParent, onOrder, onDropOrder, onRenumber, onCreate, onReveal }: {
   items: readonly WBSRow[];
   data: WBSRendererData;
   context: PluginRenderContext;
@@ -69,6 +79,7 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
   review: ReadonlySet<string>;
   movedName?: string;
   timeline?: Timeline;
+  panes: Panes;
   busy: boolean;
   collapsed: ReadonlySet<string>;
   onToggle(name: string): void;
@@ -140,7 +151,7 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
            data-ticket-name={row.name} data-wbs-level={depth} className="wbs-row"
            data-moved={movedName === row.name || undefined} data-review={needsReview || undefined}
           data-drop={dropPosition?.name === row.name ? (dropPosition.after ? "after" : "before") : undefined}>
-          <div role="gridcell" className="wbs-left" {...dropTarget}>
+          {panes.title ? <div role="gridcell" className="wbs-left" {...dropTarget}>
           <Indent depth={depth}><span className="wbs-cell-content">
           <span className="wbs-toggle">{node.children.length ? <Button icon
             aria-label={`${row.title}: ${label("展開・折りたたみ", "Toggle children", context.locale)}`}
@@ -148,7 +159,6 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
             {collapsed.has(row.name) ? "▸" : "▾"}</Button> : null}</span>
           {depth >= 4 ? <span className="wbs-level-badge">L{depth + 1}</span> : null}
           <span className="wbs-number">{String(row.values.number ?? "")}</span>
-           <span className="wbs-narrow-status" title={status?.label}>{statusSymbol(data, row.values.status, status?.category)}</span>
            <Button className="wbs-title" onClick={() => void context.openResource(row.name)}>{row.title || row.name}</Button>
            {needsReview && !context.isStatic ? <span className="wbs-review-note" title={reviewNote(row)}>{reviewNote(row)}</span> : null}
           <span className="wbs-actions">
@@ -171,8 +181,6 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
                setMenu(menu === row.name ? undefined : row.name); setEditingParent(undefined);
              }}>⋯</Button>
           </span>
-           <span className="wbs-status">{status ? `${statusSymbol(data, row.values.status, status.category)} ${status.label}`
-            : String(row.values.status || label("未設定", "Unset", context.locale))}</span>
            </span></Indent>
             {menu === row.name ? <div role="group" aria-label={label("行の操作", "Row actions", context.locale)}
               className="wbs-row-menu" style={menuPosition} onKeyDown={(event) => { if (event.key === "Escape") { setMenu(undefined); setEditingParent(undefined); } }}>
@@ -202,11 +210,13 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
               {label("並び順を付け直す", "Renumber order", context.locale)} ({rows.length})</Button> : null}
            </div> : null}
             </div> : null}
-          </div>
-          <div role="gridcell" className="wbs-timeline-cell" title={`${start || label("未設定", "Unset", context.locale)} – ${end || label("未設定", "Unset", context.locale)}`}
+          </div> : null}
+          {panes.details ? <div role="gridcell" className="wbs-status">{status ? `${statusSymbol(data, row.values.status, status.category)} ${status.label}`
+            : String(row.values.status || label("未設定", "Unset", context.locale))}</div> : null}
+          {panes.schedule ? <div role="gridcell" className="wbs-timeline-cell" title={`${start || label("未設定", "Unset", context.locale)} – ${end || label("未設定", "Unset", context.locale)}`}
             {...dropTarget}>
             <TimelineTrack timeline={timeline} start={start} end={end} locale={context.locale} closed={status?.category === "closed"} onReveal={onReveal} />
-          </div>
+          </div> : null}
         </div>;
       })}</>;
 }
@@ -219,6 +229,7 @@ export function WBSScreen({ context }: PluginViewProps) {
   const [orders, setOrders] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [panes, setPanes] = useState(() => readPanes(settings(context).panes));
   const [movedName, setMovedName] = useState<string>();
   const editable = !context.isStatic && !context.target?.readOnly;
   useEffect(() => {
@@ -422,6 +433,14 @@ export function WBSScreen({ context }: PluginViewProps) {
     ) : null}
     {busy || message ? <p role="status">{busy ? label("○ 保存中…", "○ Saving…", context.locale) : message}</p> : null}
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
+      {([["title", "題名", "Title"], ["details", "詳細", "Details"], ["schedule", "スケジュール", "Schedule"]] as const).map(([key, ja, en]) =>
+        <Button key={key} aria-pressed={panes[key]} disabled={panes[key] && Object.values(panes).filter(Boolean).length === 1}
+          onClick={() => {
+            const next = { ...panes, [key]: !panes[key] };
+            setPanes(next);
+            context.setViewSettings({ ...settings(context), panes: next });
+          }}>{label(ja, en, context.locale)}</Button>)}
+      {panes.schedule ? <>
       <label>{label("範囲", "Range", context.locale)} <ChoiceControl mode="select" aria-label={label("範囲", "Range", context.locale)} value={preset}
         options={[...TIMELINE_PRESETS.map((item) => ({ value: item, label: label(
           item === "2w" ? "2週間" : item === "1m" ? "1か月" : item === "3m" ? "3か月" : "6か月",
@@ -453,10 +472,11 @@ export function WBSScreen({ context }: PluginViewProps) {
           { value: "day", label: label("日ごと", "Daily", context.locale) },
           { value: "week", label: label("週ごと", "Weekly", context.locale) }
         ]} /></label>
+      </> : null}
     </div>
     {tracker ? <WBSGrid key={context.target?.name} context={context} data={data!} roots={hierarchy.roots}
       rows={rows} review={review} timeline={timeline} busy={busy} movedName={movedName}
-      mode={mode} onReveal={reveal}
+      mode={mode} panes={panes} onReveal={reveal}
       onParent={(row, parent) => void changeParent(row, parent)}
       onOrder={(siblings, index, delta) => void moveOrder(siblings, index, delta)}
       onDropOrder={(siblings, dragged, target, after) => void dropOrder(siblings, dragged, target, after)}
@@ -471,7 +491,7 @@ function settings(context: PluginRenderContext): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, movedName, ...actions }: {
+function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, busy, movedName, ...actions }: {
   context: PluginRenderContext;
   data: WBSRendererData;
   roots: Parameters<typeof flattenRows>[0];
@@ -479,6 +499,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
   review: ReadonlySet<string>;
   timeline?: Timeline;
   mode: TimelineMode;
+  panes: Panes;
   busy: boolean;
   movedName?: string;
 } & Pick<Parameters<typeof WBSRows>[0], "onParent" | "onOrder" | "onDropOrder" | "onRenumber" | "onCreate" | "onReveal">) {
@@ -534,7 +555,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
     const observer = new ResizeObserver(measure);
     observer.observe(header);
     return () => observer.disconnect();
-  }, [days, mode]);
+  }, [days, mode, panes.schedule]);
   useEffect(() => {
     const valid = new Set(rows.map((row) => row.name));
     const next = new Set([...collapsed].filter((name) => valid.has(name)));
@@ -606,12 +627,18 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
         setViewport((current) => ({ ...current, top })); }}>
       <div ref={probeRef} className="wbs-row wbs-probe" aria-hidden="true" />
        <div role="treegrid" aria-label={label("WBSの階層", "WBS hierarchy", context.locale)} aria-rowcount={entries.length + 1}
-         className="wbs-grid" data-mode={mode} style={{ "--wbs-days": days,
+         className="wbs-grid" data-mode={mode} data-schedule={panes.schedule || undefined} style={{ "--wbs-days": days,
+           "--wbs-title-width": "clamp(168px, calc((100vw - 767px) * 1000), var(--wbs-left-width))",
+           "--wbs-details-width": "clamp(100px, calc((100vw - 767px) * 1000), 120px)",
+           "--wbs-columns": [panes.title && (panes.schedule ? "var(--wbs-title-width)" : "minmax(0, 1fr)"),
+             panes.details && (panes.schedule ? "var(--wbs-details-width)" : "minmax(0, 1fr)"),
+             panes.schedule && "minmax(0, 1fr)"].filter(Boolean).join(" "),
+           "--wbs-fixed-width": `calc(${panes.title ? "var(--wbs-title-width)" : "0px"} + ${panes.details ? "var(--wbs-details-width)" : "0px"})`,
            "--wbs-day-width": `${dayWidth}px`, "--wbs-today-offset": timeline ? (today - timeline.start) / DAY_MS : 0 } as CSSProperties}>
-       {timeline && today >= timeline.start && today < timeline.end ? <span aria-hidden="true" className="wbs-today-line"
+       {panes.schedule && timeline && today >= timeline.start && today < timeline.end ? <span aria-hidden="true" className="wbs-today-line"
          /> : null}
       <div role="row" className="wbs-header wbs-row" ref={headerRef}>
-        <strong role="columnheader" className="wbs-left">{label("チケット", "Task", context.locale)}
+        {panes.title ? <strong role="columnheader" className="wbs-left">{label("チケット", "Task", context.locale)}
           <span role="separator" aria-label={label("チケット列の幅", "Task column width", context.locale)}
             aria-orientation="vertical" aria-valuemin={240} aria-valuemax={560} aria-valuenow={width}
             tabIndex={0} className="wbs-resizer"
@@ -626,8 +653,9 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
               resizeStart.current.width + event.clientX - resizeStart.current.x))); }}
             onPointerUp={() => { resizeStart.current = undefined; persist({ leftWidth: width }); }}
             onPointerCancel={() => { resizeStart.current = undefined; }} />
-        </strong>
-        <div role="columnheader" aria-label={label("日程表", "Date timeline", context.locale)} className="wbs-date-header">
+        </strong> : null}
+        {panes.details ? <strong role="columnheader" className="wbs-status">{label("状態", "Status", context.locale)}</strong> : null}
+        {panes.schedule ? <div role="columnheader" aria-label={label("日程表", "Date timeline", context.locale)} className="wbs-date-header">
           {tiers ? <>
             <div className="wbs-month-tier">{tiers.months.map((cell) => <span key={cell.timestamp}
               style={{ left: `${cell.left / (days * dayWidth) * 100}%`, width: `${cell.width / (days * dayWidth) * 100}%` }}>
@@ -641,7 +669,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
               {cell.showLabel ? mode === "day" ? new Date(cell.timestamp).getUTCDate() : `${new Date(cell.timestamp).getUTCMonth() + 1}/${new Date(cell.timestamp).getUTCDate()}` : ""}</span>)}</div>
           </>
             : <span>{label("開始日か終了日を入れると、日程表に表示されます", "Add dates to show the timeline", context.locale)}</span>}
-        </div>
+        </div> : null}
       </div>
       {window.start > 0 ? <div aria-hidden="true" style={{ height: window.start * viewport.rowHeight }} /> : null}
        {groups.map((group, index) => visible.some((entry) => entry.group === index) ? <div key={group.id} role="rowgroup" aria-label={group.title}>
@@ -650,7 +678,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
            ? label("親に指定されたチケットが存在しません。親を変更するか、親を空にしてください。", "The parent ticket does not exist. Change or clear the parent.", context.locale)
            : label("親をたどると自分に戻ります。どちらかの親を変更してください。", "Following parents returns to the same ticket. Change one of the parents.", context.locale) : null}
        </span></div> : null}
-       <WBSRows items={visible.flatMap((entry) => entry.group === index && entry.item ? [entry.item] : [])} data={data} context={context} all={rows} review={review} movedName={movedName}
+        <WBSRows items={visible.flatMap((entry) => entry.group === index && entry.item ? [entry.item] : [])} data={data} context={context} all={rows} review={review} movedName={movedName} panes={panes}
         timeline={timeline} busy={busy} collapsed={collapsed} onToggle={(name) => {
           const next = new Set(collapsed);
           if (next.has(name)) next.delete(name); else next.add(name);

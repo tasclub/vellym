@@ -60,6 +60,28 @@ function editParent(container: HTMLElement, name: string) {
 }
 
 describe("WBS screen", () => {
+  it("validates pane settings and preserves one visible pane in live and static views", () => {
+    for (const isStatic of [false, true]) for (const value of [undefined, {}, { title: false, details: false, schedule: false }, { title: true, details: "bad", schedule: false }]) {
+      const { context, container, root, save } = fixture(isStatic);
+      act(() => root.unmount());
+      let stored: Record<string, unknown> = { panes: value, other: 1 };
+      const next = { ...context, getViewSettings: () => stored, setViewSettings: (v: unknown) => { stored = v as Record<string, unknown>; } };
+      const mounted = createRoot(container);
+      act(() => mounted.render(createElement(WBSScreen, { context: next })));
+      const button = (name: string) => [...container.querySelectorAll("button")].find((b) => b.textContent === name && b.hasAttribute("aria-pressed"))!;
+      expect(button("題名").getAttribute("aria-pressed")).toBe("true");
+      expect(button("詳細").getAttribute("aria-pressed")).toBe("true");
+      expect(button("スケジュール").getAttribute("aria-pressed")).toBe("true");
+      act(() => button("スケジュール").click());
+      act(() => button("詳細").click());
+      expect(button("題名").disabled).toBe(true);
+      expect(container.querySelector(".wbs-date-header")).toBeNull();
+      expect(stored.panes).toEqual({ title: true, details: false, schedule: false });
+      expect(stored.other).toBe(1);
+      expect(save).not.toHaveBeenCalled();
+      act(() => mounted.unmount());
+    }
+  });
   it("renders grouped WBS summaries", () => {
     const { context, container, root } = fixture(false, [{ name: "a", title: "A", values: { "field:rank": 3, "field:sprint": "S1" } }]);
     const data = context.rendererData as { tracker: Record<string, unknown> };
