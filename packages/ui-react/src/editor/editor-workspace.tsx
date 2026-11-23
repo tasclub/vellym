@@ -641,19 +641,25 @@ export function EditorWorkspace(props: {
                 pattern="[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*"
                 onChange={(event) => props.onSlugChange(event.target.value)}
               />
-              <small>{t("editor.slugHint")}</small>
+              <output className={styles["slug-preview"]}>
+                /pages/{props.slug || props.view.page.metadata.name}/
+              </output>
             </label>
             <div className={styles["file-name-field"]}>
               <label>
                 <span>{t("editor.fileNameLabel")}</span>
-                <input
-                  value={fileName}
-                  onChange={(event) => {
-                    setFileName(event.target.value);
-                    setFileError("");
-                  }}
-                />
-                <small>{t("editor.fileNameHint")}</small>
+                <span className={styles["file-name-input"]}>
+                  <input
+                    value={fileName}
+                    onChange={(event) => {
+                      setFileName(event.target.value);
+                      setFileError("");
+                    }}
+                  />
+                  <span className={styles["file-name-extension"]} aria-hidden="true">
+                    .yaml
+                  </span>
+                </span>
               </label>
               {fileError && <p role="alert">{fileError}</p>}
               <Button

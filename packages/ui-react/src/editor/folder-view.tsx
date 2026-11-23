@@ -17,7 +17,6 @@ export function FolderView(props: {
       <section className={styles.empty} aria-labelledby="empty-title">
         <p>{t("folder.empty.kicker")}</p>
         <h1 id="empty-title">{t("folder.empty.title")}</h1>
-        <span>{t("folder.empty.hint")}</span>
         {props.onCreatePage && (
           <Button
             className={styles.emptyCta}
