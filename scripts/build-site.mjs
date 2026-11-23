@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { transform } from "esbuild";
+import { llmsFull, llmsIndex, pageOrder } from "./site-llms.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const output = path.join(root, "dist/site");
@@ -110,59 +111,33 @@ await rm(built, { recursive: true, force: true });
 const build = JSON.parse(await readFile(path.join(output, "vellym-build.json"), "utf8"));
 const locales = build.locales;
 const defaultLocale = build.defaultLocale;
-const pageEntries = [];
+const pagesByLocale = {};
 for (const locale of locales) {
   const repository = JSON.parse(
     await readFile(path.join(output, "data", build.buildId, locale, "repository.json"), "utf8")
   );
   const pagesDirectory = path.join(output, "data", build.buildId, locale, "pages");
-  const pageNames = new Set(repository.data.pages.map((page) => page.name));
-  // 文書ツリーに出ない静的detail（Ticketなど）も本文があれば公開する。
-  for (const entry of await readdir(pagesDirectory)) {
-    if (entry.endsWith(".json")) pageNames.add(entry.slice(0, -".json".length));
-  }
-  const orderedNames = [
-    ...repository.data.pages.map((page) => page.name),
-    ...[...pageNames].filter((name) => !repository.data.pages.some((page) => page.name === name)).sort()
-  ];
-  const pages = await Promise.all(orderedNames.map(async (name) => {
-    const payload = JSON.parse(await readFile(path.join(pagesDirectory, `${name}.json`), "utf8"));
-    return payload.data.page;
+  const pageUrl = (page) => `https://vellym.tasclub.com/${locale === defaultLocale ? "" : `${locale}/`}pages/${page.slug ?? page.name}/`;
+  const summaries = pageOrder(repository);
+  const publishedPages = repository.data.pages.map((page) => ({ name: page.name, url: pageUrl(page) }));
+  const included = summaries.filter((page) => !page.relativePath.startsWith("demo-tickets/"));
+  const pages = await Promise.all(included.map(async (summary) => {
+    const payload = JSON.parse(await readFile(path.join(pagesDirectory, `${summary.name}.json`), "utf8"));
+    const page = payload.data.page;
+    const content = (page.spec.blocks ?? [])
+      .filter((block) => block.type === "rich-text" && (block.format === undefined || block.format === "commonmark"))
+      .map((block) => block.content).join("\n\n");
+    return { name: summary.name, title: page.metadata.title, url: pageUrl(summary), content };
   }));
-  pageEntries.push(...pages.map((page) => ({ locale, page })));
+  pagesByLocale[locale] = pages;
+  const directory = locale === defaultLocale ? output : path.join(output, locale);
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, "llms-full.txt"), llmsFull({ locale, pages, publishedPages }), "utf8");
 }
-
-function pageUrl(locale, page) {
-  const name = page.metadata.slug ?? page.metadata.name;
-  const localePrefix = locale === defaultLocale ? "" : `${locale}/`;
-  return `https://vellym.tasclub.com/${localePrefix}pages/${name}/`;
-}
-
-const pageUrls = new Map(
-  pageEntries.map(({ locale, page }) => [`${locale}:${page.metadata.name}`, pageUrl(locale, page)])
-);
-function expandInternalLinks(content, locale) {
-  return content.replace(/\[\[([^|\]]+)(?:\|([^\]]+))?\]\]/g, (source, target, label) => {
-    const name = target.trim();
-    const url = pageUrls.get(`${locale}:${name}`);
-    return url ? `[${(label ?? name).trim()}](${url})` : source;
-  });
-}
-
-// ja/enの内容を一つの入口にまとめ、言語をまたぐ検索・取得でも全ページを辿れるようにする。
-const llms = [
-  "# Vellym",
-  "Gitで管理するYAMLを、ブラウザ用の静的サイトと構造化データへ生成するドキュメント管理ツール。",
-  "This file contains the CommonMark source for every public Japanese and English page."
-];
-for (const { locale, page } of pageEntries) {
-  const blocks = Array.isArray(page.spec.blocks) ? page.spec.blocks : [];
-  const content = blocks
-    .filter((block) => block.type === "rich-text" && (block.format === undefined || block.format === "commonmark"))
-    .map((block) => expandInternalLinks(block.content, locale))
-    .join("\n\n");
-  llms.push("", `# ${page.metadata.title}`, pageUrl(locale, page), "", content);
-}
-await writeFile(path.join(output, "llms.txt"), `${llms.join("\n")}\n`, "utf8");
+const schemaFiles = (await readdir(path.join(output, "schemas/v1"))).filter((name) => name.endsWith(".schema.json")).sort();
+const schemaKind = (name) => name.replace(/\.schema\.json$/, "").split("-").map((part) => part[0].toUpperCase() + part.slice(1)).join("");
+const schemas = schemaFiles.map((name) => ({ title: schemaKind(name), url: `https://vellym.tasclub.com/schemas/v1/${name}` }));
+schemas.push({ title: "Config", url: "https://vellym.tasclub.com/schemas/config-v1.schema.json" });
+await writeFile(path.join(output, "llms.txt"), llmsIndex({ pagesByLocale, schemas }), "utf8");
 
 process.stdout.write(`official site built: ${output}\n`);
