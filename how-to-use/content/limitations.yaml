@@ -18,7 +18,7 @@ spec:
 
         ## 現段階で利用できること
 
-        - CLIの4コマンド: `init`・`dev`・`validate`・`build`（[[cli-reference|CLIリファレンス]]）
+        - CLIの7コマンド: `init`・`dev`・`validate`・`list`・`schema`・`build`・`migrate`（[[cli-reference|CLIリファレンス]]）
         - ブラウザの初期セットアップ（[[browser-guide|ブラウザ画面の使い方]]）
         - ブラウザ上の閲覧・アウトライン・ツリー・パンくず
         - ブラウザ上の編集と保存（ローカルYAMLへ書き戻し）
@@ -29,14 +29,15 @@ spec:
         - 閲覧専用の静的サイト生成と配信（[[self-hosting|静的配信と自己ホスト]]）
         - 本文ブロックは`rich-text`（CommonMark）（[[authoring|文書の書き方（YAML）]]）
         - npmパッケージとして追加するプラグインと公開plugin API（[[using-plugins|プラグインを使う]]）
-        - 公式チケット管理プラグイン（[[ticket-management|チケット管理]]）
+        - 公式チケット管理プラグイン（[[ticket-management|チケット管理]]）と、カンバン・WBS（日程表つき）のプラグイン（[[official-plugins|公式プラグイン]]、[[wbs|WBS]]）
+        - 画面からの変更の確認・コミット・プッシュと、文書ごとの履歴・差分の表示（[[changes-and-history|変更・コミット・文書の履歴]]）
+        - 画像の挿入・保存・参照の検証・静的出力へのコピー（[[images|画像]]）
 
         ## 現段階では利用できないこと（今後の範囲）
 
         次の機能はまだ実装されておらず、「利用可能」ではない。今後の拡張として扱う。
 
-        - 差分表示
-        - Vellymからのgit操作
+        - Vellymからのpull・マージ・ブランチの操作（コマンドラインで行う）
         - `rich-text`以外の追加ブロック
         - preset
         - 自動翻訳、翻訳の鮮度判定、翻訳ワークフロー、翻訳担当者への通知
@@ -83,7 +84,7 @@ spec:
 
             ## Available now
 
-            - The four CLI commands: `init`, `dev`, `validate`, `build` ([[cli-reference|CLI Reference]])
+            - Seven CLI commands: `init`, `dev`, `validate`, `list`, `schema`, `build`, `migrate` ([[cli-reference|CLI Reference]])
             - In-browser initial setup ([[browser-guide|Using the Browser UI]])
             - In-browser reading, outline, tree, breadcrumbs
             - In-browser editing and saving (write-back to local YAML)
@@ -95,15 +96,16 @@ spec:
             - Read-only static site generation and serving ([[self-hosting|Static Publishing and Self-Hosting]])
             - The `rich-text` (CommonMark) body block ([[authoring|Authoring Documents (YAML)]])
             - Plugins installed as npm packages and the public plugin API ([[using-plugins|Using Plugins]])
-            - The official ticket management plugin ([[ticket-management|Ticket Management]])
+            - The official ticket management plugin ([[ticket-management|Ticket Management]]), plus the Kanban and WBS (with a date timeline) plugins ([[official-plugins|Official Plugins]], [[wbs|WBS]])
+            - Reviewing changes, committing, and pushing from the browser, and each document's history and diffs ([[changes-and-history|Changes, Commits, and Document History]])
+            - Images: insert, store, validate references, and copy into static output ([[images|Images]])
 
             ## Not available yet (future scope)
 
             The following are not implemented and are not "available". They are treated as
             future extensions.
 
-            - Diff view
-            - Git operations from Vellym
+            - Pull, merge, and branch operations from Vellym (use the command line)
             - Body blocks other than `rich-text`
             - Presets
             - Automatic translation, translation freshness detection, translation workflow,

@@ -205,17 +205,17 @@ spec:
 
         ## プラグインにできないこと
 
-        設計の前に知っておくと手戻りが少ない。0.4.0-beta時点で次はできない。
+        設計の前に知っておくと手戻りが少ない。0.5.0-beta時点で次はできない。
 
         | できないこと | 理由と代わりにできること |
         | --- | --- |
         | ファイルシステムやcontent rootのpathを扱う | hostは登録関数だけを渡す。読み取りは抽出済みレコード、作成は`createResource()`、更新はrendererの`save()`を使う |
-        | 開いていないリソースを更新する | `save()`は開いているリソース1件への書き戻しに限られる。複数件の一括更新や、別リソースの更新はできない |
+        | 複数のリソースをまとめて1回で更新する | `save()`は1回の呼び出しで1件へ書き戻す。開いているリソース以外は`options.targetName`に`metadata.name`を渡して更新できるが、複数件を「すべて成功か、すべて失敗か」でまとめて更新することはできない |
         | 独自のHTTPエンドポイントを足す | サーバーの経路は固定である。YAML以外を出どころとするデータを画面へ運ぶ手段はない |
         | 他のプラグインの画面へ操作を足す | 貢献点がない。自分のビューの中に操作を置く |
         | YAML以外から索引行を作る | projectorが受け取るのは抽出済みレコードだけである |
         | `list`と`detail`以外のビュー種別を宣言する | 宣言で表せない画面は`registerViewRenderer`で自分で描く |
-        | 設定画面の値を読む | manifestの`settings`は検証されるが、値を読むAPIはまだない |
+        | 設定画面の値を読む | manifestの`settings`は検証されるが、値を読むAPIはまだない。ビューの表示の個人設定（列幅・開閉など）は、ブラウザ内だけに保存する`getViewSettings()`・`setViewSettings()`で持てる |
 
         最後の2つを踏まえると、**宣言で表せる画面は宣言で、表せない画面は自前描画で**
         という切り分けになる。自前描画でも`@vellym/plugin-api/ui`のUI部品を使えるため、
@@ -423,18 +423,18 @@ spec:
 
             ## What plugins cannot do
 
-            Knowing this up front avoids rework. As of 0.4.0-beta, none of the following is
+            Knowing this up front avoids rework. As of 0.5.0-beta, none of the following is
             possible.
 
             | Not possible | Why, and what to use instead |
             | --- | --- |
             | Touch the filesystem or the content root path | The host passes registration functions only. Read extracted records, create through `createResource()`, update through the renderer's `save()` |
-            | Update a resource that is not open | `save()` writes back to the single open resource. Bulk updates and updates to other resources are out of reach |
+            | Update several resources together in one call | `save()` writes back to one resource per call. Resources other than the open one can be updated by passing their `metadata.name` as `options.targetName`, but there is no all-or-nothing update of several resources |
             | Add your own HTTP endpoint | Server routes are fixed. There is no way to carry data originating outside YAML into a screen |
             | Add actions to another plugin's screen | No contribution point exists. Keep actions inside your own views |
             | Build index rows from anything but YAML | A projector only ever receives extracted records |
             | Declare a view type other than `list` or `detail` | Draw screens that declarations cannot express yourself, through `registerViewRenderer` |
-            | Read settings values | Manifest `settings` are validated, but no API reads their values yet |
+            | Read settings values | Manifest `settings` are validated, but no API reads their values yet. Personal view preferences (column widths, expanded rows) can be kept in the browser with `getViewSettings()` and `setViewSettings()` |
 
             Given the last two, the split is **declare what declarations can express, and render
             the rest yourself.** Self-rendered screens can still use the UI parts from
