@@ -384,13 +384,15 @@ async function hasCaseInsensitiveEntry(
 
 async function directEntryNames(directory: string): Promise<string[]> {
   return (await readdir(directory, { withFileTypes: true }))
-    .filter(
-      (entry) =>
-        !entry.isSymbolicLink() &&
+    .filter((entry) => {
+      if (entry.isSymbolicLink() || entry.name.startsWith(".")) return false;
+      if (entry.isDirectory()) {
+        return !RESERVED_DIRECTORIES.has(entry.name.toLocaleLowerCase());
+      }
+      return entry.isFile() &&
         entry.name !== "_index.yaml" &&
-        !entry.name.startsWith(".") &&
-        entry.name !== "_archive"
-    )
+        /\.ya?ml$/i.test(entry.name);
+    })
     .map((entry) => entry.name);
 }
 
@@ -659,15 +661,7 @@ export async function planStructureChange(
       contentRoot,
       input.folderPath
     );
-    const entries = (await readdir(folderDirectory, { withFileTypes: true }))
-      .filter(
-        (entry) =>
-          !entry.isSymbolicLink() &&
-          entry.name !== "_index.yaml" &&
-          !entry.name.startsWith(".") &&
-          entry.name !== "_archive"
-      )
-      .map((entry) => entry.name);
+    const entries = await directEntryNames(folderDirectory);
     const missing = input.order.filter((item) => !entries.includes(item));
     if (missing.length) {
       throw new RuntimeError(
