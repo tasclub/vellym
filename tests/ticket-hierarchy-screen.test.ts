@@ -43,8 +43,10 @@ describe("Tracker hierarchy settings", () => {
     expect(container.querySelectorAll(".tickets-settings-header")).toHaveLength(3);
     expect(container.querySelector('[data-row="option"]')?.classList.contains("tickets-settings-option-grid"))
       .toBe(true);
-    expect(container.querySelectorAll('[data-row="option"] .tickets-settings-actions button[aria-label]'))
-      .toHaveLength(2);
+    const option = container.querySelector('[data-row="option"]')!;
+    expect(option.querySelectorAll('[role="button"][aria-label^="並び替え: "]')).toHaveLength(1);
+    expect([...option.querySelectorAll("button")].map((button) => button.textContent))
+      .not.toEqual(expect.arrayContaining(["↑", "↓"]));
 
     await act(async () => {
       [...container.querySelectorAll<HTMLButtonElement>("button")]

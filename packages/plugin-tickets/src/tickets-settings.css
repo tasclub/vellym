@@ -14,26 +14,59 @@
 
 .tickets-settings-header {
   padding-inline: var(--space-2);
+  padding-inline-start: calc(var(--space-2) + 2rem + var(--space-3));
   color: var(--text-muted);
   font-size: var(--size-caption);
   font-weight: 600;
 }
 
 .tickets-settings-status-grid {
-  grid-template-columns: minmax(7rem, 0.8fr) minmax(10rem, 1.4fr)
+  grid-template-columns: 2rem minmax(7rem, 0.8fr) minmax(10rem, 1.4fr)
     minmax(8rem, 0.8fr) minmax(11rem, max-content);
 }
 
 .tickets-settings-field-grid {
-  grid-template-columns: minmax(6rem, 0.7fr) minmax(9rem, 1.3fr)
+  grid-template-columns: 2rem minmax(6rem, 0.7fr) minmax(9rem, 1.3fr)
     minmax(7rem, 0.8fr) minmax(5rem, 0.5fr) minmax(7rem, 0.7fr)
     minmax(9rem, max-content);
 }
 
 .tickets-settings-option-grid {
-  grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1.4fr)
+  grid-template-columns: 2rem minmax(8rem, 1fr) minmax(10rem, 1.4fr)
     minmax(11rem, max-content);
 }
+
+.tickets-settings-header {
+  grid-template-columns: none;
+}
+.tickets-settings-header.tickets-settings-status-grid {
+  grid-template-columns: minmax(7rem, 0.8fr) minmax(10rem, 1.4fr) minmax(8rem, 0.8fr) minmax(11rem, max-content);
+}
+.tickets-settings-header.tickets-settings-field-grid {
+  grid-template-columns: minmax(6rem, 0.7fr) minmax(9rem, 1.3fr) minmax(7rem, 0.8fr) minmax(5rem, 0.5fr) minmax(7rem, 0.7fr) minmax(9rem, max-content);
+}
+.tickets-settings-header.tickets-settings-option-grid {
+  grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1.4fr) minmax(11rem, max-content);
+}
+.tickets-settings-sortable { position: relative; }
+.tickets-settings-sortable[data-drop-side]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 2px;
+  background: var(--accent-default);
+  pointer-events: none;
+}
+.tickets-settings-sortable[data-drop-side="before"]::after { top: 0; }
+.tickets-settings-sortable[data-drop-side="after"]::after { bottom: 0; }
+.tickets-settings-sort-handle {
+  cursor: grab;
+  touch-action: none;
+  text-align: center;
+  font-size: 1.3rem;
+  user-select: none;
+}
+.tickets-settings-sort-handle:active { cursor: grabbing; }
 
 .tickets-settings-row {
   padding: var(--space-2);

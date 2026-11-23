@@ -10,12 +10,21 @@ import { validatePluginManifest } from "@vellym-internal/core";
 import { pluginResourceRelativePath } from "@vellym-internal/runtime-node";
 import plugin from "@vellym/tickets";
 import { ticketListView } from "../packages/plugin-tickets/src/views.js";
-import { buildTicketDraft, createTicketCommand } from "../packages/ticket-engine/src/commands.js";
+import { moveTo } from "../packages/plugin-tickets/src/sortable.js";
 import { TICKET_ENGINE_VERSION } from "@vellym-internal/ticket-engine";
+import { buildTicketDraft, createTicketCommand } from "../packages/ticket-engine/src/commands.js";
 import {
   initialTicketSpec,
   readTrackers
 } from "@vellym-internal/ticket-engine";
+
+describe("settings reorder", () => {
+  it("moves in either direction and leaves out-of-range moves unchanged", () => {
+    expect(moveTo(["a", "b", "c"], 0, 2)).toEqual(["b", "c", "a"]);
+    expect(moveTo(["a", "b", "c"], 2, 0)).toEqual(["c", "a", "b"]);
+    expect(moveTo(["a", "b"], 0, -1)).toEqual(["a", "b"]);
+  });
+});
 
 function record(
   kind: string,
