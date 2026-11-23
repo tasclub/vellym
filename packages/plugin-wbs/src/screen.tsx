@@ -241,8 +241,7 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
                   {!needsReview && context.createResourceNow ? <Button disabled={busy} onClick={() => { onCreate(row.name); setMenu(undefined); }}>{label("子チケットを追加", "Add child task", context.locale)}</Button> : null}
                 </> : null}
               </> : null}
-               {needsReview && !context.isStatic ? <small>{label("親の参照を確認してください。並び替えと子の追加はできません。", "Check the parent reference. Reordering and adding children are unavailable.", context.locale)}</small> : null}
-            {editable && editingParent === row.name && data.parentField ? <div role="group" className="wbs-parent-editor">
+             {editable && editingParent === row.name && data.parentField ? <div role="group" className="wbs-parent-editor">
             <label>{label("親を変更", "Change parent", context.locale)}{" "}<ChoiceControl mode="select"
               aria-label={`${row.title}: ${label("親", "Parent", context.locale)}`}
               value={typeof parent === "string" ? parent : ""} disabled={busy}
@@ -581,14 +580,6 @@ export function WBSScreen({ context }: PluginViewProps) {
               ? [...(data?.columns ?? []), column] : (data?.columns ?? []).filter((item) => item.id !== column.id))} /> {column.label}</label>)}
       </fieldset>
     </details> : null}
-    {!context.isStatic && [...(data?.diagnostics ?? []), ...hierarchy.diagnostics].length > 0 ? (
-      <div role="alert"><h2>{label("WBSの設定に問題があります", "Check WBS definition", context.locale)}</h2>
-        <ul>{[...(data?.diagnostics ?? []), ...hierarchy.diagnostics].map((diagnostic, index) =>
-          <li key={`${diagnostic.code}:${index}`}>
-            {resolveLocalizedText(diagnostic.message, context.locale)}
-          </li>
-        )}</ul></div>
-    ) : null}
     {busy || message ? <p role="status">{busy ? label("○ 保存中…", "○ Saving…", context.locale) : message}</p> : null}
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
       {([["title", "題名", "Title"], ["details", "詳細", "Details"], ["schedule", "スケジュール", "Schedule"]] as const).map(([key, ja, en]) =>

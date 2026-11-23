@@ -237,7 +237,8 @@ describe("WBS screen", () => {
       expect([...container.querySelectorAll('.wbs-review-heading > :first-child')].map((row) => row.textContent)).toEqual([
         "△ 親が見つからないチケット（1）", "△ 親子が循環しているチケット（2）"
       ]);
-      expect(container.textContent).toContain("△ 要確認 3件");
+      expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toContain("△ 要確認 3件");
+      expect(container.querySelector('[role="alert"]')).toBeNull();
       expect(container.textContent).not.toContain("読み込めないチケット");
       if (isStatic) {
         expect(container.textContent).not.toContain("missing-name");
@@ -267,6 +268,18 @@ describe("WBS screen", () => {
     expect(container.querySelector('[role="status"]')?.textContent).toContain("他で変更されました");
     menu = openMenu(container, "c");
     expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "下へ")?.disabled).toBe(true);
+    act(() => root.unmount());
+  });
+  it("omits repeated review diagnostics in English while retaining row details and the count button", () => {
+    const { context, container, root } = fixture(false, [
+      { name: "orphan", title: "Orphan", values: { "field:parent": "missing-name" } }
+    ]);
+    act(() => root.render(createElement(WBSScreen, { context: { ...context, locale: "en" } })));
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).not.toContain("Check WBS definition");
+    expect(container.textContent).not.toContain("Check the parent reference. Reordering and adding children are unavailable.");
+    expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toContain("△ Needs attention: 1");
+    expect(container.querySelector('[data-ticket-name="orphan"] .wbs-review-note')?.textContent).toContain("Parent missing-name not found");
     act(() => root.unmount());
   });
 
@@ -377,7 +390,8 @@ describe("WBS screen", () => {
     expect(container.querySelector('[data-ticket-name="a"] [draggable]')).toBeNull();
     act(() => clickText(menu, "親を変更…"));
     expect([...container.querySelectorAll<HTMLSelectElement>('[data-ticket-name="a"] select option')].map((option) => option.value)).toEqual(["", "ok"]);
-    expect(container.querySelector('[role="rowgroup"][aria-label="△ 親子が循環しているチケット"]')?.textContent).toContain("親の参照を確認");
+    expect(container.querySelector('[data-ticket-name="a"] .wbs-review-note')?.textContent).toContain("△ a → b → a");
+    expect(container.textContent).not.toContain("親の参照を確認してください。並び替えと子の追加はできません。");
     act(() => root.unmount());
   });
 
@@ -413,7 +427,7 @@ describe("WBS screen", () => {
 
   it("keeps roots and unresolved children, navigates, and writes the selected child's parent", async () => {
     const { container, root, save, openResource } = fixture();
-    expect(container.textContent).toContain("親チケットが見つかりません");
+    expect(container.querySelector('[data-ticket-name="orphan"] .wbs-review-note')?.textContent).toContain("親 missing が見つかりません");
     expect(container.querySelector('[data-ticket-name="child"]')?.textContent).toContain("— 日程なし");
     expect(container.querySelector('[data-ticket-name="child"]')?.getAttribute("aria-level")).toBe("2");
     for (const row of container.querySelectorAll('[data-ticket-name]')) {
