@@ -3,13 +3,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 /**
- * プラグインと共有する固定名エントリ。
- *
- * **プラグイン共有エントリだけファイル名を固定する。** 他の資産はハッシュ付きのままにする。
- * import mapはbare specifierをこの相対URLへ向けるため、名前が変わると
- * プラグインの読み込みが壊れる。Reactの実体はハッシュ付きの共有チャンクに
- * 入り、ここからre-exportするだけなので、キャッシュへの影響は4ファイルに
- * 限られる。
+ * プラグインと共有するハッシュ付きエントリ。
+ * import mapは毎回生成されキャッシュされないindex.htmlにあるため名前は変わってよい。
  */
 const SHARED_ENTRIES = {
   "vellym-react": "src/shared-entries/vellym-react.ts",
@@ -21,20 +16,20 @@ const SHARED_ENTRIES = {
 } as const;
 
 /**
- * bare specifierから固定名ファイルへの対応。
+ * bare specifierから共有エントリ名への対応。URLはビルド時に生成する。
  *
  * **specifierごとにファイルを分ける。** 1つへまとめると、import mapで
  * `react`と`react/jsx-runtime`を別々に指せない。
  */
 const IMPORT_MAP: Record<string, string> = {
-  react: "./assets/vellym-react.js",
-  "react-dom": "./assets/vellym-react-dom.js",
-  "react-dom/client": "./assets/vellym-react-dom.js",
-  "react/jsx-runtime": "./assets/vellym-jsx-runtime.js",
-  "react/jsx-dev-runtime": "./assets/vellym-jsx-runtime.js",
-  "@vellym/plugin-api/ui": "./assets/vellym-ui.js",
-  "@vellym/plugin-api": "./assets/vellym-plugin-api.js",
-  "@vellym/plugin-api/react": "./assets/vellym-plugin-api-react.js"
+  react: "vellym-react",
+  "react-dom": "vellym-react-dom",
+  "react-dom/client": "vellym-react-dom",
+  "react/jsx-runtime": "vellym-jsx-runtime",
+  "react/jsx-dev-runtime": "vellym-jsx-runtime",
+  "@vellym/plugin-api/ui": "vellym-ui",
+  "@vellym/plugin-api": "vellym-plugin-api",
+  "@vellym/plugin-api/react": "vellym-plugin-api-react"
 };
 
 export default defineConfig({
@@ -60,15 +55,27 @@ export default defineConfig({
        * 相対値はdocument baseを起点に解決されるので、静的版を任意の
        * サブパスへ置いても壊れない。
        */
-      transformIndexHtml() {
-        return [
-          {
-            tag: "script",
-            attrs: { type: "importmap" },
-            children: JSON.stringify({ imports: IMPORT_MAP }),
-            injectTo: "head-prepend" as const
-          }
-        ];
+      transformIndexHtml: {
+        order: "post",
+        handler(_html, ctx) {
+          if (!ctx.bundle) return;
+          const entries = new Map(Object.values(ctx.bundle)
+            .filter((chunk) => chunk.type === "chunk" && chunk.isEntry && chunk.name in SHARED_ENTRIES)
+            .map((chunk) => [chunk.name, `./${chunk.fileName}`]));
+          const imports = Object.fromEntries(Object.entries(IMPORT_MAP).map(([specifier, name]) => {
+            const url = entries.get(name);
+            if (!url) throw new Error(`Missing shared entry: ${name}`);
+            return [specifier, url];
+          }));
+          return [
+            {
+              tag: "script",
+              attrs: { type: "importmap" },
+              children: JSON.stringify({ imports }),
+              injectTo: "head-prepend" as const
+            }
+          ];
+        }
       }
     }
   ],
@@ -94,11 +101,7 @@ export default defineConfig({
         )
       },
       output: {
-        // 共有エントリだけ固定名。**他はハッシュ付きのまま。**
-        entryFileNames: (chunk) =>
-          chunk.name in SHARED_ENTRIES
-            ? "assets/[name].js"
-            : "assets/[name]-[hash].js"
+        entryFileNames: "assets/[name]-[hash].js"
       }
     }
   }

@@ -2,7 +2,7 @@
  * `@vellym/plugin-api/ui`は**型だけを配るサブパスである。**
  *
  * UI部品の実装はVellym本体（`vellym`パッケージ）に同梱されており、
- * ブラウザではimport mapが`/assets/vellym-ui.js`へ解決する。
+ * ブラウザではimport mapが`/assets/vellym-ui-<hash>.js`へ解決する。
  * プラグインはこのsubpathをexternalとしてビルドし、実体をhostから受け取る。
  *
  * 同梱すると部品が二重になり、Reactのインスタンスも分かれてhooksが壊れる。

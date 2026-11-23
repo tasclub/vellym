@@ -561,9 +561,13 @@ spec:
       path.join(output, "pages/build-tracker/index.html"),
       "utf8"
     );
-    expect(pageHtml).toContain('"react":"../../assets/vellym-react.js"');
+    const pageEntry = pageHtml.match(/"react":"\.\.\/\.\.\/assets\/(vellym-react-[\w-]+\.js)"/);
+    expect(pageEntry).not.toBeNull();
+    expect(existsSync(path.join(output, "assets", pageEntry?.[1] ?? ""))).toBe(true);
     const rootHtml = await readFile(path.join(output, "index.html"), "utf8");
-    expect(rootHtml).toContain('"react":"./assets/vellym-react.js"');
+    const rootEntry = rootHtml.match(/"react":"\.\/assets\/(vellym-react-[\w-]+\.js)"/);
+    expect(rootEntry).not.toBeNull();
+    expect(existsSync(path.join(output, "assets", rootEntry?.[1] ?? ""))).toBe(true);
   });
 
   it("bakes a standalone WBS on a TicketTracker without a WBS resource", async () => {
