@@ -47,6 +47,7 @@ export function AdminView(props: {
   const [archivedLoaded, setArchivedLoaded] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState<string | null>(null);
   const [archiveError, setArchiveError] = useState("");
+  const [archiveErrorPath, setArchiveErrorPath] = useState<string | null>(null);
   const [addingTemplates, setAddingTemplates] = useState(false);
   useEffect(() => setContentRoot(props.contentRoot), [props.contentRoot]);
   useEffect(() => setUiLanguage(props.language), [props.language]);
@@ -57,6 +58,7 @@ export function AdminView(props: {
   const loadArchived = useCallback(async () => {
     if (!canManageStructure) return;
     setArchiveError("");
+    setArchiveErrorPath(null);
     try {
       setArchived((await fetchArchived()).data.entries);
     } catch (caught) {
@@ -72,6 +74,7 @@ export function AdminView(props: {
   async function restoreEntry(entry: ArchivedEntry) {
     setArchiveBusy(entry.archivePath);
     setArchiveError("");
+    setArchiveErrorPath(entry.archivePath);
     try {
       const plan = (
         await previewStructure({
@@ -170,7 +173,6 @@ export function AdminView(props: {
       <header>
         <p>{t("admin.kicker")}</p>
         <h1 id="admin-title">{t("admin.title")}</h1>
-        <span>{t("admin.subtitle")}</span>
       </header>
       {addingTemplates ? (
         <SetupWizard
@@ -187,7 +189,6 @@ export function AdminView(props: {
       ) : (
         <section className={styles.panel} aria-labelledby="template-add-title">
           <h2 id="template-add-title">{t("admin.templateAddTitle")}</h2>
-          <p>{t("admin.templateAddDescription")}</p>
           <div className={styles.configActions}>
             <Button onClick={() => setAddingTemplates(true)}>
               {t("admin.templateAddAction")}
@@ -198,11 +199,10 @@ export function AdminView(props: {
       <section className={styles.panel} aria-labelledby="source-title">
         <h2 id="source-title">{t("admin.sourceTitle")}</h2>
         <dl>
-          <div><dt>{t("admin.projectRoot")}</dt><dd><code>{props.projectRoot}</code><p>{t("admin.projectRootHelp")}</p></dd></div>
-          <div><dt>{t("admin.configFile")}</dt><dd><code>{props.configPath}</code><p>{t("admin.configFileHelp")}</p></dd></div>
-          <div><dt>{t("admin.contentRootRelative")}</dt><dd><code>{props.contentRoot}</code><p>{t("admin.contentRootRelativeHelp")}</p></dd></div>
-          <div><dt>{t("admin.resolvedContentRoot")}</dt><dd><code>{props.resolvedContentRoot}</code><p>{t("admin.resolvedContentRootHelp")}</p></dd></div>
-          <div><dt>{t("admin.saveMethod")}</dt><dd>{t("admin.saveMethodValue")}<p>{t("admin.saveMethodHelp")}</p></dd></div>
+          <div><dt>{t("admin.projectRoot")}</dt><dd><code>{props.projectRoot}</code></dd></div>
+          <div><dt>{t("admin.configFile")}</dt><dd><code>{props.configPath}</code></dd></div>
+          <div><dt>{t("admin.contentRootRelative")}</dt><dd><code title={props.resolvedContentRoot}>{props.contentRoot}</code></dd></div>
+          <div><dt>{t("admin.saveMethod")}</dt><dd>{t("admin.saveMethodValue")}</dd></div>
         </dl>
       </section>
       <section className={styles.panel} aria-labelledby="language-title">
@@ -243,7 +243,6 @@ export function AdminView(props: {
       ) : null}
       <section className={styles.panel} aria-labelledby="content-root-title">
         <h2 id="content-root-title">{t("admin.contentRootTitle")}</h2>
-        <p>{t("admin.contentRootDescription", { root: props.projectRoot })}</p>
         <label className={styles.configField}>
           <span>{t("admin.contentRootFieldLabel")}</span>
           <input
@@ -274,9 +273,12 @@ export function AdminView(props: {
               {busy ? t("admin.previewing") : t("admin.previewAction")}
             </Button>
           ) : (
-            <Button disabled={busy} onClick={() => void apply()}>
-              {busy ? t("admin.applying") : t("admin.applyAction")}
-            </Button>
+            <div className={styles.configActionRow}>
+              <Button disabled={busy} onClick={() => void apply()}>
+                {busy ? t("admin.applying") : t("admin.applyAction")}
+              </Button>
+              <small className={styles.configActionNote}>{t("admin.contentRootDescription")}</small>
+            </div>
           )}
         </div>
       </section>
@@ -290,7 +292,6 @@ export function AdminView(props: {
             {t("admin.advancedLabel")}
           </span>
         </summary>
-        <p>{t("admin.slugMigrationDescription")}</p>
         {slugPlan && (
           <div className={styles.configPreview}>
             <strong>{t("admin.slugMigrationCount", { count: slugPlan.pages.length })}</strong>
@@ -309,7 +310,7 @@ export function AdminView(props: {
             </Button>
           ) : slugPlan.pages.length > 0 ? (
             <Button disabled={busy} onClick={() => void migrateSlugs()}>
-              {t("admin.slugMigrationApplyAction")}
+              {t("admin.slugMigrationApplyAction", { count: slugPlan.pages.length })}
             </Button>
           ) : null}
         </div>
@@ -319,8 +320,7 @@ export function AdminView(props: {
       {props.canManageStructure && (
         <section className={styles.panel} aria-labelledby="archived-title">
           <h2 id="archived-title">{t("admin.archivedTitle")}</h2>
-          <p>{t("admin.archivedDescription")}</p>
-          {archiveError && <p role="alert">{archiveError}</p>}
+          {archiveError && !archiveErrorPath && <p role="alert">{archiveError}</p>}
           {archived.length === 0 ? (
             <p className={styles.archivedEmpty}>
               {archivedLoaded ? t("admin.archivedEmpty") : t("admin.archivedLoading")}
@@ -338,6 +338,9 @@ export function AdminView(props: {
                       {" · "}
                       <code>{entry.archivePath}</code>
                     </small>
+                    {archiveError && archiveErrorPath === entry.archivePath && (
+                      <p role="alert">{archiveError}</p>
+                    )}
                   </div>
                   <Button
                     disabled={archiveBusy !== null}
