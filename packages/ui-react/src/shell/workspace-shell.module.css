@@ -78,6 +78,16 @@
   background:var(--text-secondary);
 }
 .railButton:focus-visible { outline:2px solid var(--surface-page); outline-offset:-3px; }
+.changeButton { position: relative; }
+.changeDot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-default);
+}
 .adminShell {
   grid-template:
     "rail header header" 54px
