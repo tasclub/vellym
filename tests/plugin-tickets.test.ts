@@ -9,10 +9,12 @@ import type {
 import { validatePluginManifest } from "@vellym-internal/core";
 import { pluginResourceRelativePath } from "@vellym-internal/runtime-node";
 import plugin from "@vellym/tickets";
+import { ticketListView } from "../packages/plugin-tickets/src/views.js";
+import { TICKET_ENGINE_VERSION } from "@vellym-internal/ticket-engine";
 import {
   initialTicketSpec,
   readTrackers
-} from "../packages/plugin-tickets/src/definitions.js";
+} from "@vellym-internal/ticket-engine";
 
 function record(
   kind: string,
@@ -63,6 +65,18 @@ const defects = record("TicketTracker", "defect-tickets", "40-品質/defect-tick
 
 const trackers = [unitTests, defects];
 
+it("passes tracker summary definitions to the generic list descriptor", () => {
+  const tracker = record("TicketTracker", "summary", "summary.yaml", {
+    statuses: [{ id: "open", label: "Open", category: "open" }],
+    fields: [{ id: "points", label: "Points", type: "number" }],
+    summary: [{ field: "points", method: "sum" }]
+  });
+  expect(ticketListView(context([tracker], tracker)).summary).toEqual([
+    { valueKey: "field:points", type: "number", method: "sum", label: "Points" }
+  ]);
+  expect(ticketListView(context([unitTests], unitTests)).summary).toBeUndefined();
+});
+
 function context(
   definitions: PluginResourceRecord[],
   target?: PluginResourceRecord
@@ -83,6 +97,10 @@ function activate() {
     string,
     Parameters<VellymPluginHost["registerRecordProjection"]>[1]
   >();
+  const recordSetValidators = new Map<
+    string,
+    Parameters<VellymPluginHost["registerRecordSetValidator"]>[1]
+  >();
   plugin.activate({
     pluginId: "tickets",
     hostVersion: "0.3.0-beta.1",
@@ -90,9 +108,10 @@ function activate() {
     registerView: (contribution) => views.set(contribution.id, contribution),
     registerCommand: (contribution) => commands.set(contribution.id, contribution),
     registerRecordProjection: (kind, create) => projections.set(kind, create),
+    registerRecordSetValidator: (kind, validate) => recordSetValidators.set(kind, validate),
     reportDiagnostic: () => {}
   });
-  return { kinds, views, commands, projections };
+  return { kinds, views, commands, projections, recordSetValidators };
 }
 
 function project(definitions: PluginResourceRecord[], ticket: PluginResourceRecord) {
@@ -121,6 +140,25 @@ function listView(target?: PluginResourceRecord) {
 }
 
 describe("ticket plugin", () => {
+  it("resolves settings UI copy through PluginLocalizedText rather than locale branches", () => {
+    const screen = readFileSync(
+      path.join(process.cwd(), "packages/plugin-tickets/src/settings-screen.tsx"),
+      "utf8"
+    );
+    expect(screen).not.toMatch(/locale\.startsWith\(["']ja["']\)/);
+    expect(screen).toContain("resolveLocalizedText");
+  });
+
+  it("ships a responsive, plugin-scoped settings grid stylesheet", () => {
+    const stylesheet = readFileSync(
+      path.join(process.cwd(), "packages/plugin-tickets/src/tickets-settings.css"),
+      "utf8"
+    );
+    expect(stylesheet).toContain(".tickets-settings-field-grid");
+    expect(stylesheet).toContain(".tickets-settings-option-grid");
+    expect(stylesheet).toContain("@media (max-width: 760px)");
+  });
+
   it("ships a manifest that matches what activate registers", () => {
     // manifestは「コードを読まずに分かる必要がある宣言」であり、実装とずれると
     // 利用者は「入れたのに出てこない」理由を知る手段を失う。
@@ -147,7 +185,9 @@ describe("ticket plugin", () => {
   it("puts trackers in the document tree and tickets outside it", () => {
     const { kinds, commands } = activate();
     expect(kinds.get("Ticket")?.showInDocumentTree).toBe(false);
+    expect(kinds.get("Ticket")?.engineVersion).toBe(TICKET_ENGINE_VERSION);
     expect(kinds.get("TicketTracker")?.showInDocumentTree).toBe(true);
+    expect(kinds.get("TicketTracker")?.engineVersion).toBe(TICKET_ENGINE_VERSION);
     expect(kinds.get("TicketTracker")?.hasBlocks).toBe(false);
     // 作成は静的版へ出さない。
     expect(commands.get("ticket.create")?.static).toBe(false);
@@ -227,6 +267,17 @@ describe("ticket plugin", () => {
     expect(codes).toEqual(["TICKET_STATUS_UNDEFINED"]);
   });
 
+  it("flags a status outside the ticket's own definition for the list marker (ticket-01m7qas4w71s3pw4b6aw17aevb)", () => {
+    const values = (status: string, file = "30-実装/単体テスト/ticket-01.yaml") =>
+      project(trackers, record("Ticket", "ticket-01", file, { status, fields: { caseId: "UT-1" } }))?.values;
+    expect(values("triage")?.statusUndefined).toBe(true);
+    expect(values("open")?.statusUndefined).toBeUndefined();
+    // Without an owning tracker there is no definition to be outside of.
+    expect(values("triage", "elsewhere/ticket-01.yaml")?.statusUndefined).toBeUndefined();
+    const status = listView(unitTests).columns.find((column) => column.id === "status");
+    expect(status?.marker).toEqual({ valueKey: "statusUndefined", label: { ja: "定義外", en: "undefined" } });
+  });
+
   it("warns instead of failing when data does not match the definitions", () => {
     const codes = (spec: Record<string, unknown>) =>
       project(
@@ -241,6 +292,36 @@ describe("ticket plugin", () => {
       "TICKET_FIELD_TYPE_MISMATCH"
     ]);
     expect(codes({ status: "open", fields: {} })).toEqual(["TICKET_FIELD_REQUIRED_MISSING"]);
+  });
+
+  it("checks options only for correctly typed defined fields with options", () => {
+    const tracker = record("TicketTracker", "options-tracker", "opts/tracker.yaml", {
+      statuses: [{ id: "open", label: "Open", category: "open" }],
+      fields: [
+        { id: "one", label: "One", type: "select", options: [{ value: "yes", label: "Yes" }] },
+        { id: "many", label: "Many", type: "multiselect", options: [{ value: "yes", label: "Yes" }] },
+        { id: "empty", label: "Empty", type: "select", options: [] },
+        { id: "absent", label: "Absent", type: "multiselect" }
+      ]
+    });
+    const result = project([tracker], record("Ticket", "t", "opts/t.yaml", {
+      status: "open", fields: { one: "no", many: ["yes", "no", "other"], empty: "x", absent: ["x"], extra: "x" }
+    }));
+    const options = result?.diagnostics?.filter((d) => d.code === "TICKET_FIELD_OPTION_UNDEFINED") ?? [];
+    expect(options.map((d) => d.path)).toEqual(["/spec/fields/one", "/spec/fields/many"]);
+    for (const d of options) {
+      expect(d.severity).toBe("warning");
+      expect(JSON.stringify(d.message)).toContain(d.path!.split("/").at(-1));
+    }
+    expect(JSON.stringify(options[1]?.message)).toContain("no");
+    expect(JSON.stringify(options[1]?.message)).toContain("other");
+    expect(result?.values["field:many"]).toEqual(["yes", "no", "other"]);
+    const mismatch = project([tracker], record("Ticket", "t", "opts/t.yaml", {
+      status: "open", fields: { one: 1, many: ["bad", 2] }
+    }));
+    expect(mismatch?.diagnostics?.map((d) => d.code)).toEqual([
+      "TICKET_FIELD_TYPE_MISMATCH", "TICKET_FIELD_TYPE_MISMATCH"
+    ]);
   });
 
   it("says a ticket outside every tracker is not lost, only unlisted", () => {
@@ -315,6 +396,26 @@ describe("ticket plugin", () => {
       ["status"],
       ["fields", "severity"]
     ]);
+    // 単一参照の項目には`multiple`を付けない。詳細の入力欄は従来どおり1値。
+    expect(detail.fields.every((field) => field.multiple === undefined)).toBe(true);
+  });
+
+  it("marks a multiple reference field on the detail descriptor", () => {
+    const related = record("TicketTracker", "multi-tickets", "multi/multi.yaml", {
+      statuses: [{ id: "open", label: "Open", category: "open" }],
+      fields: [
+        { id: "parent", label: "Parent", type: "reference", listColumn: true },
+        { id: "dependsOn", label: "Depends on", type: "reference", multiple: true }
+      ]
+    });
+    const view = activate().views.get("ticket-detail")?.view;
+    if (typeof view !== "function") throw new Error("expected a view provider");
+    const detail = view(context([related], record("Ticket", "ticket-01", "multi/ticket-01.yaml")));
+    if (detail.type !== "detail") throw new Error("expected a detail descriptor");
+    const byId = new Map(detail.fields.map((field) => [field.id, field]));
+    expect(byId.get("parent")?.multiple).toBeUndefined();
+    expect(byId.get("dependsOn")?.multiple).toBe(true);
+    expect(byId.get("dependsOn")?.type).toBe("reference");
   });
 
   it("puts only declared fields in the list, but every field in the detail", () => {
@@ -335,6 +436,29 @@ describe("ticket plugin", () => {
       ["status"],
       ["fields", "caseId"],
       ["fields", "note"]
+    ]);
+  });
+
+  it("orders detail fields: list columns, then single-line, then multi-line, each in definition order", () => {
+    // ticket-01m7k6gftnq66d3qh00knvzbnc
+    const mixed = record("TicketTracker", "mixed", "mixed/mixed.yaml", {
+      statuses: [{ id: "open", label: "Open", category: "open" }],
+      fields: [
+        { id: "notes", label: "Notes", type: "multiline" },
+        { id: "owner", label: "Owner", type: "text" },
+        { id: "due", label: "Due", type: "date", listColumn: true },
+        { id: "summary", label: "Summary", type: "multiline", listColumn: true },
+        { id: "points", label: "Points", type: "number" },
+        { id: "risk", label: "Risk", type: "multiline" },
+        { id: "priority", label: "Priority", type: "select", listColumn: true, options: [{ value: "high", label: "High" }] }
+      ]
+    });
+    const view = activate().views.get("ticket-detail")?.view;
+    if (typeof view !== "function") throw new Error("expected a view provider");
+    const detail = view(context([mixed], record("Ticket", "ticket-01", "mixed/ticket-01.yaml")));
+    if (detail.type !== "detail") throw new Error("expected a detail descriptor");
+    expect(detail.fields.map((field) => field.id)).toEqual([
+      "status", "due", "summary", "priority", "owner", "points", "notes", "risk"
     ]);
   });
 
@@ -487,14 +611,20 @@ describe("ticket plugin", () => {
         path: "/spec/fields/0/options",
         severity: "warning",
         code: "TICKET_FIELD_OPTIONS_MISSING",
-        message: "選択式の項目に選択肢がありません: priority"
+        message: {
+          ja: "選択式の項目に選択肢がありません: priority",
+          en: "Select fields must have options: priority"
+        }
       },
       {
         file: "40-品質/empty-options.yaml",
         path: "/spec/fields/1/options",
         severity: "warning",
         code: "TICKET_FIELD_OPTIONS_MISSING",
-        message: "選択式の項目に選択肢がありません: labels"
+        message: {
+          ja: "選択式の項目に選択肢がありません: labels",
+          en: "Select fields must have options: labels"
+        }
       }
     ]);
 
@@ -559,5 +689,82 @@ describe("ticket plugin", () => {
     expect(descriptor.emptyState?.message).toMatchObject({
       ja: expect.stringContaining("ステータス")
     });
+  });
+});
+
+describe("status category on the index row", () => {
+  const values = (spec: Record<string, unknown>, relativePath = "30-実装/単体テスト/t.yaml") =>
+    project(trackers, record("Ticket", "ticket-01", relativePath, spec))?.values;
+
+  it("copies the category from the tracker's statuses", () => {
+    expect(values({ status: "open" })?.statusCategory).toBe("open");
+    expect(values({ status: "fixed" })?.statusCategory).toBe("closed");
+  });
+
+  it("leaves the category out when the status is missing or undefined", () => {
+    // 定義に無い状態・未設定・Trackerの配下外。値を作らず、既存の警告だけで示す。
+    expect(values({ status: "no-such-status" })?.statusCategory).toBeUndefined();
+    expect(values({})?.statusCategory).toBeUndefined();
+    expect(values({ status: "open" }, "notes/t.yaml")?.statusCategory).toBeUndefined();
+  });
+});
+
+describe("record set validator from the shared engine", () => {
+  const related = record("TicketTracker", "related-tickets", "50-設計/related-tickets.yaml", {
+    statuses: [{ id: "open", label: "未対応", category: "open" }],
+    fields: [
+      { id: "parent", label: "親", type: "reference" },
+      { id: "dependsOn", label: "依存", type: "reference" }
+    ],
+    hierarchy: { parentField: "parent" }
+  });
+
+  function row(
+    name: string,
+    fields: Record<string, string | readonly string[]>,
+    owners = ["related-tickets"]
+  ) {
+    return {
+      name,
+      title: name,
+      values: {
+        tracker: owners[0] ?? "",
+        trackers: owners,
+        ...Object.fromEntries(Object.entries(fields).map(([id, v]) => [`field:${id}`, v]))
+      }
+    };
+  }
+
+  it("registers one validator for Ticket", () => {
+    expect(activate().recordSetValidators.get("Ticket")).toBeTypeOf("function");
+  });
+
+  it("warns about unresolved parents, cycles, unresolved references and self references", () => {
+    const validate = activate().recordSetValidators.get("Ticket");
+    if (!validate) throw new Error("validator was not registered");
+    const diagnostics = validate(
+      [
+        row("ticket-a", { parent: "ticket-missing" }),
+        row("ticket-b", { parent: "ticket-c" }),
+        row("ticket-c", { parent: "ticket-b" }),
+        row("ticket-d", { dependsOn: "ticket-gone" }),
+        row("ticket-e", { dependsOn: "ticket-e" }),
+        // 解決できる参照は警告しない。配列の値も解決する。
+        row("ticket-f", { parent: "ticket-a", dependsOn: ["ticket-e", "ticket-nowhere"] }),
+        // 所有者が別のTrackerの行は、このTrackerが二重に警告しない。
+        row("ticket-z", { parent: "ticket-void" }, ["other-tickets", "related-tickets"])
+      ],
+      context([related])
+    );
+    expect(
+      [...diagnostics].map((d) => `${d.code} ${d.file} ${d.path} ${d.severity}`).sort()
+    ).toEqual([
+      "TICKET_PARENT_CYCLE ticket-b /spec/fields/parent warning",
+      "TICKET_PARENT_CYCLE ticket-c /spec/fields/parent warning",
+      "TICKET_PARENT_UNRESOLVED ticket-a /spec/fields/parent warning",
+      "TICKET_REFERENCE_SELF ticket-e /spec/fields/dependsOn warning",
+      "TICKET_REFERENCE_UNRESOLVED ticket-d /spec/fields/dependsOn warning",
+      "TICKET_REFERENCE_UNRESOLVED ticket-f /spec/fields/dependsOn warning"
+    ]);
   });
 });

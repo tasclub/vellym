@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import type { PhrasingContent, Root } from "mdast";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import {
   extractWikiLinks,
   formatWikiLink,
@@ -304,17 +305,21 @@ spec:
   });
 
   it("reports broken references as warnings without failing the page", () => {
-    expect(index.referenceDiagnostics).toEqual([
-      {
-        code: "BROKEN_PAGE_REFERENCE",
-        file: "source.yaml",
-        pageId: "source-page",
-        locale: "",
-        blockId: "body",
-        target: "[[missing-page]]",
-        message: "参照先Page missing-page が見つかりません"
-      }
-    ]);
+    const diagnostic = index.referenceDiagnostics[0]!;
+    expect(diagnostic).toMatchObject({
+      code: "BROKEN_PAGE_REFERENCE",
+      file: "source.yaml",
+      pageId: "source-page",
+      locale: "",
+      blockId: "body",
+      target: "[[missing-page]]"
+    });
+    expect(resolveLocalizedText(diagnostic.message, "ja")).toBe(
+      "参照先Page missing-page が見つかりません"
+    );
+    expect(resolveLocalizedText(diagnostic.message, "en")).toBe(
+      "Referenced page missing-page was not found."
+    );
     expect(index.brokenReferences.get("source-page")).toHaveLength(1);
     expect(index.byName.get("source-page")?.readOnly).toBe(false);
   });

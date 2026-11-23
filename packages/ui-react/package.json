@@ -12,13 +12,12 @@
   "dependencies": {
     "@vellym-internal/core": "*",
     "@vellym/plugin-api": "*",
-    "@milkdown/components": "^7.21.3",
-    "@milkdown/core": "^7.21.3",
-    "@milkdown/plugin-history": "^7.21.3",
-    "@milkdown/plugin-listener": "^7.21.3",
-    "@milkdown/preset-commonmark": "^7.21.3",
-    "@milkdown/preset-gfm": "^7.21.3",
-    "@milkdown/prose": "^7.21.3",
+    "@milkdown/core": "^7.23.0",
+    "@milkdown/plugin-history": "^7.23.0",
+    "@milkdown/plugin-listener": "^7.23.0",
+    "@milkdown/preset-commonmark": "^7.23.0",
+    "@milkdown/preset-gfm": "^7.23.0",
+    "@milkdown/prose": "^7.23.0",
     "cmdk": "^1.1.1",
     "i18next": "^24.2.0",
     "react": "^19.0.0",
@@ -33,6 +32,6 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "5.1.4",
-    "vite": "7.3.6"
+    "vite": "7.3.8"
   }
 }

@@ -1,6 +1,7 @@
 import type {
   PluginDiagnostic,
   PluginIndexValue,
+  PluginLocalizedText,
   PluginRecordProjection,
   PluginResourceRecord
 } from "@vellym/plugin-api";
@@ -19,6 +20,14 @@ export const TRACKER_KEY = "tracker";
 /** 上位すべて。一覧はこれで絞るため、子フォルダのチケットが親の一覧にも出る */
 export const TRACKERS_KEY = "trackers";
 export const STATUS_KEY = "status";
+/**
+ * 状態の分類（`open`・`closed`）。Trackerの`statuses`定義から引く。
+ * 状態が未定義なら載らない。外部のスクリプトが`vellym list`だけで
+ * 「依存先が完了したか」を判定できるようにするための値である。
+ */
+export const STATUS_CATEGORY_KEY = "statusCategory";
+/** True when the status is not in the definition of the ticket's own (nearest) tracker. */
+export const STATUS_UNDEFINED_KEY = "statusUndefined";
 /** 利用者が定義した項目の索引行キーに付ける接頭辞 */
 export const FIELD_KEY_PREFIX = "field:";
 export const fieldKey = (id: string): string => `${FIELD_KEY_PREFIX}${id}`;
@@ -34,7 +43,7 @@ function warn(
   record: PluginResourceRecord,
   path: string,
   code: string,
-  message: string
+  message: PluginLocalizedText
 ): PluginDiagnostic {
   return { file: record.relativePath, path, severity: "warning", code, message };
 }
@@ -51,6 +60,10 @@ function matchesType(field: FieldDefinition, value: unknown): boolean {
       return typeof value === "boolean";
     case "multiselect":
       return Array.isArray(value) && value.every((item) => typeof item === "string");
+    case "reference":
+      // `multiple: true`の参照は文字列の配列。単一参照は今までどおり文字列。
+      if (field.multiple) return Array.isArray(value) && value.every((item) => typeof item === "string");
+      return typeof value === "string";
     case "date":
       return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
     default:
@@ -104,7 +117,10 @@ export function projectTicket(
         record,
         "/kind",
         "TICKET_TRACKER_MISSING",
-        "上位にTicketTrackerが無いため、どのチケット一覧にも出ません"
+        {
+          ja: "上位にTicketTrackerが無いため、どのチケット一覧にも出ません",
+          en: "No TicketTracker exists above this ticket, so it will not appear in any ticket list."
+        }
       )
     );
   }
@@ -121,23 +137,36 @@ export function projectTicket(
   if (status === undefined) {
     values[STATUS_KEY] = STATUS_UNSET;
     diagnostics.push(
-      warn(record, "/spec/status", "TICKET_STATUS_MISSING", "ステータスが設定されていません")
+      warn(record, "/spec/status", "TICKET_STATUS_MISSING", {
+        ja: "ステータスが設定されていません",
+        en: "No status is set."
+      })
     );
   } else if (typeof status !== "string") {
     values[STATUS_KEY] = toIndexValue(status);
     diagnostics.push(
-      warn(record, "/spec/status", "TICKET_STATUS_INVALID", "ステータスが文字列ではありません")
+      warn(record, "/spec/status", "TICKET_STATUS_INVALID", {
+        ja: "ステータスが文字列ではありません",
+        en: "The status must be a string."
+      })
     );
   } else {
     values[STATUS_KEY] = status;
     // 所属が無ければ定義も無い。「定義外」とは言えない。
-    if (tracker && tracker.statuses.length > 0 && !statusById(tracker, status)) {
+    const statusDefinition = tracker ? statusById(tracker, status) : undefined;
+    if (statusDefinition) {
+      values[STATUS_CATEGORY_KEY] = statusDefinition.category;
+    } else if (tracker && tracker.statuses.length > 0) {
+      values[STATUS_UNDEFINED_KEY] = true;
       diagnostics.push(
         warn(
           record,
           "/spec/status",
           "TICKET_STATUS_UNDEFINED",
-          `${tracker.title}の定義に無いステータスです: ${status}`
+          {
+            ja: `${tracker.title}の定義に無いステータスです: ${status}`,
+            en: `Status is not defined in ${tracker.title}: ${status}`
+          }
         )
       );
     }
@@ -150,7 +179,10 @@ export function projectTicket(
       : [];
   if (fields !== undefined && typeof fields !== "object") {
     diagnostics.push(
-      warn(record, "/spec/fields", "TICKET_FIELDS_INVALID", "fieldsが対応表ではありません")
+      warn(record, "/spec/fields", "TICKET_FIELDS_INVALID", {
+        ja: "fieldsが対応表ではありません",
+        en: "fields must be a map."
+      })
     );
   }
 
@@ -165,7 +197,10 @@ export function projectTicket(
             record,
             `/spec/fields/${id}`,
             "TICKET_FIELD_UNDEFINED",
-            `${tracker.title}の定義に無い項目です: ${id}`
+            {
+              ja: `${tracker.title}の定義に無い項目です: ${id}`,
+              en: `Field is not defined in ${tracker.title}: ${id}`
+            }
           )
         );
       }
@@ -177,9 +212,25 @@ export function projectTicket(
           record,
           `/spec/fields/${id}`,
           "TICKET_FIELD_TYPE_MISMATCH",
-          `項目の型が定義と合いません: ${id}（定義: ${definition.type}）`
+          {
+            ja: `項目の型が定義と合いません: ${id}（定義: ${definition.type}）`,
+            en: `Field type does not match its definition: ${id} (expected: ${definition.type})`
+          }
         )
       );
+      continue;
+    }
+    if ((definition.type === "select" || definition.type === "multiselect") && definition.options?.length) {
+      const allowed = new Set(definition.options.map((option) => option.value));
+      const selected = Array.isArray(value) ? value as string[] : [value as string];
+      const undefinedValues = selected.filter((item) => !allowed.has(item));
+      if (undefinedValues.length) {
+        const list = JSON.stringify(undefinedValues);
+        diagnostics.push(warn(record, `/spec/fields/${id}`, "TICKET_FIELD_OPTION_UNDEFINED", {
+          ja: `項目の選択肢に無い値です: ${id}: ${list}`,
+          en: `Field has undefined option values: ${id}: ${list}`
+        }));
+      }
     }
   }
 
@@ -192,7 +243,10 @@ export function projectTicket(
           record,
           `/spec/fields/${field.id}`,
           "TICKET_FIELD_REQUIRED_MISSING",
-          `必須の項目が空です: ${field.id}`
+          {
+            ja: `必須の項目が空です: ${field.id}`,
+            en: `Required field is empty: ${field.id}`
+          }
         )
       );
     }

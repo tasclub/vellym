@@ -13,6 +13,9 @@ export default defineConfig({
       "@vellym/plugin-api/react": fileURLToPath(
         new URL("./packages/plugin-api/src/react.ts", import.meta.url)
       ),
+      "@vellym/plugin-api/ui": fileURLToPath(
+        new URL("./packages/plugin-api/src/ui/runtime.ts", import.meta.url)
+      ),
       "@vellym/plugin-api": fileURLToPath(
         new URL("./packages/plugin-api/src/index.ts", import.meta.url)
       ),

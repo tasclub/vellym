@@ -1,0 +1,40 @@
+.history, .diff { min-width: 0; overflow-wrap: anywhere; }
+.history { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.history.version { display: block; overflow-y: auto; }
+.heading, .toolbar { display: flex; align-items: center; gap: .5rem; padding: .5rem; }
+.heading { flex: none; border-bottom: 1px solid var(--border-subtle); }
+.heading h1 { margin: 0; font-size: 1.1rem; min-width: 0; }
+.toolbar { flex-wrap: wrap; }
+.content { min-width: 0; min-height: 0; flex: 1; display: grid; grid-template-columns: 280px minmax(0, 1fr); }
+.commitPanel, .diffPanel { min-width: 0; min-height: 0; overflow-y: auto; }
+.commitPanel { border-right: 1px solid var(--border-subtle); }
+.commits { min-width: 0; }
+.option { padding: .65rem .5rem; border-bottom: 1px solid var(--border-subtle); cursor: pointer; }
+.option[aria-selected="true"] { background: var(--selected-bg, #e5edf8); color: var(--text-primary); }
+.option:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -2px; }
+.subject, .author, .commitDetails > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subject { font-weight: 600; }
+.commitMeta { display: flex; align-items: baseline; gap: .5rem; font-size: .75rem; color: var(--text-muted); }
+.commitMeta time, .commitMeta code { flex: none; }
+.author { min-width: 0; flex: 1; }
+.commitToolbar { display: flex; align-items: center; gap: .25rem; padding: .5rem .25rem; border-bottom: 1px solid var(--border-subtle); }
+.commitToolbar > :not(.commitDetails) { flex: none; }
+.commitDetails { min-width: 0; flex: 1; }
+.commitDetails > * { display: block; }
+.commitDetails span { font-size: .7rem; color: var(--text-muted); }
+.diff > p, .layoutChoice { margin: .5rem; }
+.table { width: 100%; table-layout: fixed; border-collapse: collapse; font-family: monospace; font-size: .8rem; }
+.table th { width: 20px; text-align: right; font-size: 10px; font-weight: normal; vertical-align: top; padding: .2rem 0; }
+.table td { white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top; padding: .2rem 2px; }
+.table .old { display: none; }
+.table .add { background: #daf5df; color: #143a20; }
+.table .remove { background: #ffe1e1; color: #581b1b; }
+.split .old { display: table-cell; }
+.split .unifiedRemoved { display: none; }
+@media (max-width: 767px) {
+  .content { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 25%) minmax(0, 1fr); }
+  .commitPanel { border-right: 0; border-bottom: 1px solid var(--border-subtle); }
+  .commitToolbar { flex-wrap: wrap; }
+  .commitDetails { flex-basis: 100%; }
+  .layoutChoice { display: none; }
+}

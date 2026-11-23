@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   API_SCHEMA_VERSION,
+  extractAssetReferences,
   localeUrlSegment,
   publishedPageLocales,
   resolveDefaultLocale,
@@ -30,7 +31,10 @@ import {
   staticViewIdsForKind,
   staticViewKinds,
   buildPluginViewFromSnapshot,
-  loadRepository
+  diagnoseAssets,
+  loadRepository,
+  unknownKindGroups,
+  readAsset
 } from "@vellym-internal/runtime-node";
 import { VELLYM_VERSION } from "./version.js";
 
@@ -70,6 +74,7 @@ function injectStaticMarker(html: string, options: {
   const marker = `<script>window.__VELLYM_STATIC__=${JSON.stringify({
     appBase: base,
     assetBase: `${base}assets`,
+    mediaBase: `${base}media`,
     dataBase: `${base}data/${options.buildId}/${localeUrlSegment(options.locale)}`,
     buildId: options.buildId,
     locale: options.locale,
@@ -168,6 +173,7 @@ JS/CSS/データを読み込めず表示できません。次のいずれかで�
 
 - index.html : SPA本体
 - assets/    : JS・CSS
+- media/     : 公開する本文が参照する画像
 - data/<build ID>/<locale>/ : 言語別データ (bootstrap.json / repository.json / pages/*.json)
 - vellym-build.json : ビルド来歴
 
@@ -204,8 +210,10 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       .sort((left, right) => left.localeCompare(right))
   ];
   // プラグイン由来の診断はすべて警告であり、buildを止めない。
-  const buildDiagnostics = [...repository.diagnostics, ...plugins.diagnostics];
-  const errors = repository.diagnostics.filter((item) => item.severity === "error");
+  // Image references are checked exactly as validate does: a missing image stops the build.
+  const assetDiagnostics = await diagnoseAssets(loaded, repository);
+  const buildDiagnostics = [...repository.diagnostics, ...assetDiagnostics, ...plugins.diagnostics];
+  const errors = [...repository.diagnostics, ...assetDiagnostics].filter((item) => item.severity === "error");
   if (errors.length) {
     return {
       exitCode: 1,
@@ -242,6 +250,9 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
     const sourceHtml = await readFile(indexPath, "utf8");
 
     const dataRoot = path.join(temporary, "data", buildId);
+    // Images referenced by the bodies actually baked below. Draft translations are not
+    // baked, so their images are not published (assetReferences would include them).
+    const mediaPaths = new Set<string>();
     for (const locale of locales) {
       const segment = localeUrlSegment(locale)!;
       const summaries = localizedPageSummaries(repository, locale, defaultLocale);
@@ -250,12 +261,15 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       // ナビゲーションへ混ぜない。
       const staticKinds = staticViewKinds(plugins);
       const summaryNames = new Set(summaries.map((summary) => summary.name));
+      // Kinds no plugin interprets are baked too, as body-only documents: reachable from
+      // search and links as in dev, but kept out of repository.json (the tree).
+      const uninterpreted = new Set(unknownKindGroups(repository).flatMap((group) => group.resources.map((item) => item.name)));
       const bakedSummaries = [
         ...summaries,
         ...pageSummaries(repository).filter(
           (summary) =>
             !summaryNames.has(summary.name) &&
-            staticKinds.has(summary.resourceKind ?? "Page")
+            (staticKinds.has(summary.resourceKind ?? "Page") || uninterpreted.has(summary.name))
         )
       ];
       const folders = localizedFolderSummaries(repository, locale, defaultLocale);
@@ -284,7 +298,10 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
               .filter((plugin) => plugin.browserEntry)
               .map((plugin) => ({
                 id: plugin.id,
-                url: `plugins/${plugin.id}/${plugin.browserEntry}`
+                url: `plugins/${plugin.id}/${plugin.browserEntry}`,
+                ...(plugin.browserStyles?.length
+                  ? { styles: plugin.browserStyles.map((style) => `plugins/${plugin.id}/${style}`) }
+                  : {})
               })),
             kindIcons: Object.fromEntries(
               plugins.plugins.flatMap((plugin) =>
@@ -370,6 +387,9 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       for (const summary of bakedSummaries) {
         const projected = await localizedPage(repository, summary.name, locale, defaultLocale);
         if (!projected || "state" in projected) continue;
+        for (const block of projected.knownBlocks ?? []) {
+          if (typeof block.content === "string") for (const reference of extractAssetReferences(block.content)) mediaPaths.add(reference);
+        }
         await writeFile(
           path.join(dataDir, "pages", `${summary.name}.json`),
           `${JSON.stringify(envelope(projected, buildId))}\n`,
@@ -419,6 +439,14 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       await cp(plugin.browserRoot, path.join(temporary, "plugins", plugin.id), {
         recursive: true
       });
+    }
+
+    // 3b) 公開する本文が参照する画像だけを media/ へ置く。readAssetがフォルダの外・種類の偽装を拒む。
+    for (const relativePath of [...mediaPaths].sort()) {
+      const { body } = await readAsset(loaded.assetsRoot, relativePath);
+      const destination = path.join(temporary, "media", ...relativePath.split("/"));
+      await mkdir(path.dirname(destination), { recursive: true });
+      await writeFile(destination, body);
     }
 
     // 4) 来歴とREADMEを出力する。

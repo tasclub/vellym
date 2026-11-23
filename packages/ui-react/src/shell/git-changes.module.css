@@ -1,0 +1,19 @@
+.changes { padding: clamp(12px, 3vw, 32px); min-width: 0; overflow-wrap: anywhere; }
+.changes section { margin-block: 24px; min-width: 0; }
+.changes h2 { margin: 0; }
+.changes summary:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.content { display: grid; gap: 16px; min-width: 0; }
+.files { list-style: none; padding: 0; min-width: 0; }
+.files li { display: flex; align-items: start; gap: 8px; margin-block: 8px; min-width: 0; }
+.files button { flex: 1; min-width: 0; text-align: start; overflow-wrap: anywhere; flex-direction: column; align-items: start; padding-block: 8px; }
+.files small { display: block; }
+.files button[aria-pressed="true"] { background: var(--surface-sunken); border-width: 2px; }
+.diff { min-width: 0; }
+.write label { display: block; }
+.write textarea { box-sizing: border-box; width: 100%; max-width: 100%; margin-block: 8px; }
+.changes pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.changes details { margin-block: 12px; }
+.changes summary { cursor: pointer; }
+@media (min-width: 1280px) { .content { grid-template-columns: minmax(0, 360px) minmax(0, 1fr); } }
+@media (max-width: 767px) { .write { display: none; } }

@@ -27,7 +27,7 @@ spec:
            npx vellym@beta init myproject --size small-team --method hybrid --language ja
            ```
 
-           規模と開発方式に応じた厳格構成のFolderとPage YAML、`vellym.config.yaml`が作成される。
+           規模と開発方式に応じた標準の構成（`--level`で`light`・`strict`も選べる）のFolderとPage YAML、`vellym.config.yaml`が作成される。
            個別に選びながら始めたい場合は、初期化せずに`vellym dev`を起動し、ブラウザの3段階
            セットアップから開始する。指定できるオプションは[[cli-reference|CLIリファレンス]]を参照。
 
@@ -44,6 +44,61 @@ spec:
 
            文書ツリー、アウトライン、検索、編集、構造編集が使える。画面操作は
            [[browser-guide|ブラウザ画面の使い方]]を参照。
+
+        ## AIに導入を依頼する
+
+        AIエージェントにVellym導入を任せる場合も、手順は対話不要のコマンドで構成できる。
+
+        1. **対話不要で初期化する**
+
+           ```bash
+           npx vellym@beta init myproject --size small-team --method hybrid --language ja --plugins tickets
+           ```
+
+           `--size`・`--method`・`--language`のどれかが欠けると、CLIは足りないオプションと
+           指定できる値、実行例を一覧表示して終了コード`1`で止まる（`--language`自体が
+           未指定なら候補は日英の両方で表示される）。AIは一覧から値を選び、必要な
+           オプションをすべて指定して実行し直せばよい。`--plugins`は公式プラグインの
+           短縮名をカンマ区切りで渡し、公式パッケージを`package.json`の依存へ書き込む。
+           `init`は`npm install`を実行しない。
+
+        2. **依存をインストールする**
+
+           ```bash
+           cd myproject
+           npm install
+           ```
+
+        3. **最初のチケット管理を作る**
+
+           `--plugins tickets`を有効にしたプロジェクトでは、任意のフォルダへ
+           `TicketTracker` YAMLを1つ置くとチケット一覧が使えるようになる。最小の形は：
+
+           ```yaml
+           apiVersion: vellym.tasclub.com/v1
+           kind: TicketTracker
+           metadata:
+             name: tickets
+             title: チケット
+           spec:
+             statuses:
+               - { id: todo, label: 未着手, category: open }
+               - { id: doing, label: 対応中, category: open }
+               - { id: done, label: 完了, category: closed }
+             fields: []
+           ```
+
+           置いたら`npx vellym@beta validate`で診断0件を確認できる。チケットそのものや項目の
+           書き方は[[ticket-management|チケット管理]]を参照。
+
+        4. **開発サーバーを起動して確認する**
+
+           ```bash
+           npx vellym@beta dev
+           ```
+
+           起動時に表示されるURLをブラウザで開くと、置いた`TicketTracker`の一覧が
+           表示される。
 
         ## 設定ファイルなしで始める
 
@@ -106,7 +161,7 @@ spec:
                npx vellym@beta init myproject --size small-team --method hybrid --language ja
                ```
 
-               Writes `vellym.config.yaml` plus the strict folder and page hierarchy for the
+               Writes `vellym.config.yaml` plus the standard folder and page hierarchy (choose `--level light` or `strict` for others) for the
                given size and method. To choose folders and pages individually instead, skip
                `init` and run `vellym dev` to use the three-step browser setup. See
                [[cli-reference|CLI Reference]] for the available options.
@@ -123,6 +178,61 @@ spec:
 
                Document tree, outline, search, editing, and structure editing are available.
                See [[browser-guide|Using the Browser UI]].
+
+            ## Asking an AI to set it up
+
+            When an AI agent introduces Vellym, every step is a non-interactive command.
+
+            1. **Initialize without prompts**
+
+               ```bash
+               npx vellym@beta init myproject --size small-team --method hybrid --language en --plugins tickets
+               ```
+
+               If `--size`, `--method`, or `--language` is missing, the CLI lists the missing
+               options, the values they accept, and example commands, then exits with code
+               `1` (when `--language` itself is unset, the candidates appear in both Japanese
+               and English). The agent picks values from that list and reruns the command
+               with every required option. `--plugins` takes comma-separated official plugin
+               short names and writes the official packages into the `package.json`
+               dependencies. `init` never runs `npm install` itself.
+
+            2. **Install the dependencies**
+
+               ```bash
+               cd myproject
+               npm install
+               ```
+
+            3. **Create the first ticket tracker**
+
+               With `--plugins tickets` enabled, placing one `TicketTracker` YAML in any
+               folder turns on the ticket list. The minimal shape is:
+
+               ```yaml
+               apiVersion: vellym.tasclub.com/v1
+               kind: TicketTracker
+               metadata:
+                 name: tickets
+                 title: Tickets
+               spec:
+                 statuses:
+                   - { id: todo, label: todo, category: open }
+                   - { id: doing, label: doing, category: open }
+                   - { id: done, label: done, category: closed }
+                 fields: []
+               ```
+
+               After placing it, `npx vellym@beta validate` reports zero diagnostics. See
+               [[ticket-management|Ticket Management]] for tickets and fields.
+
+            4. **Start the dev server and check**
+
+               ```bash
+               npx vellym@beta dev
+               ```
+
+               Open the URL printed at startup; the list for the tracker you placed appears.
 
             ## Start without a config file
 

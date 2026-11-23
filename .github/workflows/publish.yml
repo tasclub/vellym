@@ -3,7 +3,7 @@ name: Publish
 # GitHub Release を published にすると npm へ provenance 付きで公開する。
 #
 # 認証はnpmのTrusted Publishing（OIDC）を使い、publish用のtokenは保持しない。
-# npm側でpackage @vellym/plugin-api、@vellym/tickets、vellymそれぞれの
+# npm側でpackage @vellym/plugin-api、@vellym/tickets、@vellym/kanban、vellymそれぞれの
 # Trusted Publisherに、このリポジトリとworkflowファイル名publish.ymlを
 # 登録しておくこと（Environmentは未設定）。
 # npm CLIは11.5.1以降が必要で、Node.js 24に同梱される版がこれを満たす。
@@ -29,7 +29,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag || github.event.release.tag_name }}
       # registry-urlは指定しない。指定するとsetup-nodeが
@@ -37,17 +37,19 @@ jobs:
       # NODE_AUTH_TOKENへダミー値を設定する。npmはそれを認証情報とみなして
       # OIDCの交換を行わず、publishが404になる。
       # registryの既定値はhttps://registry.npmjs.org/のため指定は不要。
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run release:check -- "$RELEASE_TAG"
       - run: npm run typecheck
+      # npm testの一部が実際のChromiumを起動するため、npm testの前に入れる。
+      - run: npx playwright install --with-deps chromium
       - run: npm test
       - run: npm run pack:smoke
-      - run: npx playwright install --with-deps chromium
       - run: npm run verify:core
+      - run: npm run verify:browser
       # OIDCへ乗る前提条件を失敗前に確認する。
       # npm 11.5.1以降と、id-token: writeによるOIDC要求URLの両方が必要。
       - name: Show npm auth configuration
@@ -67,10 +69,19 @@ jobs:
         name: Publish @vellym/plugin-api to npm
         working-directory: packages/plugin-api
         run: bash ../../scripts/publish-package.sh
+      - id: kanban_publish
+        name: Publish @vellym/kanban to npm
+        working-directory: packages/plugin-kanban
+        run: bash ../../scripts/publish-package.sh
       - id: tickets_publish
         name: Publish @vellym/tickets to npm
         working-directory: packages/plugin-tickets
         run: bash ../../scripts/publish-package.sh
+      - id: wbs_publish
+        name: Publish @vellym/wbs to npm
+        working-directory: packages/plugin-wbs
+        run: bash ../../scripts/publish-package.sh
+      # @vellym/design is private (not part of 0.5.0-beta) and is never published here.
       - id: vellym_publish
         name: Publish vellym to npm
         working-directory: packages/vellym

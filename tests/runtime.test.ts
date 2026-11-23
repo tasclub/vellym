@@ -4,13 +4,17 @@ import {
   readFile,
   readdir,
   symlink,
+  unlink,
   writeFile
 } from "node:fs/promises";
 import { request } from "node:http";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
+import { readGitHistory } from "../packages/runtime-node/src/git-history.js";
 import {
   loadRepository,
   loadCanonicalPage,
@@ -123,6 +127,155 @@ async function fixture(): Promise<string> {
   await writeFile(path.join(root, "nested/page.yaml"), source(), "utf8");
   return root;
 }
+
+describe("read-only Git API", () => {
+  const exec = promisify(execFile);
+  async function git(root: string, ...args: string[]) {
+    return (await exec("git", ["-c", "user.name=履歴 Tester", "-c", "user.email=test@example.test", ...args], { cwd: root })).stdout.trim();
+  }
+  async function commit(root: string, subject: string) {
+    await git(root, "add", ".");
+    await git(root, "commit", "-qm", subject);
+    return git(root, "rev-parse", "HEAD");
+  }
+  async function serverFor(project: string, content = "content") {
+    const configPath = path.join(project, "vellym.config.yaml");
+    await writeFile(configPath, `schemaVersion: "1.0"\ncontentRoot: ${content}\noutputDir: dist/vellym\nui:\n  language: ja\nplugins: []\n`);
+    return startDevServer({ configPath, uiRoot: project, port: 0 });
+  }
+  it("follows internal renames, reads raw YAML, compares versions and the worktree, and bounds recent changes", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-git-"));
+    const root = path.join(project, "content");
+    await mkdir(root);
+    await git(project, "init", "-q");
+    await writeFile(path.join(root, "元 page.yaml"), source());
+    await writeFile(path.join(project, "outside.yaml"), "not exposed");
+    const first = await commit(project, "最初");
+    await git(project, "mv", "content/元 page.yaml", "content/moved.yaml");
+    const moved = await commit(project, "移動");
+    await writeFile(path.join(root, "moved.yaml"), source().replace("Before body", "Committed body"));
+    const last = await commit(project, "編集");
+    await writeFile(path.join(root, "moved.yaml"), source().replace("Before body", "Working body"));
+    const server = await serverFor(project);
+    const get = async (operation: string, params: Record<string, string> = {}) => {
+      const response = await fetch(`${server.url}/api/v1/git/${operation}?${new URLSearchParams(params)}`);
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.apiSchemaVersion).toBeDefined();
+      return body.data;
+    };
+    try {
+      expect(await get("history", { path: "moved.yaml" })).toMatchObject({ available: true, shallow: false, commits: [
+        { hash: last, subject: "編集" }, { hash: moved }, { hash: first, author: "履歴 Tester" }
+      ] });
+      expect(await get("content", { path: "moved.yaml", revision: first.slice(0, 7) })).toMatchObject({ source: source() });
+      expect((await get("diff", { path: "moved.yaml", from: first, to: last })).diff).toContain("+        Committed body");
+      const working = await get("diff", { path: "moved.yaml" });
+      expect(working.diff).toContain("-        Committed body");
+      expect(working.diff).toContain("+        Working body");
+      expect(working.diff).not.toContain(project);
+      const recent = await get("recent", { limit: "2" });
+      expect(recent.commits).toHaveLength(2);
+      expect(JSON.stringify(recent)).not.toContain("outside.yaml");
+      expect((await get("history", { path: "moved.yaml", limit: "1" })).commits).toHaveLength(1);
+      const page = await get("history", { path: "moved.yaml", limit: "1", offset: "1" });
+      expect(page).toMatchObject({ tracked: true, uncommitted: true, nextOffset: 2, commits: [
+        { hash: moved, rename: { from: "元 page.yaml", to: "moved.yaml" } }
+      ] });
+      expect((await get("diff", { path: "moved.yaml", from: "", to: first, context: "all" })).diff).toContain("+apiVersion:");
+      for (const params of [{ path: "../outside.yaml", revision: first }, { path: "moved.yaml", revision: "--help" }, { path: "moved.yaml", revision: `${first}:outside.yaml` }]) {
+        const response = await fetch(`${server.url}/api/v1/git/content?${new URLSearchParams(params)}`);
+        expect([400, 422]).toContain(response.status);
+      }
+      await symlink(path.join(project, "outside.yaml"), path.join(root, "link.yaml"));
+      expect((await fetch(`${server.url}/api/v1/git/history?path=link.yaml`)).status).toBe(422);
+      const repository = await fetch(`${server.url}/api/v1/repository`);
+      expect(repository.status).toBe(200);
+      expect((await repository.json()).data.pages).toHaveLength(1);
+    } finally { await server.close(); }
+  });
+
+  it("never reconnects through outside history, including re-entry and historical symlinks", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-git-boundary-"));
+    const root = path.join(project, "content");
+    await mkdir(root);
+    await git(project, "init", "-q");
+    await writeFile(path.join(root, "old.yaml"), source());
+    const old = await commit(project, "old inside");
+    await git(project, "mv", "content/old.yaml", "secret-outside.yaml");
+    const outside = await commit(project, "outside");
+    await git(project, "mv", "secret-outside.yaml", "content/current.yaml");
+    const inside = await commit(project, "inside");
+    const query = (params: Record<string, string>) => new URLSearchParams({ path: "current.yaml", ...params });
+    const history = await readGitHistory(root, "history", query({}));
+    expect(history).toMatchObject({ available: true, boundaryTruncated: true, commits: [{ hash: inside }] });
+    expect(JSON.stringify(history)).not.toContain("secret-outside");
+    for (const revision of [old, outside]) {
+      await expect(readGitHistory(root, "content", query({ revision }))).rejects.toMatchObject({ status: 404 });
+    }
+    await symlink("../secret-target", path.join(root, "symlink.yaml"));
+    const link = await commit(project, "historical link");
+    await unlink(path.join(root, "symlink.yaml"));
+    await writeFile(path.join(root, "symlink.yaml"), source("regular"));
+    await commit(project, "regular now");
+    await expect(readGitHistory(root, "content", new URLSearchParams({ path: "symlink.yaml", revision: link }))).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("reports absent Git, absent repositories, untracked roots and shallow history without a 500", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-git-absent-"));
+    await mkdir(path.join(project, "content"));
+    await writeFile(path.join(project, "content/page.yaml"), source());
+    const server = await serverFor(project);
+    try {
+      const response = await fetch(`${server.url}/api/v1/git/history?path=page.yaml`);
+      expect(response.status).toBe(200);
+      expect((await response.json()).data.available).toBe(false);
+    } finally { await server.close(); }
+    await git(project, "init", "-q");
+    await writeFile(path.join(project, "tracked"), "tracked");
+    await git(project, "add", "tracked");
+    await git(project, "commit", "-qm", "outside only");
+    expect(await readGitHistory(path.join(project, "content"), "recent", new URLSearchParams())).toMatchObject({ available: false });
+    await commit(project, "inside");
+    const previousPath = process.env.PATH;
+    try {
+      process.env.PATH = path.join(project, "no-executables");
+      expect(await readGitHistory(path.join(project, "content"), "recent", new URLSearchParams())).toMatchObject({ available: false });
+    } finally { process.env.PATH = previousPath; }
+    const clone = path.join(await mkdtemp(path.join(tmpdir(), "vellym-shallow-")), "clone");
+    await git(project, "clone", "--depth=1", `file://${project}`, clone);
+    expect(await readGitHistory(path.join(clone, "content"), "history", new URLSearchParams({ path: "page.yaml" }))).toMatchObject({ available: true, shallow: true });
+  });
+
+  it("ignores .git and existing temporary files but still notifies for ordinary YAML", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-git-watch-"));
+    await mkdir(path.join(project, "content"));
+    await writeFile(path.join(project, "content/page.yaml"), source());
+    await mkdir(path.join(project, "content/.git"));
+    const server = await serverFor(project);
+    const controller = new AbortController();
+    let events = "";
+    const response = await fetch(`${server.url}/api/v1/events`, { signal: controller.signal });
+    const reader = response.body!.getReader();
+    const consume = (async () => {
+      try { while (true) { const part = await reader.read(); if (part.done) break; events += new TextDecoder().decode(part.value); } } catch { /* aborted */ }
+    })();
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    try {
+      for (let i = 0; i < 50 && !events.includes('"watcher":"connected"'); i++) await sleep(20);
+      expect(events).toContain('"watcher":"connected"');
+      await sleep(150);
+      const baseline = events;
+      await writeFile(path.join(project, "content/.git/probe"), "git internal");
+      await writeFile(path.join(project, "content/.page.yaml.vellym-probe.tmp"), "temporary");
+      await sleep(350);
+      expect(events).toBe(baseline);
+      await writeFile(path.join(project, "content/page.yaml"), source().replace("Before body", "Changed body"));
+      for (let i = 0; i < 50 && events === baseline; i++) await sleep(20);
+      expect(events).not.toBe(baseline);
+    } finally { controller.abort(); await consume; await server.close(); }
+  });
+});
 
 describe("page repository and save", () => {
   it("loads nested pages and ignores foreign YAML", async () => {
@@ -1221,6 +1374,43 @@ plugins: []
 }`,
       "utf8"
     );
+    const secondPluginRoot = path.join(project, "node_modules/example-ticket-plugin-two");
+    await mkdir(secondPluginRoot, { recursive: true });
+    await writeFile(
+      path.join(secondPluginRoot, "package.json"),
+      JSON.stringify({
+        name: "example-ticket-plugin-two",
+        version: "1.0.0",
+        type: "module",
+        main: "index.mjs",
+        engines: { vellym: ">=0.3.0-beta.1" },
+        vellym: {
+          id: "example-tickets-two",
+          contributes: {
+            kinds: [{ kind: "Ticket" }],
+            commands: [
+              { id: "ticket.create", title: { ja: "別の作成" }, static: false }
+            ]
+          }
+        }
+      }),
+      "utf8"
+    );
+    await writeFile(
+      path.join(secondPluginRoot, "index.mjs"),
+      `export function activate(host) {
+  host.registerKind({ kind: "Ticket" });
+  host.registerCommand({
+    id: "ticket.create",
+    title: { ja: "別の作成" },
+    static: false,
+    run(context) {
+      return context.createResource({ kind: "Ticket", name: "ticket-from-second-plugin", title: "Second", spec: {} });
+    }
+  });
+}`,
+      "utf8"
+    );
     const configPath = path.join(project, "vellym.config.yaml");
     await writeFile(
       configPath,
@@ -1231,6 +1421,7 @@ ui:
   language: ja
 plugins:
   - example-ticket-plugin
+  - example-ticket-plugin-two
 `,
       "utf8"
     );
@@ -1260,6 +1451,15 @@ plugins:
           name: "ticket-draft-test",
           spec: { fields: { priority: "mid", readiness: "ready" } }
         }
+      });
+      const secondStarted = await fetch(`${server.url}/api/v1/plugins/commands/ticket.create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pluginId: "example-tickets-two" })
+      });
+      expect(secondStarted.status).toBe(200);
+      expect(await secondStarted.json()).toMatchObject({
+        data: { name: "ticket-from-second-plugin" }
       });
       // キャンセルや離脱は追加のHTTP操作をしない。commandだけでは1件も増えない。
       expect((await readdir(root)).filter((file) => file.startsWith("ticket-"))).toEqual(before);
@@ -1378,6 +1578,114 @@ plugins:
       expect(
         await readFile(path.join(root, startedBody.data.relativePath), "utf8")
       ).toContain("kind: Ticket");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("keeps serving the repository when a configured plugin is outside the host range", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-plugin-range-"));
+    const root = path.join(project, "docs/content");
+    const plugin = path.join(project, "node_modules/out-of-range-plugin");
+    await mkdir(root, { recursive: true });
+    await mkdir(plugin, { recursive: true });
+    await writeFile(path.join(root, "page.yaml"), source(), "utf8");
+    await writeFile(path.join(plugin, "package.json"), JSON.stringify({
+      name: "out-of-range-plugin",
+      version: "1.0.0",
+      type: "module",
+      main: "index.mjs",
+      engines: { vellym: ">=9.0.0" },
+      vellym: { id: "unsupported", contributes: { kinds: [{ kind: "Ticket" }] } }
+    }), "utf8");
+    await writeFile(path.join(plugin, "index.mjs"), "export function activate() {}\n", "utf8");
+    const configPath = path.join(project, "vellym.config.yaml");
+    await writeFile(configPath, `schemaVersion: "1.0"
+contentRoot: docs/content
+outputDir: dist/vellym
+ui:
+  language: ja
+plugins:
+  - out-of-range-plugin
+`, "utf8");
+    const ui = await mkdtemp(path.join(tmpdir(), "vellym-plugin-range-ui-"));
+    await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
+    const hostVersion = (JSON.parse(
+      await readFile(path.join(process.cwd(), "packages/vellym/package.json"), "utf8")
+    ) as { version: string }).version;
+    const server = await startDevServer({ configPath, uiRoot: ui, hostVersion, port: 0 });
+    try {
+      const bootstrap = await fetch(`${server.url}/api/v1/bootstrap`);
+      expect(bootstrap.status).toBe(200);
+      expect(await bootstrap.json()).toMatchObject({
+        data: { state: "ready" },
+        diagnostics: [expect.objectContaining({ code: "PLUGIN_VERSION_UNSUPPORTED" })]
+      });
+      const repository = await fetch(`${server.url}/api/v1/repository`);
+      expect(repository.status).toBe(200);
+      expect(await repository.json()).toMatchObject({
+        data: { pages: [expect.objectContaining({ name: "test-page" })] }
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("reports plugin spec-schema mismatches as warnings without rejecting resources", async () => {
+    const project = await mkdtemp(path.join(tmpdir(), "vellym-plugin-schema-"));
+    const root = path.join(project, "docs/content");
+    const plugin = path.join(project, "node_modules/schema-plugin");
+    await mkdir(root, { recursive: true });
+    await mkdir(plugin, { recursive: true });
+    const resource = `apiVersion: vellym.tasclub.com/v1
+kind: Example
+metadata:
+  name: example-resource
+  title: Example resource
+spec:
+  count: not-a-number
+`;
+    await writeFile(path.join(root, "example.yaml"), resource, "utf8");
+    await writeFile(path.join(plugin, "package.json"), JSON.stringify({
+      name: "schema-plugin",
+      version: "1.0.0",
+      type: "module",
+      main: "index.mjs",
+      engines: { vellym: ">=0.5.0-beta" },
+      vellym: { id: "schema-plugin", contributes: { kinds: [{ kind: "Example" }] } }
+    }), "utf8");
+    await writeFile(path.join(plugin, "index.mjs"), `export function activate(host) {
+  host.registerKind({ kind: "Example", specSchema: {
+    type: "object", required: ["count"], properties: { count: { type: "integer" } }
+  } });
+}\n`, "utf8");
+    const configPath = path.join(project, "vellym.config.yaml");
+    await writeFile(configPath, `schemaVersion: "1.0"
+contentRoot: docs/content
+outputDir: dist/vellym
+ui:
+  language: ja
+plugins:
+  - schema-plugin
+`, "utf8");
+    const ui = await mkdtemp(path.join(tmpdir(), "vellym-plugin-schema-ui-"));
+    await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
+    const hostVersion = (JSON.parse(
+      await readFile(path.join(process.cwd(), "packages/vellym/package.json"), "utf8")
+    ) as { version: string }).version;
+    const server = await startDevServer({ configPath, uiRoot: ui, hostVersion, port: 0 });
+    try {
+      const repository = await fetch(`${server.url}/api/v1/repository`);
+      expect(repository.status).toBe(200);
+      expect(await repository.json()).toMatchObject({
+        diagnostics: [expect.objectContaining({
+          severity: "warning",
+          code: "PLUGIN_SPEC_SCHEMA_MISMATCH",
+          file: "example.yaml",
+          path: "/spec/count"
+        })]
+      });
+      expect(await readFile(path.join(root, "example.yaml"), "utf8")).toBe(resource);
     } finally {
       await server.close();
     }

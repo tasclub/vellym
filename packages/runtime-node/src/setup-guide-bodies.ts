@@ -22,7 +22,7 @@ const guideBodies: Record<string, Record<SetupLanguage, string>> = {
 4. 必要な画面仕様、計画、リスク、検証資料だけを追加で確認します。
 
 最初から全Pageを読まず、title、文書種別、フォルダ、見出し、検索結果から候補を絞ります。
-このPageは初期案なので、project固有の構成と読み順に合わせて編集できます。
+このPageは初期案なので、project固有の構成と読み順に合わせて編集できます。見出しと説明文は自由に直してよいですが、\`metadata.name\`・\`blocks[].id\`・\`spec\`の構造はVellymが使うので変えないでください。
 
 ## 情報が矛盾する場合
 
@@ -41,7 +41,7 @@ Do not copy individual requirements, decisions, or status here; open their Pages
 4. Open only the screen specifications, plans, risks, and verification material the task needs.
 
 Do not read every Page up front. Narrow candidates by title, document type, folder, heading, and search result.
-This Page is an initial draft and can be edited to match the project-specific structure.
+This Page is an initial draft and can be edited to match the project-specific structure. Headings and prose can be edited freely; keep \`metadata.name\`, \`blocks[].id\`, and the shape of \`spec\`, because Vellym uses them.
 
 ## Conflicting information
 

@@ -7,7 +7,10 @@ import {
   type ReactNode
 } from "react";
 import ReactMarkdown from "react-markdown";
+import { assetUrlTransform } from "./asset-url.js";
 import remarkGfm from "remark-gfm";
+import { useTranslation } from "react-i18next";
+import { useUiLang } from "../shared/ui-language.js";
 import type { Root } from "mdast";
 import {
   headingId,
@@ -17,7 +20,9 @@ import {
   type WikiLinkParts,
   type WikiLinkResolution
 } from "@vellym-internal/core";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import { Icon } from "../shared/icon.js";
+import { Button } from "../shared/button.js";
 import {
   documentPagePath,
   localeDirection,
@@ -45,6 +50,9 @@ export function DocumentView({
   beforeBody?: ReactNode;
   onNavigatePage?(pageId: string, heading?: string): void;
 }) {
+  const { t, i18n } = useTranslation();
+  // These notes are UI text inside the document article, so they carry the UI language.
+  const uiLang = useUiLang();
   const locale = view.locale ?? view.baseLocale;
   // 本文の`[[...]]`は、サーバ／静的builderが解決した結果（view.relations.outgoing）
   // を使って描画する。readerが独自に解決規則を持たないようにする。
@@ -115,7 +123,7 @@ export function DocumentView({
       window.history.replaceState(
         null,
         "",
-        documentPagePath(route.locale, route.page, targetId)
+        documentPagePath(route.locale, route.page) + window.location.search + `#${encodeURIComponent(targetId)}`
       );
     } else {
       const params = new URLSearchParams(window.location.hash.slice(1));
@@ -147,6 +155,7 @@ export function DocumentView({
       {view.knownBlocks.map((block) => (
         <section className={styles["rich-text"]} key={block.id} data-block-id={block.id}>
           <ReactMarkdown
+            urlTransform={assetUrlTransform}
             remarkPlugins={[remarkGfm, remarkWikiLinks]}
             components={{
               h1: heading(1),
@@ -209,35 +218,34 @@ export function DocumentView({
         </section>
       ))}
       {unknownBlockCount > 0 && (
-        <aside className={styles["unsupported-content"]}>
-          この文書には、この版で表示できない内容があります。
+        <aside lang={uiLang} className={styles["unsupported-content"]}>
+          {t("editor.unsupportedContent")}
         </aside>
       )}
       {incoming.length > 0 && (
-        <aside className={styles["page-backlinks"]}>
-          <h2>このPageを参照しているPage</h2>
+        <aside lang={uiLang} className={styles["page-backlinks"]}>
+          <h2>{t("editor.backlinksHeading")}</h2>
           <ul>
             {incoming.map((reference) => (
               <li key={reference.pageId}>
-                <button
-                  type="button"
+                <Button
                   className={styles["backlink"]}
                   onClick={() => onNavigatePage?.(reference.pageId!)}
                 >
                   {reference.title ?? reference.pageId}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
         </aside>
       )}
       {diagnostics.length > 0 && (
-        <aside className={styles["page-reference-diagnostics"]}>
-          <h2>リンクの問題</h2>
+        <aside lang={uiLang} className={styles["page-reference-diagnostics"]}>
+          <h2>{t("editor.linkProblemsHeading")}</h2>
           <ul>
             {diagnostics.map((diagnostic) => (
               <li key={`${diagnostic.blockId}:${diagnostic.target}:${diagnostic.code}`}>
-                {diagnostic.message}
+                {resolveLocalizedText(diagnostic.message, i18n.language)}
               </li>
             ))}
           </ul>

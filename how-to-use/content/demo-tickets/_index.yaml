@@ -2,4 +2,4 @@ apiVersion: vellym.tasclub.com/v1
 kind: Folder
 metadata:
   title: デモ：チケット管理
-spec: { order: [ demo-tickets.yaml ] }
+spec: { order: [ about-demo.yaml, demo-tickets.yaml ] }

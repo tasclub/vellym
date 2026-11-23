@@ -1,0 +1,22 @@
+{
+  "name": "@vellym-internal/ticket-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "vellym-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@vellym/plugin-api": "^0.2.0-beta"
+  },
+  "devDependencies": {
+    "@vellym/plugin-api": "*"
+  }
+}

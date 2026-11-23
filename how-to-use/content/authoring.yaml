@@ -118,6 +118,7 @@ spec:
         | `id` | はい | ブロック識別子。kebab-case。同一Page内で一意にする。 |
         | `type` | はい | ブロック種別。現在Vellymが表示できるのは`rich-text`だけ。 |
         | `content` | はい | 本文。CommonMarkで書く。YAMLのブロックスカラー（`|`）で複数行を書く。 |
+        | `format` | いいえ | 省略してよい。本文は常にCommonMark（GFMの表を含む）として読まれ、`commonmark`以外の値にはまだ意味が無い（将来のための予約）。 |
 
         ## 内部リンク
 
@@ -163,6 +164,17 @@ spec:
           annotations:
             example.com/ticket-id: "1234"   # ツールが読む情報
         ```
+
+        ## 直してよい所・変えない所
+
+        `vellym init`が作るPageを含め、見出しの文言と説明文は自由に直してよい。
+        Vellymの画面や検証は見出しの文言を使わない。
+
+        次はVellymが使うので変えない。
+
+        - `metadata.name`: リンクと参照の対象になる。変えると`[[参照先]]`のリンクが切れる。
+        - `blocks[].id`: 画面での編集は、本文ブロックをこの`id`で対応づけて保存する。
+        - `spec`の構造（`documentType`・`blocks`などのキーの置き方）。
 
         ## 命名と検証
 
@@ -266,6 +278,7 @@ spec:
             | `id` | yes | Block identifier, kebab-case. Unique within the Page. |
             | `type` | yes | Block kind. `rich-text` is the only kind Vellym can display today. |
             | `content` | yes | Body text in CommonMark. Use a YAML block scalar (`|`) for multiple lines. |
+            | `format` | no | May be omitted. Body text is always read as CommonMark (with GFM tables); values other than `commonmark` have no meaning yet (reserved). |
 
             ## Internal links
 
@@ -310,6 +323,17 @@ spec:
               annotations:
                 example.com/ticket-id: "1234"   # read by a tool
             ```
+
+            ## What to edit and what to keep
+
+            Headings and prose can be edited freely, including in the Pages created by
+            `vellym init`. Vellym's screens and validation never use heading text.
+
+            Keep the following, because Vellym uses them:
+
+            - `metadata.name`: the target of links and references. Changing it breaks `[[target]]` links.
+            - `blocks[].id`: the browser editor saves each body block by matching this `id`.
+            - The shape of `spec` (where keys such as `documentType` and `blocks` go).
 
             ## Naming and validation
 

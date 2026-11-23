@@ -1,0 +1,44 @@
+{
+  "name": "@vellym/wbs",
+  "version": "0.2.0-beta",
+  "description": "Standalone WBS view plugin for Vellym tickets",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.12.0", "vellym": ">=0.5.0-beta" },
+  "exports": {
+    ".": {
+      "vellym-source": "./src/node.ts",
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
+    "./package.json": "./package.json",
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api --external:@vellym/plugin-api/react --external:@vellym/plugin-api/ui && node -e \"require('node:fs').copyFileSync('src/wbs.css', 'dist/browser/wbs.css')\""
+  },
+  "publishConfig": { "access": "public" },
+  "peerDependencies": { "@vellym/plugin-api": "^0.2.0-beta", "react": ">=18" },
+  "peerDependenciesMeta": { "react": { "optional": true } },
+  "devDependencies": { "@vellym-internal/ticket-engine": "*", "@vellym/plugin-api": "*", "esbuild": "^0.28.1" },
+  "vellym": {
+    "id": "wbs",
+    "guideUrl": {
+      "ja": "https://vellym.tasclub.com/pages/ticket-management/",
+      "en": "https://vellym.tasclub.com/en/pages/ticket-management/"
+    },
+    "styles": ["wbs.css"],
+    "contributes": {
+      "kinds": [{ "kind": "Ticket" }, { "kind": "TicketTracker", "showInDocumentTree": true, "hasBlocks": false }],
+      "views": [{ "id": "wbs-tree", "kind": "Ticket", "opensKind": "TicketTracker", "type": "list", "static": true }],
+      "commands": [
+        { "id": "ticket.create-tracker", "title": { "ja": "チケット管理", "en": "Ticket tracker" }, "static": false, "placement": "document-tree" },
+        { "id": "ticket.create", "title": { "ja": "チケットを作成", "en": "New ticket" }, "static": false }
+      ]
+    }
+  }
+}

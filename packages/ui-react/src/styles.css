@@ -373,6 +373,7 @@
     .document-paper { padding: var(--space-5) var(--space-5); }
     .edit-desktop { display: none; }
     .edit-mobile-fallback { display: block; }
+    .edit-start-action, .create-action { display: none; }
   }
 
   /*
@@ -380,6 +381,7 @@
    * 文書の「紙」は読み物のための版面だが、こちらは一覧と属性の面である。
    */
   .document-paper:has(.plugin-list),
+  .document-paper[data-plugin-paper-width],
   .document-paper:has(.plugin-detail),
   .page-editor-surface:has(.plugin-detail) {
     border: 1px solid var(--border-strong);
@@ -387,10 +389,17 @@
     box-shadow: none;
   }
 
-  /* 表は版面の幅に収まらない。一覧のときだけ広げる。 */
-  .document-paper:has(.plugin-list) {
+  /* 一覧の既存幅は維持。ビューが明示した場合だけ、紙の幅を変更する。 */
+  .document-paper:has(.plugin-list),
+  .document-paper[data-plugin-paper-width="wide"] {
     width: min(100%, 1100px);
     padding: var(--space-5) var(--space-5) var(--space-5);
+  }
+
+  .document-paper[data-plugin-paper-width="full"] {
+    width: 100%;
+    min-width: 0;
+    padding: var(--space-5);
   }
 
   .document-paper:has(.plugin-detail),

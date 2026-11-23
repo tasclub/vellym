@@ -1,6 +1,7 @@
 import type { PluginDiagnostic } from "./diagnostics.js";
 import type { PluginIndexValue, PluginResourceRecord } from "./records.js";
 import type { PluginLocalizedText } from "./text.js";
+import type { SummaryMethod } from "./summary.js";
 
 /**
  * 汎用レンダラが扱える値の型。
@@ -19,6 +20,9 @@ export type PluginValueType =
   | "multiselect"
   /** 参照先の`metadata.name`。内部リンクと同じ解決先 */
   | "reference";
+
+/** Paper width requested by a view; omitted means the normal reading measure. */
+export type PluginPaperWidth = "wide" | "full";
 
 export interface PluginSelectOption {
   value: string;
@@ -48,6 +52,20 @@ export interface PluginColumnDescriptor {
    * 積み上げないための指定である。
    */
   secondary?: boolean;
+  /**
+   * 表の列にも行内の副次情報にも出さない列。省略時は`false`。
+   *
+   * 列として見せないが、絞り込みと並べ替えに使える項目のためにある。
+   * **`filterable`・`sortable`の指定どおりにだけ効く。** 隠すことと
+   * 使えなくすることは別のことなので、`hidden`の列も絞り込み欄と
+   * 並べ替えの選択には出る。
+   */
+  hidden?: boolean;
+  /**
+   * Marks a cell when the row's `valueKey` is true, e.g. a status outside the row's own
+   * definition. The host appends the label after the value; colour is never the only signal.
+   */
+  marker?: { valueKey: string; label: PluginLocalizedText };
   /**
    * 選んだ行へまとめて書き込むときの`spec`内の位置。宣言した列だけが
    * 一括編集の対象になる。
@@ -106,8 +124,22 @@ export interface PluginListViewDescriptor {
   type: "list";
   id: string;
   kind: string;
+  /** `wide` matches the existing list width; `full` uses the available workspace width. */
+  paperWidth?: PluginPaperWidth;
+  /** Node側で解決した、自前rendererに必要な最小データ。 */
+  rendererData?: Readonly<Record<string, unknown>>;
   title: PluginLocalizedText;
   columns: readonly PluginColumnDescriptor[];
+  /** Aggregations over all currently visible index rows. */
+  /**
+   * Totals over the list. `options` (choice values with display names, in definition order) lets
+   * a breakdown and select groups show names instead of stored values.
+   */
+  summary?: readonly {
+    valueKey: string; type: PluginValueType; method: SummaryMethod; label: PluginLocalizedText;
+    options?: readonly { value: string; label: PluginLocalizedText }[];
+    groupBy?: { valueKey: string; type: PluginValueType; order?: readonly string[]; options?: readonly { value: string; label: PluginLocalizedText }[] };
+  }[];
   defaultSort?: PluginSortDescriptor;
   /**
    * この一覧に出る集合そのものを決める絞り込み。**利用者が外せない。**
@@ -149,6 +181,16 @@ export interface PluginFieldDescriptor {
    */
   valueKey?: string;
   options?: readonly PluginSelectOption[];
+  /**
+   * `type: "reference"`のときだけ意味を持つ。`true`は値が`metadata.name`の
+   * **配列**であることを示す（YAMLでは`[ticket-a, ticket-b]`）。
+   *
+   * 新しい型ではなく`reference`の修飾である。既存のYAMLとJSON Schemaを壊さない
+   * ため、この指定が無ければ今までどおり単一の文字列である。
+   * 編集・一覧・集計での振る舞いは`multiselect`と同じにする。
+   * **親（1つだけ持つ関係）には使わない。**
+   */
+  multiple?: boolean;
   required?: boolean;
   /**
    * 定義に無い項目や、型が定義と合わない値に付ける。値は保持したまま
@@ -164,6 +206,8 @@ export interface PluginDetailViewDescriptor {
   type: "detail";
   id: string;
   kind: string;
+  /** Node側で解決した、自前rendererに必要な最小データ。 */
+  rendererData?: Readonly<Record<string, unknown>>;
   fields: readonly PluginFieldDescriptor[];
   /**
    * 説明本文の扱い。`"blocks"`にすると、通常のPage編集と同じエディタと
@@ -182,6 +226,17 @@ export interface PluginDetailViewDescriptor {
    * **どちらも値を消さない。** 表示しないことと削除することを混同しない。
    */
   undeclaredFields?: "read-only" | "hidden";
+  /**
+   * Show the resources whose `reference` fields point at this one. The host finds them from
+   * the index rows with this descriptor's reference fields; it knows no kind. `statusField` names
+   * the field shown as each one's state (its `options` give the label).
+   */
+  referencedBy?: { statusField?: string };
+  /**
+   * Show the Git commits whose message contains this resource's `metadata.name` exactly. The host
+   * reads them after the detail is shown, in live mode only (never in static output).
+   */
+  relatedCommits?: boolean;
   /**
    * 未宣言として見せる索引行キーの接頭辞。省略すると未宣言を1つも出さない。
    *
@@ -231,7 +286,14 @@ export interface PluginDefinitionContext {
 
 /** descriptorを組み立てるときにCoreが渡す文脈 */
 export interface PluginViewContext extends PluginDefinitionContext {
-  /** 表示locale */
+  /**
+   * 文書の要求locale。Node側で決まる。
+   *
+   * descriptorの並び順（`localeCompare`）や、生成する内容の言語に使う。
+   * 画面に出す文字列の言語は、ブラウザ側が渡す`PluginRenderContext.locale`
+   * （UI言語）が既に決めている。ここで要求言語を入れるのは、プラグインが
+   * 作成する文書の内容と並び順が文書の言語に揃うべきだからである。
+   */
   locale: string;
   /** 静的出力の生成中か。`true`のとき編集系の宣言は出力されない */
   isStatic: boolean;
@@ -245,6 +307,8 @@ export interface PluginViewContext extends PluginDefinitionContext {
    * ここで埋める。
    */
   target?: PluginResourceRecord;
+  /** Node側で解決した、自前rendererに必要な最小データ。 */
+  rendererData?: Readonly<Record<string, unknown>>;
 }
 
 /** descriptorそのもの、または文脈から組み立てる関数 */

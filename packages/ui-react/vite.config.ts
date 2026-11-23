@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 /**
  * プラグインと共有する固定名エントリ。
  *
- * **この4つだけファイル名を固定する。** 他の資産はハッシュ付きのままにする。
+ * **プラグイン共有エントリだけファイル名を固定する。** 他の資産はハッシュ付きのままにする。
  * import mapはbare specifierをこの相対URLへ向けるため、名前が変わると
  * プラグインの読み込みが壊れる。Reactの実体はハッシュ付きの共有チャンクに
  * 入り、ここからre-exportするだけなので、キャッシュへの影響は4ファイルに
@@ -15,7 +15,9 @@ const SHARED_ENTRIES = {
   "vellym-react": "src/shared-entries/vellym-react.ts",
   "vellym-react-dom": "src/shared-entries/vellym-react-dom.ts",
   "vellym-jsx-runtime": "src/shared-entries/vellym-jsx-runtime.ts",
-  "vellym-ui": "src/shared-entries/vellym-ui.ts"
+  "vellym-ui": "src/shared-entries/vellym-ui.ts",
+  "vellym-plugin-api": "src/shared-entries/vellym-plugin-api.ts",
+  "vellym-plugin-api-react": "src/shared-entries/vellym-plugin-api-react.ts"
 } as const;
 
 /**
@@ -30,7 +32,9 @@ const IMPORT_MAP: Record<string, string> = {
   "react-dom/client": "./assets/vellym-react-dom.js",
   "react/jsx-runtime": "./assets/vellym-jsx-runtime.js",
   "react/jsx-dev-runtime": "./assets/vellym-jsx-runtime.js",
-  "@vellym/plugin-api/ui": "./assets/vellym-ui.js"
+  "@vellym/plugin-api/ui": "./assets/vellym-ui.js",
+  "@vellym/plugin-api": "./assets/vellym-plugin-api.js",
+  "@vellym/plugin-api/react": "./assets/vellym-plugin-api-react.js"
 };
 
 export default defineConfig({

@@ -1,0 +1,17 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Ticket
+metadata:
+  name: ticket-01m0m000000000000000000008
+  title: 画面の説明を追加する
+spec:
+  status: todo
+  fields:
+    priority: mid
+    estimate: 2
+    sprint: sprint-2
+    parent: ticket-01m0m000000000000000000006
+  blocks:
+    - id: description
+      type: rich-text
+      content: |
+        公開ガイドを改善するためのサンプル作業です。

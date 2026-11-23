@@ -37,6 +37,20 @@ import styles from "./setup.module.css";
 
 type ContentRootError = "empty" | "absolute" | "parent";
 
+export function reviewSummary(
+  files: readonly { status: string }[]
+): { create: number; keep: number; conflict: number } {
+  return files.reduce(
+    (summary, file) => {
+      if (file.status === "create") summary.create += 1;
+      else if (file.status === "skip" || file.status === "reuse") summary.keep += 1;
+      else if (file.status === "conflict") summary.conflict += 1;
+      return summary;
+    },
+    { create: 0, keep: 0, conflict: 0 }
+  );
+}
+
 function analyzeContentRoot(
   projectRoot: string,
   raw: string
@@ -329,6 +343,7 @@ export function SetupWizard(props: {
     [index, resolved]
   );
   const finalCounts = useMemo(() => countNodes(finalTree), [finalTree]);
+  const reviewCounts = reviewSummary(plan?.files ?? []);
 
   const reviewTree = useMemo(() => {
     if (!index || !resolved) return [];
@@ -736,8 +751,8 @@ export function SetupWizard(props: {
                 {busy
                   ? ja ? "生成計画を確認中…" : "Checking the plan…"
                   : ja
-                    ? `Folder ${finalCounts.folders}件 / Page ${finalCounts.pages}件を作成します`
-                    : `Creating ${finalCounts.folders} folders and ${finalCounts.pages} pages`}
+                    ? `作成 ${reviewCounts.create}件・既存のため作成しない ${reviewCounts.keep}件・競合 ${reviewCounts.conflict}件`
+                    : `Create ${reviewCounts.create} · Keep existing ${reviewCounts.keep} · Conflicts ${reviewCounts.conflict}`}
               </p>
               <div className={styles["setup-tree-toolbar-actions"]}>
                 <Button onClick={() => revealFolders(reviewFolderIds)}>
@@ -748,6 +763,11 @@ export function SetupWizard(props: {
                 </Button>
               </div>
             </div>
+            <p className={styles["setup-tree-hint"]}>
+              {ja
+                ? "既存のファイルは上書きしません。「この内容で生成」を押すまで、ファイルは書き込みません。"
+                : 'Existing files are never overwritten. Nothing is written until you press "Create project".'}
+            </p>
             {omittedIds.size > 0 && (
               <p className={styles["setup-tree-hint"]}>
                 {ja

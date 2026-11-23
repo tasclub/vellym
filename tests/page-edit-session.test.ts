@@ -7,6 +7,7 @@ import {
   pageEditExport,
   pageEditPatch,
   pageEditSessionDirty,
+  rebasePageEditSession,
   removePageLocale,
   repairInvalidPageTranslation
 } from "../packages/ui-react/src/editor/page-edit-session.js";
@@ -31,6 +32,16 @@ const editView: PageEditView = {
 };
 
 describe("PageEditSession", () => {
+  it("rebases only the file hash without losing the dirty draft", () => {
+    const original = createPageEditSession(editView);
+    const session = { ...original, slug: "changed" };
+    const rebased = rebasePageEditSession(session, "new-hash");
+    expect(rebased).toEqual({ ...session, baseHash: "new-hash" });
+    expect(session.baseHash).toBe("file-hash");
+    expect(pageEditSessionDirty(rebased)).toBe(true);
+    expect(pageEditPatch(rebased)).toMatchObject({ baseHash: "new-hash", slug: "changed" });
+  });
+
   it("keeps an unchanged loaded page clean", () => {
     const session = createPageEditSession(editView);
     expect(pageEditSessionDirty(session)).toBe(false);

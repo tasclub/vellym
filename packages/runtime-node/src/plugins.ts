@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import satisfies from "semver/functions/satisfies.js";
+import compare from "semver/functions/compare.js";
+import valid from "semver/functions/valid.js";
 import { validatePluginManifest, type Diagnostic } from "@vellym-internal/core";
 import {
   PLUGIN_MANIFEST_FIELD,
@@ -12,8 +14,10 @@ import {
   type PluginManifest,
   type PluginDiagnostic,
   type PluginFilterDescriptor,
+  type PluginDetailViewDescriptor,
   type PluginLocalizedText,
   type PluginRecordProjectorFactory,
+  type PluginRecordSetValidator,
   type PluginViewContext,
   type PluginViewContribution,
   type PluginViewDescriptor,
@@ -40,11 +44,19 @@ export interface LoadedPlugin {
   browserRoot?: string;
   /** ブラウザ側エントリのファイル名。`browserRoot`からの相対 */
   browserEntry?: string;
+  /** manifestで宣言したstylesheet path。browserRootからの相対 */
+  browserStyles?: readonly string[];
   kinds: PluginKindContribution[];
   views: PluginViewContribution[];
   commands: PluginCommandContribution[];
   /** kind → 定義を読んでprojectorを作る関数 */
   projections: Map<string, PluginRecordProjectorFactory>;
+  /**
+   * kind → 索引行全体を検査する関数。`projections`と違い、同じkindへ複数
+   * 登録できる（複数のプラグインが同じkindを解釈する場合があるため）。
+   * hostはkindについて何も知らないまま、行がそろう後に1回ずつ呼ぶ。
+   */
+  recordSetValidators: Map<string, PluginRecordSetValidator[]>;
 }
 
 export interface PluginRegistry {
@@ -64,21 +76,42 @@ export function pluginKinds(registry: PluginRegistry): {
   knownKinds: ReadonlySet<string>;
   treeKinds: ReadonlySet<string>;
   projections: ReadonlyMap<string, PluginRecordProjectorFactory>;
+  recordSetValidators: ReadonlyMap<string, PluginRecordSetValidator[]>;
+  kindSchemas: ReadonlyMap<string, PluginKindContribution["specSchema"]>;
 } {
   const treeKinds = new Set<string>();
   const projections = new Map<string, PluginRecordProjectorFactory>();
+  const recordSetValidators = new Map<string, PluginRecordSetValidator[]>();
+  const kindSchemas = new Map<string, PluginKindContribution["specSchema"]>();
   for (const plugin of registry.plugins) {
     for (const contribution of plugin.kinds) {
       // 所有するプラグインが1つに決まっているkindだけを対象にする。
       if (registry.kinds.get(contribution.kind) !== plugin) continue;
       if (contribution.showInDocumentTree) treeKinds.add(contribution.kind);
+      if (contribution.specSchema) kindSchemas.set(contribution.kind, contribution.specSchema);
     }
     for (const [kind, create] of plugin.projections) {
       if (registry.kinds.get(kind) !== plugin) continue;
       projections.set(kind, create);
     }
+    // 検査はkindを所有するプラグインに限定しない。同じkindを扱うプラグインが
+    // 並んでも検査は欲しいためである。同じ関数の多重登録と、同じ診断は
+    // repository側で束ねる。
+    for (const [kind, validators] of plugin.recordSetValidators) {
+      const list = recordSetValidators.get(kind) ?? [];
+      for (const validate of validators) {
+        if (!list.includes(validate)) list.push(validate);
+      }
+      recordSetValidators.set(kind, list);
+    }
   }
-  return { knownKinds: new Set(registry.kinds.keys()), treeKinds, projections };
+  return {
+    knownKinds: new Set(registry.kinds.keys()),
+    treeKinds,
+    projections,
+    recordSetValidators,
+    kindSchemas
+  };
 }
 
 export interface LoadPluginsOptions {
@@ -114,7 +147,7 @@ const CONFIG_FILE = "vellym.config.yaml";
 function diagnostic(
   index: number,
   code: string,
-  message: string
+  message: PluginLocalizedText
 ): Diagnostic {
   return {
     file: CONFIG_FILE,
@@ -152,6 +185,7 @@ export async function loadPlugins(
     diagnostics: []
   };
   const seenIds = new Set<string>();
+  const pluginConfigIndexes = new Map<LoadedPlugin, number>();
 
   // 解決はconfigDir起点。CLI自身のnode_modulesへは降りない。`vellym`はnpxでも
   // 実行されるため、CLI側の依存を拾うと利用者のプロジェクトに入っていないものが動く。
@@ -165,27 +199,70 @@ export async function loadPlugins(
         diagnostic(
           index,
           "PLUGIN_DUPLICATE_ID",
-          `plugin id "${loaded.id}"が重複しています: ${packageName}`
+          {
+            ja: `plugin id "${loaded.id}"が重複しています: ${packageName}`,
+            en: `Plugin ID "${loaded.id}" is duplicated: ${packageName}`
+          }
         )
       );
       continue;
     }
     seenIds.add(loaded.id);
     registry.plugins.push(loaded);
-    for (const contribution of loaded.kinds) {
-      const owner = registry.kinds.get(contribution.kind);
-      if (owner) {
+    pluginConfigIndexes.set(loaded, index);
+  }
+  const kindRegistrations = new Map<
+    string,
+    Array<{ plugin: LoadedPlugin; version?: string; index: number }>
+  >();
+  for (const plugin of registry.plugins) {
+    for (const contribution of plugin.kinds) {
+      const registrations = kindRegistrations.get(contribution.kind) ?? [];
+      registrations.push({
+        plugin,
+        version: contribution.engineVersion,
+        index: pluginConfigIndexes.get(plugin) ?? 0
+      });
+      kindRegistrations.set(contribution.kind, registrations);
+    }
+  }
+  for (const [kind, registrations] of kindRegistrations) {
+    let winner = registrations[0]!;
+    const allVersioned = registrations.every(
+      (registration) => registration.version !== undefined && valid(registration.version)
+    );
+    if (registrations.length > 1 && allVersioned) {
+      winner = registrations.reduce((current, candidate) =>
+        compare(candidate.version!, current.version!) > 0 ? candidate : current
+      );
+      const versions = new Set(registrations.map((registration) => valid(registration.version!)));
+      if (versions.size > 1) {
         registry.diagnostics.push(
           diagnostic(
-            index,
-            "PLUGIN_KIND_CONFLICT",
-            `kind "${contribution.kind}"は${owner.packageName}が既に解釈します。${packageName}の登録は無視します`
+            winner.index,
+            "PLUGIN_KIND_VERSION_MISMATCH",
+            {
+              ja: `kind "${kind}"は異なるエンジン版で登録されています。${winner.plugin.packageName} (${winner.version})を採用します`,
+              en: `Kind "${kind}" is registered with different engine versions. Using ${winner.plugin.packageName} (${winner.version}).`
+            }
           )
         );
-        continue;
       }
-      registry.kinds.set(contribution.kind, loaded);
+    } else if (registrations.length > 1) {
+      for (const conflict of registrations.slice(1)) {
+        registry.diagnostics.push(
+          diagnostic(
+            conflict.index,
+            "PLUGIN_KIND_CONFLICT",
+            {
+              ja: `kind "${kind}"は${winner.plugin.packageName}が既に解釈します。${conflict.plugin.packageName}の登録は無視します`,
+              en: `Kind "${kind}" is already interpreted by ${winner.plugin.packageName}. Ignoring the registration from ${conflict.plugin.packageName}.`
+            }
+          )
+        );
+      }
     }
+    registry.kinds.set(kind, winner.plugin);
   }
   return registry;
 }
@@ -233,7 +310,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_RESOLVE_FAILED",
-        `プラグインを解決できません: ${packageName}（${reason(error)}）`
+        {
+          ja: `プラグインを解決できません: ${packageName}（${reason(error)}）`,
+          en: `Could not resolve plugin: ${packageName} (${reason(error)})`
+        }
       )
     );
     return undefined;
@@ -245,7 +325,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_MANIFEST_INVALID",
-        `manifest（package.jsonの"${PLUGIN_MANIFEST_FIELD}"）が不正です: ${packageName}（${validated.errors.join("、")}）`
+        {
+          ja: `manifest（package.jsonの"${PLUGIN_MANIFEST_FIELD}"）が不正です: ${packageName}（${validated.errors.join("、")}）`,
+          en: `The manifest (the "${PLUGIN_MANIFEST_FIELD}" field in package.json) is invalid: ${packageName} (${validated.errors.join(", ")})`
+        }
       )
     );
     return undefined;
@@ -258,7 +341,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_VERSION_UNDECLARED",
-        `engines.vellymが宣言されていません: ${packageName}`
+        {
+          ja: `engines.vellymが宣言されていません: ${packageName}`,
+          en: `engines.vellym is not declared: ${packageName}`
+        }
       )
     );
     return undefined;
@@ -269,7 +355,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_VERSION_UNSUPPORTED",
-        `対応するVellymの版域外です: ${packageName}（engines.vellym: ${range}、実行中: ${hostVersion}）`
+        {
+          ja: `対応するVellymの版域外です: ${packageName}（engines.vellym: ${range}、実行中: ${hostVersion}）`,
+          en: `The supported Vellym version range does not include this version: ${packageName} (engines.vellym: ${range}, running: ${hostVersion})`
+        }
       )
     );
     return undefined;
@@ -290,7 +379,10 @@ async function loadOne(
         diagnostic(
           index,
           "PLUGIN_ENTRY_INVALID",
-          `activate(host)をexportしていません: ${packageName}`
+          {
+            ja: `activate(host)をexportしていません: ${packageName}`,
+            en: `activate(host) is not exported: ${packageName}`
+          }
         )
       );
       return undefined;
@@ -301,7 +393,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_LOAD_FAILED",
-        `読み込めません: ${packageName}（${reason(error)}）`
+        {
+          ja: `読み込めません: ${packageName}（${reason(error)}）`,
+          en: `Could not load plugin: ${packageName} (${reason(error)})`
+        }
       )
     );
     return undefined;
@@ -318,10 +413,14 @@ async function loadOne(
     ...(typeof packageJson.version === "string" ? { version: packageJson.version } : {}),
     manifest: validated.manifest,
     ...(browser ? { browserRoot: browser.root, browserEntry: browser.entry } : {}),
+    ...(browser && validated.manifest.styles?.length
+      ? { browserStyles: [...validated.manifest.styles] }
+      : {}),
     kinds: [],
     views: [],
     commands: [],
-    projections: new Map()
+    projections: new Map(),
+    recordSetValidators: new Map()
   };
 
   const host: VellymPluginHost = {
@@ -331,6 +430,11 @@ async function loadOne(
     registerView: (contribution) => plugin.views.push(contribution),
     registerCommand: (contribution) => plugin.commands.push(contribution),
     registerRecordProjection: (kind, project) => plugin.projections.set(kind, project),
+    registerRecordSetValidator: (kind, validate) => {
+      const validators = plugin.recordSetValidators.get(kind) ?? [];
+      validators.push(validate);
+      plugin.recordSetValidators.set(kind, validators);
+    },
     reportDiagnostic: (item) => registry.diagnostics.push({ ...item })
   };
 
@@ -341,7 +445,10 @@ async function loadOne(
       diagnostic(
         index,
         "PLUGIN_ACTIVATE_FAILED",
-        `activateが失敗しました: ${packageName}（${reason(error)}）`
+        {
+          ja: `activateが失敗しました: ${packageName}（${reason(error)}）`,
+          en: `Plugin activation failed: ${packageName} (${reason(error)})`
+        }
       )
     );
     return undefined;
@@ -365,6 +472,67 @@ export interface PluginViewRow {
   errorCount?: number;
 }
 
+export interface PluginReferencedBy {
+  name: string;
+  title: string;
+  fieldId: string;
+  fieldLabel: PluginLocalizedText;
+  status?: string;
+  statusLabel?: PluginLocalizedText;
+}
+
+/** 参照値を題名で表示するための、同じ一覧範囲にあるリソース。 */
+export interface PluginReferenceTarget {
+  name: string;
+  title: string;
+}
+
+/**
+ * 詳細の参照項目が名前から題名を引けるようにする。
+ *
+ * `rows`はすでに同じTracker（または同じビューの範囲）に絞られている。値を持つ
+ * 行だけに限定すると、未解決値と区別できなくなるため、対象行自身を含めて全行を
+ * 渡す。
+ */
+export function referenceTargetsOf(
+  descriptor: PluginDetailViewDescriptor,
+  rows: readonly PluginViewRow[]
+): PluginReferenceTarget[] {
+  if (!descriptor.fields.some((field) => field.type === "reference")) return [];
+  return rows.map(({ name, title }) => ({ name, title }));
+}
+
+/**
+ * Who points at `target`: rows whose values for the descriptor's reference fields equal its
+ * name (or contain it, for multiple references). Generic: only field types are consulted.
+ */
+export function referencedByOf(
+  descriptor: PluginDetailViewDescriptor,
+  target: PluginViewRow,
+  rows: readonly PluginViewRow[],
+  locale: string
+): PluginReferencedBy[] {
+  const references = descriptor.fields.filter((field) => field.type === "reference");
+  const statusField = descriptor.referencedBy?.statusField
+    ? descriptor.fields.find((field) => field.id === descriptor.referencedBy!.statusField)
+    : undefined;
+  const found: PluginReferencedBy[] = [];
+  for (const row of rows) {
+    if (row.name === target.name) continue;
+    for (const field of references) {
+      const value = row.values[field.valueKey ?? field.id];
+      const points = Array.isArray(value) ? value.includes(target.name) : value === target.name;
+      if (!points) continue;
+      const raw = statusField ? row.values[statusField.valueKey ?? statusField.id] : undefined;
+      const status = typeof raw === "string" && raw ? raw : undefined;
+      const statusLabel = status ? statusField?.options?.find((option) => option.value === status)?.label : undefined;
+      found.push({ name: row.name, title: row.title, fieldId: field.id, fieldLabel: field.label,
+        ...(status ? { status } : {}), ...(statusLabel ? { statusLabel } : {}) });
+    }
+  }
+  return found.sort((a, b) => a.title.localeCompare(b.title, locale) || a.name.localeCompare(b.name));
+}
+
 export interface PluginViewPayload {
   pluginId: string;
   viewId: string;
@@ -381,6 +549,10 @@ export interface PluginViewPayload {
   targetSpec?: Readonly<Record<string, unknown>>;
   /** 開いているリソースについての注意。定義との食い違いをその場で見せる */
   targetDiagnostics?: PluginDiagnostic[];
+  /** Resources whose reference fields point at the target (detail views declaring `referencedBy`). */
+  referencedBy?: PluginReferencedBy[];
+  /** 同じ範囲にある参照先。reference型の詳細項目で名前から題名を引くために使う */
+  referenceTargets?: PluginReferenceTarget[];
   /** 同じkindに登録された他のビュー。画面の切り替えに使う */
   siblings?: Array<{ id: string; type: "list" | "detail"; label?: PluginLocalizedText }>;
   /** このビューから起こせるコマンド。静的出力では使えないものを除く */
@@ -413,7 +585,7 @@ export function resolveCommandInputs(
  * 指定kindのリソースを開いたときに表示するビュー。
  *
  * 同じkindに複数のビューを登録できる（一覧と設定など）。`viewId`を指定すると
- * そのビューを選び、省略すると最初に登録されたものを使う。
+ * そのビューを選び、省略すると役割順で最初のものを使う。
  */
 export function viewForKind(
   registry: PluginRegistry,
@@ -421,16 +593,36 @@ export function viewForKind(
   viewId?: string,
   isStatic = false
 ): { plugin: LoadedPlugin; contribution: PluginViewContribution } | undefined {
+  const candidates = viewsForKind(registry, kind, isStatic);
+  return viewId
+    ? candidates.find((candidate) => candidate.contribution.id === viewId)
+    : candidates[0];
+}
+
+/**
+ * `primary`、通常、`settings`の順で入口kindのビューを返す。
+ *
+ * 各グループ内はregistryのplugins（設定順）とviews（登録順）をそのまま保つ。
+ * `sort`でIDを比較しないため、プラグイン名で利用者向けの順序が変わらない。
+ */
+function viewsForKind(
+  registry: PluginRegistry,
+  kind: string,
+  isStatic: boolean
+): Array<{ plugin: LoadedPlugin; contribution: PluginViewContribution }> {
+  const primary: Array<{ plugin: LoadedPlugin; contribution: PluginViewContribution }> = [];
+  const ordinary: Array<{ plugin: LoadedPlugin; contribution: PluginViewContribution }> = [];
+  const settings: Array<{ plugin: LoadedPlugin; contribution: PluginViewContribution }> = [];
   for (const plugin of registry.plugins) {
     for (const contribution of plugin.views) {
-      if (isStatic && !contribution.static) continue;
-      const opensKind = viewOpensKind(plugin, contribution);
-      if (opensKind !== kind) continue;
-      if (viewId && contribution.id !== viewId) continue;
-      return { plugin, contribution };
+      if ((isStatic && !contribution.static) || viewOpensKind(plugin, contribution) !== kind) continue;
+      const candidate = { plugin, contribution };
+      if (contribution.role === "primary") primary.push(candidate);
+      else if (contribution.role === "settings") settings.push(candidate);
+      else ordinary.push(candidate);
     }
   }
-  return undefined;
+  return [...primary, ...ordinary, ...settings];
 }
 
 /** 登録値を優先し、関数形のビューではmanifestの宣言で入口kindを補う */
@@ -469,14 +661,7 @@ export function staticViewIdsForKind(
   registry: PluginRegistry,
   kind: string
 ): readonly string[] {
-  return registry.plugins.flatMap((plugin) =>
-    plugin.views
-      .filter((contribution) => {
-        if (!contribution.static) return false;
-        return viewOpensKind(plugin, contribution) === kind;
-      })
-      .map((contribution) => contribution.id)
-  );
+  return viewsForKind(registry, kind, true).map((candidate) => candidate.contribution.id);
 }
 
 /**
@@ -581,19 +766,16 @@ export function buildPluginView(options: {
     descriptor,
     rows,
     allRows: scoped,
-    siblings: plugin.views
-      .filter((item) => {
-        if (options.isStatic && !item.static) return false;
-        return viewOpensKind(plugin, item) === options.target.kind;
-      })
-      .map((item) => ({
-        id: item.id,
-        // descriptorは関数の場合があり、呼ばずに種別を知る必要がある。
-        // manifestが宣言した種別を使う。宣言と実装の一致はプラグイン側の責務。
-        type:
-          plugin.manifest.contributes?.views?.find((declared) => declared.id === item.id)
-            ?.type ?? "list",
-        ...(item.label ? { label: item.label } : {})
+    siblings: viewsForKind(options.registry, options.target.kind, options.isStatic)
+      .filter(({ contribution }) => contribution.label)
+      .map(({ plugin: siblingPlugin, contribution: item }) => ({
+          id: item.id,
+          // descriptorは関数の場合があり、呼ばずに種別を知る必要がある。
+          // manifestが宣言した種別を使う。宣言と実装の一致はプラグイン側の責務。
+          type:
+            siblingPlugin.manifest.contributes?.views?.find((declared) => declared.id === item.id)
+              ?.type ?? "list",
+          label: item.label!
       })),
     commands: plugin.commands
       .filter((command) => command.placement !== "document-tree")
@@ -613,7 +795,17 @@ export function buildPluginView(options: {
     ...(descriptor.type === "detail" ? { targetSpec: options.target.spec } : {}),
     ...(descriptor.type === "detail" && options.targetDiagnostics?.length
       ? { targetDiagnostics: [...options.targetDiagnostics] }
-      : {})
+      : {}),
+    ...(() => {
+      if (descriptor.type !== "detail") return {};
+      const referenceTargets = referenceTargetsOf(descriptor, options.rows);
+      return referenceTargets.length ? { referenceTargets } : {};
+    })(),
+    ...(() => {
+      if (descriptor.type !== "detail" || !descriptor.referencedBy || !options.targetRow) return {};
+      const referencedBy = referencedByOf(descriptor, options.targetRow, options.rows, options.locale);
+      return referencedBy.length ? { referencedBy } : {};
+    })()
   };
 }
 

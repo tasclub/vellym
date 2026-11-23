@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   resolveLocalizedText,
+  summarizeRows,
   type PluginColumnDescriptor,
   type PluginCommandInput,
   type PluginIndexValue,
@@ -12,6 +13,12 @@ import {
 import { PluginCommandDialog } from "./plugin-command-dialog.js";
 import { DataTable, type SortDirection } from "../shared/table.js";
 import { Button } from "../shared/button.js";
+import { ChoiceControl } from "../shared/choice-control.js";
+import {
+  pluginViewSettingsKey,
+  readPluginViewSettings,
+  writePluginViewSettings
+} from "./view-settings.js";
 import styles from "./plugin.module.css";
 
 export interface PluginViewRow {
@@ -44,6 +51,10 @@ export interface PluginViewPayload {
   targetSpec?: Readonly<Record<string, unknown>>;
   /** 開いているリソースについての注意 */
   targetDiagnostics?: Array<{ code: string; message: string; path?: string }>;
+  /** Resources whose reference fields point at the target (see runtime-node referencedByOf). */
+  referencedBy?: Array<{ name: string; title: string; fieldId: string; fieldLabel: PluginLocalizedText; status?: string; statusLabel?: PluginLocalizedText }>;
+  /** Resources in this detail's scope, used to resolve reference values to titles. */
+  referenceTargets?: Array<{ name: string; title: string }>;
   /** 同じkindに登録された他のビュー */
   siblings?: Array<{ id: string; type: "list" | "detail"; label?: PluginLocalizedText }>;
 }
@@ -80,6 +91,14 @@ function cellText(
     })
     .filter(Boolean)
     .join(", ");
+}
+
+/** The cell text plus the column's marker label when the row sets it (see PluginColumnDescriptor.marker). */
+function markedCellText(row: PluginViewRow, column: PluginColumnDescriptor, locale: string): string {
+  const text = cellText(cellValue(row, column), column, locale);
+  if (!column.marker || row.values[column.marker.valueKey] !== true) return text;
+  const label = resolveLocalizedText(column.marker.label, locale);
+  return locale.startsWith("ja") ? `${text}（${label}）` : `${text} (${label})`;
 }
 
 /**
@@ -136,29 +155,9 @@ function matchesFilter(
 /** 絞り込みと並び順は個人設定。正本YAMLへ混ぜない */
 interface ViewPreference {
   filters?: Record<string, string>;
+  filtersExpanded?: boolean;
   sort?: { columnId: string; direction: "asc" | "desc" };
   showAll?: boolean;
-}
-
-function preferenceKey(payload: PluginViewPayload): string {
-  return `vellym.plugin-view.${payload.pluginId}.${payload.viewId}`;
-}
-
-function readPreference(key: string): ViewPreference {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as ViewPreference) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writePreference(key: string, value: ViewPreference): void {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // 保存できなくても一覧は使える。個人設定のために操作を止めない。
-  }
 }
 
 /**
@@ -169,6 +168,8 @@ function writePreference(key: string, value: ViewPreference): void {
  */
 export function PluginListView({
   payload,
+  projectRoot,
+  targetName,
   locale,
   allRows,
   showAll,
@@ -181,6 +182,8 @@ export function PluginListView({
   onBulkArchive
 }: {
   payload: PluginViewPayload;
+  projectRoot: string;
+  targetName: string;
   locale: string;
   /** 既定の絞り込みを外した全件。切替のために別で受け取る */
   allRows?: PluginViewRow[];
@@ -196,14 +199,26 @@ export function PluginListView({
   onBulkArchive?(names: string[]): Promise<string[]>;
 }) {
   const { t } = useTranslation();
-  const key = preferenceKey(payload);
-  const stored = useMemo(() => readPreference(key), [key]);
+  const settingsScope = {
+    projectRoot,
+    pluginId: payload.pluginId,
+    viewId: payload.viewId,
+    targetName
+  };
+  const key = pluginViewSettingsKey(settingsScope);
+  const stored = useMemo(
+    () => readPluginViewSettings<ViewPreference>(settingsScope) ?? {},
+    [key]
+  );
+  const defaultSort = payload.descriptor.type === "list"
+    ? payload.descriptor.defaultSort
+    : undefined;
 
   const [command, setCommand] = useState<PluginViewPayload["commands"][number]>();
   const [filters, setFilters] = useState<Record<string, string>>(stored.filters ?? {});
+  const [filtersExpanded, setFiltersExpanded] = useState(stored.filtersExpanded ?? false);
   const [sort, setSort] = useState<{ columnId: string; direction: "asc" | "desc" } | undefined>(
-    stored.sort ??
-      (payload.descriptor.type === "list" ? payload.descriptor.defaultSort : undefined)
+    stored.sort ?? defaultSort
   );
   // 表示集合と選択集合を分けて持つ。絞り込みを変えても選択は消えない。
   const [selected, setSelected] = useState<string[]>([]);
@@ -216,24 +231,58 @@ export function PluginListView({
     failed: number;
   }>();
   const [busy, setBusy] = useState(false);
+  const [loadedSettingsKey, setLoadedSettingsKey] = useState(key);
 
   useEffect(() => {
-    writePreference(key, { filters, ...(sort ? { sort } : {}), showAll });
-  }, [key, filters, sort, showAll]);
+    if (loadedSettingsKey === key) return;
+    setFilters(stored.filters ?? {});
+    setFiltersExpanded(stored.filtersExpanded ?? false);
+    setSort(stored.sort ?? defaultSort);
+    setSelected([]);
+    setLoadedSettingsKey(key);
+  }, [key, loadedSettingsKey, stored, defaultSort]);
+
+  // The "open only" switch lives with the host, but it is this view's preference too:
+  // restore it whenever the view (or the resource it shows) changes.
+  useEffect(() => {
+    if (stored.showAll !== undefined && stored.showAll !== showAll) onToggleShowAll?.(stored.showAll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the stored preference changes
+  }, [key]);
+
+  useEffect(() => {
+    if (loadedSettingsKey !== key) return;
+    writePluginViewSettings(settingsScope, {
+      filters,
+      filtersExpanded,
+      ...(sort ? { sort } : {}),
+      showAll
+    });
+  }, [key, loadedSettingsKey, filters, filtersExpanded, sort, showAll]);
 
   const descriptor = payload.descriptor.type === "list" ? payload.descriptor : undefined;
+  // `hidden`の列は表にも副次情報にも出さない。絞り込みと並べ替えには
+  // `filterable`・`sortable`の指定どおりにだけ残る（隠すことと使えなく
+  // することは別のこと）。
   const columns = useMemo(
-    () => (descriptor?.columns ?? []).filter((column) => !column.secondary),
+    () => (descriptor?.columns ?? []).filter((column) => !column.secondary && !column.hidden),
     [descriptor]
   );
   const secondary = useMemo(
-    () => (descriptor?.columns ?? []).filter((column) => column.secondary),
+    () => (descriptor?.columns ?? []).filter((column) => column.secondary && !column.hidden),
     [descriptor]
   );
   const filterable = useMemo(
     () => (descriptor?.columns ?? []).filter((column) => column.filterable),
     [descriptor]
   );
+  const sortable = useMemo(
+    () => (descriptor?.columns ?? []).filter((column) => column.sortable),
+    [descriptor]
+  );
+  const activeFilterCount = filterable.filter((column) => Boolean(filters[column.id])).length +
+    (showAll === true
+      ? 0
+      : (descriptor?.defaultFilters ?? []).filter((filter) => filter.toggleLabels).length);
   const editable = useMemo(
     () => (descriptor?.columns ?? []).filter((column) => column.editPath?.length),
     [descriptor]
@@ -312,7 +361,7 @@ export function PluginListView({
     </div>
   );
 
-  const filterBar = filterable.length ? (
+  const filterBar = filterable.length || sortable.length ? (
     <div className={styles["plugin-list-filters"]}>
       <span className={styles["plugin-band-label"]} aria-hidden="true">
         FILTER
@@ -343,45 +392,104 @@ export function PluginListView({
               </Button>
             ))
         : null}
-      {filterable.map((column) => {
-        const id = `plugin-filter-${column.id}`;
-        const label = resolveLocalizedText(column.label, locale);
-        return (
-          <label key={column.id} htmlFor={id}>
-            <span>{label}</span>
-            {column.options ? (
-              <select
-                id={id}
-                value={filters[column.id] ?? ""}
-                onChange={(event) =>
-                  setFilters({ ...filters, [column.id]: event.target.value })
-                }
-              >
-                <option value="">{t("plugin.filterAny")}</option>
-                {column.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {resolveLocalizedText(option.label, locale)}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                id={id}
-                value={filters[column.id] ?? ""}
-                placeholder={t("plugin.filterContains")}
-                onChange={(event) =>
-                  setFilters({ ...filters, [column.id]: event.target.value })
-                }
-              />
-            )}
-          </label>
-        );
-      })}
-      {Object.values(filters).some(Boolean) ? (
-        <Button onClick={() => setFilters({})}>
-          {t("plugin.filterClear")}
-        </Button>
-      ) : null}
+      <Button
+        aria-expanded={filtersExpanded}
+        aria-controls="plugin-list-filter-controls"
+        onClick={() => setFiltersExpanded(!filtersExpanded)}
+      >
+        {t("plugin.filtersToggle", { count: activeFilterCount })}
+      </Button>
+      <div
+        id="plugin-list-filter-controls"
+        className={styles["plugin-list-filter-controls"]}
+        hidden={!filtersExpanded}
+      >
+        {filterable.map((column) => {
+          const id = `plugin-filter-${column.id}`;
+          const label = resolveLocalizedText(column.label, locale);
+          return (
+            <label key={column.id} htmlFor={id}>
+              <span>{label}</span>
+              {column.options ? (
+                <select
+                  id={id}
+                  value={filters[column.id] ?? ""}
+                  onChange={(event) =>
+                    setFilters({ ...filters, [column.id]: event.target.value })
+                  }
+                >
+                  <option value="">{t("plugin.filterAny")}</option>
+                  {column.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {resolveLocalizedText(option.label, locale)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id={id}
+                  value={filters[column.id] ?? ""}
+                  placeholder={t("plugin.filterContains")}
+                  onChange={(event) =>
+                    setFilters({ ...filters, [column.id]: event.target.value })
+                  }
+                />
+              )}
+            </label>
+          );
+        })}
+        {/*
+          並べ替えの選択。列見出しのクリックと同じ状態を変えるため、
+          ここと見出しは必ず同じ並び順指す。選択肢は`sortable`の列すべてで、
+          表に隠れた列（`hidden`）も含める。
+        */}
+        {sortable.length ? (
+          <div className={styles["plugin-list-sort"]}>
+            <ChoiceControl
+              mode="select"
+              aria-label={t("plugin.sortColumn")}
+              value={sort?.columnId ?? ""}
+              options={[
+                ...(sort ? [] : [{ value: "", label: t("plugin.sortColumn") }]),
+                ...sortable.map((column) => ({
+                  value: column.id,
+                  label: resolveLocalizedText(column.label, locale)
+                }))
+              ]}
+              onChange={(columnId) =>
+                // 見出しクリックと同じ作法。列を替えたときは昇順から始める。
+                setSort(columnId
+                  ? {
+                      columnId,
+                      direction:
+                        sort?.columnId === columnId ? sort.direction : "asc"
+                    }
+                  : undefined)
+              }
+            />
+            <ChoiceControl
+              mode="segmented"
+              aria-label={t("plugin.sortDirection")}
+              value={sort?.direction ?? "asc"}
+              disabled={!sort}
+              options={[
+                { value: "asc", label: t("plugin.sortAsc") },
+                { value: "desc", label: t("plugin.sortDesc") }
+              ]}
+              onChange={(direction) =>
+                setSort((current) =>
+                  current ? { ...current, direction: direction === "desc" ? "desc" : "asc" } : current
+                )
+              }
+            />
+          </div>
+        ) : null}
+        {Object.values(filters).some(Boolean) ? (
+          <Button onClick={() => setFilters({})}>
+            {t("plugin.filterClear")}
+          </Button>
+        ) : null}
+      </div>
     </div>
   ) : null;
 
@@ -486,6 +594,27 @@ export function PluginListView({
     <>
       {hideTitle ? null : <h1>{resolveLocalizedText(descriptor.title, locale)}</h1>}
       {toolbar}
+      {descriptor.summary?.length ? (
+        <section aria-live="polite" aria-label={resolveLocalizedText({
+          ja: "表示中の行の集計", en: "Visible rows summary"
+        }, locale)}>
+          <ul>{descriptor.summary.map((definition, index) => {
+            const groupBy = definition.groupBy;
+            const named = (options?: readonly { value: string; label: PluginLocalizedText }[]) =>
+              options?.map((option) => ({ value: option.value, label: resolveLocalizedText(option.label, locale) }));
+            const result = summarizeRows(rows, definition.valueKey, definition.type, definition.method, locale, {
+              ...(definition.options ? { valueLabels: named(definition.options) } : {}),
+              ...(groupBy ? { groupBy: { key: groupBy.valueKey, type: groupBy.type, order: groupBy.order, labels: named(groupBy.options), labelOf: groupBy.type === "reference" ? (value: string) => (allRows ?? payload.rows).find((row) => row.name === value)?.title ?? value : undefined } } : {})
+            });
+            return <li key={`${definition.valueKey}-${definition.method}-${index}`}>
+              {resolveLocalizedText(definition.label, locale)} {result.text}
+              {result.excluded ? ` (${resolveLocalizedText({ ja: "値の形式が合わないため集計から除外", en: "Invalid values excluded" }, locale)}: ${result.excluded})` : ""}
+              {result.multiCounted ? <span> {resolveLocalizedText({ ja: "複数の値を持つチケットは、それぞれの値で数えています", en: "Counted in multiple groups" }, locale)}</span> : null}
+              {result.groups ? <ul>{result.groups.map((group) => <li key={group.value ?? "__unset"}>{group.label}: {group.text}{group.excluded ? ` (${resolveLocalizedText({ ja: "値の形式が合わないため集計から除外", en: "Invalid values excluded" }, locale)}: ${group.excluded})` : ""}</li>)}</ul> : null}
+            </li>;
+          })}</ul>
+        </section>
+      ) : null}
       {filterBar}
       {bulkBar}
       {bulkReport}
@@ -555,7 +684,17 @@ export function PluginListView({
         }
         columns={columns.map((column) => ({
           id: column.id,
-          label: resolveLocalizedText(column.label, locale),
+          label: (
+            <span
+              className={
+                column.id === "title"
+                  ? styles["plugin-list-title-column"]
+                  : styles["plugin-list-nowrap"]
+              }
+            >
+              {resolveLocalizedText(column.label, locale)}
+            </span>
+          ),
           ...(column.sortable
             ? {
                 sort: ((): SortDirection => {
@@ -574,14 +713,13 @@ export function PluginListView({
             : {}),
           cell: (row: PluginViewRow) =>
             column.id === "title" ? (
-              <>
-                <button
-                  type="button"
+              <span className={styles["plugin-list-title-column"]}>
+                <Button
                   className={styles["plugin-list-open"]}
                   onClick={() => onOpen?.(row.name)}
                 >
                   {row.title}
-                </button>
+                </Button>
                 {/*
                   読み込めない行と、値は読めていて注意があるだけの行を
                   区別する。同じ見た目にすると、直すべきものが埋もれる。
@@ -598,7 +736,7 @@ export function PluginListView({
                   <span className={styles["plugin-list-secondary"]}>
                     {secondary
                       .map((item) => {
-                        const text = cellText(cellValue(row, item), item, locale);
+                        const text = markedCellText(row, item, locale);
                         if (!text) return "";
                         const label = resolveLocalizedText(item.label, locale);
                         // 長い値は畳んだ行をさらに崩す。全文は詳細で読む。
@@ -609,9 +747,17 @@ export function PluginListView({
                       .join(" / ")}
                   </span>
                 ) : null}
-              </>
+              </span>
             ) : (
-              cellText(cellValue(row, column), column, locale)
+              <span
+                className={
+                  column.type === "multiline"
+                    ? undefined
+                    : styles["plugin-list-nowrap"]
+                }
+              >
+                {markedCellText(row, column, locale)}
+              </span>
             )
         }))}
       />

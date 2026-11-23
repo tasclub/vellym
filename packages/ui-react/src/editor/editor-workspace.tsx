@@ -6,6 +6,7 @@ import type {
   RichTextBlock
 } from "@vellym-internal/core";
 import ReactMarkdown from "react-markdown";
+import { assetUrlTransform } from "./asset-url.js";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -22,9 +23,12 @@ import type {
 } from "./save-state.js";
 import { draftCopyText } from "./save-state.js";
 import { DocumentView } from "./view.js";
+import { HistoryDocument } from "./git-history.js";
 import { errorMessage } from "../shared/error-message.js";
 import { Button } from "../shared/button.js";
+import { isStaticApp } from "../shared/api.js";
 import styles from "./editor-workspace.module.css";
+import { useShortcutAction } from "../shell/shortcuts.js";
 
 const FORMAT_ACTIONS: {
   command: EditorCommand;
@@ -71,11 +75,11 @@ const TABLE_ACTIONS: {
   labelKey: string;
   text: string;
 }[] = [
-  { command: "table-row-add", labelKey: "editor.tableRowAdd", text: "＋行" },
-  { command: "table-row-remove", labelKey: "editor.tableRowRemove", text: "−行" },
-  { command: "table-col-add", labelKey: "editor.tableColAdd", text: "＋列" },
-  { command: "table-col-remove", labelKey: "editor.tableColRemove", text: "−列" },
-  { command: "table-remove", labelKey: "editor.tableRemove", text: "表を削除" }
+  { command: "table-row-add", labelKey: "editor.tableRowAdd", text: "+" },
+  { command: "table-row-remove", labelKey: "editor.tableRowRemove", text: "−" },
+  { command: "table-col-add", labelKey: "editor.tableColAdd", text: "+" },
+  { command: "table-col-remove", labelKey: "editor.tableColRemove", text: "−" },
+  { command: "table-remove", labelKey: "editor.tableRemove", text: "×" }
 ];
 
 function Notices(props: {
@@ -123,12 +127,12 @@ function Notices(props: {
           <strong>{t("editor.saveFailedTitle")}</strong>
           <span>{props.saveError}</span>
           <div className={styles["notice-actions"]}>
-            <button type="button" onClick={props.onRetry}>
+            <Button onClick={props.onRetry}>
               {t("editor.retrySave")}
-            </button>
-            <button type="button" onClick={props.onCopy}>
+            </Button>
+            <Button onClick={props.onCopy}>
               {t("editor.copyDraft")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -162,17 +166,17 @@ function Notices(props: {
             </details>
           )}
           <div className={styles["notice-actions"]}>
-            <button type="button" onClick={props.onCopy}>
+            <Button onClick={props.onCopy}>
               {t("editor.copyDraft")}
-            </button>
+            </Button>
             {props.conflictView && (
-              <button type="button" onClick={props.onKeepDraft}>
+              <Button onClick={props.onKeepDraft}>
                 {t("editor.keepDraft")}
-              </button>
+              </Button>
             )}
-            <button type="button" onClick={props.onReload}>
+            <Button onClick={props.onReload}>
               {t("editor.useYaml")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -205,9 +209,9 @@ function Notices(props: {
       {props.externalChange && props.saveState !== "conflict" && (
         <div className="notice warning">
           {t("editor.externalChange")}
-          <button type="button" onClick={props.onReload}>
+          <Button onClick={props.onReload}>
             {t("editor.reload")}
-          </button>
+          </Button>
         </div>
       )}
       {props.message && (
@@ -225,6 +229,9 @@ export function EditorWorkspace(props: {
   beforeBody?: ReactNode;
   /** 紙の外、いちばん上に出すもの。一覧へ戻る導線のように紙の内容でないもの */
   aboveSurface?: ReactNode;
+  onOpenChanges?(): void;
+  /** 未保存確認を閉じて編集を続けるとき、元の編集欄へフォーカスを戻す要求 */
+  focusRequest?: number;
   view?: PageView;
   draft?: PageView;
   conflictView?: PageView;
@@ -239,6 +246,8 @@ export function EditorWorkspace(props: {
   saveState: SaveState;
   hasUnsavedChanges: boolean;
   message: string;
+  /** Set only when loading the page failed; other notices stay in `message`. */
+  loadError?: string;
   saveError: string;
   savedAt?: number;
   copyMessage: string;
@@ -269,7 +278,78 @@ export function EditorWorkspace(props: {
   onNavigatePage?(pageId: string, heading?: string): void;
 }) {
   const adapters = useRef(new Map<string, VellymEditorAdapter>());
+  const uploads = useRef(new Map<VellymEditorAdapter, (files: File[]) => void>());
+  const imageInput = useRef<HTMLInputElement>(null);
+  const imageAdapter = useRef<VellymEditorAdapter | undefined>(undefined);
+  const [imageStatuses, setImageStatuses] = useState<Record<string, { uploading: number; error: string }>>({});
+  const workspaceRef = useRef<HTMLElement | null>(null);
+  const lastFocusedInput = useRef<HTMLElement | undefined>(undefined);
+  const previousFocusRequest = useRef(props.focusRequest);
+  // Mod+S saves while editing; E starts editing while reading (shell/shortcuts.ts).
+  // The editor reports typing after a short delay, so a key press right after typing would
+  // save the older text: hand over each editor's current value first, then save next tick.
+  const latestProps = useRef(props);
+  latestProps.current = props;
+  const ready = Boolean(props.view && props.draft);
+  useShortcutAction("save", ready && props.editing ? () => {
+    const current = latestProps.current;
+    let handedOver = false;
+    for (const [key, adapter] of adapters.current) {
+      const separator = key.lastIndexOf(":");
+      const locale = key.slice(0, separator);
+      const index = Number(key.slice(separator + 1));
+      const value = adapter.flush();
+      const draftBlocks = current.localeDrafts?.find((draft) => draft.locale === locale)?.blocks ?? current.blocks;
+      if (draftBlocks[index]?.content === value) continue;
+      if (current.onLocaleBlockChange) current.onLocaleBlockChange(locale, index, value);
+      else current.onBlockChange(index, value);
+      handedOver = true;
+    }
+    if (!handedOver) { current.onSave(); return; }
+    // Save with the props of the render that received the new text, not the current ones.
+    const before = latestProps.current;
+    const saveWhenRendered = (frames: number) => {
+      if (latestProps.current !== before || frames > 20) latestProps.current.onSave();
+      else window.requestAnimationFrame(() => saveWhenRendered(frames + 1));
+    };
+    window.requestAnimationFrame(() => saveWhenRendered(0));
+  } : undefined);
+  useShortcutAction("edit", ready && !props.editing && props.canEdit ? props.onStartEdit : undefined);
   const activeAdapter = useRef<VellymEditorAdapter | undefined>(undefined);
+  useEffect(() => {
+    if (
+      props.focusRequest === undefined ||
+      props.focusRequest === previousFocusRequest.current
+    ) {
+      return;
+    }
+    previousFocusRequest.current = props.focusRequest;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      // react-aria restores focus to the element that opened the dialog in its
+      // close lifecycle. Wait until that restoration has completed before
+      // returning focus to the edit target.
+      secondFrame = window.requestAnimationFrame(() => {
+        const workspace = workspaceRef.current;
+        const target = lastFocusedInput.current;
+        if (
+          workspace &&
+          target &&
+          target.isConnected &&
+          workspace.contains(target) &&
+          !target.closest("[hidden]")
+        ) {
+          target.focus();
+          return;
+        }
+        (activeAdapter.current ?? adapters.current.values().next().value)?.focus();
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [props.focusRequest]);
   const [editorState, setEditorState] = useState<EditorStateSnapshot>({
     canUndo: false,
     canRedo: false,
@@ -310,9 +390,13 @@ export function EditorWorkspace(props: {
   }, [props.editLocale]);
 
   if (!props.view || !props.draft) {
+    // A failed first load has no view to put the notice on; show it here instead of
+    // leaving the loading text up forever.
     return (
       <section className="workspace">
-        <div className="empty">{t("editor.loading")}</div>
+        {props.loadError
+          ? <div className="notice warning" role="alert">{props.loadError}</div>
+          : <div className="empty">{t("editor.loading")}</div>}
       </section>
     );
   }
@@ -353,16 +437,18 @@ export function EditorWorkspace(props: {
         {props.aboveSurface}
         <Notices {...props} view={props.view} draft={props.draft} />
         <div className="document-paper">
-          <DocumentView
+          <HistoryDocument
+            key={props.view.relativePath}
             view={props.view}
             onNavigatePage={props.onNavigatePage}
             beforeBody={props.beforeBody}
+            onOpenChanges={props.onOpenChanges}
             headerActions={
               props.languageSwitcher || props.canEdit ? (
                 <div className={styles["document-actions"]}>
                   {props.languageSwitcher}
                   {props.canEdit && (
-                <Button tone="primary" onClick={props.onStartEdit}>
+                <Button className="edit-start-action" tone="primary" onClick={props.onStartEdit}>
                   {t("editor.edit")}
                 </Button>
                   )}
@@ -376,36 +462,53 @@ export function EditorWorkspace(props: {
   }
 
   return (
-    <section className="workspace edit-workspace">
+    <section
+      ref={workspaceRef}
+      className="workspace edit-workspace"
+      onFocusCapture={(event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        // ProseMirror owns its selection; adapter.focus() restores it. Keep
+        // actual form controls separately so clicking Cancel does not replace
+        // the last plugin/editor input with the button that opened the dialog.
+        if (target.closest('[contenteditable="true"]')) {
+          lastFocusedInput.current = undefined;
+        } else if (
+          target.matches("input, textarea, select, [role='textbox'], [role='combobox']")
+        ) {
+          lastFocusedInput.current = target;
+        }
+      }}
+    >
       <div className="edit-desktop">
         {props.aboveSurface}
         {props.editLanguageControls}
         <div className={styles["edit-toolbar"]} role="toolbar" aria-label={t("editor.toolbarLabel")}>
           <div className={styles["history-actions"]} role="group" aria-label={t("editor.historyGroup")}>
-            <button
-              type="button"
+            <Button
+              icon
               aria-label={t("editor.undo")}
               disabled={!editorState.canUndo}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => runHistory("undo")}
             >
               ↶
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              icon
               aria-label={t("editor.redo")}
               disabled={!editorState.canRedo}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => runHistory("redo")}
             >
               ↷
-            </button>
+            </Button>
           </div>
           <div className={styles["format-actions"]} role="group" aria-label={t("editor.formatGroup")}>
             {PRIMARY_ACTIONS.map((action) => (
-              <button
+              <Button
+                icon={action.command === "bullet-list" || action.command === "link"}
                 key={action.command}
-                type="button"
                 aria-label={t(action.labelKey)}
                 aria-pressed={editorState.activeCommands.includes(
                   action.command
@@ -418,8 +521,20 @@ export function EditorWorkspace(props: {
                 }
               >
                 {action.text}
-              </button>
+              </Button>
             ))}
+            {!isStaticApp() && <><Button aria-label={t("editor.insertImage")}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                imageAdapter.current = activeAdapter.current ?? adapters.current.values().next().value;
+                if (imageAdapter.current) imageInput.current?.click();
+              }}>{t("editor.insertImage")}</Button>
+            <input ref={imageInput} type="file" hidden multiple
+              accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
+              onChange={(event) => {
+                if (imageAdapter.current) uploads.current.get(imageAdapter.current)?.(Array.from(event.target.files ?? []));
+                event.target.value = "";
+              }} /></>}
             <details className={styles["more-actions"]}>
               <summary
                 aria-label={t("editor.moreFormats")}
@@ -433,9 +548,8 @@ export function EditorWorkspace(props: {
                 aria-label={t("editor.moreFormats")}
               >
                 {MORE_ACTIONS.map((action) => (
-                  <button
+                  <Button
                     key={action.command}
-                    type="button"
                     aria-pressed={editorState.activeCommands.includes(
                       action.command
                     )}
@@ -451,7 +565,7 @@ export function EditorWorkspace(props: {
                       {action.text}
                     </span>
                     <span>{t(action.labelKey)}</span>
-                  </button>
+                  </Button>
                 ))}
               </div>
             </details>
@@ -476,6 +590,8 @@ export function EditorWorkspace(props: {
               ))}
             </div>
           )}
+          {Object.values(imageStatuses).some((status) => status.uploading > 0) && <span role="status">{t("editor.imageUploading")}</span>}
+          {Object.entries(imageStatuses).map(([key, status]) => status.error && <span key={key} role="alert">{status.error}</span>)}
           <span className={`status ${props.saveState}`} aria-live="polite">
             {props.saveState === "dirty"
               ? t("editor.statusDirty")
@@ -561,8 +677,14 @@ export function EditorWorkspace(props: {
             </div>
           </div>
         )}
+        {/*
+          `localeDrafts`が無いのは、作成直後のように編集セッションが無い下書きである。
+          その既定の面は要求言語（正本の言語）として作る。`"base"`という定数にすると、
+          下の「正本の言語の面にだけ項目を出す」条件と照合されて偽になり、
+          プラグインの項目がどこにも出なくなる。
+        */}
         {(props.localeDrafts ?? [{
-          locale: props.editLocale ?? "base",
+          locale: props.editLocale ?? props.view?.baseLocale ?? "base",
           title: props.title,
           blocks: props.blocks
         }]).map((localeDraft) => {
@@ -608,7 +730,7 @@ export function EditorWorkspace(props: {
                         {t("editor.blockReadOnly", { reasons: assessment.reasons.join("、") })}
                       </p>
                       <div className="document-paper">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content}</ReactMarkdown>
+                        <ReactMarkdown urlTransform={assetUrlTransform} remarkPlugins={[remarkGfm]}>{block.content}</ReactMarkdown>
                       </div>
                     </section>
                   );
@@ -626,13 +748,23 @@ export function EditorWorkspace(props: {
                       activeAdapter.current = adapter;
                       setEditorState(adapter.state());
                     }}
-                    onReady={(adapter) => {
+                    onUploadStatus={(uploading, error) => setImageStatuses((previous) => ({
+                      ...previous, [adapterKey]: { uploading, error }
+                    }))}
+                    onReady={(adapter, upload) => {
                       if (adapter) {
                         adapters.current.set(adapterKey, adapter);
+                        if (upload) uploads.current.set(adapter, upload);
                         if (isActive && !activeAdapter.current) activeAdapter.current = adapter;
                       } else {
                         const removed = adapters.current.get(adapterKey);
+                        if (removed) uploads.current.delete(removed);
                         adapters.current.delete(adapterKey);
+                        setImageStatuses((previous) => {
+                          const next = { ...previous };
+                          delete next[adapterKey];
+                          return next;
+                        });
                         if (activeAdapter.current === removed) activeAdapter.current = undefined;
                       }
                     }}

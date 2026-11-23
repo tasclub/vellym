@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parse, parseDocument } from "yaml";
 import { validateConfig } from "@vellym-internal/core";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import { RuntimeError } from "./errors.js";
 import { isInside } from "./path-utils.js";
 import type { LoadedConfig } from "./types.js";
@@ -136,7 +137,8 @@ export async function applyUiLanguage(
 }
 
 export async function loadConfig(
-  configPath = path.resolve(process.cwd(), "vellym.config.yaml")
+  configPath = path.resolve(process.cwd(), "vellym.config.yaml"),
+  locale = "ja"
 ): Promise<LoadedConfig> {
   const absoluteConfig = path.resolve(configPath);
   let source: string;
@@ -162,7 +164,9 @@ export async function loadConfig(
   const result = validateConfig(value, absoluteConfig);
   if (!result.config) {
     throw new RuntimeError(
-      result.diagnostics.map((item) => `${item.path}: ${item.message}`).join("\n"),
+      result.diagnostics
+        .map((item) => `${item.path}: ${resolveLocalizedText(item.message, locale)}`)
+        .join("\n"),
       400,
       "CONFIG_SCHEMA"
     );
@@ -201,6 +205,8 @@ export async function loadConfig(
     configPath: absoluteConfig,
     projectRoot,
     contentRoot,
-    outputDir
+    outputDir,
+    assetsRoot: path.resolve(projectRoot, process.env.VELLYM_ASSETS_DIR || result.config.assets?.root || "assets"),
+    assetsMaxBytes: result.config.assets?.maxBytes ?? 10 * 1024 * 1024
   };
 }

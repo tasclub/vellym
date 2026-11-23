@@ -1,0 +1,72 @@
+/* All selectors are scoped by the plugin ID to avoid affecting the host or other plugins. */
+.kanban-board {
+  min-width: 0;
+}
+.kanban-card-title {
+  display: block;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  justify-content: flex-start;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 700;
+}
+.kanban-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-block: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--size-caption);
+}
+.kanban-filters-label {
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.kanban-filters > button {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--size-ui);
+}
+.kanban-filter-controls {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.kanban-filter-controls[hidden] {
+  display: none;
+}
+.kanban-filter-controls label {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.kanban-filter-controls select,
+.kanban-filter-controls input {
+  min-inline-size: 8rem;
+  max-inline-size: 18rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font: inherit;
+}

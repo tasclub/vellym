@@ -422,6 +422,15 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+@media (min-width: 1280px) {
+  .shell:not(.adminShell):not(:has(.outlineColumn)) {
+    grid-template:
+      "rail header header header" 54px
+      "rail navigation content outline" minmax(0, 1fr)
+      / 52px var(--navigation-width) minmax(0, 1fr) 0;
+  }
+}
+
 @media (max-width: 1023px) {
   .shell {
     height: auto;

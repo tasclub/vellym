@@ -23,8 +23,11 @@ import {
   type PageSummary
 } from "@vellym-internal/core";
 import type {
+  PluginDefinitionContext,
   PluginDiagnostic,
+  PluginIndexRow,
   PluginRecordProjectorFactory,
+  PluginRecordSetValidator,
   PluginResourceRecord
 } from "@vellym/plugin-api";
 import { RuntimeError } from "./errors.js";
@@ -88,6 +91,14 @@ function sameKinds(
   if (left.size !== right.size) return false;
   for (const kind of left) if (!right.has(kind)) return false;
   return true;
+}
+
+function kindSchemaSignature(
+  schemas: ReadonlyMap<string, import("@vellym/plugin-api").PluginKindContribution["specSchema"]> | undefined
+): string | undefined {
+  if (!schemas?.size) return undefined;
+  return JSON.stringify([...schemas.entries()]
+    .sort(([left], [right]) => left.localeCompare(right)));
 }
 
 const ignoredDirectories = new Set([
@@ -304,6 +315,8 @@ export interface LoadRepositoryOptions {
    * チケット本体のように、読めるが木には出さないkindはここへ入れない。
    */
   treeKinds?: ReadonlySet<string>;
+  /** kindごとのプラグイン固有spec schema */
+  kindSchemas?: ReadonlyMap<string, import("@vellym/plugin-api").PluginKindContribution["specSchema"]>;
   /**
    * kindごとの索引行の作り方。プラグインが`registerRecordProjection`で登録する。
    *
@@ -313,6 +326,15 @@ export interface LoadRepositoryOptions {
    * 数の多いものと少ないものを、登録の有無だけで区別する。
    */
   projections?: ReadonlyMap<string, PluginRecordProjectorFactory>;
+  /**
+   * kindごとの「索引行全体を検査する関数」。プラグインが
+   * `registerRecordSetValidator`で登録する。
+   *
+   * hostはkindについて何も知らないまま、索引行がすべてそろった後に
+   * 1回ずつ呼ぶ。同じkindへ複数登録してよい。同じ関数（同じ参照）は
+   * 1回だけ実行し、返された診断は`file`・`path`・`code`で重複を除く。
+   */
+  recordSetValidators?: ReadonlyMap<string, PluginRecordSetValidator[]>;
 }
 
 /** 抽出済みリソースからプラグインへ渡すレコードを作る。pathもFSも渡さない */
@@ -342,6 +364,64 @@ function definitionSignature(records: readonly PluginResourceRecord[]): string {
     .join("\n");
 }
 
+/** 重複除去の鍵。同じfile・path・codeは1度だけ出す */
+function diagnosticDedupKey(diagnostic: { file: string; path?: string; code: string }): string {
+  return `${diagnostic.file}\0${diagnostic.path ?? ""}\0${diagnostic.code}`;
+}
+
+/**
+ * 同じkindの索引行全体を、登録された検査関数へ渡す。
+ *
+ * **hostはkindについて何も知らない。** 行を`PluginIndexRow`の形へ組み立てて
+ * 渡すだけで、中身の解釈はプラグイン側にある。検査が投げても読み込みは続け、
+ * 警告にとどめる（1つの検査の失敗で一覧を丸ごと失わない）。
+ * 返された診断は`file`・`path`・`code`で重複を除いて足す。複数のプラグインが
+ * 同じエンジンを同梱して同じ診断を返しても、利用者には1度だけ見える。
+ */
+function runRecordSetValidators(
+  entries: readonly PageEntry[],
+  validators: ReadonlyMap<string, PluginRecordSetValidator[]>,
+  context: PluginDefinitionContext,
+  diagnostics: Diagnostic[]
+): void {
+  const seen = new Set(diagnostics.map(diagnosticDedupKey));
+  for (const [kind, list] of validators) {
+    if (!list.length) continue;
+    const rows: PluginIndexRow[] = [];
+    for (const entry of entries) {
+      if (entry.kind !== kind || !entry.indexRow) continue;
+      rows.push({ name: entry.name, title: entry.title, values: entry.indexRow });
+    }
+    for (const validate of list) {
+      let produced: readonly PluginDiagnostic[];
+      try {
+        produced = validate(rows, context);
+      } catch (error) {
+        diagnostics.push({
+          file: ".",
+          severity: "warning",
+          code: "PLUGIN_RECORD_SET_VALIDATION_FAILED",
+          message: {
+            ja: `kind ${kind}の索引行の検査が失敗しました: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            en: `The index row check for kind ${kind} failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          }
+        });
+        continue;
+      }
+      for (const item of produced ?? []) {
+        const key = diagnosticDedupKey(item);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        diagnostics.push({ ...item });
+      }
+    }
+  }
+}
+
 export async function loadRepository(
   contentRoot: string,
   previous?: RepositorySnapshot,
@@ -364,7 +444,8 @@ export async function loadRepository(
   const diagnostics: Diagnostic[] = [];
   const knownKindsUnchanged =
     previous === undefined ||
-    sameKinds(previous.knownKinds, options.knownKinds);
+    (sameKinds(previous.knownKinds, options.knownKinds) &&
+      previous.kindSchemaSignature === kindSchemaSignature(options.kindSchemas));
   const loadedFolders = await loadFolderSummaries(
     contentRoot,
     directories,
@@ -405,7 +486,8 @@ export async function loadRepository(
       source,
       mtimeMs: info.mtimeMs,
       size: info.size,
-      ...(options.knownKinds ? { knownKinds: options.knownKinds } : {})
+      ...(options.knownKinds ? { knownKinds: options.knownKinds } : {}),
+      ...(options.kindSchemas ? { kindSchemas: options.kindSchemas } : {})
     });
     diagnostics.push(...extracted.diagnostics);
     if (extracted.kind !== "entry") continue;
@@ -421,15 +503,15 @@ export async function loadRepository(
     }
   }
 
-  if (options.projections?.size) {
-    const context = {
+  if (options.projections?.size || options.recordSetValidators?.size) {
+    const context: PluginDefinitionContext = {
       records: (kind: string): readonly PluginResourceRecord[] =>
         definitionRecords.filter((record) => record.kind === kind),
       reportDiagnostic: (diagnostic: PluginDiagnostic) =>
         diagnostics.push({ ...diagnostic })
     };
     const projectors = new Map<string, ReturnType<PluginRecordProjectorFactory>>();
-    for (const [kind, create] of options.projections) {
+    for (const [kind, create] of options.projections ?? []) {
       try {
         projectors.set(kind, create(context));
       } catch (error) {
@@ -438,9 +520,14 @@ export async function loadRepository(
           file: ".",
           severity: "warning",
           code: "PLUGIN_PROJECTION_FAILED",
-          message: `kind ${kind}の索引を作れませんでした: ${
-            error instanceof Error ? error.message : String(error)
-          }`
+          message: {
+            ja: `kind ${kind}の索引を作れませんでした: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            en: `Could not create an index for kind ${kind}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          }
         });
       }
     }
@@ -460,6 +547,13 @@ export async function loadRepository(
           message: error instanceof Error ? error.message : String(error)
         });
       }
+    }
+
+    // 索引行がそろった後、行をまたぐ検査を1回だけ走らせる。projectorは
+    // レコード1件ずつしか見えないため、参照の解決や循環はここでやる。
+    // 索引を作り直す経路（上の読み込み全体）はすべてここを通る。
+    if (options.recordSetValidators?.size) {
+      runRecordSetValidators(entries, options.recordSetValidators, context, diagnostics);
     }
   }
   pendingProjection.length = 0;
@@ -498,7 +592,10 @@ export async function loadRepository(
         path: "/spec/order",
         severity: "error",
         code: "FOLDER_ORDER_MISSING",
-        message: `存在しない子がorderに含まれています: ${item}`
+        message: {
+          ja: `存在しない子がorderに含まれています: ${item}`,
+          en: `The order includes a child that does not exist: ${item}`
+        }
       });
     }
   }
@@ -506,6 +603,7 @@ export async function loadRepository(
     contentRoot,
     ...(options.knownKinds ? { knownKinds: options.knownKinds } : {}),
     ...(options.treeKinds ? { treeKinds: options.treeKinds } : {}),
+    ...(options.kindSchemas ? { kindSchemaSignature: kindSchemaSignature(options.kindSchemas) } : {}),
     ...(options.projections?.size ? { definitionSignature: signature } : {}),
     ...(definitionRecords.length ? { definitionRecords } : {}),
     entryIndex,
@@ -518,35 +616,6 @@ export async function loadRepository(
   };
 }
 
-export interface UnknownKindGroup {
-  kind: string;
-  count: number;
-  resources: Array<{ name: string; title: string; relativePath: string }>;
-}
-
-/**
- * 解釈できるプラグインが無いkindを、kindごとにまとめて返す。文書ツリーには出さず、
- * 「その時点のプラグイン構成で解釈できないもの」として利用者へ示すために使う。
- * 整理は利用者の作業であり、Vellymは自動で移動・削除・変換を行わない。
- */
-export function unknownKindGroups(snapshot: RepositorySnapshot): UnknownKindGroup[] {
-  const groups = new Map<string, UnknownKindGroup>();
-  for (const entry of snapshot.pages) {
-    if (entry.kind === "Page") continue;
-    // 解釈できるプラグインがあるkindは「未知の内容」ではない。
-    if (snapshot.knownKinds?.has(entry.kind)) continue;
-    const group = groups.get(entry.kind) ?? { kind: entry.kind, count: 0, resources: [] };
-    group.count += 1;
-    group.resources.push({
-      name: entry.name,
-      title: entry.title,
-      relativePath: entry.relativePath
-    });
-    groups.set(entry.kind, group);
-  }
-  return [...groups.values()].sort((left, right) => left.kind.localeCompare(right.kind));
-}
-
 export function pageSummaries(snapshot: RepositorySnapshot): PageSummary[] {
   return snapshot.pages.map((entry) => ({
     name: entry.name,
@@ -555,6 +624,36 @@ export function pageSummaries(snapshot: RepositorySnapshot): PageSummary[] {
     relativePath: entry.relativePath,
     readOnly: entry.readOnly,
     resourceKind: entry.kind
+  }));
+}
+
+/**
+ * Resources of a kind no installed plugin interprets, grouped by kind. Vellym never moves,
+ * deletes or converts them; tidying up is the user's job.
+ */
+export interface UnknownKindGroup {
+  kind: string;
+  count: number;
+  resources: Array<{ name: string; title: string; relativePath: string }>;
+}
+
+/**
+ * The "uninterpreted content" aggregate. Such resources stay readable as body-only documents
+ * through search and links, but appear in no tree; this tells the user where they are.
+ */
+export function unknownKindGroups(snapshot: RepositorySnapshot): UnknownKindGroup[] {
+  const byKind = new Map<string, UnknownKindGroup["resources"]>();
+  for (const entry of snapshot.pages) {
+    // Folders starting with "_" (archive, set-aside material) stay out; "+" folders are machine
+    // stores of listed content (such as +tickets) and count.
+    const setAside = entry.relativePath.split("/").slice(0, -1).some((segment) => segment.startsWith("_"));
+    if (entry.kind === "Page" || entry.kind === "Folder" || snapshot.knownKinds?.has(entry.kind) || setAside) continue;
+    const items = byKind.get(entry.kind) ?? [];
+    items.push({ name: entry.name, title: entry.title, relativePath: entry.relativePath });
+    byKind.set(entry.kind, items);
+  }
+  return [...byKind].sort(([a], [b]) => a.localeCompare(b)).map(([kind, resources]) => ({
+    kind, count: resources.length, resources: resources.sort((a, b) => a.relativePath.localeCompare(b.relativePath))
   }));
 }
 

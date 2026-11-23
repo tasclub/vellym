@@ -1,5 +1,7 @@
 import type { PluginViewPayload } from "../plugin/plugin-list-view.js";
 import type { PluginInputValue, PluginPendingResource } from "@vellym/plugin-api";
+import { resolveLocalizedText } from "@vellym/plugin-api";
+import { i18next } from "./i18n.js";
 import type { PluginSpecValue } from "../plugin/plugin-detail-view.js";
 import type {
   Diagnostic,
@@ -7,9 +9,11 @@ import type {
   FolderEditView,
   PageSummary,
   PageEditView,
+  LocalizedPageProjection,
   PageView,
   SearchProjection
 } from "@vellym-internal/core";
+import { API_SCHEMA_VERSION } from "@vellym-internal/core";
 
 export interface Envelope<T> {
   /** HTTP応答と静的データの封筒形式の版。 */
@@ -17,6 +21,60 @@ export interface Envelope<T> {
   buildId?: string;
   data: T;
   diagnostics: Diagnostic[];
+}
+
+export interface GitCommit {
+  hash: string;
+  date: string;
+  author: string;
+  subject: string;
+}
+export interface GitHistoryData {
+  commits: Array<GitCommit & { rename?: { from: string; to: string } }>;
+  /** Index tracking and worktree/index changes (including non-ignored untracked files). */
+  tracked: boolean;
+  uncommitted: boolean;
+  nextOffset: number | null;
+}
+export type GitResult<T> =
+  | { available: false; reason: "unavailable" }
+  | ({ available: true; shallow: boolean; boundaryTruncated?: boolean } & T);
+
+function fetchGit<T>(operation: string, params: Record<string, string>, signal?: AbortSignal): Promise<Envelope<GitResult<T>>> {
+  if (isStaticApp()) return Promise.resolve({ apiSchemaVersion: API_SCHEMA_VERSION, data: { available: false, reason: "unavailable" }, diagnostics: [] });
+  return request(`/api/v1/git/${operation}?${new URLSearchParams(params)}`, { signal });
+}
+
+/** Commits whose message names `name` exactly (newest first). */
+export function fetchGitMentions(name: string, limit = 20, signal?: AbortSignal, offset = 0): Promise<Envelope<GitResult<{ nextOffset: number | null; commits: GitCommit[] }>>> {
+  return fetchGit("mentions", { name, limit: String(limit), offset: String(offset) }, signal);
+}
+export function fetchGitHistory(filePath: string, limit = 50, signal?: AbortSignal, offset = 0): Promise<Envelope<GitResult<GitHistoryData>>> {
+  return fetchGit("history", { path: filePath, limit: String(limit), offset: String(offset) }, signal);
+}
+/** Omit revisions for last commit → worktree; from="" uses empty content.
+ * context="all" includes every unchanged line for client-side folding/expansion. */
+export function fetchGitDiff(filePath: string, from?: string, to?: string, signal?: AbortSignal, context: number | "all" = 3): Promise<Envelope<GitResult<{ diff: string }>>> {
+  return fetchGit("diff", { path: filePath, ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}), context: String(context) }, signal);
+}
+/** Raw YAML, plus its server-side projection in `locale` when the version is a valid Page. */
+export function fetchGitContent(filePath: string, revision: string, signal?: AbortSignal, locale?: string, baseLocale?: string): Promise<Envelope<GitResult<{ source: string; view?: LocalizedPageProjection }>>> {
+  return fetchGit("content", { path: filePath, revision, ...(locale ? { locale } : {}), ...(baseLocale ? { baseLocale } : {}) }, signal);
+}
+export function fetchGitRecent(limit = 50, signal?: AbortSignal, offset = 0): Promise<Envelope<GitResult<{ nextOffset: number | null; commits: Array<GitCommit & { files: Array<{ path: string; status: string; title?: string }> }> }>>> {
+  return fetchGit("recent", { limit: String(limit), offset: String(offset) }, signal);
+}
+
+export interface GitChange { path: string; status: string; oldPath?: string; title?: string }
+export type GitStatus = { available: false } | { available: true; branch: string; upstream: string; ahead: number; files: GitChange[] };
+export type GitWriteResult = { ok: true; hash?: string } | { ok: false; code: string; details?: string };
+export function fetchGitStatus(signal?: AbortSignal): Promise<Envelope<GitStatus>> {
+  if (isStaticApp()) return Promise.resolve({ apiSchemaVersion: API_SCHEMA_VERSION, data: { available: false }, diagnostics: [] });
+  return request("/api/v1/git/status", { signal });
+}
+export function fetchChangeDiff(path: string, signal?: AbortSignal) { return fetchGit<{ diff: string }>("change-diff", { path }, signal); }
+export function writeGit(operation: "commit" | "push", body: { message?: string; paths?: string[] }): Promise<Envelope<GitWriteResult>> {
+  return request(`/api/v1/git/${operation}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 
 export interface BootstrapData {
@@ -37,11 +95,12 @@ export interface BootstrapData {
     /** 実行中のVellym本体の版。ブラウザ側hostへ渡す */
     hostVersion?: string;
     /** ブラウザ側エントリの読み込み先。宣言したプラグインだけが並ぶ */
-    browserEntries?: Array<{ id: string; url: string }>;
+    browserEntries?: Array<{ id: string; url: string; styles?: string[] }>;
     /** 種別ごとのアイコン。プラグインが渡したものだけが入る */
     kindIcons?: Record<string, import("@vellym/plugin-api").PluginKindIcon>;
     documentTreeCommands: Array<{
       id: string;
+      pluginId: string;
       title: import("@vellym/plugin-api").PluginLocalizedText;
       inputs?: readonly import("@vellym/plugin-api").PluginCommandInput[];
     }>;
@@ -62,6 +121,8 @@ export interface RepositoryData {
   availableLocales: string[];
   pages: PageSummary[];
   folders: FolderSummary[];
+  /** Resources no installed plugin interprets, by kind (live only). */
+  unknownKinds?: Array<{ kind: string; count: number; resources: Array<{ name: string; title: string; relativePath: string }> }>;
 }
 
 interface StaticPluginViewIndex {
@@ -273,11 +334,22 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
-    public readonly diagnostics: Diagnostic[]
+    public readonly diagnostics: Diagnostic[],
+    code?: string
   ) {
     super(message);
-    this.code = diagnostics[0]?.code;
+    this.code = code ?? diagnostics[0]?.code;
   }
+}
+
+/** Raw image body: the server owns MIME/signature and configured size validation. */
+export function uploadImage(file: File, signal?: AbortSignal): Promise<Envelope<{ path: string; url: string }>> {
+  return request("/api/v1/assets", {
+    method: "POST",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+    signal
+  });
 }
 
 async function request<T>(
@@ -289,11 +361,13 @@ async function request<T>(
   try {
     result = (await response.json()) as Envelope<T | null>;
   } catch {
-    throw new ApiError("サーバー応答を解析できません", response.status, []);
+    throw new ApiError(i18next.t("error.API_RESPONSE_PARSE"), response.status, [], "API_RESPONSE_PARSE");
   }
   if (!response.ok || result.data === null) {
     throw new ApiError(
-      result.diagnostics[0]?.message ?? `HTTP ${response.status}`,
+      result.diagnostics[0]
+        ? resolveLocalizedText(result.diagnostics[0].message, i18next.language)
+        : `HTTP ${response.status}`,
       response.status,
       result.diagnostics
     );
@@ -306,6 +380,8 @@ declare global {
     __VELLYM_STATIC__?: {
       appBase: string;
       assetBase: string;
+      /** Images referenced by published bodies (`media/`). Missing in builds before 0.5.0-beta. */
+      mediaBase?: string;
       dataBase: string;
       buildId: string;
       locale: string;
@@ -323,9 +399,16 @@ function staticBase(): string | undefined {
     const documentBase = document.baseURI;
     config.appBase = new URL(config.appBase, documentBase).href;
     config.assetBase = new URL(config.assetBase, documentBase).href;
+    config.mediaBase = new URL(config.mediaBase ?? `${config.appBase}media`, documentBase).href.replace(/\/$/, "");
     config.dataBase = new URL(config.dataBase, documentBase).href.replace(/\/$/, "");
   }
   return config.dataBase;
+}
+
+/** Absolute URL of the static `media/` folder, resolved once at start-up like the other bases. */
+export function staticMediaBase(): string | undefined {
+  if (!staticBase()) return undefined;
+  return window.__VELLYM_STATIC__!.mediaBase;
 }
 
 /**
@@ -360,22 +443,25 @@ async function fetchStatic<T>(base: string, file: string): Promise<Envelope<T>> 
   try {
     result = (await response.json()) as Envelope<T | null>;
   } catch {
-    throw new ApiError("静的データを解析できません", response.status, []);
+    throw new ApiError(i18next.t("error.STATIC_DATA_PARSE"), response.status, [], "STATIC_DATA_PARSE");
   }
   if (!response.ok || result.data === null) {
     throw new ApiError(
-      result.diagnostics[0]?.message ?? `HTTP ${response.status}`,
+      result.diagnostics[0]
+        ? resolveLocalizedText(result.diagnostics[0].message, i18next.language)
+        : `HTTP ${response.status}`,
       response.status,
       result.diagnostics
     );
   }
   const expectedBuild = window.__VELLYM_STATIC__?.buildId;
   if (expectedBuild && result.buildId !== expectedBuild) {
-    throw new ApiError("静的サイトのHTMLとデータの版が一致しません。再読み込みしてください", 409, [{
+    const message = i18next.t("error.STATIC_BUILD_MISMATCH");
+    throw new ApiError(message, 409, [{
       file: file,
       severity: "error",
       code: "STATIC_BUILD_MISMATCH",
-      message: "静的サイトのHTMLとデータのbuild IDが一致しません"
+      message
     }]);
   }
   return result as Envelope<T>;
@@ -410,14 +496,28 @@ function fetchStaticPluginViewIndex(base: string): Promise<StaticPluginViewIndex
   return entry.value;
 }
 
-export function fetchBootstrap(
+export async function fetchBootstrap(
   signal?: AbortSignal,
   locale?: string
 ): Promise<Envelope<BootstrapData>> {
   const base = staticBase();
-  if (base) return fetchStatic<BootstrapData>(base, "bootstrap.json");
   const query = locale ? `?locale=${encodeURIComponent(locale)}` : "";
-  return request(`/api/v1/bootstrap${query}`, { signal });
+  const result = base
+    ? await fetchStatic<BootstrapData>(base, "bootstrap.json")
+    : await request<BootstrapData>(`/api/v1/bootstrap${query}`, { signal });
+  // The API's `uiLocale` currently follows the requested document locale when
+  // the URL has a /ja/ or /en/ prefix. Product UI language is configured
+  // independently, so browser/plugin UI must use the configured `language`.
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      project: {
+        ...result.data.project,
+        uiLocale: result.data.project.language
+      }
+    }
+  };
 }
 
 export function fetchSetupCatalog(
@@ -562,6 +662,7 @@ export async function fetchPluginView(
 export async function runPluginCommand(
   commandId: string,
   options: {
+    pluginId?: string;
     target?: string;
     /** 宣言した型のまま送る。すべてを文字列へ潰さない */
     input?: Record<string, PluginInputValue>;
@@ -588,6 +689,7 @@ export async function runPluginCommand(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        ...(options.pluginId ? { pluginId: options.pluginId } : {}),
         ...(options.target ? { target: options.target } : {}),
         ...(options.input ? { input: options.input } : {})
       })

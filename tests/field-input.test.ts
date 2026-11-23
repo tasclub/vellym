@@ -97,3 +97,40 @@ describe("FieldInput の真偽値", () => {
     expect(box.saved()).toBe(false);
   });
 });
+
+/**
+ * `reference`に`multiple: true`を付けた項目は、詳細の編集欄で`multiselect`と
+ * 同じカンマ区切りの入力を扱い、保存すると配列になる。単一参照は今までどおり
+ * 文字列で、編集欄の案内文も参照用のまま。
+ */
+describe("FieldInput の multiple: true の参照", () => {
+  const multipleRef: PluginFieldDescriptor = {
+    id: "dependsOn", label: "依存", type: "reference", path: ["fields", "dependsOn"], multiple: true
+  };
+  const singleRef: PluginFieldDescriptor = {
+    id: "parent", label: "親", type: "reference", path: ["fields", "parent"]
+  };
+
+  it("カンマ区切りの入力を配列へ戻し、単一参照は文字列のまま", () => {
+    expect(toSpecValue(multipleRef, "ticket-a, ticket-b,")).toEqual(["ticket-a", "ticket-b"]);
+    expect(toSpecValue(multipleRef, "")).toBeNull();
+    expect(toSpecValue(singleRef, "ticket-a")).toBe("ticket-a");
+  });
+
+  function render(field: PluginFieldDescriptor, value: string) {
+    act(() => root.render(createElement(FieldInput, {
+      field, id: "field-value", value, locale: "ja", onChange: () => {}
+    })));
+    return host.querySelector<HTMLInputElement>("input")!;
+  }
+
+  it("multiple参照はカンマ区切りの案内付きで描き、単一参照の案内は今までどおり", () => {
+    // 2回目のrenderでReactが同じDOM節点を流用するため、属性は描き直前に読み取る。
+    const multi = render(multipleRef, "ticket-a, ticket-b");
+    expect(multi.value).toBe("ticket-a, ticket-b");
+    const multiHint = multi.getAttribute("placeholder");
+    expect(["カンマ区切り", "Comma separated", "plugin.multiselectHint"]).toContain(multiHint);
+    const single = render(singleRef, "ticket-a");
+    expect(single.getAttribute("placeholder")).not.toBe(multiHint);
+  });
+});

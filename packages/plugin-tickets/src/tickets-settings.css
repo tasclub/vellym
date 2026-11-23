@@ -1,0 +1,139 @@
+.tickets-settings {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.tickets-settings-header,
+.tickets-settings-row {
+  display: grid;
+  align-items: center;
+  column-gap: var(--space-3);
+  min-width: 0;
+}
+
+.tickets-settings-header {
+  padding-inline: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--size-caption);
+  font-weight: 600;
+}
+
+.tickets-settings-status-grid {
+  grid-template-columns: minmax(7rem, 0.8fr) minmax(10rem, 1.4fr)
+    minmax(8rem, 0.8fr) minmax(11rem, max-content);
+}
+
+.tickets-settings-field-grid {
+  grid-template-columns: minmax(6rem, 0.7fr) minmax(9rem, 1.3fr)
+    minmax(7rem, 0.8fr) minmax(5rem, 0.5fr) minmax(7rem, 0.7fr)
+    minmax(9rem, max-content);
+}
+
+.tickets-settings-option-grid {
+  grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1.4fr)
+    minmax(11rem, max-content);
+}
+
+.tickets-settings-row {
+  padding: var(--space-2);
+  border-block-start: 1px solid var(--border-subtle);
+}
+
+.tickets-settings-row label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tickets-settings-row input:not([type="checkbox"]),
+.tickets-settings-row select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.tickets-settings-row input[type="checkbox"] {
+  align-self: start;
+  min-height: 1.25rem;
+  min-width: 1.25rem;
+  accent-color: var(--accent-default);
+}
+
+.tickets-settings-cell-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tickets-settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-1);
+  min-height: 2.25rem;
+  white-space: nowrap;
+}
+
+.tickets-settings-actions button {
+  flex-shrink: 0;
+}
+
+.tickets-settings-row [role="status"] {
+  grid-column: 1 / -1;
+  min-height: 1.25em;
+  color: var(--text-muted);
+  font-size: var(--size-caption);
+}
+
+.tickets-settings fieldset {
+  min-width: 0;
+  margin-block: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.tickets-settings [data-row="field"] > fieldset {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .tickets-settings-header {
+    display: none;
+  }
+
+  .tickets-settings-status-grid,
+  .tickets-settings-field-grid,
+  .tickets-settings-option-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tickets-settings-cell-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    color: var(--text-muted);
+    font-size: var(--size-caption);
+  }
+
+  .tickets-settings-actions,
+  .tickets-settings-row [role="status"],
+  .tickets-settings-row > fieldset {
+    grid-column: 1 / -1;
+  }
+}

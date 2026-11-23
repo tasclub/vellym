@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   isUnknownKind,
   knownRichTextBlocks,
+  validateKindSpec,
   validatePage,
   validateResource,
   type Page
 } from "../packages/core/src/index.js";
+import { resolveLocalizedText } from "@vellym/plugin-api";
 import { extractPageEntry } from "../packages/runtime-node/src/repository-entry.js";
 import {
   loadRepository,
@@ -47,6 +49,19 @@ function extract(source: string, relativePath = "page.yaml") {
 }
 
 describe("kind dispatch", () => {
+  it("localizes fallback messages for uncommon schema keywords", () => {
+    const diagnostics = validateKindSpec(
+      { value: "present" },
+      "ticket.yaml",
+      { type: "object", not: { required: ["value"] } }
+    );
+
+    expect(diagnostics).toHaveLength(1);
+    expect(resolveLocalizedText(diagnostics[0]!.message, "ja"))
+      .toBe("スキーマ検証に失敗しました");
+    expect(resolveLocalizedText(diagnostics[0]!.message, "en")).not.toBe("");
+  });
+
   it("treats kinds without a Core schema as unknown", () => {
     expect(isUnknownKind({ kind: "Ticket" })).toBe(true);
     expect(isUnknownKind({ kind: "Page" })).toBe(false);
@@ -144,6 +159,17 @@ spec:
         ]
       }
     ]);
+  });
+
+  it("counts unknown kinds in + folders but leaves _ folders (such as the archive) out", async () => {
+    // ticket-01m7q8v1pj465hapc800hkhhqz
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-unknown-kinds-"));
+    await mkdir(path.join(root, "+tickets"), { recursive: true });
+    await mkdir(path.join(root, "_archive"), { recursive: true });
+    await writeFile(path.join(root, "+tickets/ticket.yaml"), TICKET);
+    await writeFile(path.join(root, "_archive/ticket.yaml"), TICKET.replace("ticket-01jxyz", "ticket-01jxya"));
+    const groups = unknownKindGroups(await loadRepository(root));
+    expect(groups.map((group) => group.resources.map((item) => item.relativePath))).toEqual([["+tickets/ticket.yaml"]]);
   });
 
   it("still finds an unknown kind through full-text search", async () => {

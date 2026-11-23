@@ -1,4 +1,5 @@
 import type { PluginDiagnostic } from "./diagnostics.js";
+import type { PluginIndexRow } from "./host.js";
 
 /**
  * プラグインが受け取る、抽出済みのリソース1件。
@@ -70,6 +71,25 @@ export type PluginRecordProjector = (
 export type PluginRecordProjectorFactory = (
   context: import("./views.js").PluginDefinitionContext
 ) => PluginRecordProjector;
+
+/**
+ * 同じkindの索引行全体を検査する関数。
+ *
+ * projectorはレコード1件ずつしか見えないため、リソースをまたぐ検査
+ * （参照先の存在、循環、値の突き合わせ）が書けなかった。この受け口は
+ * **索引行がすべてそろった後に1回だけ**呼ばれ、全行を受け取る。
+ *
+ * 渡るのは索引行だけである。`spec`もファイルsystemのpathも渡さない。
+ * 返した診断は`validate`と画面に、他の診断と同じ経路で出る。
+ * 例外を投げても読み込みは続く（hostが警告にする）。
+ *
+ * 同じkindへ複数のプラグインが登録できる。同じ関数（同じ参照）を2回登録しても
+ * hostは1回だけ実行し、診断は`file`・`path`・`code`で重複を除く。
+ */
+export type PluginRecordSetValidator = (
+  rows: readonly PluginIndexRow[],
+  context: import("./views.js").PluginDefinitionContext
+) => readonly PluginDiagnostic[];
 
 /**
  * まだ正本に存在しないリソースの編集開始値。

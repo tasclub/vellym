@@ -1,0 +1,61 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: official-plugins
+  title: 公式プラグイン
+spec:
+  locale: ja
+  blocks:
+    - id: official-plugins
+      type: rich-text
+      content: |
+        Vellymの公式プラグインを紹介します。
+
+        ## @vellym/tickets
+
+        Vellymに`Ticket`と`TicketTracker`を追加し、工程ごとのステータスや項目を使ったチケット管理を提供します。Vellym本体で動作し、他の公式プラグインは必要ありません。
+
+        [npm](https://www.npmjs.com/package/@vellym/tickets) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-tickets/README.md)
+
+        ## @vellym/kanban
+
+        `TicketTracker`が管理するチケットをカンバンで表示します。単独で導入でき、`@vellym/tickets`も有効なら同じTrackerから一覧とカンバンを切り替えられます。
+
+        [npm](https://www.npmjs.com/package/@vellym/kanban) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-kanban/README.md)
+
+        ## @vellym/wbs
+
+        `TicketTracker`のチケットを親子階層と日程のWBSで表示します。単独で導入でき、`@vellym/tickets`や`@vellym/kanban`と併用すると同じTrackerからビューを切り替えられます。
+
+        [npm](https://www.npmjs.com/package/@vellym/wbs) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-wbs/README.md) · 使い方: [[wbs|WBS]]
+
+        プラグインを作る入口は[[developing-plugins|プラグインを作る]]です。Plugin APIはbeta版のあいだ変更されることがあります。
+  translations:
+    en:
+      visibility: published
+      title: Official Plugins
+      blocks:
+        - id: official-plugins
+          type: rich-text
+          content: |
+            This page introduces Vellym's official plugins.
+
+            ## @vellym/tickets
+
+            Adds `Ticket` and `TicketTracker` resources to Vellym and provides ticket management with workflow-specific statuses and fields. It runs with Vellym and does not require another official plugin.
+
+            [npm](https://www.npmjs.com/package/@vellym/tickets) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-tickets/README.md)
+
+            ## @vellym/kanban
+
+            Displays tickets managed by a `TicketTracker` as a Kanban board. It can be installed on its own; with `@vellym/tickets` enabled, users can switch between the list and Kanban views from the same tracker.
+
+            [npm](https://www.npmjs.com/package/@vellym/kanban) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-kanban/README.md)
+
+            ## @vellym/wbs
+
+            Displays `TicketTracker` tickets as a parent-child hierarchy with a schedule. It can be installed on its own; with `@vellym/tickets` or `@vellym/kanban` enabled, users can switch views from the same tracker.
+
+            [npm](https://www.npmjs.com/package/@vellym/wbs) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-wbs/README.md) · How to use: [[wbs|WBS]]
+
+            To get started with plugin development, see [[developing-plugins|Developing Plugins]]. The Plugin API may change while it is in beta.

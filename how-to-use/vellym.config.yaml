@@ -12,3 +12,5 @@ static:
   publicBaseUrl: https://vellym.tasclub.com/
 plugins:
   - "@vellym/tickets"
+  - "@vellym/kanban"
+  - "@vellym/wbs"

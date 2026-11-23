@@ -22,6 +22,7 @@ import {
   type VellymResource
 } from "./types.js";
 import { normalizeLocale } from "./i18n.js";
+import type { PluginLocalizedText } from "@vellym/plugin-api";
 
 const Ajv2020 = Ajv2020Module.default as unknown as new (options?: Options) => {
   compile<T>(schema: object): ValidateFunction<T>;
@@ -38,6 +39,9 @@ interface Validators {
 }
 
 let validators: Validators | undefined;
+let schemaAjv: InstanceType<typeof Ajv2020> | undefined;
+const kindSpecValidators = new WeakMap<object, ValidateFunction<unknown>>();
+const invalidKindSpecSchemas = new WeakMap<object, string>();
 
 function getValidators(): Validators {
   if (validators) return validators;
@@ -47,6 +51,7 @@ function getValidators(): Validators {
     instance: typeof ajv
   ) => void;
   addFormats(ajv);
+  schemaAjv = ajv;
   validators = {
     page: ajv.compile<Page>(pageSchema),
     resource: ajv.compile<VellymResource>(resourceSchema),
@@ -59,37 +64,115 @@ function getValidators(): Validators {
   return validators;
 }
 
+/** Validate a plugin-owned resource spec without rejecting or rewriting its source. */
+export function validateKindSpec(
+  value: unknown,
+  file: string,
+  schema: Readonly<Record<string, unknown>>
+): Diagnostic[] {
+  getValidators();
+  let validator = kindSpecValidators.get(schema);
+  const cachedFailure = invalidKindSpecSchemas.get(schema);
+  if (cachedFailure) return invalidSchemaDiagnostic(file, cachedFailure);
+  try {
+    if (!validator) {
+      validator = schemaAjv!.compile<unknown>(schema);
+      kindSpecValidators.set(schema, validator);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    invalidKindSpecSchemas.set(schema, message);
+    return invalidSchemaDiagnostic(file, message);
+  }
+  if (validator(value)) return [];
+  return (validator.errors ?? []).map((error) => ({
+    file,
+    path: `/spec${error.instancePath}` || "/spec",
+    severity: "warning",
+    code: "PLUGIN_SPEC_SCHEMA_MISMATCH",
+    message: messageFromAjv(error)
+  }));
+}
+
+function invalidSchemaDiagnostic(file: string, detail: string): Diagnostic[] {
+  return [{
+    file,
+    path: "/spec",
+    severity: "warning",
+    code: "PLUGIN_SPEC_SCHEMA_INVALID",
+    message: {
+      ja: `プラグインが登録したspecSchemaを使用できません: ${detail}`,
+      en: `The plugin's specSchema could not be used: ${detail}`
+    }
+  }];
+}
+
 // AJVの英語メッセージは日本語UI・CLIに技術的な英語文字列を混在させるため、
 // 代表的なkeywordを日本語へ変換する。未知のkeywordは元のメッセージへ委ねる。
-function japaneseMessageFromAjv(error: ErrorObject): string {
+function messageFromAjv(error: ErrorObject): PluginLocalizedText {
   const params = error.params as Record<string, unknown>;
   switch (error.keyword) {
     case "required":
-      return `必須項目「${String(params.missingProperty)}」がありません`;
+      return {
+        ja: `必須項目「${String(params.missingProperty)}」がありません`,
+        en: `Required property "${String(params.missingProperty)}" is missing.`
+      };
     case "type":
-      return `型が不正です（${String(params.type)}である必要があります）`;
+      return {
+        ja: `型が不正です（${String(params.type)}である必要があります）`,
+        en: `The value must be of type ${String(params.type)}.`
+      };
     case "enum": {
       const allowed = Array.isArray(params.allowedValues)
         ? params.allowedValues.join("、 ")
         : "";
-      return `値が許可されていません（許可値: ${allowed}）`;
+      return {
+        ja: `値が許可されていません（許可値: ${allowed}）`,
+        en: `The value is not allowed (allowed values: ${allowed}).`
+      };
     }
     case "additionalProperties":
-      return `想定外の項目「${String(params.additionalProperty)}」があります`;
+      return {
+        ja: `想定外の項目「${String(params.additionalProperty)}」があります`,
+        en: `Unexpected property "${String(params.additionalProperty)}".`
+      };
     case "format":
-      return `形式が不正です（${String(params.format)}形式である必要があります）`;
+      return {
+        ja: `形式が不正です（${String(params.format)}形式である必要があります）`,
+        en: `The value must use the ${String(params.format)} format.`
+      };
     case "const":
-      return `値が固定値と一致しません（${String(params.allowedValue)}である必要があります）`;
+      return {
+        ja: `値が固定値と一致しません（${String(params.allowedValue)}である必要があります）`,
+        en: `The value must be ${String(params.allowedValue)}.`
+      };
     case "minLength":
-      return `文字数が不足しています（${String(params.limit)}文字以上が必要です）`;
+      return {
+        ja: `文字数が不足しています（${String(params.limit)}文字以上が必要です）`,
+        en: `The value must contain at least ${String(params.limit)} characters.`
+      };
     case "maxLength":
-      return `文字数が多すぎます（${String(params.limit)}文字以下にしてください）`;
+      return {
+        ja: `文字数が多すぎます（${String(params.limit)}文字以下にしてください）`,
+        en: `The value must contain no more than ${String(params.limit)} characters.`
+      };
     case "minItems":
-      return `要素数が不足しています（${String(params.limit)}件以上が必要です）`;
+      return {
+        ja: `要素数が不足しています（${String(params.limit)}件以上が必要です）`,
+        en: `The array must contain at least ${String(params.limit)} items.`
+      };
     case "pattern":
-      return `形式が不正です（パターン ${String(params.pattern)} に一致しません）`;
-    default:
-      return error.message ?? "スキーマ検証に失敗しました";
+      return {
+        ja: `形式が不正です（パターン ${String(params.pattern)} に一致しません）`,
+        en: `The value does not match pattern ${String(params.pattern)}.`
+      };
+    default: {
+      const detail = error.message?.trim();
+      return {
+        ja: "スキーマ検証に失敗しました",
+        en: detail || "Schema validation failed."
+      };
+    }
   }
 }
 
@@ -104,7 +187,7 @@ function diagnosticsFromAjv(
     path: `${pathPrefix}${error.instancePath}` || "/",
     severity: "error",
     code,
-    message: japaneseMessageFromAjv(error)
+    message: messageFromAjv(error)
   }));
 }
 
@@ -262,7 +345,10 @@ function validateResourceLocale(
       path,
       severity: "error",
       code: "INVALID_LOCALE",
-      message: `locale「${raw}」はVellymで利用できる形式ではありません`
+      message: {
+        ja: `locale「${raw}」はVellymで利用できる形式ではありません`,
+        en: `The locale "${raw}" is not a valid Vellym locale tag.`
+      }
     });
   } else if (!normalized.canonicalInput) {
     diagnostics.push({
@@ -270,7 +356,10 @@ function validateResourceLocale(
       path,
       severity: "warning",
       code: "NON_CANONICAL_LOCALE",
-      message: `locale「${raw}」のcanonical表記は「${normalized.canonical}」です`
+      message: {
+        ja: `locale「${raw}」のcanonical表記は「${normalized.canonical}」です`,
+        en: `Use the canonical locale tag "${normalized.canonical}" instead of "${raw}".`
+      }
     });
   }
 }
@@ -295,7 +384,10 @@ function validateTranslations<T extends PageTranslation | FolderTranslation>(
       path: "/spec/locale",
       severity: "error",
       code: "LOCALE_REQUIRED_FOR_TRANSLATIONS",
-      message: "translationsを持つresourceにはspec.localeが必要です"
+      message: {
+        ja: "translationsを持つresourceにはspec.localeが必要です",
+        en: "A resource with translations must define spec.locale."
+      }
     });
   }
 
@@ -326,8 +418,14 @@ function validateTranslations<T extends PageTranslation | FolderTranslation>(
           ? "INVALID_BASE_LOCALE_FOR_TRANSLATIONS"
           : "LOCALE_REQUIRED_FOR_TRANSLATIONS",
         message: rawBaseLocale
-          ? "基本言語が不正なためtranslationを有効化できません"
-          : "spec.localeを固定するまでtranslationを有効化できません"
+          ? {
+              ja: "基本言語が不正なためtranslationを有効化できません",
+              en: "Translations cannot be enabled because the base locale is invalid."
+            }
+          : {
+              ja: "spec.localeを固定するまでtranslationを有効化できません",
+              en: "Translations cannot be enabled until spec.locale is set."
+            }
       });
     }
     if (!entry.normalized.valid) {
@@ -336,7 +434,10 @@ function validateTranslations<T extends PageTranslation | FolderTranslation>(
         path,
         severity: "error",
         code: "INVALID_TRANSLATION_LOCALE",
-        message: `translation locale「${entry.rawKey}」はVellymで利用できる形式ではありません`
+        message: {
+          ja: `translation locale「${entry.rawKey}」はVellymで利用できる形式ではありません`,
+          en: `The translation locale "${entry.rawKey}" is not a valid Vellym locale tag.`
+        }
       });
     } else {
       const locale = entry.normalized.canonical!;
@@ -346,7 +447,10 @@ function validateTranslations<T extends PageTranslation | FolderTranslation>(
           path,
           severity: "warning",
           code: "NON_CANONICAL_TRANSLATION_LOCALE",
-          message: `translation key「${entry.rawKey}」のcanonical表記は「${locale}」です`
+          message: {
+            ja: `translation key「${entry.rawKey}」のcanonical表記は「${locale}」です`,
+            en: `Use the canonical locale tag "${locale}" for translation key "${entry.rawKey}".`
+          }
         });
       }
       if ((canonicalCounts.get(locale) ?? 0) > 1) {
@@ -355,7 +459,10 @@ function validateTranslations<T extends PageTranslation | FolderTranslation>(
           path,
           severity: "error",
           code: "DUPLICATE_TRANSLATION_LOCALE",
-          message: `canonical化するとlocale「${locale}」が重複します`
+          message: {
+            ja: `canonical化するとlocale「${locale}」が重複します`,
+            en: `Multiple translation keys resolve to locale "${locale}".`
+          }
         });
       }
       if (baseLocale === locale) {
@@ -364,7 +471,10 @@ function validateTranslations<T extends PageTranslation | FolderTranslation>(
           path,
           severity: "error",
           code: "DUPLICATE_BASE_LOCALE",
-          message: `基本言語「${locale}」をtranslationsへ重複して指定できません`
+          message: {
+            ja: `基本言語「${locale}」をtranslationsへ重複して指定できません`,
+            en: `The base locale "${locale}" must not also appear in translations.`
+          }
         });
       }
     }
@@ -390,7 +500,10 @@ function validateTranslations<T extends PageTranslation | FolderTranslation>(
           path: `${path}/title`,
           severity: "error",
           code: "PUBLISHED_TRANSLATION_TITLE",
-          message: "公開するtranslationのtitleは空にできません"
+          message: {
+            ja: "公開するtranslationのtitleは空にできません",
+            en: "A published translation must have a title."
+          }
         });
       }
       if (kind === "page" && visibility === "published") {
@@ -491,7 +604,10 @@ export function knownRichTextBlocksFrom(
         path: `${pathPrefix}/${index}/id`,
         severity: "error",
         code: "DUPLICATE_BLOCK_ID",
-        message: `rich-text block ID ${block.id} is duplicated`
+        message: {
+          ja: `rich-text block ID ${block.id} が重複しています`,
+          en: `The rich-text block ID ${block.id} is duplicated.`
+        }
       });
       continue;
     }

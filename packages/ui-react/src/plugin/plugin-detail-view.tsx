@@ -18,6 +18,9 @@ import {
 } from "../shared/field-input.js";
 import { Button } from "../shared/button.js";
 import styles from "./plugin.module.css";
+import { useShortcutAction } from "../shell/shortcuts.js";
+import { isStaticApp } from "../shared/api.js";
+import { RelatedCommits } from "./related-commits.js";
 
 export type { PluginSpecValue };
 
@@ -54,6 +57,16 @@ function displayText(
   return option.symbol ? `${option.symbol} ${label}` : label;
 }
 
+/** `reference`の索引値を、単数・複数を問わず名前の配列として読む。 */
+function referenceNames(field: PluginFieldDescriptor, row: PluginViewRow | undefined): string[] {
+  const value = row?.values[valueKeyOf(field)];
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .filter((item): item is string => typeof item === "string" && item !== "")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 /** 繰り返し行の入れ替え。並び順が表示順であり、先頭が新規作成時の初期値になる */
 /**
  * プラグインが宣言した詳細descriptorを描く汎用レンダラ。
@@ -73,7 +86,8 @@ export function PluginDetailView({
   locale,
   mode,
   onSave,
-  onChange
+  onChange,
+  onOpenResource
 }: {
   payload: PluginViewPayload;
   locale: string;
@@ -89,6 +103,8 @@ export function PluginDetailView({
   onSave?(
     changes: Array<{ path: string[]; value: PluginSpecValue }>
   ): Promise<void> | void;
+  /** Opens another resource by name (used by "Referenced by"). */
+  onOpenResource?(name: string): void;
 }) {
   const { t } = useTranslation();
   const descriptor =
@@ -134,11 +150,36 @@ export function PluginDetailView({
     );
   }
 
+  async function saveSettings() {
+    if (!descriptor || !onSave) return;
+    setSaving(true);
+    try {
+      const changes: Array<{ path: string[]; value: PluginSpecValue }> = [];
+      for (const field of descriptor.fields) {
+        if (draft[field.id] === initial[field.id]) continue;
+        changes.push({
+          path: [...field.path],
+          value: toSpecValue(field, draft[field.id] ?? "")
+        });
+      }
+      await onSave(changes);
+    } finally {
+      setSaving(false);
+    }
+  }
+  // Mod+S saves the settings form like its Save button (shell/shortcuts.ts).
+  const settingsDirty = Object.keys(draft).some((id) => draft[id] !== initial[id]);
+  useShortcutAction("save", mode === "settings" && onSave && descriptor && settingsDirty && !saving
+    ? () => void saveSettings() : undefined);
+
   if (!descriptor) return null;
   const changed =
     Object.keys(draft).some((id) => draft[id] !== initial[id]) ||
     false;
   const undeclared = undeclaredEntries(descriptor, row);
+  const referenceTargets = new Map(
+    payload.referenceTargets?.map((target) => [target.name, target.title])
+  );
 
 
   const notices = payload.targetDiagnostics ?? [];
@@ -152,14 +193,21 @@ export function PluginDetailView({
           <p>{t("plugin.notices")}</p>
           <ul>
             {notices.map((notice) => (
-              <li key={`${notice.code}${notice.path ?? ""}`}>{notice.message}</li>
+              <li key={`${notice.code}${notice.path ?? ""}`}>
+                {resolveLocalizedText(notice.message, locale)}
+              </li>
             ))}
           </ul>
         </div>
       ) : null}
       <dl className={styles["plugin-detail-fields"]}>
-        {descriptor.fields.map((field) => (
-          <div key={field.id} className={styles["plugin-detail-field"]}>
+        {descriptor.fields
+          // Reading hides empty optional fields to keep the detail short; a required field
+          // stays with "—" so the gap is visible. Editing and settings show every field.
+          .filter((field) => mode !== "read" || field.required || displayText(field, draft[field.id] ?? "", locale) !== "")
+          .map((field) => (
+          <div key={field.id} className={styles["plugin-detail-field"]}
+            data-wide={field.type === "multiline" ? "" : undefined}>
             <dt>
               {mode === "read" ? (
                 <span>{resolveLocalizedText(field.label, locale)}</span>
@@ -170,12 +218,30 @@ export function PluginDetailView({
                 </label>
               )}
             </dt>
-            <dd>
+              <dd>
               {mode === "read" ? (
-                // 参照は読むだけ。入力欄を出さない。空欄は「―」で場所を残す。
-                <span className={styles["plugin-detail-value"]}>
-                  {displayText(field, draft[field.id] ?? "", locale) || "—"}
-                </span>
+                // 参照は読むだけ。入力欄を出さない。ここに来る空欄は必須の項目だけで、「―」で示す。
+                field.type === "reference" ? (
+                  <span className={styles["plugin-detail-value"]}>
+                    {referenceNames(field, row).length ? referenceNames(field, row).map((name, index) => {
+                      const title = referenceTargets.get(name);
+                      return (
+                        <span key={`${field.id}:${name}`}>
+                          {index ? "、" : null}
+                          {title
+                            ? onOpenResource
+                              ? <Button className={styles["plugin-detail-referenced-link"]} onClick={() => onOpenResource(name)}>{title}</Button>
+                              : <span>{title}</span>
+                          : `${name}（見つかりません）`}
+                        </span>
+                      );
+                    }) : "—"}
+                  </span>
+                ) : (
+                  <span className={styles["plugin-detail-value"]}>
+                    {displayText(field, draft[field.id] ?? "", locale) || "—"}
+                  </span>
+                )
               ) : (
                 <FieldInput
                   field={field}
@@ -183,6 +249,8 @@ export function PluginDetailView({
                   value={draft[field.id] ?? ""}
                   locale={locale}
                   disabled={field.readOnly}
+                  referenceCandidates={payload.referenceTargets}
+                  referenceExclude={row?.name}
                   onChange={(next) => updateField(field.id, next)}
                 />
               )}
@@ -206,27 +274,32 @@ export function PluginDetailView({
           </div>
         ))}
       </dl>
+      {mode === "read" && payload.referencedBy?.length ? (
+        <section className={styles["plugin-detail-referenced"]} aria-labelledby="plugin-referenced-by">
+          <h2 id="plugin-referenced-by">{t("plugin.referencedBy")}</h2>
+          <ul>
+            {payload.referencedBy.map((item) => (
+              <li key={`${item.name}:${item.fieldId}`}>
+                {onOpenResource
+                  ? <Button className={styles["plugin-detail-referenced-link"]} onClick={() => onOpenResource(item.name)}>{item.title}</Button>
+                  : <span>{item.title}</span>}
+                <span className={styles["plugin-detail-note"]}>
+                  {resolveLocalizedText(item.fieldLabel, locale)}
+                  {item.status ? ` · ${item.statusLabel ? resolveLocalizedText(item.statusLabel, locale) : item.status}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {mode === "read" && descriptor.relatedCommits && payload.target && !isStaticApp()
+        ? <RelatedCommits name={payload.target.name} locale={locale} /> : null}
 
 
       {mode === "settings" && onSave ? (
         <Button className={styles["plugin-detail-save"]}
           disabled={!changed || saving}
-          onClick={async () => {
-            setSaving(true);
-            try {
-              const changes: Array<{ path: string[]; value: PluginSpecValue }> = [];
-              for (const field of descriptor.fields) {
-                if (draft[field.id] === initial[field.id]) continue;
-                changes.push({
-                  path: [...field.path],
-                  value: toSpecValue(field, draft[field.id] ?? "")
-                });
-              }
-              await onSave(changes);
-            } finally {
-              setSaving(false);
-            }
-          }}
+          onClick={() => void saveSettings()}
         >
           {t("editor.save")}
         </Button>
