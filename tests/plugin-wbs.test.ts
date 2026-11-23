@@ -96,6 +96,15 @@ describe("WBS as a TicketTracker view", () => {
     expect(wbsView(context(withoutParent)).rendererData).not.toHaveProperty("parentField");
   });
 
+  it("resolves ordered detail columns and warns for excluded fields", () => {
+    expect((wbsView(context()).rendererData?.columns as { id: string }[]).map((c) => c.id)).toEqual(["status", "start", "due"]);
+    const target = { ...tracker, spec: { ...tracker.spec, fields: [...(tracker.spec.fields as object[]), { id: "notes", label: "Notes", type: "multiline" }],
+      wbs: { ...(tracker.spec.wbs as object), columns: ["due", "bad", "notes", "parent", "sequence", "status"] } } };
+    const data = wbsView(context(target)).rendererData!;
+    expect((data.columns as { id: string }[]).map((c) => c.id)).toEqual(["due", "status"]);
+    expect((data.diagnostics as PluginDiagnostic[]).map((d) => d.path)).toEqual([1, 2, 3, 4].map((i) => `/spec/wbs/columns/${i}`));
+  });
+
   it("sorts sibling rows, leaving missing ranks visible and updating only one rank", () => {
     const nodes: TicketTreeNode[] = [
       { row: { name: "a", title: "A", values: { "field:sequence": 1 } }, children: [] },

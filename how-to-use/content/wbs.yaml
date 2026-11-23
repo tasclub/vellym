@@ -60,6 +60,8 @@ spec:
 
         チケットの`spec.fields.parent`に親の`metadata.name`を書く。`spec.summary`を書くと、表示対象の全チケットの集計を出す。
 
+        `spec.wbs.columns: [status, start, due]`のように詳細列を順番に指定できる。省略時は状態と設定済みの開始・終了項目を表示する。親、順序、複数行テキストは指定できない。
+
         ## 画面の操作
 
         チケット管理を開き、ビューの切り替えで「WBS」を選ぶ。
@@ -88,6 +90,10 @@ spec:
             structure: a parent-child hierarchy with a date timeline. It creates no WBS-specific files;
             it uses the tickets' own fields (parent, start, end, order). It works without
             `@vellym/tickets`; with it, the same tracker switches between the list, Kanban, and WBS.
+
+            Set `spec.wbs.columns: [status, start, due]` to choose and order details columns.
+            By default, status and the configured start and end fields are shown. Parent, order,
+            and multiline fields cannot be used as columns.
 
             ## Install
 

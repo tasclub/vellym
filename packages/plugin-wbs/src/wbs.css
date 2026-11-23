@@ -11,7 +11,7 @@
 .wbs-grid {
   position: relative;
   width: 100%;
-  min-width: 0;
+  min-width: var(--wbs-fixed-width);
 }
 .wbs-grid[data-schedule] { width: calc(var(--wbs-fixed-width) + var(--wbs-days) * 28px); }
 .wbs-grid[data-schedule][data-mode="week"] { width: calc(var(--wbs-fixed-width) + var(--wbs-days) * 10px); }

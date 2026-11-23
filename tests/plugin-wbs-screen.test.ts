@@ -18,7 +18,23 @@ vi.mock("@vellym/plugin-api/ui", () => ({
   InputControl: (props: React.InputHTMLAttributes<HTMLInputElement>) => createElement("input", props)
 }));
 import { WBSScreen } from "../packages/plugin-wbs/src/screen.js";
-import { wbsView } from "../packages/plugin-wbs/src/view.js";
+import { formatCell, wbsView, type WBSRendererData } from "../packages/plugin-wbs/src/view.js";
+
+describe("WBS detail formatting", () => {
+  it("formats values by type", () => {
+    const data = { columns: [], diagnostics: [], statusSymbols: { todo: "○" },
+      tracker: { statuses: [{ id: "todo", label: "Todo", category: "open" }] } } as unknown as WBSRendererData;
+    const col = (type: string) => ({ id: type, label: type, type, options: [{ value: "a", label: "Alpha" }] });
+    expect(formatCell(col("status"), "todo", [], data)).toBe("○ Todo");
+    expect(formatCell(col("select"), "a", [], data)).toBe("Alpha");
+    expect(formatCell(col("multiselect"), ["a", "b"], [], data)).toBe("Alpha、b");
+    expect(formatCell(col("boolean"), true, [], data)).toBe("✓");
+    expect(formatCell(col("boolean"), false, [], data)).toBe("");
+    expect(formatCell(col("reference"), "a", [{ name: "a", title: "Task A" }], data)).toBe("Task A");
+    expect(formatCell(col("date"), "2026-11-23", [], data)).toBe("2026-11-23");
+    expect(formatCell(col("text"), "", [], data)).toBe("—");
+  });
+});
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

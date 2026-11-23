@@ -6,7 +6,7 @@ import { buildTicketHierarchy, fieldKey } from "@vellym-internal/ticket-engine";
 import { excludedParents, rankForAppend, rankForInsert, flattenRows, rowWindow, type WBSRow } from "./model.js";
 import { buildTimeline, parseDate, timelineBar, DAY_MS, mondayOnOrBefore, presetRange, TIMELINE_PRESETS, timelineCells,
   timelinePreset, type Timeline, type TimelineMode, type TimelinePreset } from "./timeline.js";
-import type { WBSRendererData } from "./view.js";
+import { formatCell, type WBSColumn, type WBSRendererData } from "./view.js";
 
 const label = (ja: string, en: string, locale: string) => resolveLocalizedText({ ja, en }, locale);
 const date = (value: unknown): string | undefined =>
@@ -57,11 +57,6 @@ function TimelineTrack({ timeline, start, end, locale, closed, onReveal }: {
   </div>;
 }
 
-function statusSymbol(data: WBSRendererData, id: unknown, category?: string): string {
-  const symbol = typeof id === "string" && Object.hasOwn(data.statusSymbols ?? {}, id) ? data.statusSymbols?.[id] : undefined;
-  return symbol?.trim() ? symbol : category === "closed" ? "✓" : "□";
-}
-
 /** Indent steps belong to nested structure, never a calculated per-row padding. */
 function Indent({ depth, children }: { depth: number; children: ReactNode }) {
   let content = children;
@@ -96,6 +91,7 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
   const [dropPosition, setDropPosition] = useState<{ name: string; after: boolean }>();
   const editable = !context.isStatic && !context.target?.readOnly;
   const byName = new Map(all.map((row) => [row.name, row]));
+  const referenceRows = [...all, ...context.records("Ticket")];
   function reviewNote(row: PluginIndexRow): string {
     const seen = new Set<string>();
     const chain: string[] = [];
@@ -211,8 +207,9 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
            </div> : null}
             </div> : null}
           </div> : null}
-          {panes.details ? <div role="gridcell" className="wbs-status">{status ? `${statusSymbol(data, row.values.status, status.category)} ${status.label}`
-            : String(row.values.status || label("未設定", "Unset", context.locale))}</div> : null}
+          {panes.details ? data.columns.map((column, index) => <div role="gridcell" className="wbs-status" key={`${column.id}-${index}`}>
+            {formatCell(column, column.id === "status" ? row.values.status : row.values[fieldKey(column.id)], referenceRows, data)}
+          </div>) : null}
           {panes.schedule ? <div role="gridcell" className="wbs-timeline-cell" title={`${start || label("未設定", "Unset", context.locale)} – ${end || label("未設定", "Unset", context.locale)}`}
             {...dropTarget}>
             <TimelineTrack timeline={timeline} start={start} end={end} locale={context.locale} closed={status?.category === "closed"} onReveal={onReveal} />
@@ -224,7 +221,8 @@ function WBSRows({ items, data, context, all, review, timeline, panes, busy, mov
 export function WBSScreen({ context }: PluginViewProps) {
   const base = context.rendererData as WBSRendererData | undefined;
   const [configuration, setConfiguration] = useState<Record<string, string>>({});
-  const data: WBSRendererData | undefined = base ? { ...base, ...configuration } : undefined;
+  const [selectedColumns, setSelectedColumns] = useState<readonly WBSColumn[]>();
+  const data: WBSRendererData | undefined = base ? { ...base, ...configuration, columns: selectedColumns ?? base.columns ?? [{ id: "status", label: label("状態", "Status", context.locale), type: "status" }] } : undefined;
   const [parents, setParents] = useState<Record<string, string>>({});
   const [orders, setOrders] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
@@ -337,6 +335,15 @@ export function WBSScreen({ context }: PluginViewProps) {
     setMessage("");
     setConfiguration((current) => ({ ...current, [setting]: value }));
   }
+  async function configureColumns(columns: readonly WBSColumn[]) {
+    if (busy || !editable) return;
+    setBusy(true);
+    const result = await context.save([{ path: ["wbs", "columns"], value: columns.map((column) => column.id) }]);
+    setBusy(false);
+    if (!result.ok) { setMessage(result.message); return; }
+    setMessage("");
+    setSelectedColumns(columns);
+  }
   async function createTask(parent: string) {
     if (!context.runCommand || busy || !parentField || !editable || review.has(parent)) return;
     setBusy(true);
@@ -422,6 +429,14 @@ export function WBSScreen({ context }: PluginViewProps) {
               .map((field) => ({ value: field.id, label: field.label }))]}
           onChange={(value) => void configure(setting, value)} /></label>
       )}
+      <fieldset><legend>{label("詳細の列", "Details columns", context.locale)}</legend>
+        {[{ id: "status", label: label("状態", "Status", context.locale), type: "status" },
+          ...tracker.fields.filter((field) => field.type !== "multiline" && field.id !== data?.parentField && field.id !== data?.orderField)]
+          .map((column) => <label key={column.id}><input type="checkbox" disabled={busy}
+            checked={!!data?.columns.some((item) => item.id === column.id)}
+            onChange={(event) => void configureColumns(event.target.checked
+              ? [...(data?.columns ?? []), column] : (data?.columns ?? []).filter((item) => item.id !== column.id))} /> {column.label}</label>)}
+      </fieldset>
     </details> : null}
     {!context.isStatic && [...(data?.diagnostics ?? []), ...hierarchy.diagnostics].length > 0 ? (
       <div role="alert"><h2>{label("WBSの設定に問題があります", "Check WBS definition", context.locale)}</h2>
@@ -597,6 +612,10 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, bu
   const strategy = entries.length > 300 ? "virtual" : "all";
   const window = rowWindow(entries.length, strategy, viewport.top, viewport.height, viewport.rowHeight, 0);
   const visible = entries.slice(window.start, window.end);
+  const detailWidths = panes.details ? data.columns.map((column) => column.type === "date" ? "8em"
+    : ["status", "select", "multiselect"].includes(column.type) ? "7em"
+    : column.type === "number" || column.type === "boolean" ? "5em" : "10em") : [];
+  const detailsWidth = detailWidths.length ? detailWidths.join(" + ") : "0px";
   return <>
     <div className="wbs-toolbar">
       <span>{label("チケット", "Tickets", context.locale)}: {rows.length}</span>
@@ -629,9 +648,9 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, bu
        <div role="treegrid" aria-label={label("WBSの階層", "WBS hierarchy", context.locale)} aria-rowcount={entries.length + 1}
          className="wbs-grid" data-mode={mode} data-schedule={panes.schedule || undefined} style={{ "--wbs-days": days,
            "--wbs-title-width": "clamp(168px, calc((100vw - 767px) * 1000), var(--wbs-left-width))",
-           "--wbs-details-width": "clamp(100px, calc((100vw - 767px) * 1000), 120px)",
-           "--wbs-columns": [panes.title && (panes.schedule ? "var(--wbs-title-width)" : "minmax(0, 1fr)"),
-             panes.details && (panes.schedule ? "var(--wbs-details-width)" : "minmax(0, 1fr)"),
+            "--wbs-details-width": `calc(${detailsWidth})`,
+            "--wbs-columns": [panes.title && (panes.schedule ? "var(--wbs-title-width)" : "minmax(var(--wbs-title-width), 1fr)"),
+              ...detailWidths,
              panes.schedule && "minmax(0, 1fr)"].filter(Boolean).join(" "),
            "--wbs-fixed-width": `calc(${panes.title ? "var(--wbs-title-width)" : "0px"} + ${panes.details ? "var(--wbs-details-width)" : "0px"})`,
            "--wbs-day-width": `${dayWidth}px`, "--wbs-today-offset": timeline ? (today - timeline.start) / DAY_MS : 0 } as CSSProperties}>
@@ -654,7 +673,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, bu
             onPointerUp={() => { resizeStart.current = undefined; persist({ leftWidth: width }); }}
             onPointerCancel={() => { resizeStart.current = undefined; }} />
         </strong> : null}
-        {panes.details ? <strong role="columnheader" className="wbs-status">{label("状態", "Status", context.locale)}</strong> : null}
+        {panes.details ? data.columns.map((column, index) => <strong role="columnheader" className="wbs-status" key={`${column.id}-${index}`}>{column.label}</strong>) : null}
         {panes.schedule ? <div role="columnheader" aria-label={label("日程表", "Date timeline", context.locale)} className="wbs-date-header">
           {tiers ? <>
             <div className="wbs-month-tier">{tiers.months.map((cell) => <span key={cell.timestamp}
