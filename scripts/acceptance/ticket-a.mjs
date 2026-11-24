@@ -34,8 +34,12 @@ export const steps = [
     const result = init(ctx, root, target);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     const manifest = JSON.parse(await ctx.fs.readFile(ctx.path.join(target, "package.json"), "utf8"));
-    await ctx.check("name・version・private: true・type: moduleの4つだけで、scriptsとdependenciesが無い", async () => {
-      assert.deepEqual(Object.keys(manifest).sort(), ["name", "private", "type", "version"]);
+    // 0.5.1でinitがdevDependenciesにvellymの版を固定して入れるようにした（ticket-01m83aiguide00000000000007）。
+    await ctx.check("name・version・private: true・type: module・devDependencies（vellymだけ）で、scriptsとdependenciesが無い", async () => {
+      assert.deepEqual(Object.keys(manifest).sort(), ["devDependencies", "name", "private", "type", "version"]);
+      assert.deepEqual(Object.keys(manifest.devDependencies), ["vellym"]);
+      const cli = JSON.parse(await ctx.fs.readFile(ctx.path.join(process.cwd(), "packages/vellym/package.json"), "utf8"));
+      assert.equal(manifest.devDependencies.vellym, `^${cli.version}`);
       assert.equal(manifest.private, true);
       assert.equal(manifest.type, "module");
     });

@@ -10,11 +10,21 @@ import { validatePluginManifest } from "@vellym-internal/core";
 import { pluginResourceRelativePath } from "@vellym-internal/runtime-node";
 import plugin from "@vellym/tickets";
 import { ticketListView } from "../packages/plugin-tickets/src/views.js";
+import { moveTo } from "../packages/plugin-tickets/src/sortable.js";
 import { TICKET_ENGINE_VERSION } from "@vellym-internal/ticket-engine";
+import { buildTicketDraft, createTicketCommand } from "../packages/ticket-engine/src/commands.js";
 import {
   initialTicketSpec,
   readTrackers
 } from "@vellym-internal/ticket-engine";
+
+describe("settings reorder", () => {
+  it("moves in either direction and leaves out-of-range moves unchanged", () => {
+    expect(moveTo(["a", "b", "c"], 0, 2)).toEqual(["b", "c", "a"]);
+    expect(moveTo(["a", "b", "c"], 2, 0)).toEqual(["c", "a", "b"]);
+    expect(moveTo(["a", "b"], 0, -1)).toEqual(["a", "b"]);
+  });
+});
 
 function record(
   kind: string,
@@ -24,6 +34,27 @@ function record(
 ): PluginResourceRecord {
   return { kind, name, title: name, relativePath, spec, readOnly: false };
 }
+
+describe("shared ticket drafts", () => {
+  it.each(["ja", "en"])("matches command defaults and template for %s", async (locale) => {
+    const trackerRecord = record("TicketTracker", "drafts", "project/tracker.yaml", {
+      statuses: [{ id: "todo", label: "Todo", category: "open" }],
+      fields: [{ id: "parent", label: "Parent", type: "reference" },
+        { id: "required", label: "Required", type: "text", required: true }],
+      ticketTemplate: { ja: "説明", en: "Description" }
+    });
+    const context = { locale, isStatic: false, records: () => [trackerRecord] };
+    const tracker = readTrackers(context)[0]!;
+    const input = { title: " Trimmed ", parent: "root", parentField: "parent" };
+    const draft = buildTicketDraft(tracker, input, locale);
+    const createResource = vi.fn(async () => ({ ok: true as const, name: draft.name, draft }));
+    await createTicketCommand().run({ ...context, input, target: trackerRecord, createResource } as Parameters<ReturnType<typeof createTicketCommand>["run"]>[0]);
+    expect(createResource).toHaveBeenCalledWith({ ...draft, name: expect.any(String) });
+    expect(draft).toMatchObject({ title: "Trimmed", folder: "project/+tickets", spec: {
+      status: "todo", fields: { parent: "root" }, blocks: [{ content: locale === "ja" ? "説明" : "Description" }]
+    } });
+  });
+});
 
 /** 単体テスト工程のチケット管理 */
 const unitTests = record(

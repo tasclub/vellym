@@ -80,6 +80,16 @@ export const TICKET_TRACKER_SPEC_SCHEMA = {
         additionalProperties: true
       }
     },
+    rules: {
+      type: "array", items: { type: "object", properties: {
+        id: { type: "string" },
+        when: { type: "object", properties: { status: { type: "array", items: { type: "string" } }, statusCategory: { enum: ["open", "closed"] } }, additionalProperties: true },
+        require: { type: "array", items: { type: "string" } },
+        empty: { type: "array", items: { type: "string" } },
+        equals: { type: "object", additionalProperties: { anyOf: [{ type: ["string", "number", "boolean"] }, { type: "array", items: { type: ["string", "number", "boolean"] } }] } },
+        message: { type: "object", additionalProperties: { type: "string" } }
+      }, anyOf: [{ required: ["require"] }, { required: ["equals"] }, { required: ["empty"] }], additionalProperties: true }
+    },
     defaultSort: {
       type: "object",
       required: ["field"],

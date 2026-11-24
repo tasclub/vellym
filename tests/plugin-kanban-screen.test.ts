@@ -341,12 +341,15 @@ describe("Kanban screen interactions", () => {
     }));
     const result = renderScreen({ rows, rendererData: definition });
     const whole = result.container.querySelector('[aria-label="ボード全体の集計"]')!;
-    expect(whole.textContent).toContain("全22件（非表示の列と20件以降も含む）");
+    const total = whole.querySelector("p")!;
+    expect(total.textContent).toBe("全22件");
+    expect(total.getAttribute("title")).toBe("非表示の列と20件以降も含む");
     expect(whole.textContent).toContain("22");
     expect(result.container.querySelectorAll("article")).toHaveLength(21);
     const doing = result.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1]!;
     act(() => doing.click());
-    expect(whole.textContent).toContain("22");
+    expect(total.textContent).toBe("全22件");
+    expect(total.getAttribute("title")).toBe("非表示の列と20件以降も含む");
     expect(result.container.querySelectorAll("article")).toHaveLength(20);
     result.unmount();
     const absent = renderScreen();

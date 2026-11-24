@@ -1,6 +1,6 @@
 {
   "name": "@vellym/kanban",
-  "version": "0.2.0-beta",
+  "version": "0.3.0-beta",
   "description": "Kanban view plugin for Vellym tickets",
   "license": "MIT",
   "type": "module",
@@ -20,16 +20,26 @@
       "default": "./dist/browser/index.js"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --jsx=automatic --outfile=dist/browser/index.js --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api --external:@vellym/plugin-api/react --external:@vellym/plugin-api/ui && node -e \"require('node:fs').copyFileSync('src/kanban.css', 'dist/browser/kanban.css')\""
   },
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
-    "@vellym/plugin-api": "^0.2.0-beta",
+    "@vellym/plugin-api": "^0.3.0-beta",
     "react": ">=18"
   },
-  "peerDependenciesMeta": { "react": { "optional": true } },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@vellym-internal/ticket-engine": "*",
     "@vellym/plugin-api": "*",
@@ -41,11 +51,19 @@
       "ja": "https://vellym.tasclub.com/pages/ticket-management/",
       "en": "https://vellym.tasclub.com/en/pages/ticket-management/"
     },
-    "styles": ["kanban.css"],
+    "styles": [
+      "kanban.css"
+    ],
     "contributes": {
       "kinds": [
-        { "kind": "Ticket" },
-        { "kind": "TicketTracker", "showInDocumentTree": true, "hasBlocks": false }
+        {
+          "kind": "Ticket"
+        },
+        {
+          "kind": "TicketTracker",
+          "showInDocumentTree": true,
+          "hasBlocks": false
+        }
       ],
       "views": [
         {
@@ -59,13 +77,19 @@
       "commands": [
         {
           "id": "ticket.create-tracker",
-          "title": { "ja": "チケット管理", "en": "Ticket tracker" },
+          "title": {
+            "ja": "チケット管理",
+            "en": "Ticket tracker"
+          },
           "static": false,
           "placement": "document-tree"
         },
         {
           "id": "ticket.create",
-          "title": { "ja": "チケットを作成", "en": "New ticket" },
+          "title": {
+            "ja": "チケットを作成",
+            "en": "New ticket"
+          },
           "static": false
         }
       ]

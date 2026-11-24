@@ -55,10 +55,10 @@ describe("public plugin host compatibility", () => {
 
   it("requires the released plugin-api version from every public plugin", () => {
     const api = manifestOf("plugin-api").version;
-    expect(api).toBe("0.2.0-beta");
+    expect(api).toBe("0.3.0-beta");
     for (const directory of pluginPackages) {
       expect(semver.satisfies(api, manifestOf(directory).peerDependencies?.["@vellym/plugin-api"] ?? "")).toBe(true);
-      expect(semver.satisfies("0.1.0-beta", manifestOf(directory).peerDependencies?.["@vellym/plugin-api"] ?? "")).toBe(false);
+      expect(semver.satisfies("0.2.0-beta", manifestOf(directory).peerDependencies?.["@vellym/plugin-api"] ?? "")).toBe(false);
     }
   });
 

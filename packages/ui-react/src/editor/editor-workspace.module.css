@@ -175,13 +175,28 @@
     font-weight: 700;
   }
   .file-name-field input {
-    width: min(100%, 48ch);
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
     min-height: 36px;
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-strong);
+    border-right: 0;
     background: var(--surface-raised);
   }
-  .file-name-field small { color: var(--text-muted); font-weight: 400; }
+  .file-name-input {
+    display: flex;
+    width: min(100%, 48ch);
+  }
+  .file-name-extension {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    background: var(--surface-sunken);
+    font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
   .title-editor { display: block; margin-bottom: var(--space-5); }
   .title-editor input {
     width: 100%;
@@ -208,6 +223,12 @@
     border: 1px solid var(--border-strong);
     color: var(--text-primary);
     background: var(--surface-raised);
+    font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .slug-preview {
+    display: block;
+    overflow-wrap: anywhere;
+    color: var(--text-muted);
     font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   .document-actions { display: flex; align-items: center; gap: var(--space-3); }

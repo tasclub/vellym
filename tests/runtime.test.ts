@@ -1219,7 +1219,8 @@ plugins: []
     const server = await startDevServer({
       configPath: path.join(project, "vellym.config.yaml"),
       uiRoot: ui,
-      port: 0
+      port: 0,
+      hostVersion: "0.5.1-beta"
     });
     try {
       expect(
@@ -1277,6 +1278,8 @@ plugins: []
         })
       });
       expect(applied.status).toBe(200);
+      expect(JSON.parse(await readFile(path.join(project, "package.json"), "utf8")))
+        .toMatchObject({ devDependencies: { vellym: "^0.5.1-beta" } });
       expect(
         await (await fetch(`${server.url}/api/v1/bootstrap`)).json()
       ).toMatchObject({

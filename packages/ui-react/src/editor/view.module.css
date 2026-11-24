@@ -31,6 +31,17 @@
     font-size: var(--size-doc-title);
   }
   .rich-text { line-height: var(--leading-text); overflow-wrap: anywhere; }
+  .rich-text img { max-width: 100%; height: auto; }
+  .rich-text .image-zoom {
+    display: inline-block;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: zoom-in;
+  }
+  .image-full-scroll { max-width: 100%; max-height: 60vh; overflow: auto; }
+  .image-full-scroll img { display: block; max-width: none; height: auto; }
   .rich-text h1,
   .rich-text h2,
   .rich-text h3,
@@ -64,12 +75,18 @@
   .rich-text table { width: 100%; border-collapse: collapse; font-size: var(--text-note); }
   .rich-text th,
   .rich-text td {
+    min-width: 6em;
+    max-width: 32em;
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-strong);
     text-align: left;
     vertical-align: top;
   }
-  .rich-text thead th { background: var(--surface-sunken); }
+  .rich-text thead th {
+    padding-block: var(--space-1);
+    background: var(--surface-sunken);
+    white-space: nowrap;
+  }
   /* Distinguish internal ([[...]]) links from external links in the reader. */
   .rich-text a:global(.internal-link) { text-decoration-style: solid; }
   .rich-text :global(.external-link-icon) { margin-left: var(--space-1); font-size: var(--text-note); opacity: .7; }

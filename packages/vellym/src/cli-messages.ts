@@ -21,6 +21,8 @@ export interface CliMessages {
   schemaHelp(): string;
   schemaKindRequired(): string;
   schemaKindInvalid(kind: string, available: string[]): string;
+  schemaPluginsMissing(): string;
+  schemaKindUnresolved(kind: string, packages: string[]): string;
   schemaModeInvalid(): string;
   buildHelp(): string;
   migrateHelp(): string;
@@ -40,7 +42,9 @@ export interface CliMessages {
   initConflict(paths: string): string;
   initComplete(target: string, created: number, skipped: number): string;
   initNext(): string;
+  initLinks(): string;
   initGuides(): string;
+  initAgentGuide(contentRoot: string): string;
   initPackageJsonKept(): string;
   initPackageJsonUnreadable(): string;
   initInstallPlugins(): string;
@@ -66,6 +70,10 @@ Usage:
   vellym migrate --to v1 [--config <path>] [--plan] [--json]
 
 コマンド別の詳しい説明・例は「vellym <command> --help」で確認できます。
+
+利用ガイド: https://vellym.tasclub.com/
+AI向け案内: https://vellym.tasclub.com/llms.txt
+スキーマ一覧: vellym schema --list
 `,
   initHelp: () => `vellym init [directory] [options]
 
@@ -129,6 +137,8 @@ vellym schema --list [--config <path>] [--language ja|en]
   listSummary: (count) => `${count}件`,
   schemaKindRequired: () => "--kindまたは--listを指定してください",
   schemaKindInvalid: (kind, available) => `不明なkind: ${kind}。指定可能: ${available.join(", ")}`,
+  schemaPluginsMissing: () => "プラグインを読み込めないため、そのkindは一覧にありません。プロジェクトで`npm install`を実行してから、もう一度試してください。",
+  schemaKindUnresolved: (kind, packages) => `${kind}は見つかりません。読み込めないプラグインがあります: ${packages.join(", ")}`,
   schemaModeInvalid: () => "--listと--kindは同時に指定できません",
   buildHelp: () => `vellym build [options]
 
@@ -171,10 +181,12 @@ Options:
   initConflict: (paths) => `既存ファイルと競合しています: ${paths}`,
   initComplete: (target, created, skipped) => `初期化しました: ${target}\n作成: ${created}件、skip: ${skipped}件`,
   initNext: () => "次のコマンド:",
+  initLinks: () => "利用ガイド: https://vellym.tasclub.com/\nAI向け案内: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "プラグインの使い方:",
+  initAgentGuide: (root) => `AIエージェントには${root}/VELLYM.mdを読ませてください。`,
   initPackageJsonKept: () => "既存のpackage.jsonは変更していません。",
   initPackageJsonUnreadable: () => "注意: package.jsonがJSONとして読めません。変更していないので、手で直してください。",
-  initInstallPlugins: () => "プラグインを入れるには次を実行します:",
+  initInstallPlugins: () => "vellymとプラグインをプロジェクトに入れるには次を実行します:",
   initPlan: (target, create, skip, conflict) => [
     `初期化の計画（何も書いていません）: ${target}`,
     `作成: ${create.length}件、skip: ${skip.length}件、競合: ${conflict.length}件`,
@@ -205,6 +217,10 @@ Usage:
   vellym migrate --to v1 [--config <path>] [--plan] [--json]
 
 Run "vellym <command> --help" for per-command details and examples.
+
+User guide: https://vellym.tasclub.com/en/
+AI guide: https://vellym.tasclub.com/llms.txt
+List schemas: vellym schema --list
 `,
   initHelp: () => `vellym init [directory] [options]
 
@@ -268,6 +284,8 @@ Prints the installed JSON Schema for a kind. With --kind, stdout contains the JS
   listSummary: (count) => `${count} row(s)`,
   schemaKindRequired: () => "Specify --kind or --list",
   schemaKindInvalid: (kind, available) => `Unknown kind: ${kind}. Available: ${available.join(", ")}`,
+  schemaPluginsMissing: () => "Kinds from plugins that could not be loaded are missing. Run `npm install` in the project, then try again.",
+  schemaKindUnresolved: (kind, packages) => `${kind} was not found. Plugins could not be loaded: ${packages.join(", ")}`,
   schemaModeInvalid: () => "--list and --kind cannot be used together",
   buildHelp: () => `vellym build [options]
 
@@ -310,10 +328,12 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   initConflict: (paths) => `init: already exists (existing_file): ${paths}`,
   initComplete: (target, created, skipped) => `Vellym workspace created: ${target}\nCreated: ${created}, skipped: ${skipped}`,
   initNext: () => "Next commands:",
+  initLinks: () => "User guide: https://vellym.tasclub.com/en/\nAI guide: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "How to use the plugins:",
+  initAgentGuide: (root) => `Have AI agents read ${root}/VELLYM.md.`,
   initPackageJsonKept: () => "The existing package.json was left unchanged.",
   initPackageJsonUnreadable: () => "Warning: package.json is not valid JSON. It was left unchanged; fix it by hand.",
-  initInstallPlugins: () => "To install the plugins, run:",
+  initInstallPlugins: () => "To add vellym and the plugins to the project, run:",
   initPlan: (target, create, skip, conflict) => [
     `Setup plan (nothing written): ${target}`,
     `Create: ${create.length}, skip: ${skip.length}, conflicts: ${conflict.length}`,

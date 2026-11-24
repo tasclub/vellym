@@ -32,6 +32,7 @@ import {
   staticViewKinds,
   buildPluginViewFromSnapshot,
   diagnoseAssets,
+  diagnoseFileLinks,
   loadRepository,
   unknownKindGroups,
   readAsset
@@ -212,7 +213,7 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
   // プラグイン由来の診断はすべて警告であり、buildを止めない。
   // Image references are checked exactly as validate does: a missing image stops the build.
   const assetDiagnostics = await diagnoseAssets(loaded, repository);
-  const buildDiagnostics = [...repository.diagnostics, ...assetDiagnostics, ...plugins.diagnostics];
+  const buildDiagnostics = [...repository.diagnostics, ...assetDiagnostics, ...await diagnoseFileLinks(loaded, repository), ...plugins.diagnostics];
   const errors = [...repository.diagnostics, ...assetDiagnostics].filter((item) => item.severity === "error");
   if (errors.length) {
     return {

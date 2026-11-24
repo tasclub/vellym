@@ -39,13 +39,6 @@ const entries = {
   kanban: async (page) => {
     await page.getByRole("button", { name: "Kanban", exact: true }).click();
     await page.getByRole("button", { name: "New ticket", exact: true }).click();
-  },
-  "WBS child task": async (page) => {
-    await page.getByRole("button", { name: "WBS", exact: true }).click();
-    const actions = page.getByRole("button", { name: /: Row actions$/ }).first();
-    await actions.focus();
-    await page.keyboard.press("Enter");
-    await page.getByRole("group", { name: "Row actions" }).getByRole("button", { name: "Add child task" }).click();
   }
 };
 /** Ways of leaving a draft without saving. */
@@ -163,12 +156,18 @@ try {
     await context.close();
   }
   const note = pristinePrompts.length ? `; pristine drafts asked before leaving in ${pristinePrompts.length} case(s): ${pristinePrompts.join(", ")}` : "";
-  console.log(`Create drafts: 4 commands x 4 ways of leaving leave no file, save writes once and validates, typed drafts ask, conflicts are reported: passed${note}`);
+  console.log(`Create drafts: 3 commands x 4 ways of leaving leave no file, save writes once and validates, typed drafts ask, conflicts are reported: passed${note}`);
 } catch (error) {
   console.error(output);
   throw error;
 } finally {
-  await browser?.close();
+  // Bound the cleanup: a hung browser close or a dev server that ignores SIGTERM would
+  // otherwise keep this process alive after the test passed.
+  await Promise.race([browser?.close(), new Promise((resolve) => setTimeout(resolve, 10_000).unref())]);
   server.kill();
+  const killed = setTimeout(() => server.kill("SIGKILL"), 5_000);
+  killed.unref();
+  if (server.exitCode === null && server.signalCode === null) await new Promise((resolve) => server.once("exit", resolve));
+  clearTimeout(killed);
   await rm(root, { recursive: true, force: true });
 }

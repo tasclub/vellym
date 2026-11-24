@@ -31,11 +31,16 @@ export function RelatedCommits(props: { name: string; locale: string }) {
   const date = new Intl.DateTimeFormat(props.locale, { dateStyle: "medium", timeStyle: "short" });
   return (
     <section className={styles["plugin-detail-referenced"]} aria-labelledby="plugin-related-commits">
-      <h2 id="plugin-related-commits">{t("plugin.relatedCommits")}</h2>
+      <h2
+        id="plugin-related-commits"
+        title={t("plugin.relatedCommitsHint", { name: props.name })}
+      >
+        {t("plugin.relatedCommits")}
+      </h2>
       {state === "loading" ? <p role="status">{t("git.loading")}</p>
         : state === "unavailable" ? <p>{t("plugin.relatedCommitsUnavailable")}</p>
         : state === "error" ? <p role="alert">{t("plugin.relatedCommitsError")}</p>
-        : !commits?.length ? <p>{t("plugin.relatedCommitsNone")} {t("plugin.relatedCommitsHint", { name: props.name })}</p>
+        : !commits?.length ? <p>{t("plugin.relatedCommitsNone")}</p>
         : <>
           <ul>
             {commits.map((commit) => (

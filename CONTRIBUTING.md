@@ -8,6 +8,8 @@
 
 ## Development
 
+After changing the root README, run `npm run readme:npm` to regenerate the npm README.
+
 Vellym requires Node.js 22.12 or later and npm. CI verifies the current 22 and 24
 release lines. Versions below 22.12 cannot load JSON modules reliably and are not
 supported.
@@ -200,14 +202,16 @@ YAML, and a package nothing links to is never found.
 - **External AI agents**: the npm README is self-sufficient — never "see the site for
   details". A complete canonical YAML example, a table of every field type and required
   key, the `metadata.name` rule, a published JSON Schema under `/schemas/v1/`, and the
-  page's body present in `dist/site/llms.txt`.
+  `llms.txt` index linking to the Japanese `llms-full.txt` and English
+  `en/llms-full.txt`, which contain the guide pages' full text.
 - **Contributors**: `CHANGELOG.md` updated, `CONTRIBUTING.md` still accurate, and the
   requirement or decision behind the change updated rather than the implementation
   landing alone.
 
-Also re-walk the entry points: the two READMEs, the site page and its canonical URL,
-`llms.txt`, and `/schemas/v1/`. The README "ステータス" section lists what is *not*
-implemented, so releasing something means deleting a line there.
+Also re-walk the entry points: the two READMEs, `VELLYM.md`, the site page and its
+canonical URL, `llms.txt` (the Japanese and English index), `llms-full.txt` and
+`en/llms-full.txt` (the full text), and `/schemas/v1/`. The README "ステータス" section
+lists what is *not* implemented, so releasing something means deleting a line there.
 
 Publishing to npm uses trusted publishing (OIDC), so no npm token is stored in this
 repository. The npm package must have a trusted publisher registered for this repository

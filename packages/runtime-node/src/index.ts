@@ -17,3 +17,4 @@ export * from "./slug-migration.js";
 export * from "./structure.js";
 export * from "./types.js";
 export * from "./assets.js";
+export * from "./file-links.js";

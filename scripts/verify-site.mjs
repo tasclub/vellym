@@ -184,6 +184,9 @@ try {
     });
     const response = await page.goto(`${baseUrl}${scenario.path}`, { waitUntil: "networkidle" });
     if (!response?.ok()) throw new Error(`${scenario.path} returned ${response?.status()}`);
+    if (await page.locator('head link[rel="alternate"][type="text/plain"][title="llms.txt"][href="https://vellym.tasclub.com/llms.txt"]').count() !== 1) {
+      throw new Error(`${scenario.path} is missing the llms.txt link`);
+    }
     if ((await page.locator("html").getAttribute("lang")) !== scenario.language) {
       throw new Error(`${scenario.path} has the wrong document language`);
     }
@@ -280,19 +283,49 @@ try {
   if (privateProjectDocs.status !== 404) {
     throw new Error("maintainer project documents must not be published");
   }
-  const llms = await fetch(`${baseUrl}/llms.txt`);
-  const llmsText = await llms.text();
-  if (!llms.ok || !llmsText.includes("Vellymとは") || !llmsText.includes("ドキュメントの正本をGitで管理")) {
-    throw new Error("llms.txt is missing a known page title or body");
+  const texts = [];
+  for (const file of ["/llms.txt", "/llms-full.txt", "/en/llms-full.txt"]) {
+    const response = await fetch(`${baseUrl}${file}`);
+    if (!response.ok) throw new Error(`${file} is not served`);
+    texts.push(await response.text());
   }
-  for (const title of ["変更・コミット・文書の履歴", "画像", "WBS"]) {
-    if (!llmsText.includes(title)) throw new Error(`llms.txt is missing the guide page ${title}`);
+  const [index, ja, en] = texts;
+  const sections = ["## 日本語の利用ガイド", "## English user guide", "## Full text", "## Schemas"];
+  if (!index.startsWith("# Vellym\n> ") || sections.some((section, i) => !index.includes(section) || (i && index.indexOf(section) < index.indexOf(sections[i - 1]))) ||
+      !index.includes("https://vellym.tasclub.com/llms-full.txt") || !index.includes("https://vellym.tasclub.com/en/llms-full.txt")) {
+    throw new Error("llms.txt has an invalid index");
   }
-  if (!llmsText.includes("下書き（`visibility: draft`）の翻訳だけが参照する画像")) {
-    throw new Error("llms.txt is missing the body of the images guide");
+  for (const name of await readdir(path.join(root, "schemas/v1"))) {
+    if (name.endsWith(".schema.json") && !index.includes(`https://vellym.tasclub.com/schemas/v1/${name}`)) {
+      throw new Error(`llms.txt is missing schema ${name}`);
+    }
   }
-  if (llmsText.includes("[[developing-plugins|")) {
-    throw new Error("llms.txt leaves internal link notation unexpanded");
+  if (!index.includes("https://vellym.tasclub.com/schemas/config-v1.schema.json")) throw new Error("llms.txt is missing config schema");
+  if (!ja.startsWith("# Vellym 利用ガイド（全文）") || !en.startsWith("# Vellym User Guide (full text)") ||
+      !ja.includes("1. [") || !en.includes("1. [") || !ja.includes("Source: https://") || !en.includes("Source: https://") ||
+      !ja.includes("Vellymとは") || !ja.includes("ドキュメントの正本をGitで管理") ||
+      !ja.includes("下書き（`visibility: draft`）の翻訳だけが参照する画像") ||
+      ja.includes("What is Vellym") || !en.includes("What is Vellym") || en.includes("Vellymとは")) {
+    throw new Error("llms full texts are missing content or mix languages");
+  }
+  const build = JSON.parse(await readFile(path.join(root, "vellym-build.json"), "utf8"));
+  for (const locale of ["ja", "en"]) {
+    const repository = JSON.parse(await readFile(path.join(root, "data", build.buildId, locale, "repository.json"), "utf8"));
+    const demo = repository.data.pages.filter((page) => page.relativePath.startsWith("demo-tickets/"));
+    for (const text of texts) {
+      if (demo.some((page) => text.includes(page.title)) || text.includes("/pages/ticket-01m0m")) throw new Error("llms contains a demo page");
+    }
+    // Code examples are intentionally literal; only prose links should expand.
+    let fenced = null;
+    for (const line of (locale === "ja" ? ja : en).split("\n")) {
+      const fence = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+      if (fenced) { if (fence && fence[1][0] === fenced[0] && fence[1].length >= fenced.length && !fence[2].trim()) fenced = null; continue; }
+      if (fence) { fenced = fence[1]; continue; }
+      const prose = line.replace(/(`+).*?\1/g, "");
+      for (const page of repository.data.pages) {
+        if (prose.includes(`[[${page.name}]]`) || prose.includes(`[[${page.name}|`)) throw new Error(`unexpanded internal link: ${page.name}`);
+      }
+    }
   }
   for (const version of ["v1alpha1", "v1"]) {
     for (const resource of ["page", "folder", "rich-text-block"]) {

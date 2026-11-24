@@ -124,7 +124,12 @@ describe("setup catalog tree", () => {
 });
 
 describe("SetupTree markup", () => {
-  function render(state: SetupSelectionState, expanded: string[], readOnly = false): string {
+  function render(
+    state: SetupSelectionState,
+    expanded: string[],
+    readOnly = false,
+    reasons?: Record<string, string>
+  ): string {
     return renderToStaticMarkup(
       createElement(SetupTree, {
         index,
@@ -134,6 +139,7 @@ describe("SetupTree markup", () => {
         label: "tree",
         language: "ja" as const,
         readOnly,
+        reasons,
         onToggleExpanded: () => {},
         onToggleSelected: () => {}
       })
@@ -165,6 +171,18 @@ describe("SetupTree markup", () => {
     expect(markup).toContain("参考: arc42");
     expect(markup).not.toContain("準拠");
     expect(markup).not.toContain("不足");
+  });
+
+  it("keeps recommendation reasons in the row tooltip instead of adding a text line", () => {
+    const state = toggleNode(index, selection(), "arc42-context", true);
+    const reason = "規模 small-team / 開発方式 hybrid / 文書化レベル standard に該当します";
+    const markup = render(state, ["area-architecture", "arc-arc42"], false, {
+      "arc42-context": reason
+    });
+    expect(markup).toContain(`title="${reason}"`);
+    expect(markup).not.toContain(`aria-describedby="arc42-context-reason"`);
+    expect(markup).not.toContain(`<span>${reason}</span>`);
+    expect(markup).toContain("参考: arc42");
   });
 
   it("omits checkboxes in the read-only comparison tree", () => {

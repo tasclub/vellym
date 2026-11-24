@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   loadConfig,
   diagnoseAssets,
+  diagnoseFileLinks,
   loadRepository,
   applyMigration,
   isLoopbackHost,
@@ -123,7 +124,7 @@ async function validateCommand(args: string[]): Promise<number> {
     hostVersion: VELLYM_VERSION
   });
   const repository = await loadRepository(loaded.contentRoot, undefined, pluginKinds(plugins));
-  const diagnostics = [...repository.diagnostics, ...plugins.diagnostics, ...await diagnoseAssets(loaded, repository)];
+  const diagnostics = [...repository.diagnostics, ...plugins.diagnostics, ...await diagnoseAssets(loaded, repository), ...await diagnoseFileLinks(loaded, repository)];
   const summary = messages.validateSummary(repository.pages.length, diagnostics.length);
   const text =
     diagnostics.length > 0
@@ -229,6 +230,36 @@ async function schemaCommand(args: string[]): Promise<number> {
       })
     : undefined;
   const kinds = plugins ? pluginKinds(plugins) : undefined;
+  const pluginDiagnostics = plugins?.diagnostics ?? [];
+  const unresolvedPluginDiagnostics = pluginDiagnostics.filter(
+    (diagnostic) => diagnostic.code === "PLUGIN_RESOLVE_FAILED"
+  );
+  let unresolvedPluginPackages: string[] = [];
+  if (loaded && unresolvedPluginDiagnostics.length > 0) {
+    const configuredPlugins = loaded.config.plugins;
+    const failedIndexes = unresolvedPluginDiagnostics.map((diagnostic) => {
+      const match = diagnostic.path?.match(/^\/plugins\/(\d+)$/);
+      return match ? Number(match[1]) : undefined;
+    });
+    const canMapFailedPackages = failedIndexes.every(
+      (index) =>
+        index !== undefined &&
+        Number.isSafeInteger(index) &&
+        index >= 0 &&
+        index < configuredPlugins.length &&
+        typeof configuredPlugins[index] === "string"
+    );
+    unresolvedPluginPackages = [
+      ...new Set(
+        canMapFailedPackages
+          ? failedIndexes.map((index) => configuredPlugins[index!]!)
+          : configuredPlugins
+      )
+    ];
+  }
+  if (pluginDiagnostics.length > 0) {
+    process.stderr.write(`${formatDiagnostics(pluginDiagnostics)}\n`);
+  }
   const available = [
     ...CORE_SCHEMA_KINDS.map(([name]) => name),
     ...[...(kinds?.knownKinds ?? [])]
@@ -237,15 +268,28 @@ async function schemaCommand(args: string[]): Promise<number> {
   ];
 
   if (list) {
+    if (unresolvedPluginDiagnostics.length > 0) {
+      process.stderr.write(`${messages.schemaPluginsMissing()}\n`);
+    }
     process.stdout.write(`${available.join("\n")}\n`);
     return 0;
   }
 
   if (!available.includes(kind!)) {
-    process.stderr.write(`${messages.schemaKindInvalid(kind!, available)}\n`);
+    if (unresolvedPluginDiagnostics.length > 0) {
+      process.stderr.write(
+        `${messages.schemaKindUnresolved(kind!, unresolvedPluginPackages)}\n`
+      );
+      process.stderr.write(`${messages.schemaPluginsMissing()}\n`);
+    } else {
+      process.stderr.write(`${messages.schemaKindInvalid(kind!, available)}\n`);
+    }
     return 1;
   }
 
+  if (unresolvedPluginDiagnostics.length > 0) {
+    process.stderr.write(`${messages.schemaPluginsMissing()}\n`);
+  }
   const schema = coreSchemaForKind(kind!) ?? resourceSchema({
     pageSchema: readBundledSchema("page.schema.json"),
     kind: kind!,

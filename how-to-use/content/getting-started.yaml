@@ -27,20 +27,29 @@ spec:
            npx vellym@beta init myproject --size small-team --method hybrid --language ja
            ```
 
-           規模と開発方式に応じた標準の構成（`--level`で`light`・`strict`も選べる）のFolderとPage YAML、`vellym.config.yaml`が作成される。
+           規模と開発方式に応じた標準の構成（`--level`で`light`・`strict`も選べる）のFolderとPage YAML、`vellym.config.yaml`が作成される。実行した`vellym`の版も`package.json`の`devDependencies`に記録される。
            個別に選びながら始めたい場合は、初期化せずに`vellym dev`を起動し、ブラウザの3段階
            セットアップから開始する。指定できるオプションは[[cli-reference|CLIリファレンス]]を参照。
 
-        2. **開発サーバーを起動する**
+           CLIの`init`はcontent root（既定`docs/`）に、人やAI向けの設定・書き方の案内`VELLYM.md`も作る。自由に編集でき、既存ファイルは上書きしない。
+
+        2. **依存をインストールする**
 
            ```bash
-           npx vellym@beta dev
+           cd myproject
+           npm install
+           ```
+
+        3. **開発サーバーを起動する**
+
+           ```bash
+           npx vellym dev
            ```
 
            既定で `http://127.0.0.1:4173` にバインドする。起動時に表示されるURLを
            ブラウザで開く。
 
-        3. **ブラウザで閲覧・編集する**
+        4. **ブラウザで閲覧・編集する**
 
            文書ツリー、アウトライン、検索、編集、構造編集が使える。画面操作は
            [[browser-guide|ブラウザ画面の使い方]]を参照。
@@ -59,7 +68,8 @@ spec:
            指定できる値、実行例を一覧表示して終了コード`1`で止まる（`--language`自体が
            未指定なら候補は日英の両方で表示される）。AIは一覧から値を選び、必要な
            オプションをすべて指定して実行し直せばよい。`--plugins`は公式プラグインの
-           短縮名をカンマ区切りで渡し、公式パッケージを`package.json`の依存へ書き込む。
+           短縮名をカンマ区切りで渡し、公式パッケージを`dependencies`へ、実行した
+           `vellym`の版を`devDependencies`へ書き込む。
            `init`は`npm install`を実行しない。
 
         2. **依存をインストールする**
@@ -88,13 +98,13 @@ spec:
              fields: []
            ```
 
-           置いたら`npx vellym@beta validate`で診断0件を確認できる。チケットそのものや項目の
+           置いたら`npx vellym validate`で診断0件を確認できる。チケットそのものや項目の
            書き方は[[ticket-management|チケット管理]]を参照。
 
         4. **開発サーバーを起動して確認する**
 
            ```bash
-           npx vellym@beta dev
+           npx vellym dev
            ```
 
            起動時に表示されるURLをブラウザで開くと、置いた`TicketTracker`の一覧が
@@ -162,19 +172,31 @@ spec:
                ```
 
                Writes `vellym.config.yaml` plus the standard folder and page hierarchy (choose `--level light` or `strict` for others) for the
-               given size and method. To choose folders and pages individually instead, skip
-               `init` and run `vellym dev` to use the three-step browser setup. See
+               given size and method. It also records the running Vellym version in
+               `package.json`'s `devDependencies`. To choose folders and pages individually
+               instead, skip `init` and run `vellym dev` to use the three-step browser setup. See
                [[cli-reference|CLI Reference]] for the available options.
 
-            2. **Start the dev server**
+               CLI `init` also creates `VELLYM.md` in the content root (default `docs/`),
+               a guide to configuration and writing for people and AI. You can edit it freely;
+               an existing file is never overwritten.
+
+            2. **Install dependencies**
 
                ```bash
-               npx vellym@beta dev
+               cd myproject
+               npm install
+               ```
+
+            3. **Start the dev server**
+
+               ```bash
+               npx vellym dev
                ```
 
                Binds to `http://127.0.0.1:4173` by default. Open the URL printed at startup.
 
-            3. **Read and edit in the browser**
+            4. **Read and edit in the browser**
 
                Document tree, outline, search, editing, and structure editing are available.
                See [[browser-guide|Using the Browser UI]].
@@ -194,8 +216,9 @@ spec:
                `1` (when `--language` itself is unset, the candidates appear in both Japanese
                and English). The agent picks values from that list and reruns the command
                with every required option. `--plugins` takes comma-separated official plugin
-               short names and writes the official packages into the `package.json`
-               dependencies. `init` never runs `npm install` itself.
+               short names and writes the official packages into `dependencies`; it writes
+               the running Vellym version into `devDependencies`. `init` never runs
+               `npm install` itself.
 
             2. **Install the dependencies**
 
@@ -223,13 +246,13 @@ spec:
                  fields: []
                ```
 
-               After placing it, `npx vellym@beta validate` reports zero diagnostics. See
+               After placing it, `npx vellym validate` reports zero diagnostics. See
                [[ticket-management|Ticket Management]] for tickets and fields.
 
             4. **Start the dev server and check**
 
                ```bash
-               npx vellym@beta dev
+               npx vellym dev
                ```
 
                Open the URL printed at startup; the list for the tracker you placed appears.

@@ -234,7 +234,7 @@
   .setup-tree ul[role="group"] { padding-inline-start: 1.5rem; }
   .setup-tree-item {
     display: grid;
-    grid-template-columns: 18px 18px minmax(0, 1fr);
+    grid-template-columns: 18px 18px minmax(0, 1fr) auto;
     align-items: start;
     gap: var(--space-3);
     padding: var(--space-2) var(--space-1);
@@ -278,6 +278,13 @@
   }
   .setup-tree-item.folder .setup-tree-title strong { font-weight: 700; }
   .setup-tree-item.page .setup-tree-title strong { font-weight: 400; }
+  .setup-tree-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--space-3);
+    min-width: 0;
+  }
   .setup-tree-description,
   .setup-tree-meta {
     display: block;
@@ -285,14 +292,21 @@
     font-size: var(--size-ui);
     line-height: 1.5;
   }
-  .setup-tree-description { margin-top: var(--space-1); }
+  .setup-tree-description { margin: 0; }
   .setup-tree-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-1) var(--space-3);
-    margin-top: var(--space-1);
+    gap: var(--space-1) var(--space-2);
+    margin: 0;
     color: var(--text-muted);
     font-size: var(--size-ui);
+  }
+  /* The project-wide `.setup-shell button` selector outranks a single class. */
+  .setup-shell .setup-tree-edit {
+    min-height: 32px;
+    padding: 0 var(--space-2);
+    font-size: var(--size-caption);
+    white-space: nowrap;
   }
   .setup-tree-item.omitted .setup-tree-title strong {
     color: var(--text-muted);
@@ -372,6 +386,7 @@
     .setup-location div { grid-template-columns: 1fr; gap: var(--space-1); }
     .setup-actions { flex-direction: column-reverse; }
     .setup-actions button { width: 100%; min-height: 44px; }
+    .setup-shell .setup-tree-edit { min-height: 44px; }
     .file-conflict { align-items: stretch; flex-direction: column; }
   }
 }

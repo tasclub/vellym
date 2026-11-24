@@ -6,6 +6,8 @@ function context(overrides: {
   projectRoot?: string;
   targetName?: string;
   onOpenResource?: (name: string) => Promise<{ ok: true } | { ok: false; message: string; reason: "not-found" | "unavailable" }>;
+  onSaved?: () => void;
+  saveDraft?: () => Promise<void>;
 } = {}) {
   return createRenderContext({
     payload: {
@@ -33,7 +35,8 @@ function context(overrides: {
       reason: "not-found",
       message: `not found: ${name}`
     })),
-    onSaved: () => {},
+    onSaved: overrides.onSaved ?? (() => {}),
+    saveDraft: overrides.saveDraft,
     describeError: String
   });
 }
@@ -41,6 +44,46 @@ function context(overrides: {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("plugin render context", () => {
+  it("creates immediately and refreshes without using draft or navigation", async () => {
+    const saved = vi.fn();
+    const draftSave = vi.fn();
+    const open = vi.fn(async () => ({ ok: true as const }));
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      apiSchemaVersion: "1", data: { name: "new-page", relativePath: "new-page.yaml" }, diagnostics: []
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetcher);
+    const draft = { kind: "Page", name: "new-page", title: "New", spec: {} };
+    const render = context({ onSaved: saved, saveDraft: draftSave, onOpenResource: open });
+    expect(await render.createResourceNow!(draft)).toEqual({ ok: true, name: "new-page" });
+    expect(fetcher).toHaveBeenCalledOnce();
+    const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/plugins/resources");
+    expect(JSON.parse(String(init.body))).toEqual({ baseHash: null, draft });
+    expect(saved).toHaveBeenCalledOnce();
+    expect(draftSave).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it.each([[409, "conflict"], [500, "error"]] as const)("reports HTTP %i as %s", async (status, reason) => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({
+      apiSchemaVersion: "1", data: null, diagnostics: [{ code: "FAIL", message: "failed" }]
+    }), { status, headers: { "Content-Type": "application/json" } }));
+    const saved = vi.fn();
+    expect(await context({ onSaved: saved }).createResourceNow!({
+      kind: "Page", name: "new-page", title: "New", spec: {}
+    })).toMatchObject({ ok: false, reason, message: expect.any(String) });
+    expect(saved).not.toHaveBeenCalled();
+  });
+
+  it("rejects creation in static output", async () => {
+    vi.stubGlobal("window", { __VELLYM_STATIC__: { appBase: "https://example.test/", dataBase: "https://example.test/data" } });
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    expect(await context().createResourceNow!({
+      kind: "Page", name: "new-page", title: "New", spec: {}
+    })).toMatchObject({ ok: false, reason: "error", message: expect.any(String) });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
   it("delegates view commands to the host instead of creating a file in the renderer", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const render = createRenderContext({

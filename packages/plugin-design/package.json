@@ -27,7 +27,7 @@
   },
   "publishConfig": { "access": "public" },
   "peerDependencies": {
-    "@vellym/plugin-api": "^0.2.0-beta"
+    "@vellym/plugin-api": "^0.3.0-beta"
   },
   "devDependencies": {
     "@vellym/plugin-api": "*",

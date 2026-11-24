@@ -16,9 +16,38 @@ vi.mock("@vellym/plugin-api/ui", () => ({
     onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onChange(event.target.value)
   }, ...options.map((option) => createElement("option", { key: option.value, value: option.value }, option.label))),
   InputControl: (props: React.InputHTMLAttributes<HTMLInputElement>) => createElement("input", props)
+  ,FieldInput: ({ value, onChange, field, ...props }: { value: string; onChange(value: string): void; field: { type: string } } & Record<string, unknown>) =>
+    createElement("input", { ...props, type: field.type === "date" ? "date" : "text", value,
+      onChange: (event: React.ChangeEvent<HTMLInputElement>) => onChange(event.target.value) })
 }));
-import { WBSScreen } from "../packages/plugin-wbs/src/screen.js";
-import { wbsView } from "../packages/plugin-wbs/src/view.js";
+import { WBSScreen, cellWrite, equalCell, pruneCellOverrides } from "../packages/plugin-wbs/src/screen.js";
+import { formatCell, wbsView, type WBSRendererData } from "../packages/plugin-wbs/src/view.js";
+
+describe("WBS detail formatting", () => {
+  it("prepares cell writes and reconciles indexed values", () => {
+    expect(cellWrite("status", "done")).toEqual({ path: ["status"], value: "done" });
+    expect(cellWrite("start", "")).toEqual({ path: ["fields", "start"], value: null });
+    expect(equalCell(["a", "b"], ["a", "b"])).toBe(true);
+    expect(equalCell(undefined, null)).toBe(true);
+    const key = "root\u0000start";
+    const rows = [{ name: "root", title: "Root", values: { "field:start": "2026-01-01" } }];
+    expect(pruneCellOverrides({ [key]: "2026-01-01" }, rows, new Set())).toEqual({});
+    expect(pruneCellOverrides({ [key]: "2026-01-01" }, rows, new Set([key]))).toEqual({ [key]: "2026-01-01" });
+  });
+  it("formats values by type", () => {
+    const data = { columns: [], diagnostics: [], statusSymbols: { todo: "○" },
+      tracker: { statuses: [{ id: "todo", label: "Todo", category: "open" }] } } as unknown as WBSRendererData;
+    const col = (type: string) => ({ id: type, label: type, type, options: [{ value: "a", label: "Alpha" }] });
+    expect(formatCell(col("status"), "todo", [], data)).toBe("○ Todo");
+    expect(formatCell(col("select"), "a", [], data)).toBe("Alpha");
+    expect(formatCell(col("multiselect"), ["a", "b"], [], data)).toBe("Alpha、b");
+    expect(formatCell(col("boolean"), true, [], data)).toBe("✓");
+    expect(formatCell(col("boolean"), false, [], data)).toBe("");
+    expect(formatCell(col("reference"), "a", [{ name: "a", title: "Task A" }], data)).toBe("Task A");
+    expect(formatCell(col("date"), "2026-11-23", [], data)).toBe("2026-11-23");
+    expect(formatCell(col("text"), "", [], data)).toBe("—");
+  });
+});
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -60,6 +89,58 @@ function editParent(container: HTMLElement, name: string) {
 }
 
 describe("WBS screen", () => {
+  it("saves cells once, retains optimistic values until indexed, and rolls back conflicts", async () => {
+    const { context, container, root, save } = fixture(false, [{ name: "root", title: "Root",
+      values: { status: "todo", "field:start": "2026-01-01" } }]);
+    const data = context.rendererData as WBSRendererData;
+    const next = { ...context, rendererData: { ...data, columns: [
+      { id: "status", label: "状態", type: "status" }, { id: "start", label: "開始", type: "date" }
+    ], tracker: { ...data.tracker!, statuses: [{ id: "todo", label: "Todo", category: "open" as const },
+      { id: "done", label: "Done", category: "closed" as const }] } } };
+    act(() => root.render(createElement(WBSScreen, { context: next })));
+    const cell = (id: string) => container.querySelector<HTMLElement>(`[data-ticket-name="root"] [data-cell="${id}"]`)!;
+    act(() => cell("status").querySelector("button")!.click());
+    await act(async () => { const select = cell("status").querySelector("select")!; select.value = "done"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(save).toHaveBeenCalledWith([{ path: ["status"], value: "done" }], { targetName: "root" });
+    expect(cell("status").textContent).toContain("Done");
+    act(() => cell("status").querySelector("button")!.click());
+    await act(async () => { const select = cell("status").querySelector("select")!; select.value = "done"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(save).toHaveBeenCalledTimes(1);
+    save.mockImplementationOnce(async () => ({ ok: false, reason: "conflict", message: "conflict" }));
+    act(() => cell("start").querySelector("button")!.click());
+    await act(async () => {
+      const input = cell("start").querySelector("input")!;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(save).toHaveBeenLastCalledWith([{ path: ["fields", "start"], value: null }], { targetName: "root" });
+    expect(cell("start").textContent).toContain("2026-01-01");
+    expect(container.querySelector('[role="status"]')?.textContent).toContain("他で変更");
+    act(() => root.unmount());
+  });
+  it("validates pane settings and preserves one visible pane in live and static views", () => {
+    for (const isStatic of [false, true]) for (const value of [undefined, {}, { title: false, details: false, schedule: false }, { title: true, details: "bad", schedule: false }]) {
+      const { context, container, root, save } = fixture(isStatic);
+      act(() => root.unmount());
+      let stored: Record<string, unknown> = { panes: value, other: 1 };
+      const next = { ...context, getViewSettings: () => stored, setViewSettings: (v: unknown) => { stored = v as Record<string, unknown>; } };
+      const mounted = createRoot(container);
+      act(() => mounted.render(createElement(WBSScreen, { context: next })));
+      const button = (name: string) => [...container.querySelectorAll("button")].find((b) => b.textContent === name && b.hasAttribute("aria-pressed"))!;
+      expect(button("題名").getAttribute("aria-pressed")).toBe("true");
+      expect(button("詳細").getAttribute("aria-pressed")).toBe("true");
+      expect(button("スケジュール").getAttribute("aria-pressed")).toBe("true");
+      act(() => button("スケジュール").click());
+      act(() => button("詳細").click());
+      expect(button("題名").disabled).toBe(true);
+      expect(container.querySelector(".wbs-date-header")).toBeNull();
+      expect(stored.panes).toEqual({ title: true, details: false, schedule: false });
+      expect(stored.other).toBe(1);
+      expect(save).not.toHaveBeenCalled();
+      act(() => mounted.unmount());
+    }
+  });
   it("renders grouped WBS summaries", () => {
     const { context, container, root } = fixture(false, [{ name: "a", title: "A", values: { "field:rank": 3, "field:sprint": "S1" } }]);
     const data = context.rendererData as { tracker: Record<string, unknown> };
@@ -156,7 +237,8 @@ describe("WBS screen", () => {
       expect([...container.querySelectorAll('.wbs-review-heading > :first-child')].map((row) => row.textContent)).toEqual([
         "△ 親が見つからないチケット（1）", "△ 親子が循環しているチケット（2）"
       ]);
-      expect(container.textContent).toContain("△ 要確認 3件");
+      expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toContain("△ 要確認 3件");
+      expect(container.querySelector('[role="alert"]')).toBeNull();
       expect(container.textContent).not.toContain("読み込めないチケット");
       if (isStatic) {
         expect(container.textContent).not.toContain("missing-name");
@@ -186,6 +268,95 @@ describe("WBS screen", () => {
     expect(container.querySelector('[role="status"]')?.textContent).toContain("他で変更されました");
     menu = openMenu(container, "c");
     expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "下へ")?.disabled).toBe(true);
+    act(() => root.unmount());
+  });
+  it("omits repeated review diagnostics in English while retaining row details and the count button", () => {
+    const { context, container, root } = fixture(false, [
+      { name: "orphan", title: "Orphan", values: { "field:parent": "missing-name" } }
+    ]);
+    act(() => root.render(createElement(WBSScreen, { context: { ...context, locale: "en" } })));
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).not.toContain("Check WBS definition");
+    expect(container.textContent).not.toContain("Check the parent reference. Reordering and adding children are unavailable.");
+    expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toContain("△ Needs attention: 1");
+    expect(container.querySelector('[data-ticket-name="orphan"] .wbs-review-note')?.textContent).toContain("Parent missing-name not found");
+    act(() => root.unmount());
+  });
+
+  it("indents and outdents a row with one write and rolls back conflicts", async () => {
+    const { container, root, save } = fixture(false, [
+      { name: "a", title: "A", values: { "field:rank": 1 } },
+      { name: "b", title: "B", values: { "field:rank": 2 } },
+      { name: "c", title: "C", values: { "field:rank": 3 } }
+    ]);
+    let menu = openMenu(container, "b");
+    expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "字下げ")?.disabled).toBe(false);
+    expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "字上げ")?.disabled).toBe(true);
+    await act(async () => clickText(menu, "字下げ"));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0]).toEqual([[{ path: ["fields", "parent"], value: "a" }, { path: ["fields", "rank"], value: 1 }], { targetName: "b" }]);
+    expect(container.querySelector('[data-ticket-name="b"]')?.getAttribute("aria-level")).toBe("2");
+
+    menu = openMenu(container, "b");
+    expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "字下げ")?.disabled).toBe(true);
+    expect([...menu.querySelectorAll("button")].find((button) => button.textContent === "字上げ")?.disabled).toBe(false);
+    await act(async () => clickText(menu, "字上げ"));
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1]).toEqual([[{ path: ["fields", "parent"], value: null }, { path: ["fields", "rank"], value: 2 }], { targetName: "b" }]);
+    expect([...container.querySelectorAll("[data-ticket-name]")].map((row) => row.getAttribute("data-ticket-name"))).toEqual(["a", "b", "c"]);
+    expect(container.querySelector('[data-ticket-name="b"]')?.getAttribute("aria-level")).toBe("1");
+
+    menu = openMenu(container, "c");
+    save.mockImplementationOnce(async () => ({ ok: false, reason: "conflict", message: "conflict" }));
+    await act(async () => clickText(menu, "字下げ"));
+    expect(container.querySelector('[data-ticket-name="c"]')?.getAttribute("aria-level")).toBe("1");
+    expect(container.querySelector('[role="status"]')?.textContent).toContain("他で変更されました");
+    act(() => root.unmount());
+  });
+
+  it("maps Tab and Shift+Tab on a title to indent and outdent, not quick-add input", async () => {
+    const { context, container, root, save } = fixture(false, [
+      { name: "a", title: "A", values: { "field:rank": 1 } },
+      { name: "b", title: "B", values: { "field:rank": 2 } }
+    ]);
+    const title = container.querySelector<HTMLButtonElement>('[data-ticket-name="b"] .wbs-title')!;
+    title.focus();
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    await act(async () => { title.dispatchEvent(tab); });
+    expect(tab.defaultPrevented).toBe(true);
+    expect(save).toHaveBeenCalledWith([{ path: ["fields", "parent"], value: "a" }, { path: ["fields", "rank"], value: 1 }], { targetName: "b" });
+
+    const nestedTitle = container.querySelector<HTMLButtonElement>('[data-ticket-name="b"] .wbs-title')!;
+    nestedTitle.focus();
+    const shiftTab = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true });
+    await act(async () => { nestedTitle.dispatchEvent(shiftTab); });
+    expect(shiftTab.defaultPrevented).toBe(true);
+    expect(save).toHaveBeenLastCalledWith([{ path: ["fields", "parent"], value: null }, { path: ["fields", "rank"], value: 2 }], { targetName: "b" });
+
+    const createResourceNow = vi.fn(async () => ({ ok: true as const, name: "new" }));
+    act(() => root.render(createElement(WBSScreen, { context: { ...context, createResourceNow } })));
+    act(() => clickText(container, "＋ 追加"));
+    const input = container.querySelector<HTMLInputElement>('[aria-label="新しいチケットの題名"]')!;
+    const inputTab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    act(() => { input.dispatchEvent(inputTab); });
+    expect(inputTab.defaultPrevented).toBe(false);
+    expect(createResourceNow).not.toHaveBeenCalled();
+    act(() => root.unmount());
+  });
+
+  it("saves only the parent when indenting without a Tracker order field", async () => {
+    const { context, container, root, save } = fixture(false, [
+      { name: "a", title: "A", values: {} },
+      { name: "b", title: "B", values: {} }
+    ]);
+    const data = context.rendererData as WBSRendererData;
+    act(() => root.render(createElement(WBSScreen, { context: {
+      ...context, rendererData: { ...data, orderField: undefined }
+    } })));
+    const menu = openMenu(container, "b");
+    await act(async () => clickText(menu, "字下げ"));
+    expect(save).toHaveBeenCalledWith([{ path: ["fields", "parent"], value: "a" }], { targetName: "b" });
+    expect(container.querySelector('[data-ticket-name="b"]')?.getAttribute("aria-level")).toBe("2");
     act(() => root.unmount());
   });
 
@@ -219,7 +390,8 @@ describe("WBS screen", () => {
     expect(container.querySelector('[data-ticket-name="a"] [draggable]')).toBeNull();
     act(() => clickText(menu, "親を変更…"));
     expect([...container.querySelectorAll<HTMLSelectElement>('[data-ticket-name="a"] select option')].map((option) => option.value)).toEqual(["", "ok"]);
-    expect(container.querySelector('[role="rowgroup"][aria-label="△ 親子が循環しているチケット"]')?.textContent).toContain("親の参照を確認");
+    expect(container.querySelector('[data-ticket-name="a"] .wbs-review-note')?.textContent).toContain("△ a → b → a");
+    expect(container.textContent).not.toContain("親の参照を確認してください。並び替えと子の追加はできません。");
     act(() => root.unmount());
   });
 
@@ -255,7 +427,7 @@ describe("WBS screen", () => {
 
   it("keeps roots and unresolved children, navigates, and writes the selected child's parent", async () => {
     const { container, root, save, openResource } = fixture();
-    expect(container.textContent).toContain("親チケットが見つかりません");
+    expect(container.querySelector('[data-ticket-name="orphan"] .wbs-review-note')?.textContent).toContain("親 missing が見つかりません");
     expect(container.querySelector('[data-ticket-name="child"]')?.textContent).toContain("— 日程なし");
     expect(container.querySelector('[data-ticket-name="child"]')?.getAttribute("aria-level")).toBe("2");
     for (const row of container.querySelectorAll('[data-ticket-name]')) {
@@ -374,17 +546,110 @@ describe("WBS screen", () => {
     act(() => root.unmount());
   });
 
-  it("creates a root or child through the host command rather than writing a Ticket directly", async () => {
+  it.each([true, false])("quick-adds children in place (ranked=%s)", async (ranked) => {
     const { context, container, root, save } = fixture();
-    const runCommand = vi.fn(async () => ({ ok: true as const }));
-    act(() => root.render(createElement(WBSScreen, { context: { ...context, runCommand } })));
-    expect(container.querySelector('[aria-label="日程表"] [title="2026-10-01"]')?.textContent).toBe("1");
+    document.body.append(container);
+    const createResourceNow = vi.fn(async (_draft: unknown) => ({ ok: true as const, name: "new" }));
+    const next = { ...context, rows: context.rows.map((row) => ranked ? row : { ...row, values: Object.fromEntries(Object.entries(row.values).filter(([id]) => id !== "field:rank")) }), createResourceNow };
+    act(() => root.render(createElement(WBSScreen, { context: next })));
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="親: 展開・折りたたみ"]')!.click());
     const menu = openMenu(container, "root");
-    await act(async () => { clickText(menu, "子チケットを追加"); await Promise.resolve(); });
-    expect(runCommand).toHaveBeenCalledWith("ticket.create", {
-      parent: "root", parentField: "parent"
+    act(() => clickText(menu, "子チケットを追加"));
+    expect(container.querySelector('[data-ticket-name="child"]')).not.toBeNull();
+    expect(container.querySelector(".wbs-quick-add")?.previousElementSibling?.getAttribute("data-ticket-name")).toBe("child");
+    const input = container.querySelector<HTMLInputElement>('[aria-label="新しいチケットの題名"]')!;
+    expect(document.activeElement).toBe(input);
+    expect([...container.querySelectorAll("button")].find((b) => b.textContent === "追加")?.disabled).toBe(true);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "New child");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
     });
+    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", isComposing: true, bubbles: true })));
+    expect(createResourceNow).not.toHaveBeenCalled();
+    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    expect(createResourceNow).toHaveBeenCalledWith(expect.objectContaining({ title: "New child",
+      spec: expect.objectContaining({ fields: expect.objectContaining({ parent: "root", ...(ranked ? { rank: 3 } : {}) }) }) }));
+    const draft = createResourceNow.mock.calls[0]![0] as { spec: { fields: Record<string, unknown> } };
+    expect(draft.spec.fields.rank).toBe(ranked ? 3 : undefined);
+    expect(input.value).toBe("");
+    expect(document.activeElement).toBe(input);
     expect(save).not.toHaveBeenCalled();
+    act(() => clickText(container, "取り消し"));
+    expect(container.querySelector(".wbs-quick-add")).toBeNull();
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("retains failed root input, retries without an order field, and does not navigate", async () => {
+    const { context, container, root, openResource, save } = fixture();
+    const createResourceNow = vi.fn<NonNullable<PluginRenderContext["createResourceNow"]>>()
+      .mockResolvedValueOnce({ ok: false, reason: "error", message: "Cannot create" })
+      .mockRejectedValueOnce(new Error("Offline"))
+      .mockResolvedValue({ ok: true, name: "new" });
+    const data = context.rendererData as WBSRendererData;
+    act(() => root.render(createElement(WBSScreen, { context: { ...context, createResourceNow,
+      rendererData: { ...data, orderField: undefined } } })));
+    act(() => clickText(container, "＋ 追加"));
+    const input = container.querySelector<HTMLInputElement>('[aria-label="新しいチケットの題名"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, " Root ");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => clickText(container, "追加"));
+    expect(input.value).toBe(" Root ");
+    expect(container.textContent).toContain("Cannot create");
+    await act(async () => clickText(container, "追加"));
+    expect(input.value).toBe(" Root ");
+    expect(container.textContent).toContain("Offline");
+    await act(async () => clickText(container, "追加"));
+    expect(createResourceNow.mock.lastCall?.[0]).toMatchObject({ title: "Root" });
+    expect(createResourceNow.mock.lastCall?.[0].spec.fields).not.toHaveProperty("rank");
+    expect(createResourceNow.mock.lastCall?.[0].spec.fields).not.toHaveProperty("parent");
+    expect(input.value).toBe("");
+    expect(save).not.toHaveBeenCalled();
+    expect(openResource).not.toHaveBeenCalled();
+    act(() => root.unmount());
+  });
+
+  it("windows the add row, opens a folded parent's children and keeps focus after indexed creation", async () => {
+    const { context, container, root } = fixture(false, [
+      { name: "parent", title: "A parent", values: { "field:rank": 1 } },
+      ...Array.from({ length: 350 }, (_, i) => ({ name: `child-${i}`, title: `Child ${i}`,
+        values: { "field:parent": "parent", "field:rank": i + 1 } }))
+    ]);
+    document.body.append(container);
+    const createResourceNow = vi.fn(async () => ({ ok: true as const, name: "new" }));
+    let next = { ...context, createResourceNow };
+    act(() => root.render(createElement(WBSScreen, { context: next })));
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="A parent: 展開・折りたたみ"]')!.click());
+    const menu = openMenu(container, "parent");
+    act(() => clickText(menu, "子チケットを追加"));
+    const input = container.querySelector<HTMLInputElement>('[aria-label="新しいチケットの題名"]')!;
+    expect(input).not.toBeNull();
+    expect(container.querySelector<HTMLElement>(".wbs-scroll")!.scrollTop).toBeGreaterThan(0);
+    expect(document.activeElement).toBe(input);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Next");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => clickText(container, "追加"));
+    next = { ...next, rows: [...next.rows, { name: "new", title: "Next", values: { "field:parent": "parent", "field:rank": 351 } }] };
+    act(() => root.render(createElement(WBSScreen, { context: next })));
+    expect(container.querySelector(".wbs-quick-add")?.previousElementSibling?.getAttribute("data-ticket-name")).toBe("new");
+    expect(document.activeElement).toBe(container.querySelector('[aria-label="新しいチケットの題名"]'));
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("hides quick add without immediate creation support, in static views and on read-only targets", () => {
+    const { context, container, root } = fixture();
+    for (const next of [context, { ...context, isStatic: true, createResourceNow: vi.fn() },
+      { ...context, target: { ...context.target!, readOnly: true }, createResourceNow: vi.fn() }]) {
+      act(() => root.render(createElement(WBSScreen, { context: next })));
+      expect(container.textContent).not.toContain("＋ 追加");
+      const menu = container.querySelector<HTMLElement>(".wbs-row-menu") ?? openMenu(container, "root");
+      expect(menu.textContent).not.toContain("子チケットを追加");
+    }
     act(() => root.unmount());
   });
 

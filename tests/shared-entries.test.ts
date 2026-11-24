@@ -6,7 +6,7 @@ const clientRoot = path.join(process.cwd(), "packages/ui-react/dist/client");
 const assets = path.join(clientRoot, "assets");
 
 /**
- * import mapが指す固定名ファイルと、そこから読めなければならない名前。
+ * import mapが指すエントリから読めなければならない名前。
  *
  * **ここが静かに壊れると、プラグイン側でhooksがundefinedになる形で初めて
  * 表面化する。** 実際に一度壊れた。Viteのアプリ向け既定は
@@ -14,27 +14,40 @@ const assets = path.join(clientRoot, "assets");
  * ことになっており、`useState`が`a`になって消えていた。
  */
 const REQUIRED_EXPORTS: Record<string, readonly string[]> = {
-  "vellym-react.js": ["useState", "useEffect", "useMemo", "useRef", "createElement"],
-  "vellym-react-dom.js": ["createRoot", "createPortal"],
-  "vellym-jsx-runtime.js": ["jsx", "jsxs", "Fragment"],
-  "vellym-ui.js": ["Button", "Dialog", "DataTable", "FieldInput"],
-  "vellym-plugin-api.js": ["defineBrowserPlugin", "resolveLocalizedText"],
-  "vellym-plugin-api-react.js": ["reactRenderer"]
+  "react": ["useState", "useEffect", "useMemo", "useRef", "createElement"],
+  "react-dom/client": ["createRoot", "createPortal"],
+  "react/jsx-runtime": ["jsx", "jsxs", "Fragment"],
+  "@vellym/plugin-api/ui": ["Button", "Dialog", "DataTable", "FieldInput", "ChoiceControl", "InputControl", "Icon", "KindIcon"],
+  "@vellym/plugin-api": ["defineBrowserPlugin", "resolveLocalizedText"],
+  "@vellym/plugin-api/react": ["reactRenderer"]
 };
 
 const built = existsSync(path.join(clientRoot, "index.html"));
+function importsFromHtml(): Record<string, string> {
+  const html = readFileSync(path.join(clientRoot, "index.html"), "utf8");
+  const match = html.match(/<script type="importmap">(.*?)<\/script>/s);
+  return JSON.parse(match?.[1] ?? "{}").imports;
+}
 
 describe.skipIf(!built)("shared entries for plugins", () => {
-  it("keeps the file names the import map points at", () => {
-    // 名前が変わるとプラグインの読み込みが壊れる。ハッシュを付けない。
-    for (const name of Object.keys(REQUIRED_EXPORTS)) {
-      expect(existsSync(path.join(assets, name)), `${name} が無い`).toBe(true);
+  it("points at existing hashed entries without fixed-name files", () => {
+    const imports = importsFromHtml();
+    for (const name of ["vellym-react", "vellym-react-dom", "vellym-jsx-runtime", "vellym-ui", "vellym-plugin-api", "vellym-plugin-api-react"]) {
+      expect(existsSync(path.join(assets, `${name}.js`))).toBe(false);
+      expect(Object.values(imports).some((url) => new RegExp(`^\\./assets/${name}-[\\w-]+\\.js$`).test(url))).toBe(true);
+    }
+    for (const url of Object.values(imports)) {
+      expect(url).toMatch(/^\.\/assets\/vellym-[\w-]+-[\w-]+\.js$/);
+      expect(existsSync(path.join(clientRoot, url))).toBe(true);
     }
   });
 
   it("really exports the names plugins import", async () => {
+    const imports = importsFromHtml();
     for (const [name, expected] of Object.entries(REQUIRED_EXPORTS)) {
-      const module = await import(path.join(assets, name));
+      const target = imports[name];
+      expect(target).toBeDefined();
+      const module = await import(path.join(clientRoot, target!));
       for (const key of expected) {
         expect(
           module[key],
@@ -55,7 +68,7 @@ describe.skipIf(!built)("shared entries for plugins", () => {
     expect(html.match(/type="importmap"/g)).toHaveLength(1);
   });
 
-  it("points every bare specifier plugins may use at a fixed file", () => {
+  it("points every bare specifier plugins may use at a hashed file", () => {
     const html = readFileSync(path.join(clientRoot, "index.html"), "utf8");
     const match = html.match(/<script type="importmap">(.*?)<\/script>/s);
     const imports = JSON.parse(match?.[1] ?? "{}").imports as Record<string, string>;
@@ -88,12 +101,12 @@ describe("the SPA shell served by the dev server", () => {
     const { dynamicIndexHtml } = await import("@vellym-internal/runtime-node");
     const html = [
       '<script type="importmap">',
-      '{"imports":{"react":"./assets/vellym-react.js"}}',
+      '{"imports":{"react":"./assets/vellym-react-abc123.js"}}',
       "</script>",
       '<script type="module" src="./assets/index-abc.js"></script>'
     ].join("");
     const rewritten = dynamicIndexHtml(Buffer.from(html, "utf8")).toString("utf8");
-    expect(rewritten).toContain('"react":"/assets/vellym-react.js"');
+    expect(rewritten).toContain('"react":"/assets/vellym-react-abc123.js"');
     expect(rewritten).toContain('src="/assets/index-abc.js"');
     expect(rewritten).not.toContain('"./assets/vellym-');
   });

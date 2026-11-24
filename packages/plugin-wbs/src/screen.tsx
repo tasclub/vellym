@@ -1,16 +1,46 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { resolveLocalizedText, summarizeRows, type PluginIndexRow, type PluginRenderContext } from "@vellym/plugin-api";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
-import { Button, ChoiceControl, InputControl } from "@vellym/plugin-api/ui";
-import { buildTicketHierarchy, fieldKey } from "@vellym-internal/ticket-engine";
-import { excludedParents, rankForAppend, rankForInsert, flattenRows, rowWindow, type WBSRow } from "./model.js";
+import { Button, ChoiceControl, FieldInput, InputControl } from "@vellym/plugin-api/ui";
+import type { PluginFieldDescriptor, PluginSpecWrite } from "@vellym/plugin-api";
+import { buildTicketDraft, buildTicketHierarchy, fieldKey } from "@vellym-internal/ticket-engine";
+import { excludedParents, indentTarget, outdentTarget, rankForAppend, rankForInsert, flattenRows, rowWindow,
+  type ParentMoveTarget, type WBSRow } from "./model.js";
 import { buildTimeline, parseDate, timelineBar, DAY_MS, mondayOnOrBefore, presetRange, TIMELINE_PRESETS, timelineCells,
   timelinePreset, type Timeline, type TimelineMode, type TimelinePreset } from "./timeline.js";
-import type { WBSRendererData } from "./view.js";
+import { formatCell, type WBSColumn, type WBSRendererData } from "./view.js";
 
 const label = (ja: string, en: string, locale: string) => resolveLocalizedText({ ja, en }, locale);
 const date = (value: unknown): string | undefined =>
   parseDate(value) !== undefined ? value as string : undefined;
+const cellKey = (name: string, id: string) => `${name}\u0000${id}`;
+const cellValue = (row: PluginIndexRow, id: string) => row.values[id === "status" ? "status" : fieldKey(id)];
+const normalizeCell = (value: unknown) => value === "" || value == null || Array.isArray(value) && !value.length ? null : value;
+export function equalCell(a: unknown, b: unknown): boolean {
+  a = normalizeCell(a); b = normalizeCell(b);
+  return Array.isArray(a) && Array.isArray(b) ? a.length === b.length && a.every((v, i) => v === b[i]) : a === b;
+}
+export function cellWrite(id: string, value: unknown): PluginSpecWrite {
+  return { path: id === "status" ? ["status"] : ["fields", id], value: normalizeCell(value) as PluginSpecWrite["value"] };
+}
+export function pruneCellOverrides(overrides: Record<string, unknown>, rows: readonly PluginIndexRow[], saving: ReadonlySet<string>) {
+  return Object.fromEntries(Object.entries(overrides).filter(([key, value]) => {
+    const [name, id] = key.split("\u0000");
+    const row = rows.find((item) => item.name === name);
+    return saving.has(key) || !!row && !equalCell(cellValue(row, id!), value);
+  }));
+}
+type CellEditing = { key: string; value: unknown };
+
+type Panes = { title: boolean; details: boolean; schedule: boolean };
+function readPanes(value: unknown): Panes {
+  const defaults = { title: true, details: true, schedule: true };
+  if (!value || typeof value !== "object" || Array.isArray(value)) return defaults;
+  const panes = value as Record<string, unknown>;
+  if (typeof panes.title !== "boolean" || typeof panes.details !== "boolean" ||
+      typeof panes.schedule !== "boolean" || !(panes.title || panes.details || panes.schedule)) return defaults;
+  return { title: panes.title, details: panes.details, schedule: panes.schedule };
+}
 
 function TimelineTrack({ timeline, start, end, locale, closed, onReveal }: {
   timeline?: Timeline;
@@ -47,11 +77,6 @@ function TimelineTrack({ timeline, start, end, locale, closed, onReveal }: {
   </div>;
 }
 
-function statusSymbol(data: WBSRendererData, id: unknown, category?: string): string {
-  const symbol = typeof id === "string" && Object.hasOwn(data.statusSymbols ?? {}, id) ? data.statusSymbols?.[id] : undefined;
-  return symbol?.trim() ? symbol : category === "closed" ? "✓" : "□";
-}
-
 /** Indent steps belong to nested structure, never a calculated per-row padding. */
 function Indent({ depth, children }: { depth: number; children: ReactNode }) {
   let content = children;
@@ -61,7 +86,7 @@ function Indent({ depth, children }: { depth: number; children: ReactNode }) {
   return content;
 }
 
-function WBSRows({ items, data, context, all, review, timeline, busy, movedName, collapsed, onToggle, onParent, onOrder, onDropOrder, onRenumber, onCreate, onReveal }: {
+function WBSRows({ items, data, context, all, review, timeline, panes, busy, movedName, collapsed, editing, overrides, saving, menu, setMenu, onEdit, onCommit, onToggle, onParent, onIndent, onOutdent, onOrder, onDropOrder, onRenumber, onCreate, onReveal }: {
   items: readonly WBSRow[];
   data: WBSRendererData;
   context: PluginRenderContext;
@@ -69,10 +94,20 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
   review: ReadonlySet<string>;
   movedName?: string;
   timeline?: Timeline;
+  panes: Panes;
   busy: boolean;
   collapsed: ReadonlySet<string>;
+  editing?: CellEditing;
+  overrides: Record<string, unknown>;
+  saving: ReadonlySet<string>;
+  menu?: string;
+  setMenu(name?: string): void;
+  onEdit(edit?: CellEditing): void;
+  onCommit(row: PluginIndexRow, column: WBSColumn, value: unknown): void;
   onToggle(name: string): void;
   onParent(row: PluginIndexRow, parent: string): void;
+  onIndent(row: PluginIndexRow, target: ParentMoveTarget): void;
+  onOutdent(row: PluginIndexRow, target: ParentMoveTarget): void;
   onOrder(rows: readonly PluginIndexRow[], index: number, delta: -1 | 1): void;
   onDropOrder(rows: readonly PluginIndexRow[], dragged: string, target: number, after: boolean): void;
   onRenumber(rows: readonly PluginIndexRow[]): void;
@@ -80,11 +115,11 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
   onReveal(timestamp: number): void;
 }) {
   const [editingParent, setEditingParent] = useState<string>();
-  const [menu, setMenu] = useState<string>();
   const [menuPosition, setMenuPosition] = useState({ left: "8px", top: "8px" });
   const [dropPosition, setDropPosition] = useState<{ name: string; after: boolean }>();
   const editable = !context.isStatic && !context.target?.readOnly;
   const byName = new Map(all.map((row) => [row.name, row]));
+  const referenceRows = [...all, ...context.records("Ticket")];
   function reviewNote(row: PluginIndexRow): string {
     const seen = new Set<string>();
     const chain: string[] = [];
@@ -100,7 +135,7 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
     return `△ ${chain.join(" → ")}${current ? ` → ${String(current.values.number ?? current.name)}` : ""}`;
   }
   useEffect(() => {
-    if (!menu) return;
+    if (!menu || !items.some((item) => item.node.row.name === menu)) return;
     const close = (event: PointerEvent) => {
       if (event.target instanceof Element && !event.target.closest(".wbs-row-menu, .wbs-actions")) {
         setMenu(undefined); setEditingParent(undefined);
@@ -116,6 +151,10 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
         const parent = data.parentField ? row.values[fieldKey(data.parentField)] : undefined;
         const status = data.tracker?.statuses.find((item) => item.id === row.values.status);
          const needsReview = review.has(row.name);
+         const indent = !needsReview && data.parentField
+           ? indentTarget(all, row.name, data.parentField, data.orderField, context.locale) : undefined;
+         const outdent = !needsReview && data.parentField
+           ? outdentTarget(all, row.name, data.parentField, data.orderField, context.locale) : undefined;
          const descendants = editingParent === row.name && data.parentField
            ? excludedParents(all, row.name, data.parentField) : new Set<string>();
          const dropTarget = editable && !needsReview && data.orderField ? {
@@ -140,7 +179,7 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
            data-ticket-name={row.name} data-wbs-level={depth} className="wbs-row"
            data-moved={movedName === row.name || undefined} data-review={needsReview || undefined}
           data-drop={dropPosition?.name === row.name ? (dropPosition.after ? "after" : "before") : undefined}>
-          <div role="gridcell" className="wbs-left" {...dropTarget}>
+          {panes.title ? <div role="gridcell" className="wbs-left" {...dropTarget}>
           <Indent depth={depth}><span className="wbs-cell-content">
           <span className="wbs-toggle">{node.children.length ? <Button icon
             aria-label={`${row.title}: ${label("展開・折りたたみ", "Toggle children", context.locale)}`}
@@ -148,8 +187,14 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
             {collapsed.has(row.name) ? "▸" : "▾"}</Button> : null}</span>
           {depth >= 4 ? <span className="wbs-level-badge">L{depth + 1}</span> : null}
           <span className="wbs-number">{String(row.values.number ?? "")}</span>
-           <span className="wbs-narrow-status" title={status?.label}>{statusSymbol(data, row.values.status, status?.category)}</span>
-           <Button className="wbs-title" onClick={() => void context.openResource(row.name)}>{row.title || row.name}</Button>
+           <Button className="wbs-title" onClick={() => void context.openResource(row.name)}
+              onKeyDown={(event) => {
+                if (!editable || event.key !== "Tab" || needsReview) return;
+                const target = event.shiftKey ? outdent : indent;
+                if (!target) return;
+                event.preventDefault();
+                if (event.shiftKey) onOutdent(row, target); else onIndent(row, target);
+              }}>{row.title || row.name}</Button>
            {needsReview && !context.isStatic ? <span className="wbs-review-note" title={reviewNote(row)}>{reviewNote(row)}</span> : null}
           <span className="wbs-actions">
            {editable && !needsReview && data.orderField && rows.length > 1 ? <Button icon draggable={!busy} disabled={busy}
@@ -171,8 +216,6 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
                setMenu(menu === row.name ? undefined : row.name); setEditingParent(undefined);
              }}>⋯</Button>
           </span>
-           <span className="wbs-status">{status ? `${statusSymbol(data, row.values.status, status.category)} ${status.label}`
-            : String(row.values.status || label("未設定", "Unset", context.locale))}</span>
            </span></Indent>
             {menu === row.name ? <div role="group" aria-label={label("行の操作", "Row actions", context.locale)}
               className="wbs-row-menu" style={menuPosition} onKeyDown={(event) => { if (event.key === "Escape") { setMenu(undefined); setEditingParent(undefined); } }}>
@@ -183,13 +226,22 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
                   <Button disabled={busy || index === rows.length - 1} onClick={() => { onOrder(rows, index, 1); setMenu(undefined); }}>{label("下へ", "Move down", context.locale)}</Button>
                 </> : null}
                 {data.parentField ? <>
+                  {!needsReview ? <>
+                    <Button disabled={busy || !indent} onClick={() => {
+                      if (indent) onIndent(row, indent);
+                      setMenu(undefined);
+                    }}>{label("字下げ", "Indent", context.locale)}</Button>
+                    <Button disabled={busy || !outdent} onClick={() => {
+                      if (outdent) onOutdent(row, outdent);
+                      setMenu(undefined);
+                    }}>{label("字上げ", "Outdent", context.locale)}</Button>
+                  </> : null}
                   <Button disabled={busy} onClick={() => setEditingParent(row.name)}>{label("親を変更…", "Change parent…", context.locale)}</Button>
                   {needsReview ? <Button disabled={busy} onClick={() => { onParent(row, ""); setMenu(undefined); }}>{label("親を空にして最上位へ", "Clear parent and move to top level", context.locale)}</Button> : null}
-                  {!needsReview && context.runCommand ? <Button disabled={busy} onClick={() => { onCreate(row.name); setMenu(undefined); }}>{label("子チケットを追加", "Add child task", context.locale)}</Button> : null}
+                  {!needsReview && context.createResourceNow ? <Button disabled={busy} onClick={() => { onCreate(row.name); setMenu(undefined); }}>{label("子チケットを追加", "Add child task", context.locale)}</Button> : null}
                 </> : null}
               </> : null}
-               {needsReview && !context.isStatic ? <small>{label("親の参照を確認してください。並び替えと子の追加はできません。", "Check the parent reference. Reordering and adding children are unavailable.", context.locale)}</small> : null}
-            {editable && editingParent === row.name && data.parentField ? <div role="group" className="wbs-parent-editor">
+             {editable && editingParent === row.name && data.parentField ? <div role="group" className="wbs-parent-editor">
             <label>{label("親を変更", "Change parent", context.locale)}{" "}<ChoiceControl mode="select"
               aria-label={`${row.title}: ${label("親", "Parent", context.locale)}`}
               value={typeof parent === "string" ? parent : ""} disabled={busy}
@@ -202,11 +254,51 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
               {label("並び順を付け直す", "Renumber order", context.locale)} ({rows.length})</Button> : null}
            </div> : null}
             </div> : null}
-          </div>
-          <div role="gridcell" className="wbs-timeline-cell" title={`${start || label("未設定", "Unset", context.locale)} – ${end || label("未設定", "Unset", context.locale)}`}
+          </div> : null}
+          {panes.details ? data.columns.map((column, index) => {
+            const key = cellKey(row.name, column.id);
+            const value = editing?.key === key ? editing.value : Object.hasOwn(overrides, key) ? overrides[key] : cellValue(row, column.id);
+            const text = Array.isArray(value) ? value.join(", ") : value == null ? "" : String(value);
+            const field = data.tracker?.fields.find((item) => item.id === column.id);
+            const descriptor = { ...field, id: column.id, label: column.label, type: column.type,
+              path: ["fields", column.id] } as PluginFieldDescriptor;
+            const immediate = !["text", "number"].includes(column.type);
+            const convert = (next: string): unknown => !next ? null : column.type === "number" ? Number(next)
+              : column.type === "boolean" ? next === "true"
+              : column.type === "multiselect" || descriptor.multiple ? next.split(",").map((item) => item.trim()).filter(Boolean) : next;
+            return <div role="gridcell" className="wbs-status" data-cell={column.id} data-editing={editing?.key === key || undefined}
+              data-saving={saving.has(key) || undefined} key={`${column.id}-${index}`}>
+              {editable && !needsReview ? editing?.key === key ? <div className="wbs-cell-editor"
+                onBlur={(event) => {
+                  if (!immediate && !event.currentTarget.contains(event.relatedTarget as Node | null)) onCommit(row, column, editing.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") { event.preventDefault(); onEdit(undefined); }
+                  else if (!immediate && event.key === "Enter") { event.preventDefault(); onCommit(row, column, editing.value); }
+                }}>
+                {column.id === "status" ? <ChoiceControl mode="select" aria-label={`${row.title}: ${column.label}`}
+                  value={text} options={[{ value: "", label: label("未設定", "Unset", context.locale) },
+                    ...(data.tracker?.statuses ?? []).map((status) => ({ value: status.id, label: status.label }))]}
+                  onChange={(next) => onCommit(row, column, next || null)} /> :
+                  column.type === "multiselect" && descriptor.options ? <>
+                    {(Array.isArray(value) ? value : []).map((item) => <Button key={String(item)}
+                      aria-label={`${label("削除", "Remove", context.locale)} ${String(item)}`}
+                      onClick={() => onCommit(row, column, (value as unknown[]).filter((v) => v !== item))}>× {String(item)}</Button>)}
+                    <FieldInput id={`wbs-${row.name}-${column.id}`} field={descriptor} value="" locale={context.locale} autoFocus
+                      onChange={(next) => { if (next) onCommit(row, column, [...(Array.isArray(value) ? value : []), next]); }} />
+                  </> :
+                  <FieldInput id={`wbs-${row.name}-${column.id}`} field={descriptor} value={text} locale={context.locale} autoFocus
+                    referenceCandidates={column.type === "reference" ? referenceRows : undefined}
+                    onChange={(next) => { if (immediate) onCommit(row, column, convert(next)); else onEdit({ key, value: next }); }} />}
+                </div> : <Button disabled={saving.has(key)} aria-label={`${row.title}: ${column.label}`}
+                  onClick={() => onEdit({ key, value })}>{formatCell(column, value, referenceRows, data)}</Button>
+                : formatCell(column, value, referenceRows, data)}
+            </div>;
+          }) : null}
+          {panes.schedule ? <div role="gridcell" className="wbs-timeline-cell" title={`${start || label("未設定", "Unset", context.locale)} – ${end || label("未設定", "Unset", context.locale)}`}
             {...dropTarget}>
             <TimelineTrack timeline={timeline} start={start} end={end} locale={context.locale} closed={status?.category === "closed"} onReveal={onReveal} />
-          </div>
+          </div> : null}
         </div>;
       })}</>;
 }
@@ -214,11 +306,17 @@ function WBSRows({ items, data, context, all, review, timeline, busy, movedName,
 export function WBSScreen({ context }: PluginViewProps) {
   const base = context.rendererData as WBSRendererData | undefined;
   const [configuration, setConfiguration] = useState<Record<string, string>>({});
-  const data: WBSRendererData | undefined = base ? { ...base, ...configuration } : undefined;
+  const [selectedColumns, setSelectedColumns] = useState<readonly WBSColumn[]>();
+  const data: WBSRendererData | undefined = base ? { ...base, ...configuration, columns: selectedColumns ?? base.columns ?? [{ id: "status", label: label("状態", "Status", context.locale), type: "status" }] } : undefined;
   const [parents, setParents] = useState<Record<string, string>>({});
   const [orders, setOrders] = useState<Record<string, number>>({});
+  const [editing, setEditing] = useState<CellEditing>();
+  const [overrides, setOverrides] = useState<Record<string, unknown>>({});
+  const [saving, setSaving] = useState<Set<string>>(() => new Set());
+  const savingRef = useRef(new Set<string>());
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [panes, setPanes] = useState(() => readPanes(settings(context).panes));
   const [movedName, setMovedName] = useState<string>();
   const editable = !context.isStatic && !context.target?.readOnly;
   useEffect(() => {
@@ -239,6 +337,9 @@ export function WBSScreen({ context }: PluginViewProps) {
       return row && (!orderField || row.values[fieldKey(orderField)] !== value);
     })));
   }, [context.rows, parentField, orderField]);
+  useEffect(() => {
+    setOverrides((current) => pruneCellOverrides(current, context.rows, saving));
+  }, [context.rows, saving]);
   const rows: PluginIndexRow[] = context.rows.map((row) => ({ ...row, values: {
     ...row.values,
     ...(parentField && parents[row.name] !== undefined ? { [fieldKey(parentField)]: parents[row.name]! } : {}),
@@ -294,16 +395,46 @@ export function WBSScreen({ context }: PluginViewProps) {
       ? label("他で変更されました。表示は操作前のままです。再読み込みしてください。", "Changed elsewhere. The previous display is preserved; reload.", context.locale)
       : result.message);
   };
-  async function changeParent(row: PluginIndexRow, parent: string) {
+  async function commitCell(row: PluginIndexRow, column: WBSColumn, value: unknown) {
+    const key = cellKey(row.name, column.id);
+    if (savingRef.current.has(key)) return;
+    setEditing(undefined);
+    if (column.type === "number" && typeof value === "string" && value !== "") {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return;
+      value = parsed;
+    }
+    const previous = Object.hasOwn(overrides, key) ? overrides[key] : cellValue(row, column.id);
+    const hadPreviousOverride = Object.hasOwn(overrides, key);
+    if (equalCell(previous, value)) return;
+    savingRef.current.add(key);
+    setSaving(new Set(savingRef.current));
+    setOverrides((current) => ({ ...current, [key]: normalizeCell(value) }));
+    try {
+      const result = await context.save([cellWrite(column.id, value)], { targetName: row.name });
+      if (!result.ok) setOverrides((current) => {
+        const next = { ...current }; if (hadPreviousOverride) next[key] = previous; else delete next[key]; return next;
+      });
+      saveMessage(result);
+    } catch (error) {
+      setOverrides((current) => { const next = { ...current }; if (hadPreviousOverride) next[key] = previous; else delete next[key]; return next; });
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      savingRef.current.delete(key);
+      setSaving(new Set(savingRef.current));
+    }
+  }
+  async function changeParent(row: PluginIndexRow, parent: string,
+    position?: { order: number | undefined; allowWithoutOrder?: boolean }) {
     if (!parentField || busy || !editable ||
       (parent && (excludedParents(rows, row.name, parentField).has(parent) || review.has(parent)))) return;
     const currentParent = row.values[fieldKey(parentField)];
     if ((typeof currentParent === "string" ? currentParent : "") === parent) return;
     const destination = rows.filter((item) => item.name !== row.name && !review.has(item.name) &&
       (item.values[fieldKey(parentField)] || "") === parent);
-    const rank = orderField ? rankForAppend(destination, orderField) : undefined;
+    const rank = position ? position.order : orderField ? rankForAppend(destination, orderField) : undefined;
     // A finite rank cannot follow missing ranks. Never silently rewrite siblings.
-    if ((orderField && rank === undefined) || (!orderField && destination.length)) {
+    if ((orderField && rank === undefined) || (!orderField && destination.length && !position?.allowWithoutOrder)) {
       setMessage(renumberMessage); return;
     }
     setBusy(true);
@@ -326,15 +457,44 @@ export function WBSScreen({ context }: PluginViewProps) {
     setMessage("");
     setConfiguration((current) => ({ ...current, [setting]: value }));
   }
-  async function createTask(parent: string) {
-    if (!context.runCommand || busy || !parentField || !editable || review.has(parent)) return;
+  async function configureColumns(columns: readonly WBSColumn[]) {
+    if (busy || !editable) return;
     setBusy(true);
-    const result = await context.runCommand("ticket.create", {
-      parent, parentField
-    });
+    const result = await context.save([{ path: ["wbs", "columns"], value: columns.map((column) => column.id) }]);
     setBusy(false);
     if (!result.ok) { setMessage(result.message); return; }
     setMessage("");
+    setSelectedColumns(columns);
+  }
+  async function createTask(parent: string, title: string, values: Record<string, unknown>): Promise<boolean> {
+    if (!context.createResourceNow || busy || !tracker || !editable || review.has(parent) || !title.trim()) return false;
+    setBusy(true);
+    try {
+      const draft = buildTicketDraft(tracker, { title, parent, parentField }, context.locale);
+      const spec = { ...draft.spec };
+      const fields = { ...(draft.spec.fields as Record<string, unknown> ?? {}) };
+      for (const [id, value] of Object.entries(values)) {
+        if (id === "status") spec.status = value;
+        else fields[id] = value;
+      }
+      if (parentField) {
+        if (parent) fields[parentField] = parent; else delete fields[parentField];
+      }
+      if (orderField) {
+        delete fields[orderField];
+        const siblings = rows.filter((row) => !review.has(row.name) &&
+          (!parentField || (row.values[fieldKey(parentField)] || "") === parent));
+        const rank = rankForAppend(siblings, orderField);
+        if (rank !== undefined) fields[orderField] = rank;
+      }
+      spec.fields = fields;
+      const result = await context.createResourceNow({ ...draft, spec });
+      setMessage(result.ok ? "" : result.message);
+      return result.ok;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      return false;
+    } finally { setBusy(false); }
   }
   async function moveOrder(siblings: readonly PluginIndexRow[], index: number, delta: -1 | 1) {
     if (!orderField || busy || !editable || review.has(siblings[index]?.name ?? "") || index + delta < 0 || index + delta >= siblings.length) return;
@@ -411,17 +571,25 @@ export function WBSScreen({ context }: PluginViewProps) {
               .map((field) => ({ value: field.id, label: field.label }))]}
           onChange={(value) => void configure(setting, value)} /></label>
       )}
+      <fieldset><legend>{label("詳細の列", "Details columns", context.locale)}</legend>
+        {[{ id: "status", label: label("状態", "Status", context.locale), type: "status" },
+          ...tracker.fields.filter((field) => field.type !== "multiline" && field.id !== data?.parentField && field.id !== data?.orderField)]
+          .map((column) => <label key={column.id}><input type="checkbox" disabled={busy}
+            checked={!!data?.columns.some((item) => item.id === column.id)}
+            onChange={(event) => void configureColumns(event.target.checked
+              ? [...(data?.columns ?? []), column] : (data?.columns ?? []).filter((item) => item.id !== column.id))} /> {column.label}</label>)}
+      </fieldset>
     </details> : null}
-    {!context.isStatic && [...(data?.diagnostics ?? []), ...hierarchy.diagnostics].length > 0 ? (
-      <div role="alert"><h2>{label("WBSの設定に問題があります", "Check WBS definition", context.locale)}</h2>
-        <ul>{[...(data?.diagnostics ?? []), ...hierarchy.diagnostics].map((diagnostic, index) =>
-          <li key={`${diagnostic.code}:${index}`}>
-            {resolveLocalizedText(diagnostic.message, context.locale)}
-          </li>
-        )}</ul></div>
-    ) : null}
     {busy || message ? <p role="status">{busy ? label("○ 保存中…", "○ Saving…", context.locale) : message}</p> : null}
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
+      {([["title", "題名", "Title"], ["details", "詳細", "Details"], ["schedule", "スケジュール", "Schedule"]] as const).map(([key, ja, en]) =>
+        <Button key={key} aria-pressed={panes[key]} disabled={panes[key] && Object.values(panes).filter(Boolean).length === 1}
+          onClick={() => {
+            const next = { ...panes, [key]: !panes[key] };
+            setPanes(next);
+            context.setViewSettings({ ...settings(context), panes: next });
+          }}>{label(ja, en, context.locale)}</Button>)}
+      {panes.schedule ? <>
       <label>{label("範囲", "Range", context.locale)} <ChoiceControl mode="select" aria-label={label("範囲", "Range", context.locale)} value={preset}
         options={[...TIMELINE_PRESETS.map((item) => ({ value: item, label: label(
           item === "2w" ? "2週間" : item === "1m" ? "1か月" : item === "3m" ? "3か月" : "6か月",
@@ -453,15 +621,19 @@ export function WBSScreen({ context }: PluginViewProps) {
           { value: "day", label: label("日ごと", "Daily", context.locale) },
           { value: "week", label: label("週ごと", "Weekly", context.locale) }
         ]} /></label>
+      </> : null}
     </div>
     {tracker ? <WBSGrid key={context.target?.name} context={context} data={data!} roots={hierarchy.roots}
       rows={rows} review={review} timeline={timeline} busy={busy} movedName={movedName}
-      mode={mode} onReveal={reveal}
+      editing={editing} overrides={overrides} saving={saving} onEdit={setEditing} onCommit={(row, column, value) => void commitCell(row, column, value)}
+      mode={mode} panes={panes} onReveal={reveal}
       onParent={(row, parent) => void changeParent(row, parent)}
+      onIndent={(row, target) => void changeParent(row, target.parent, { order: target.order, allowWithoutOrder: true })}
+      onOutdent={(row, target) => void changeParent(row, target.parent, { order: target.order, allowWithoutOrder: true })}
       onOrder={(siblings, index, delta) => void moveOrder(siblings, index, delta)}
       onDropOrder={(siblings, dragged, target, after) => void dropOrder(siblings, dragged, target, after)}
       onRenumber={(siblings) => void renumber(siblings)}
-      onCreate={(parent) => { if (parent) void createTask(parent); }} />
+      onAdd={createTask} />
       : <p>{label("チケット管理の定義が見つかりません", "Tracker definition unavailable", context.locale)}</p>}
   </section>;
 }
@@ -471,7 +643,7 @@ function settings(context: PluginRenderContext): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, movedName, ...actions }: {
+function WBSGrid({ context, data, roots, rows, review, timeline, mode, panes, busy, movedName, editing, overrides, saving, ...actions }: {
   context: PluginRenderContext;
   data: WBSRendererData;
   roots: Parameters<typeof flattenRows>[0];
@@ -479,9 +651,41 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
   review: ReadonlySet<string>;
   timeline?: Timeline;
   mode: TimelineMode;
+  panes: Panes;
   busy: boolean;
   movedName?: string;
-} & Pick<Parameters<typeof WBSRows>[0], "onParent" | "onOrder" | "onDropOrder" | "onRenumber" | "onCreate" | "onReveal">) {
+  editing?: CellEditing;
+  overrides: Record<string, unknown>;
+  saving: ReadonlySet<string>;
+  onAdd(parent: string, title: string, values: Record<string, unknown>): Promise<boolean>;
+} & Pick<Parameters<typeof WBSRows>[0], "onEdit" | "onCommit" | "onParent" | "onIndent" | "onOutdent" | "onOrder" | "onDropOrder" | "onRenumber" | "onReveal">) {
+  const canAdd = !context.isStatic && !context.target?.readOnly && !!context.createResourceNow && panes.title;
+  const [adding, setAdding] = useState<string>();
+  const [addTitle, setAddTitle] = useState("");
+  const [addValues, setAddValues] = useState<Record<string, unknown>>({});
+  const [focusAdd, setFocusAdd] = useState(0);
+  const addRef = useRef<HTMLDivElement>(null);
+  const submitting = useRef(false);
+  const [menu, setMenu] = useState<string>();
+  const needsAddFocus = useRef(false);
+  function openAdd(parent = "") {
+    setAdding(parent); setAddTitle(""); setAddValues({});
+    needsAddFocus.current = true;
+    setCollapsed((current) => {
+      const next = new Set(current); next.delete(parent); persist({ collapsed: [...next] }); return next;
+    });
+    setFocusAdd((v) => v + 1);
+  }
+  async function submitAdd() {
+    if (submitting.current || busy || adding === undefined || !addTitle.trim()) return;
+    submitting.current = true;
+    try {
+      if (await actions.onAdd(adding, addTitle, addValues)) {
+        setAddTitle(""); setAddValues({}); setFocusAdd((v) => v + 1);
+        needsAddFocus.current = true;
+      }
+    } finally { submitting.current = false; }
+  }
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
     const stored = settings(context).collapsed;
     return new Set(Array.isArray(stored) ? stored.filter((name): name is string =>
@@ -511,11 +715,43 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
   ];
   const groupItems = groups.map((group) => flattenRows(group.roots, data.orderField, context.locale, collapsed));
   // Headings are rows too: window them together so review groups stay at the end.
-  const entries: Array<{ group: number; item?: WBSRow }> = [];
+  const entries: Array<{ group: number; item?: WBSRow; add?: boolean; depth?: number; button?: boolean }> = [];
   groups.forEach((group, index) => {
     if (group.id !== "tasks" && group.count) entries.push({ group: index });
-    for (const item of groupItems[index]!) entries.push({ group: index, item });
+    const items = groupItems[index]!;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      entries.push({ group: index, item });
+      if (index === 0 && canAdd && adding && item.node.row.name === adding) {
+        let end = i + 1;
+        while (end < items.length && items[end]!.depth > item.depth) end++;
+        for (let j = i + 1; j < end; j++) entries.push({ group: index, item: items[j]! });
+        entries.push({ group: index, add: true, depth: item.depth + 1 });
+        i = end - 1;
+      }
+    }
+    if (index === 0 && canAdd) {
+      if (adding === "") entries.push({ group: index, add: true, depth: 0 });
+      entries.push({ group: index, button: true });
+    }
   });
+  const addIndex = entries.findIndex((entry) => entry.add);
+  useEffect(() => {
+    if (adding === undefined || addIndex < 0 || !canAdd) return;
+    const element = scrollRef.current;
+    if (!element) return;
+    const top = addIndex * viewport.rowHeight;
+    if (top < element.scrollTop || top + viewport.rowHeight > element.scrollTop + viewport.height) {
+      element.scrollTop = Math.max(0, top - viewport.height + viewport.rowHeight);
+      setViewport((v) => ({ ...v, top: element.scrollTop }));
+    }
+    const input = addRef.current?.querySelector("input");
+    if (needsAddFocus.current && input) { input.focus(); needsAddFocus.current = false; }
+  }, [focusAdd, addIndex, canAdd]);
+  useEffect(() => {
+    const input = addRef.current?.querySelector("input");
+    if (needsAddFocus.current && input) { input.focus(); needsAddFocus.current = false; }
+  }, [viewport.top, focusAdd]);
   const days = timeline ? (timeline.end - timeline.start) / DAY_MS : 35;
   const dayWidth = measuredDayWidth ?? (mode === "day" ? 24 : 9);
   const tiers = timeline ? timelineCells(timeline, mode, dayWidth) : undefined;
@@ -534,7 +770,7 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
     const observer = new ResizeObserver(measure);
     observer.observe(header);
     return () => observer.disconnect();
-  }, [days, mode]);
+  }, [days, mode, panes.schedule]);
   useEffect(() => {
     const valid = new Set(rows.map((row) => row.name));
     const next = new Set([...collapsed].filter((name) => valid.has(name)));
@@ -576,11 +812,15 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
   const strategy = entries.length > 300 ? "virtual" : "all";
   const window = rowWindow(entries.length, strategy, viewport.top, viewport.height, viewport.rowHeight, 0);
   const visible = entries.slice(window.start, window.end);
+  const detailWidths = panes.details ? data.columns.map((column) => column.type === "date" ? "8em"
+    : ["status", "select", "multiselect"].includes(column.type) ? "7em"
+    : column.type === "number" || column.type === "boolean" ? "5em" : "10em") : [];
+  const detailsWidth = detailWidths.length ? detailWidths.join(" + ") : "0px";
   return <>
     <div className="wbs-toolbar">
       <span>{label("チケット", "Tickets", context.locale)}: {rows.length}</span>
       {review.size ? <Button onClick={() => {
-        const index = entries.findIndex((entry) => !entry.item);
+        const index = entries.findIndex((entry) => entry.group !== 0 && !entry.item);
         if (index < 0 || !scrollRef.current) return;
         const top = index * viewport.rowHeight;
         scrollRef.current.scrollTop = top;
@@ -606,12 +846,18 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
         setViewport((current) => ({ ...current, top })); }}>
       <div ref={probeRef} className="wbs-row wbs-probe" aria-hidden="true" />
        <div role="treegrid" aria-label={label("WBSの階層", "WBS hierarchy", context.locale)} aria-rowcount={entries.length + 1}
-         className="wbs-grid" data-mode={mode} style={{ "--wbs-days": days,
+         className="wbs-grid" data-mode={mode} data-schedule={panes.schedule || undefined} style={{ "--wbs-days": days,
+           "--wbs-title-width": "clamp(168px, calc((100vw - 767px) * 1000), var(--wbs-left-width))",
+            "--wbs-details-width": `calc(${detailsWidth})`,
+            "--wbs-columns": [panes.title && (panes.schedule ? "var(--wbs-title-width)" : "minmax(var(--wbs-title-width), 1fr)"),
+              ...detailWidths,
+             panes.schedule && "minmax(0, 1fr)"].filter(Boolean).join(" "),
+           "--wbs-fixed-width": `calc(${panes.title ? "var(--wbs-title-width)" : "0px"} + ${panes.details ? "var(--wbs-details-width)" : "0px"})`,
            "--wbs-day-width": `${dayWidth}px`, "--wbs-today-offset": timeline ? (today - timeline.start) / DAY_MS : 0 } as CSSProperties}>
-       {timeline && today >= timeline.start && today < timeline.end ? <span aria-hidden="true" className="wbs-today-line"
+       {panes.schedule && timeline && today >= timeline.start && today < timeline.end ? <span aria-hidden="true" className="wbs-today-line"
          /> : null}
       <div role="row" className="wbs-header wbs-row" ref={headerRef}>
-        <strong role="columnheader" className="wbs-left">{label("チケット", "Task", context.locale)}
+        {panes.title ? <strong role="columnheader" className="wbs-left">{label("チケット", "Task", context.locale)}
           <span role="separator" aria-label={label("チケット列の幅", "Task column width", context.locale)}
             aria-orientation="vertical" aria-valuemin={240} aria-valuemax={560} aria-valuenow={width}
             tabIndex={0} className="wbs-resizer"
@@ -626,8 +872,9 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
               resizeStart.current.width + event.clientX - resizeStart.current.x))); }}
             onPointerUp={() => { resizeStart.current = undefined; persist({ leftWidth: width }); }}
             onPointerCancel={() => { resizeStart.current = undefined; }} />
-        </strong>
-        <div role="columnheader" aria-label={label("日程表", "Date timeline", context.locale)} className="wbs-date-header">
+        </strong> : null}
+        {panes.details ? data.columns.map((column, index) => <strong role="columnheader" className="wbs-status" key={`${column.id}-${index}`}>{column.label}</strong>) : null}
+        {panes.schedule ? <div role="columnheader" aria-label={label("日程表", "Date timeline", context.locale)} className="wbs-date-header">
           {tiers ? <>
             <div className="wbs-month-tier">{tiers.months.map((cell) => <span key={cell.timestamp}
               style={{ left: `${cell.left / (days * dayWidth) * 100}%`, width: `${cell.width / (days * dayWidth) * 100}%` }}>
@@ -641,21 +888,53 @@ function WBSGrid({ context, data, roots, rows, review, timeline, mode, busy, mov
               {cell.showLabel ? mode === "day" ? new Date(cell.timestamp).getUTCDate() : `${new Date(cell.timestamp).getUTCMonth() + 1}/${new Date(cell.timestamp).getUTCDate()}` : ""}</span>)}</div>
           </>
             : <span>{label("開始日か終了日を入れると、日程表に表示されます", "Add dates to show the timeline", context.locale)}</span>}
-        </div>
+        </div> : null}
       </div>
       {window.start > 0 ? <div aria-hidden="true" style={{ height: window.start * viewport.rowHeight }} /> : null}
        {groups.map((group, index) => visible.some((entry) => entry.group === index) ? <div key={group.id} role="rowgroup" aria-label={group.title}>
-       {visible.some((entry) => entry.group === index && !entry.item) ? <div role="row" className="wbs-review-heading"><span role="gridcell" title={`${group.title}（${group.count}）`}><span className="wbs-review-title">{group.title}</span><span>（{group.count}）</span></span><span role="gridcell" className="wbs-review-description">
+        {index !== 0 && visible.some((entry) => entry.group === index && !entry.item) ? <div role="row" className="wbs-review-heading"><span role="gridcell" title={`${group.title}（${group.count}）`}><span className="wbs-review-title">{group.title}</span><span>（{group.count}）</span></span><span role="gridcell" className="wbs-review-description">
          {!context.isStatic ? group.id === "missing"
            ? label("親に指定されたチケットが存在しません。親を変更するか、親を空にしてください。", "The parent ticket does not exist. Change or clear the parent.", context.locale)
            : label("親をたどると自分に戻ります。どちらかの親を変更してください。", "Following parents returns to the same ticket. Change one of the parents.", context.locale) : null}
        </span></div> : null}
-       <WBSRows items={visible.flatMap((entry) => entry.group === index && entry.item ? [entry.item] : [])} data={data} context={context} all={rows} review={review} movedName={movedName}
+          {visible.filter((entry) => entry.group === index).map((entry) => entry.item ? <WBSRows key={entry.item.node.row.name} items={[entry.item]} data={data} context={context} all={rows} review={review} movedName={movedName} panes={panes} editing={editing} overrides={overrides} saving={saving} menu={menu} setMenu={setMenu}
         timeline={timeline} busy={busy} collapsed={collapsed} onToggle={(name) => {
           const next = new Set(collapsed);
           if (next.has(name)) next.delete(name); else next.add(name);
           setCollapsed(next); persist({ collapsed: [...next] });
-         }} {...actions} />
+          }} {...actions} onCreate={openAdd} /> : entry.add ? <div ref={addRef} key="quick-add" role="row" className="wbs-row wbs-quick-add"
+            aria-level={(entry.depth ?? 0) + 1} onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing && event.target instanceof HTMLInputElement) {
+                event.preventDefault(); void submitAdd();
+              }
+            }}>
+            <div role="gridcell" className="wbs-left"><Indent depth={entry.depth ?? 0}><span className="wbs-add-controls">
+              <InputControl aria-label={label("新しいチケットの題名", "New task title", context.locale)}
+                value={addTitle} disabled={busy} onChange={(event) => setAddTitle(event.target.value)} />
+              <Button disabled={busy || !addTitle.trim()} onClick={() => void submitAdd()}>{label("追加", "Add", context.locale)}</Button>
+              <Button disabled={busy} onClick={() => setAdding(undefined)}>{label("取り消し", "Cancel", context.locale)}</Button>
+            </span></Indent></div>
+            {panes.details ? data.columns.map((column) => {
+              const field = data.tracker?.fields.find((item) => item.id === column.id);
+              const value = addValues[column.id];
+              const descriptor = { ...field, id: column.id, label: column.label, type: column.type, path: ["fields", column.id] } as PluginFieldDescriptor;
+              return <div key={column.id} role="gridcell" className="wbs-status">
+                {column.id !== "status" ? <label className="wbs-add-label" htmlFor={`wbs-add-${column.id}`}>{column.label}</label> : null}
+                {column.id === "status" ? <ChoiceControl disabled={busy} mode="select" aria-label={column.label}
+                  value={String(value ?? "")} options={[{ value: "", label: label("既定", "Default", context.locale) },
+                    ...(data.tracker?.statuses ?? []).map((s) => ({ value: s.id, label: s.label }))]}
+                  onChange={(next) => setAddValues((v) => { const result = { ...v }; if (next) result.status = next; else delete result.status; return result; })} /> :
+                  <FieldInput id={`wbs-add-${column.id}`} disabled={busy} field={{ ...descriptor, required: false }} value={Array.isArray(value) ? value.join(", ") : String(value ?? "")}
+                    locale={context.locale} referenceCandidates={column.type === "reference" ? [...rows, ...context.records("Ticket")] : undefined}
+                    onChange={(next) => setAddValues((v) => ({ ...v, [column.id]: !next ? null : column.type === "number" ? Number(next)
+                      : column.type === "boolean" ? next === "true" : column.type === "multiselect" || descriptor.multiple
+                        ? next.split(",").map((item) => item.trim()).filter(Boolean) : next }))} />}
+              </div>;
+            }) : null}
+            {panes.schedule ? <div role="gridcell" className="wbs-timeline-cell" /> : null}
+          </div> : entry.button ? <div key="add-button" role="row" className="wbs-row"><div role="gridcell" className="wbs-left">
+            <Button disabled={busy} onClick={() => openAdd()}>{label("＋ 追加", "＋ Add", context.locale)}</Button>
+          </div></div> : null)}
        </div> : null)}
       {strategy === "virtual" && window.end < entries.length ? <div aria-hidden="true"
         style={{ height: (entries.length - window.end) * viewport.rowHeight }} /> : null}

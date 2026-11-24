@@ -340,8 +340,9 @@ export function WorkspaceShell(props: {
           ><Icon name="documents" size={20} /></Button>
         </IconTooltip>
         {props.gitChanges && <IconTooltip label={t("changes.title")}>
-            <Button className={styles.railButton} aria-label={t("changes.rail", { count: props.gitChanges.uncommitted, ahead: props.gitChanges.ahead })} aria-pressed={props.area === "changes"} onPress={() => props.onAreaChange("changes")}>
-              <span aria-hidden="true">⇅{(props.gitChanges.uncommitted > 0 || props.gitChanges.ahead > 0) && <span> •</span>}</span>
+            <Button className={`${styles.railButton} ${styles.changeButton}`} aria-label={t("changes.rail", { count: props.gitChanges.uncommitted, ahead: props.gitChanges.ahead })} aria-pressed={props.area === "changes"} onPress={() => props.onAreaChange("changes")}>
+              <Icon name="gitBranch" size={20} />
+              {(props.gitChanges.uncommitted > 0 || props.gitChanges.ahead > 0) && <span className={styles.changeDot} aria-hidden="true" />}
             </Button>
         </IconTooltip>}
         {props.canConfigure && (
@@ -357,7 +358,10 @@ export function WorkspaceShell(props: {
       </aside>
       <header lang={uiLang} className={styles.header}>
         <div className={styles.headerLeading}>
-          {props.gitChanges && <Button className={styles.mobileMenu} aria-label={t("changes.rail", { count: props.gitChanges.uncommitted, ahead: props.gitChanges.ahead })} onPress={() => props.onAreaChange("changes")}>⇅</Button>}
+          {props.gitChanges && <Button className={`${styles.mobileMenu} ${styles.changeButton}`} aria-label={t("changes.rail", { count: props.gitChanges.uncommitted, ahead: props.gitChanges.ahead })} onPress={() => props.onAreaChange("changes")}>
+            <Icon name="gitBranch" size={18} />
+            {(props.gitChanges.uncommitted > 0 || props.gitChanges.ahead > 0) && <span className={styles.changeDot} aria-hidden="true" />}
+          </Button>}
           <Button
             className={styles.mobileMenu}
             aria-label={t("nav.openDocumentNav")}

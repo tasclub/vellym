@@ -32,8 +32,9 @@ const headingPairs: Record<string, readonly HeadingPair[]> = {
     [2, "Commands", "コマンド"],
     [2, "Canonical YAML example", "正本の形（例）"],
     [2, "Plugins", "プラグイン"],
+    [2, "Status", "ステータス"],
     [2, "License", "ライセンス"],
-    [2, "Links", "リンク"]
+    [2, "Community and support", "開発参加・サポート"]
   ],
   "packages/plugin-api/README.md": [
     [2, "Installing", "インストール"],

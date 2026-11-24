@@ -131,6 +131,33 @@ describe("structure plan and apply", () => {
     );
   });
 
+  it("orders only folders and YAML documents, not other root files", async () => {
+    const root = await fixture();
+    await mkdir(path.join(root, "other"));
+    await writeFile(path.join(root, "VELLYM.md"), "Guide", "utf8");
+    await writeFile(path.join(root, "README.md"), "Read me", "utf8");
+
+    const archive = await planStructureChange(root, {
+      type: "archive-folder",
+      folderPath: "existing"
+    });
+    await applyStructureChange(root, archive);
+
+    const repository = await loadRepository(root);
+    expect(repository.folders.find((folder) => folder.path === "")?.order)
+      .toEqual(["other"]);
+    expect(repository.diagnostics).toEqual([]);
+
+    await expect(planStructureChange(root, {
+      type: "reorder",
+      folderPath: "",
+      order: ["VELLYM.md"]
+    })).rejects.toMatchObject({
+      code: "STRUCTURE_ORDER",
+      message: expect.stringContaining("存在しない項目")
+    });
+  });
+
   it("moves and archives without deleting the source content", async () => {
     const root = await fixture();
     await mkdir(path.join(root, "destination"));

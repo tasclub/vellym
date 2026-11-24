@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { resolveLocalizedText, type PluginLocalizedText, type PluginRenderContext, type PluginValueType } from "@vellym/plugin-api";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
 import { Button } from "@vellym/plugin-api/ui";
+import { moveRelative, moveTo, newKey, SortableRow } from "./sortable.js";
 
 /**
  * 定義の編集画面。**プラグインが自分で描く。**
@@ -18,17 +19,20 @@ import { Button } from "@vellym/plugin-api/ui";
  */
 
 interface StatusRow {
+  key: string;
   id: string;
   label: string;
   category: "open" | "closed";
 }
 
 interface OptionRow {
+  key: string;
   value: string;
   label: string;
 }
 
 interface FieldRow {
+  key: string;
   id: string;
   label: string;
   type: PluginValueType;
@@ -58,6 +62,7 @@ function readStatuses(spec: Readonly<Record<string, unknown>>): StatusRow[] {
   return list.map((item) => {
     const row = (item ?? {}) as Record<string, unknown>;
     return {
+      key: newKey(),
       id: String(row.id ?? ""),
       label: String(row.label ?? ""),
       category: row.category === "closed" ? ("closed" as const) : ("open" as const)
@@ -71,6 +76,7 @@ function readFields(spec: Readonly<Record<string, unknown>>): FieldRow[] {
     const row = (item ?? {}) as Record<string, unknown>;
     const options = Array.isArray(row.options) ? row.options : [];
     return {
+      key: newKey(),
       id: String(row.id ?? ""),
       label: String(row.label ?? ""),
       type: (TYPES.includes(row.type as PluginValueType)
@@ -80,19 +86,10 @@ function readFields(spec: Readonly<Record<string, unknown>>): FieldRow[] {
       listColumn: row.listColumn === true,
       options: options.map((option) => {
         const entry = (option ?? {}) as Record<string, unknown>;
-        return { value: String(entry.value ?? ""), label: String(entry.label ?? "") };
+        return { key: newKey(), value: String(entry.value ?? ""), label: String(entry.label ?? "") };
       })
     };
   });
-}
-
-function move<T>(list: readonly T[], index: number, delta: number): T[] {
-  const next = [...list];
-  const target = index + delta;
-  if (target < 0 || target >= next.length) return next;
-  const [item] = next.splice(index, 1);
-  next.splice(target, 0, item!);
-  return next;
 }
 
 export function TrackerSettingsScreen({ context }: PluginViewProps) {
@@ -109,6 +106,8 @@ function Screen({ context }: { context: PluginRenderContext }) {
     typeof savedHierarchy.parentField === "string" ? savedHierarchy.parentField : "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [confirmingStatusRemoval, setConfirmingStatusRemoval] = useState<string | null>(null);
+  const [confirmingOptionRemoval, setConfirmingOptionRemoval] = useState<string | null>(null);
   const text = (japanese: string, english: string) => resolveLocalizedText(
     { ja: japanese, en: english } satisfies PluginLocalizedText,
     context.locale
@@ -136,12 +135,25 @@ function Screen({ context }: { context: PluginRenderContext }) {
 
   const usedBy = (key: string, value: string) => usage.get(`${key} ${value}`) ?? 0;
 
-  const removalNote = (count: number) =>
+  const usageBadge = (count: number) =>
+    text(`${count}件`, `${count} in use`);
+
+  const usageDescription = (count: number) =>
     text(
-      `${count}件がこの値を使っています。消すと定義外になります`,
-      `${count} item(s) use this value. Removing it leaves them undefined.`
+      `${count}件がこの値を使っています`,
+      `${count} ${count === 1 ? "ticket uses" : "tickets use"} this value`
     );
 
+  const removalConfirmation = (count: number) =>
+    text(
+      `${count}件が使用中です。削除すると定義外になります。`,
+      `${count} ${count === 1 ? "ticket is" : "tickets are"} using this value. Removing it leaves them undefined.`
+    );
+
+  const idTitle = text(
+    "保存した後は変えないでください。変えると、その値を使うチケットが定義外になります",
+    "Do not change this ID after saving. Changing it makes tickets using this value undefined."
+  );
   async function submit() {
     setSaving(true);
     setMessage("");
@@ -170,7 +182,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
            * のも同じ理由である。実際に一度`options: []`を書いてしまった。
            */
           ...(hasOptions(row.type) && row.options.length
-            ? { options: row.options }
+            ? { options: row.options.map(({ value, label }) => ({ value, label })) }
             : {})
         }))
       },
@@ -189,26 +201,28 @@ function Screen({ context }: { context: PluginRenderContext }) {
   return (
     <div className="tickets-settings" data-plugin="tickets" data-view="tracker-settings">
       <h2>{text("ステータス", "Statuses")}</h2>
-      <p>
-        {text(
-          "idは不変の識別子です。先頭が新しいチケットの初期値になります",
-          "The id is permanent. The first row is the initial status."
-        )}
-      </p>
       <div className="tickets-settings-header tickets-settings-status-grid" aria-hidden="true">
-        <span>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
+        <span title={idTitle}>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
         <span>{text("区分", "Category")}</span><span>{text("操作", "Actions")}</span>
       </div>
       {statuses.map((row, index) => {
         const inUse = usedBy("status", row.id);
-        const patch = (change: Partial<StatusRow>) =>
+        const confirmingRemoval = confirmingStatusRemoval === row.key;
+        const patch = (change: Partial<StatusRow>) => {
+          if (change.id !== undefined) {
+            setConfirmingStatusRemoval((key) => key === row.key ? null : key);
+          }
           setStatuses(
             statuses.map((item, position) =>
               position === index ? { ...item, ...change } : item
             )
           );
+        };
         return (
-          <div key={`status-${index}`} className="tickets-settings-status-grid tickets-settings-row" data-row="status">
+          <SortableRow key={row.key} rowKey={row.key} group="statuses" label={text(`並び替え: ${row.id}`, `Reorder: ${row.id}`)}
+            className="tickets-settings-status-grid tickets-settings-row" rowType="status"
+            onMove={(delta) => setStatuses((list) => moveTo(list, index, index + delta))}
+            onDropAt={(source, side) => setStatuses((list) => moveRelative(list, source, row.key, side))}>
             <label>
               <span className="tickets-settings-cell-label">{text("ID", "ID")}</span>
               <input
@@ -240,23 +254,43 @@ function Screen({ context }: { context: PluginRenderContext }) {
               </select>
             </label>
             <div className="tickets-settings-actions">
-              <Button icon aria-label={text("上へ", "Move up")} disabled={index === 0}
-                onClick={() => setStatuses(move(statuses, index, -1))}>↑</Button>
-              <Button icon aria-label={text("下へ", "Move down")} disabled={index === statuses.length - 1}
-                onClick={() => setStatuses(move(statuses, index, 1))}>↓</Button>
-              <Button onClick={() => setStatuses(statuses.filter((_, position) => position !== index))}>
-                {text("削除", "Remove")}
-              </Button>
+              {index === 0
+                ? <span className="tickets-settings-badge" data-marker="default">{text("初期値", "Default")}</span>
+                : null}
+              {inUse > 0
+                ? <span className="tickets-settings-badge" data-marker="usage" aria-label={usageDescription(inUse)} title={usageDescription(inUse)}>
+                    {usageBadge(inUse)}
+                  </span>
+                : null}
+              {confirmingRemoval ? (
+                <>
+                  <Button onClick={() => {
+                    setStatuses((list) => list.filter((item) => item.key !== row.key));
+                    setConfirmingStatusRemoval(null);
+                  }}>
+                    {text("削除する", "Delete")}
+                  </Button>
+                  <Button onClick={() => setConfirmingStatusRemoval(null)}>
+                    {text("やめる", "Cancel")}
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => {
+                  if (inUse > 0) setConfirmingStatusRemoval(row.key);
+                  else setStatuses((list) => list.filter((item) => item.key !== row.key));
+                }}>
+                  {text("削除", "Remove")}
+                </Button>
+              )}
             </div>
-            {/* 使用中の値は、消す前に件数を出す。消してから気づかせない */}
-            <span role="status">{inUse ? removalNote(inUse) : ""}</span>
-          </div>
+            {confirmingRemoval ? <span role="status">{removalConfirmation(inUse)}</span> : null}
+          </SortableRow>
         );
       })}
       <Button
         
         onClick={() =>
-          setStatuses([...statuses, { id: "", label: "", category: "open" }])
+          setStatuses([...statuses, { key: newKey(), id: "", label: "", category: "open" }])
         }
       >
         {text("ステータスを追加", "Add status")}
@@ -264,7 +298,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
 
       <h2>{text("項目", "Fields")}</h2>
       <div className="tickets-settings-header tickets-settings-field-grid" aria-hidden="true">
-        <span>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
+        <span title={idTitle}>{text("ID", "ID")}</span><span>{text("表示名", "Label")}</span>
         <span>{text("型", "Type")}</span><span>{text("必須", "Required")}</span>
         <span>{text("一覧に出す", "Show in list")}</span><span>{text("操作", "Actions")}</span>
       </div>
@@ -276,7 +310,10 @@ function Screen({ context }: { context: PluginRenderContext }) {
             )
           );
         return (
-          <div key={`field-${index}`} className="tickets-settings-field-grid tickets-settings-row" data-row="field">
+          <SortableRow key={row.key} rowKey={row.key} group="fields" label={text(`並び替え: ${row.id}`, `Reorder: ${row.id}`)}
+            className="tickets-settings-field-grid tickets-settings-row" rowType="field"
+            onMove={(delta) => setFields((list) => moveTo(list, index, index + delta))}
+            onDropAt={(source, side) => setFields((list) => moveRelative(list, source, row.key, side))}>
             <label>
               <span className="tickets-settings-cell-label">{text("ID", "ID")}</span>
               <input
@@ -326,10 +363,6 @@ function Screen({ context }: { context: PluginRenderContext }) {
             </label>
             <div className="tickets-settings-actions">
               {/* The definition order is the list column order and the order inside each detail group. */}
-              <Button icon aria-label={text("上へ", "Move up")} disabled={index === 0}
-                onClick={() => setFields(move(fields, index, -1))}>↑</Button>
-              <Button icon aria-label={text("下へ", "Move down")} disabled={index === fields.length - 1}
-                onClick={() => setFields(move(fields, index, 1))}>↓</Button>
               <Button onClick={() => setFields(fields.filter((_, position) => position !== index))}>
                 {text("項目を削除", "Remove field")}
               </Button>
@@ -349,14 +382,24 @@ function Screen({ context }: { context: PluginRenderContext }) {
                 </div>
                 {row.options.map((option, optionIndex) => {
                   const optionInUse = usedBy(`field:${row.id}`, option.value);
+                  const confirmingRemoval = confirmingOptionRemoval === option.key;
                   const patchOption = (change: Partial<OptionRow>) =>
-                    patch({
-                      options: row.options.map((entry, spot) =>
-                        spot === optionIndex ? { ...entry, ...change } : entry
-                      )
-                    });
+                    {
+                      if (change.value !== undefined) {
+                        setConfirmingOptionRemoval((key) => key === option.key ? null : key);
+                      }
+                      patch({
+                        options: row.options.map((entry, spot) =>
+                          spot === optionIndex ? { ...entry, ...change } : entry
+                        )
+                      });
+                    };
                   return (
-                    <div key={`option-${optionIndex}`} className="tickets-settings-option-grid tickets-settings-row" data-row="option">
+                    <SortableRow key={option.key} rowKey={option.key} group={`options:${row.key}`}
+                      label={text(`並び替え: ${option.value}`, `Reorder: ${option.value}`)}
+                      className="tickets-settings-option-grid tickets-settings-row" rowType="option"
+                      onMove={(delta) => patch({ options: moveTo(row.options, optionIndex, optionIndex + delta) })}
+                      onDropAt={(source, side) => patch({ options: moveRelative(row.options, source, option.key, side) })}>
                       <label>
                         <span className="tickets-settings-cell-label">{text("値", "Value")}</span>
                         <input
@@ -378,28 +421,49 @@ function Screen({ context }: { context: PluginRenderContext }) {
                         />
                       </label>
                       <div className="tickets-settings-actions">
-                        <Button icon aria-label={text("上へ", "Move up")} disabled={optionIndex === 0}
-                          onClick={() => patch({ options: move(row.options, optionIndex, -1) })}>↑</Button>
-                        <Button icon aria-label={text("下へ", "Move down")} disabled={optionIndex === row.options.length - 1}
-                          onClick={() => patch({ options: move(row.options, optionIndex, 1) })}>↓</Button>
-                        <Button onClick={() => patch({ options: row.options.filter((_, spot) => spot !== optionIndex) })}>
-                          {text("削除", "Remove")}
-                        </Button>
+                        {optionIndex === 0
+                          ? <span className="tickets-settings-badge" data-marker="default">{text("初期値", "Default")}</span>
+                          : null}
+                        {optionInUse > 0
+                          ? <span className="tickets-settings-badge" data-marker="usage" aria-label={usageDescription(optionInUse)} title={usageDescription(optionInUse)}>
+                              {usageBadge(optionInUse)}
+                            </span>
+                          : null}
+                        {confirmingRemoval ? (
+                          <>
+                            <Button onClick={() => {
+                              patch({ options: row.options.filter((entry) => entry.key !== option.key) });
+                              setConfirmingOptionRemoval(null);
+                            }}>
+                              {text("削除する", "Delete")}
+                            </Button>
+                            <Button onClick={() => setConfirmingOptionRemoval(null)}>
+                              {text("やめる", "Cancel")}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button onClick={() => {
+                            if (optionInUse > 0) setConfirmingOptionRemoval(option.key);
+                            else patch({ options: row.options.filter((entry) => entry.key !== option.key) });
+                          }}>
+                            {text("削除", "Remove")}
+                          </Button>
+                        )}
                       </div>
-                      <span role="status">{optionInUse ? removalNote(optionInUse) : ""}</span>
-                    </div>
+                      {confirmingRemoval ? <span role="status">{removalConfirmation(optionInUse)}</span> : null}
+                    </SortableRow>
                   );
                 })}
                 <Button
                   onClick={() =>
-                    patch({ options: [...row.options, { value: "", label: "" }] })
+                    patch({ options: [...row.options, { key: newKey(), value: "", label: "" }] })
                   }
                 >
                   {text("選択肢を追加", "Add option")}
                 </Button>
               </fieldset>
             ) : null}
-          </div>
+          </SortableRow>
         );
       })}
       <Button
@@ -408,6 +472,7 @@ function Screen({ context }: { context: PluginRenderContext }) {
           setFields([
             ...fields,
             {
+              key: newKey(),
               id: "",
               label: "",
               type: "text",

@@ -42,6 +42,35 @@ export interface FieldDefinition {
   multiple: boolean;
 }
 
+type RuleValue = string | number | boolean;
+export interface TrackerRule {
+  id: string;
+  when?: { status?: string[]; statusCategory?: "open" | "closed" };
+  require?: string[];
+  empty?: string[];
+  equals?: Record<string, RuleValue | RuleValue[]>;
+  message?: Record<string, string>;
+}
+
+function parseRule(raw: unknown, index: number, statuses: StatusDefinition[], fields: FieldDefinition[]): TrackerRule | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const r = raw as Record<string, unknown>;
+  const map = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+  const ids = (v: unknown) => Array.isArray(v) && v.every(x => typeof x === "string" && x !== "status" && fields.some(f => f.id === x));
+  const scalar = (v: unknown) => typeof v === "string" || typeof v === "number" || typeof v === "boolean";
+  if (r.id !== undefined && typeof r.id !== "string") return undefined;
+  if (r.when !== undefined) {
+    if (!map(r.when)) return undefined;
+    if (r.when.status !== undefined && (!Array.isArray(r.when.status) || !r.when.status.every(x => typeof x === "string" && statuses.some(s => s.id === x)))) return undefined;
+    if (r.when.statusCategory !== undefined && r.when.statusCategory !== "open" && r.when.statusCategory !== "closed") return undefined;
+  }
+  if (r.require === undefined && r.empty === undefined && r.equals === undefined) return undefined;
+  if (r.require !== undefined && !ids(r.require) || r.empty !== undefined && !ids(r.empty)) return undefined;
+  if (r.equals !== undefined && (!map(r.equals) || !Object.entries(r.equals).every(([id, value]) => ids([id]) && (Array.isArray(value) ? value.length > 0 && value.every(scalar) : scalar(value))))) return undefined;
+  if (r.message !== undefined && (!map(r.message) || !Object.values(r.message).every(v => typeof v === "string"))) return undefined;
+  return { ...r, id: typeof r.id === "string" ? r.id : `rules[${index}]` } as unknown as TrackerRule;
+}
+
 /** 一覧を開いたときの並べ替え。`TicketTracker`の`spec.defaultSort` */
 export interface DefaultSortDefinition {
   /** 解決済みの項目定義。存在しない項目や`sort`が無効な項目は入らない */
@@ -57,6 +86,7 @@ export interface Tracker {
   folder: string;
   statuses: StatusDefinition[];
   fields: FieldDefinition[];
+  rules?: TrackerRule[];
   ticketTemplate?: string | Record<string, string>;
   summary?: { field: FieldDefinition; method: SummaryMethod; groupBy?: FieldDefinition }[];
   /**
@@ -158,6 +188,7 @@ function readTracker(record: PluginResourceRecord): Tracker {
     folder: folderOf(record.relativePath),
     statuses,
     fields,
+    ...(Array.isArray(record.spec.rules) ? { rules: record.spec.rules.flatMap((r, i) => { const rule = parseRule(r, i, statuses, fields); return rule ? [rule] : []; }) } : {}),
     ...(Array.isArray(record.spec.summary) ? { summary: record.spec.summary.flatMap((raw) => {
       if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
       const entry = raw as Record<string, unknown>;
@@ -256,6 +287,16 @@ export function trackerDefinitionDiagnostics(
           ja: "本文テンプレートには文字列または言語別の文字列を指定してください",
           en: "The ticket template must be a string or a map of localized strings."
         } });
+    }
+    const parsed = readTracker(record);
+    if (record.spec.rules !== undefined) {
+      const rules = Array.isArray(record.spec.rules) ? record.spec.rules : [record.spec.rules];
+      rules.forEach((rule, index) => {
+        if (!Array.isArray(record.spec.rules) || !parseRule(rule, index, parsed.statuses, parsed.fields)) diagnostics.push({
+          file: record.relativePath, path: `/spec/rules/${index}`, severity: "warning", code: "TICKET_RULE_INVALID",
+          message: { ja: "条件ルールの定義を確認してください", en: "Check the conditional rule definition." }
+        });
+      });
     }
     const fields = asArray(record.spec.fields);
     if (record.spec.summary !== undefined) {

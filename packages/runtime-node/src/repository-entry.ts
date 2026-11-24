@@ -8,6 +8,7 @@ import {
 import {
   extractWikiLinks,
   extractAssetReferences,
+  extractFileLinks,
   headingId,
   isUnknownKind,
   isVellymCandidate,
@@ -75,6 +76,7 @@ export interface PageEntry {
    */
   outgoingReferences?: InternalPageReference[];
   assetReferences?: Array<{ relativePath: string; path: string }>;
+  fileLinks?: Array<{ target: string; path: string }>;
   fileReadOnlyReasons?: string[];
   readOnly: boolean;
   readOnlyReasons?: string[];
@@ -337,6 +339,9 @@ export function extractPageEntryWithPage(input: {
   const assets = (blocks: RichTextBlock[], prefix: string) => blocks.flatMap((block, index) =>
     extractAssetReferences(block.content).map((relativePath) => ({ relativePath: ownedString(relativePath), path: `${prefix}/${index}/content` })));
   const assetReferences = assets(known.blocks, "/spec/blocks");
+  const links = (blocks: RichTextBlock[], prefix: string) => blocks.flatMap((block, index) =>
+    extractFileLinks(block.content).map((target) => ({ target: ownedString(target), path: `${prefix}/${index}/content` })));
+  const fileLinks = links(known.blocks, "/spec/blocks");
   const translations = new Map<string, PageLocaleEntry>();
   for (const translation of validation.translations) {
     const blocks = knownRichTextBlocksFrom(
@@ -357,6 +362,7 @@ export function extractPageEntryWithPage(input: {
     );
     references.push(...outgoingReferences(name, locale, blocks.blocks));
     assetReferences.push(...assets(blocks.blocks, `/spec/translations/${translation.rawKey}/blocks`));
+    fileLinks.push(...links(blocks.blocks, `/spec/translations/${translation.rawKey}/blocks`));
     translations.set(entry.locale!, entry);
   }
   const availableLocales = [...translations.values()]
@@ -389,6 +395,7 @@ export function extractPageEntryWithPage(input: {
       ...(availableLocales.length ? { availableLocales } : {}),
       ...(references.length ? { outgoingReferences: references } : {}),
       ...(assetReferences.length ? { assetReferences } : {}),
+      ...(fileLinks.length ? { fileLinks } : {}),
       ...(reasons.length ? { fileReadOnlyReasons: reasons } : {}),
       readOnly: reasons.length > 0,
       ...(reasons.length ? { readOnlyReasons: reasons } : {}),

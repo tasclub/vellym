@@ -124,14 +124,19 @@ describe("DocumentTree", () => {
         onConfigApplied: () => undefined
       })
     );
+    const sourceInfo = html.match(
+      /<section[^>]*aria-labelledby="source-title"[\s\S]*?<\/section>/
+    )?.[0] ?? "";
     expect(html).toContain("設定・管理詳細");
     expect(html).toContain("broken.yaml");
     expect(html).toContain("他の文書は利用できます");
-    expect(html).toContain(ja["admin.projectRootHelp"]);
-    expect(html).toContain(ja["admin.configFileHelp"]);
-    expect(html).toContain(ja["admin.contentRootRelativeHelp"]);
-    expect(html).toContain(ja["admin.resolvedContentRootHelp"]);
-    expect(html).toContain(ja["admin.saveMethodHelp"]);
+    expect(sourceInfo).toContain(ja["admin.sourceTitle"]);
+    expect(sourceInfo).toContain("<code>/project</code>");
+    expect(sourceInfo).toContain("<code>vellym.config.yaml</code>");
+    expect(sourceInfo).toContain(`<code title="/project/docs/content">docs/content</code>`);
+    expect(sourceInfo).toContain(ja["admin.saveMethodValue"]);
+    expect(sourceInfo).not.toMatch(/<(?:input|select|textarea)\b/);
+    expect(sourceInfo).not.toMatch(/<p\b/);
     expect(html).toMatch(/<summary>\s*<span[^>]*aria-hidden="true"[^>]*>▶<\/span>/);
   });
 

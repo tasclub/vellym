@@ -33,16 +33,86 @@ export function rankForAppend(rows: readonly PluginIndexRow[], field: string): n
   return Number.isFinite(next) && next > maximum ? next : undefined;
 }
 
+function compareRows(a: PluginIndexRow, b: PluginIndexRow, field: string | undefined, locale: string): number {
+  const left = field ? a.values[fieldKey(field)] : undefined;
+  const right = field ? b.values[fieldKey(field)] : undefined;
+  const l = typeof left === "number" && Number.isFinite(left) ? left : undefined;
+  const r = typeof right === "number" && Number.isFinite(right) ? right : undefined;
+  if ((l === undefined) !== (r === undefined)) return l === undefined ? 1 : -1;
+  return (l !== undefined && r !== undefined ? l - r : 0) ||
+    a.title.localeCompare(b.title, locale) || a.name.localeCompare(b.name);
+}
+
 export function sortedSiblings(nodes: readonly TicketTreeNode[], field: string | undefined, locale: string): TicketTreeNode[] {
-  return [...nodes].sort((a, b) => {
-    const left = field ? a.row.values[fieldKey(field)] : undefined;
-    const right = field ? b.row.values[fieldKey(field)] : undefined;
-    const l = typeof left === "number" && Number.isFinite(left) ? left : undefined;
-    const r = typeof right === "number" && Number.isFinite(right) ? right : undefined;
-    if ((l === undefined) !== (r === undefined)) return l === undefined ? 1 : -1;
-    return (l !== undefined && r !== undefined ? l - r : 0) ||
-      a.row.title.localeCompare(b.row.title, locale) || a.row.name.localeCompare(b.row.name);
-  });
+  return [...nodes].sort((a, b) => compareRows(a.row, b.row, field, locale));
+}
+
+export interface ParentMoveTarget {
+  /** Empty string denotes a top-level row. */
+  parent: string;
+  /** Present when the Tracker declares an order field; undefined means the position needs renumbering. */
+  order?: number;
+}
+
+function parentName(row: PluginIndexRow, field: string): string {
+  const parent = row.values[fieldKey(field)];
+  return typeof parent === "string" ? parent : "";
+}
+
+function hasInvalidAncestry(rows: readonly PluginIndexRow[], name: string, parentField: string): boolean {
+  const byName = new Map(rows.map((row) => [row.name, row]));
+  let current = byName.get(name);
+  const seen = new Set<string>();
+  while (current) {
+    if (seen.has(current.name)) return true;
+    seen.add(current.name);
+    const parent = parentName(current, parentField);
+    if (!parent) return false;
+    current = byName.get(parent);
+    if (!current) return true;
+  }
+  return true;
+}
+
+function orderedRows(rows: readonly PluginIndexRow[], orderField: string | undefined, locale: string): PluginIndexRow[] {
+  return [...rows].sort((a, b) => compareRows(a, b, orderField, locale));
+}
+
+/** Move a row under its immediately preceding sibling, appending it to that sibling's children. */
+export function indentTarget(rows: readonly PluginIndexRow[], name: string, parentField: string,
+  orderField?: string, locale = "ja"): ParentMoveTarget | undefined {
+  const row = rows.find((item) => item.name === name);
+  if (!row || hasInvalidAncestry(rows, name, parentField)) return undefined;
+  const parent = parentName(row, parentField);
+  const siblings = orderedRows(rows.filter((item) => parentName(item, parentField) === parent), orderField, locale);
+  const index = siblings.findIndex((item) => item.name === name);
+  if (index <= 0) return undefined;
+  const nextParent = siblings[index - 1]!.name;
+  const children = rows.filter((item) => item.name !== name && parentName(item, parentField) === nextParent);
+  return orderField
+    ? { parent: nextParent, order: rankForAppend(children, orderField) }
+    : { parent: nextParent };
+}
+
+/** Move a row to its grandparent's children immediately after its current parent. */
+export function outdentTarget(rows: readonly PluginIndexRow[], name: string, parentField: string,
+  orderField?: string, locale = "ja"): ParentMoveTarget | undefined {
+  const row = rows.find((item) => item.name === name);
+  if (!row || hasInvalidAncestry(rows, name, parentField)) return undefined;
+  const parentNameValue = parentName(row, parentField);
+  if (!parentNameValue) return undefined;
+  const byName = new Map(rows.map((item) => [item.name, item]));
+  const parent = byName.get(parentNameValue);
+  if (!parent) return undefined;
+  const nextParent = parentName(parent, parentField);
+  const siblings = orderedRows(rows.filter((item) => item.name !== name &&
+    parentName(item, parentField) === nextParent), orderField, locale);
+  const parentIndex = siblings.findIndex((item) => item.name === parent.name);
+  if (parentIndex < 0) return undefined;
+  if (!orderField) return { parent: nextParent };
+  // Treat the moving row as a virtual item at the end, then calculate its rank at the position after parent.
+  const rankRows = [...siblings, row];
+  return { parent: nextParent, order: rankForInsert(rankRows, siblings.length, parentIndex + 1, orderField) };
 }
 
 export interface WBSRow {

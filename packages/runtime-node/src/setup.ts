@@ -101,7 +101,7 @@ export interface SetupCatalog {
 
 export interface SetupPlanFile {
   relativePath: string;
-  kind: "page" | "folder" | "config" | "package-json";
+  kind: "page" | "folder" | "config" | "package-json" | "agent-guide";
   /** Catalog node this file comes from; absent for the root folder and config. */
   nodeId?: string;
   templateId?: string;
@@ -119,7 +119,9 @@ export interface SetupPlanFile {
 
 export interface SetupPlan {
   operation: SetupOperation;
+  agentGuide?: { content: string };
   pluginPackages?: { name: string; version: string }[];
+  hostVersion?: string;
   mode?: SetupMode;
   size?: ProjectSize;
   method?: DevelopmentMethod;
@@ -193,16 +195,23 @@ function configSource(contentRoot: string, language: SetupLanguage, plugins: { n
 
 /**
  * `plugins`をconfigDir起点で解決するためのアンカー。プラグインの導入先でもある。
- * `scripts`も`dependencies`もVellymは読まないため、最小構成だけを書く。
+ * Vellym自身の版は`devDependencies`へ記録し、npm install後の実行版を固定する。
  */
-function packageJsonSource(projectRoot: string, plugins: { name: string; version: string }[] = []): string {
+function packageJsonSource(
+  projectRoot: string,
+  plugins: { name: string; version: string }[] = [],
+  hostVersion?: string
+): string {
   return `${JSON.stringify(
     {
       name: packageNameFrom(projectRoot),
       version: "0.0.0",
       private: true,
       type: "module",
-      ...(plugins.length ? { dependencies: Object.fromEntries(plugins.map((p) => [p.name, `^${p.version}`])) } : {})
+      ...(plugins.length
+        ? { dependencies: Object.fromEntries(plugins.map((p) => [p.name, `^${p.version}`])) }
+        : {}),
+      ...(hostVersion ? { devDependencies: { vellym: `^${hostVersion}` } } : {})
     },
     undefined,
     2
@@ -488,7 +497,9 @@ export async function planProjectSetup(
   projectRoot: string,
   options: {
     operation?: SetupOperation;
+    agentGuide?: { content: string };
     pluginPackages?: { name: string; version: string }[];
+    hostVersion?: string;
     mode?: SetupMode;
     size?: ProjectSize;
     method?: DevelopmentMethod;
@@ -681,6 +692,15 @@ export async function planProjectSetup(
   }
 
   if (operation === "initialize") {
+    if (options.agentGuide) {
+      const relativePath = path.posix.join(relativeContentRoot, "VELLYM.md");
+      files.push({
+        relativePath,
+        kind: "agent-guide",
+        title: language === "ja" ? "AI向けの案内" : "AI guide",
+        status: await exists(path.join(root, relativePath)) ? "skip" : "create"
+      });
+    }
     files.push({
       relativePath: path.posix.join(relativeContentRoot, "_index.yaml"),
       kind: "folder",
@@ -716,7 +736,9 @@ export async function planProjectSetup(
     .update(
       JSON.stringify({
         operation,
+        agentGuide: options.agentGuide,
         pluginPackages: options.pluginPackages ?? [],
+        hostVersion: options.hostVersion,
         mode: options.mode,
         size: options.size,
         method: options.method,
@@ -740,7 +762,9 @@ export async function planProjectSetup(
 
   return {
     operation,
+    ...(options.agentGuide ? { agentGuide: options.agentGuide } : {}),
     pluginPackages: options.pluginPackages ?? [],
+    ...(options.hostVersion ? { hostVersion: options.hostVersion } : {}),
     ...(options.mode ? { mode: options.mode } : {}),
     ...(options.size ? { size: options.size } : {}),
     ...(options.method ? { method: options.method } : {}),
@@ -889,7 +913,10 @@ Vellym does not infer semantic duplication or contradictions, and it never runs 
 }
 
 function sourceFor(plan: SetupPlan, file: SetupPlanFile): string {
-  if (file.kind === "package-json") return packageJsonSource(plan.projectRoot, plan.pluginPackages);
+  if (file.kind === "agent-guide") return plan.agentGuide!.content;
+  if (file.kind === "package-json") {
+    return packageJsonSource(plan.projectRoot, plan.pluginPackages, plan.hostVersion);
+  }
   if (file.kind === "config") return configSource(plan.contentRoot, plan.language, plan.pluginPackages);
   if (file.kind === "page") {
     const page = setupPage(file.templateId!)!;
@@ -924,7 +951,9 @@ function sourceFor(plan: SetupPlan, file: SetupPlanFile): string {
 export async function applyProjectSetup(expected: SetupPlan): Promise<void> {
   const current = await planProjectSetup(expected.projectRoot, {
     operation: expected.operation,
+    agentGuide: expected.agentGuide,
     pluginPackages: expected.pluginPackages,
+    hostVersion: expected.hostVersion,
     mode: expected.mode,
     size: expected.size,
     method: expected.method,
@@ -960,6 +989,7 @@ export async function applyProjectSetup(expected: SetupPlan): Promise<void> {
     createdCandidates.map((file) => [file.relativePath, sourceFor(current, file)])
   );
   for (const file of createdCandidates) {
+    if (file.kind === "agent-guide") continue;
     // package.jsonはYAMLでもVellymのリソースでもない。JSONとして読めれば足りる。
     if (file.kind === "package-json") {
       try {

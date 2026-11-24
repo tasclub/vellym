@@ -103,6 +103,7 @@ export function SetupWizard(props: {
   const [filterReference, setFilterReference] = useState("");
   const [pageFileNames, setPageFileNames] = useState<Record<string, string>>({});
   const [pageTitles, setPageTitles] = useState<Record<string, string>>({});
+  const [detailOverrides, setDetailOverrides] = useState<Record<string, boolean>>({});
   const [conflictResolutions, setConflictResolutions] = useState<
     Record<string, "skip" | "alternate">
   >({});
@@ -364,6 +365,53 @@ export function SetupWizard(props: {
     return new Set([...reviewScope].filter((id) => !generated.has(id)));
   }, [resolved, reviewScope]);
 
+  function detailNeedsAttention(node: SetupTreeNode): boolean {
+    const file = plan?.files.find((item) => item.nodeId === node.id);
+    if (
+      file?.status === "conflict" ||
+      file?.conflictReason === "path" ||
+      file?.conflictReason === "page-id"
+    ) {
+      return true;
+    }
+    if (node.kind === "folder") {
+      const folder = index?.folderById.get(node.id);
+      return Boolean(
+        folder && (folderNames[node.id] ?? folder.defaultName) !== folder.defaultName
+      );
+    }
+    const page = index?.pageById.get(node.id);
+    if (!page) return false;
+    const title = pageTitles[node.id] ?? file?.title ?? page.title;
+    const fileName =
+      pageFileNames[node.id] ??
+      (file ? file.relativePath.split("/").pop() : page.defaultFileName) ??
+      page.defaultFileName;
+    return title !== page.title || fileName !== page.defaultFileName;
+  }
+
+  function detailIsOpen(node: SetupTreeNode): boolean {
+    return detailOverrides[node.id] ?? detailNeedsAttention(node);
+  }
+
+  function toggleDetail(nodeId: string): void {
+    const node = index?.byId.get(nodeId);
+    if (!node) return;
+    setDetailOverrides((current) => ({
+      ...current,
+      [nodeId]: !(current[nodeId] ?? detailNeedsAttention(node))
+    }));
+  }
+
+  const detailOpenIds = new Set<string>();
+  function collectOpenDetails(nodes: SetupTreeNode[]): void {
+    for (const node of nodes) {
+      if (detailIsOpen(node)) detailOpenIds.add(node.id);
+      collectOpenDetails(node.children);
+    }
+  }
+  collectOpenDetails(reviewTree);
+
   function levelPreview(value: DocumentationLevel) {
     if (!index) return { folders: 0, pages: 0, tree: [] as SetupTreeNode[] };
     const estimate = estimateSelection(index, size, method, value);
@@ -598,11 +646,6 @@ export function SetupWizard(props: {
 
             {mode === "recommended" && (
               <>
-                <p>
-                  {ja
-                    ? "管理量を選びます。標準をおすすめします。生成する階層をそのまま確認できます。"
-                    : "Choose how much to manage. Standard is recommended. The hierarchy below is what gets created."}
-                </p>
                 <fieldset className={styles["profile-list"]}>
                   <legend className={"visually-hidden"}>level</legend>
                   {(["light", "standard", "strict"] as DocumentationLevel[]).map((value) => {
@@ -739,13 +782,11 @@ export function SetupWizard(props: {
         {step === 3 && index && (
           <>
             <h1 id="setup-title">{ja ? "生成内容の確認" : "Review generated content"}</h1>
-            <p>
-              {mode === "empty"
-                ? ja ? "標準FolderとPageを作成しません。" : "No standard Folders or Pages will be created."
-                : ja
-                  ? "生成する階層だけを表示しています。名前を確認し、不要なものは解除してください。"
-                  : "Only the hierarchy to be created is shown. Review the names and clear anything you do not need."}
-            </p>
+            {mode === "empty" && (
+              <p>
+                {ja ? "標準FolderとPageを作成しません。" : "No standard Folders or Pages will be created."}
+              </p>
+            )}
             <div className={styles["setup-tree-toolbar"]}>
               <p role="status" className={styles["setup-tree-count"]}>
                 {busy
@@ -763,11 +804,6 @@ export function SetupWizard(props: {
                 </Button>
               </div>
             </div>
-            <p className={styles["setup-tree-hint"]}>
-              {ja
-                ? "既存のファイルは上書きしません。「この内容で生成」を押すまで、ファイルは書き込みません。"
-                : 'Existing files are never overwritten. Nothing is written until you press "Create project".'}
-            </p>
             {omittedIds.size > 0 && (
               <p className={styles["setup-tree-hint"]}>
                 {ja
@@ -787,6 +823,8 @@ export function SetupWizard(props: {
                 omittedIds={omittedIds}
                 onToggleExpanded={toggleExpanded}
                 onToggleSelected={toggleSelected}
+                detailOpenIds={detailOpenIds}
+                onToggleDetail={toggleDetail}
                 renderDetail={detailFor}
               />
             </div>

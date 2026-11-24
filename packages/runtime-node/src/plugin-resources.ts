@@ -1,4 +1,4 @@
-import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { stringify } from "yaml";
 import { STABLE_API_VERSION, validateResource } from "@vellym-internal/core";
@@ -97,14 +97,23 @@ export async function createPluginResource(
 ): Promise<{ name: string; relativePath: string }> {
   const relativePath = pluginResourceRelativePath(draft);
   const rootReal = await realpath(contentRoot);
-  const target = path.join(contentRoot, relativePath);
-  const directory = path.dirname(target);
-  await mkdir(directory, { recursive: true });
-  const directoryReal = await realpath(directory);
-  // content root直下も許す。`isInside`は同一pathを内側と見なさない。
-  if (directoryReal !== rootReal && !isInside(rootReal, directoryReal)) {
-    throw new RuntimeError("contentRoot外への作成は許可されていません", 422, "PATH_BOUNDARY");
+  const parts = relativePath.split("/");
+  const filename = parts.pop()!;
+  let directoryReal = rootReal;
+  for (const part of parts) {
+    const next = path.join(directoryReal, part);
+    try {
+      await mkdir(next);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+    directoryReal = await realpath(next);
+    if ((directoryReal !== rootReal && !isInside(rootReal, directoryReal)) ||
+        !(await stat(directoryReal)).isDirectory()) {
+      throw new RuntimeError("contentRoot外への作成は許可されていません", 422, "PATH_BOUNDARY");
+    }
   }
+  const target = path.join(directoryReal, filename);
 
   const resource = {
     apiVersion: STABLE_API_VERSION,
