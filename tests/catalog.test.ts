@@ -58,9 +58,16 @@ describe("catalog", () => {
       "system-design": [["目標と品質の優先順位", "外部との境界", "構成要素と責務", "重要な流れ", "配置", "採用する技術の一覧"], ["Goals and quality priorities", "External boundaries", "Components and responsibilities", "Important flows", "Deployment", "Adopted technologies"]],
       decision: [["状態", "背景", "選択肢", "決定", "結果と影響"], ["Status", "Context", "Options", "Decision", "Consequences and impact"]],
       "design-doc": [["目的と背景", "やらないこと", "案", "代わりの案", "懸念と未決事項"], ["Purpose and context", "Non-goals", "Proposal", "Alternatives", "Concerns and open questions"]],
+      "screen-design": [["画面の目的", "レイアウト", "項目の表", "操作とイベント", "エラーの表示"], ["Screen purpose", "Layout", "Fields", "Actions and events", "Error display"]],
+      "report-design": [["帳票の目的", "レイアウト", "項目の表", "出力の条件"], ["Report purpose", "Layout", "Fields", "Output conditions"]],
+      "api-design": [["エンドポイントの表", "入力と出力", "エラー"], ["Endpoints", "Inputs and outputs", "Errors"]],
+      "external-interface-design": [["相手先", "方式", "タイミング", "項目の表", "エラー時と再送"], ["Counterparty", "Method", "Timing", "Fields", "Errors and retries"]],
+      "data-design": [["ER図", "テーブル定義の表", "保持期間"], ["ER diagram", "Table definitions", "Retention period"]],
+      "batch-design": [["起動の条件と時刻", "入力と出力", "処理の流れ", "エラーと再実行"], ["Trigger and schedule", "Inputs and outputs", "Processing flow", "Errors and reruns"]],
+      "detailed-design": [["対象のモジュール", "処理の流れ", "クラス・関数の責務の表", "例外"], ["Target module", "Processing flow", "Class and function responsibilities", "Exceptions"]],
     };
     const catalog = loadCatalog();
-    expect(catalog.templates).toHaveLength(9);
+    expect(catalog.templates).toHaveLength(16);
     for (const [id, [ja, en]] of Object.entries(headings)) {
       const template = catalog.templates.find(t => t.id === id);
       expect(template, id).toBeDefined();
@@ -70,5 +77,8 @@ describe("catalog", () => {
       expect(template!.guideText?.en).toBeTruthy();
     }
     expect(catalog.templates.find(t => t.id === "system-design")?.alias).toBe("architecture-overview");
+    for (const locale of ["ja", "en"] as const) {
+      expect(catalog.templates.find(t => t.id === "data-design")!.body[locale]).toContain("```mermaid\nerDiagram");
+    }
   });
 });
