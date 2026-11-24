@@ -272,6 +272,52 @@ export function readTrackers(context: PluginDefinitionContext): Tracker[] {
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
+/** Compare every nested tracker with all its ancestors, not just its owner. */
+export function validateTrackerCombinations(
+  _rows: readonly unknown[],
+  context: PluginDefinitionContext
+): PluginDiagnostic[] {
+  const records = context.records(TRACKER_KIND);
+  const diagnostics: PluginDiagnostic[] = [];
+  for (const record of records) {
+    const child = readTracker(record);
+    const childStatuses = new Map(child.statuses.map((status) => [status.id, status.category]));
+    for (const ancestorRecord of records) {
+      const parent = readTracker(ancestorRecord);
+      if (parent.folder === child.folder ||
+          !(parent.folder === "" || child.folder.startsWith(`${parent.folder}/`))) continue;
+      const parentStatuses = new Map(parent.statuses.map((status) => [status.id, status.category]));
+      if (parentStatuses.size !== childStatuses.size ||
+          [...parentStatuses].some(([id, category]) => childStatuses.get(id) !== category)) {
+        diagnostics.push({
+          file: record.relativePath, path: "/spec/statuses", severity: "warning",
+          code: "TICKET_TRACKER_STATUSES_MISMATCH",
+          message: {
+            ja: `上位のTracker「${parent.name}」と状態のIDまたはcategoryが異なります`,
+            en: `Status IDs or categories differ from ancestor tracker "${parent.name}".`
+          }
+        });
+      }
+    }
+    const setting = (value: unknown): Record<string, unknown> =>
+      typeof value === "object" && value !== null && !Array.isArray(value)
+        ? value as Record<string, unknown> : {};
+    const kanban = setting(record.spec.kanban).orderField ?? "order";
+    const wbs = setting(record.spec.wbs).orderField ?? "order";
+    if (typeof kanban === "string" && kanban === wbs) {
+      diagnostics.push({
+        file: record.relativePath, path: "/spec/wbs/orderField", severity: "warning",
+        code: "TICKET_ORDER_FIELD_CONFLICT",
+        message: {
+          ja: `カンバンとWBSの並び順に同じ項目「${kanban}」が指定されています`,
+          en: `Kanban and WBS use the same order field "${kanban}".`
+        }
+      });
+    }
+  }
+  return diagnostics;
+}
+
 /**
  * TicketTracker定義そのものの不整合。チケット1件ごとの投影ではなく、定義を
  * 読み取る時点で1項目につき1回だけ報告する。
