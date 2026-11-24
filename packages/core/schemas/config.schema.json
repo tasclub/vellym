@@ -3,13 +3,13 @@
   "$id": "https://vellym.tasclub.com/schemas/config-v1.schema.json",
   "title": "Vellym configuration",
   "type": "object",
-  "required": ["schemaVersion", "contentRoot", "outputDir", "ui", "plugins"],
+  "required": ["schemaVersion", "ui", "plugins"],
   "properties": {
     "schemaVersion": { "const": "1.0" },
     "contentRoot": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?![./\\\\])(?!.*/(?:\\.|\\.\\.)(?:/|$))[^\\\\\\0]+$"
+      "pattern": "^(?:\\.|(?![./\\\\])(?!.*/(?:\\.|\\.\\.)(?:/|$))[^\\\\\\0]+)$"
     },
     "outputDir": { "type": "string", "minLength": 1 },
     "ui": {

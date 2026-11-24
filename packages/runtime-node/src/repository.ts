@@ -31,6 +31,7 @@ import type {
   PluginResourceRecord
 } from "@vellym/plugin-api";
 import { RuntimeError } from "./errors.js";
+import { excludedDirectoriesFor } from "./management-root.js";
 import { contentHash } from "./path-utils.js";
 import { folderLocaleHashes, pageLocaleHashes } from "./locale-hash.js";
 import type {
@@ -114,6 +115,7 @@ async function findRepositoryEntries(root: string): Promise<{
   directories: string[];
 }> {
   const files: string[] = [];
+  const excluded = new Set(await excludedDirectoriesFor(root));
   const directories: string[] = [root];
   async function visitDirectory(directory: string): Promise<void> {
     const entries = await readdir(directory, { withFileTypes: true });
@@ -122,7 +124,7 @@ async function findRepositoryEntries(root: string): Promise<{
       if (entry.isSymbolicLink() || entry.name.startsWith(".")) continue;
       const target = path.join(directory, entry.name);
       if (entry.isDirectory()) {
-        if (!ignoredDirectories.has(entry.name)) {
+        if (!ignoredDirectories.has(entry.name) && !excluded.has(path.resolve(target))) {
           directories.push(target);
           await visitDirectory(target);
         }

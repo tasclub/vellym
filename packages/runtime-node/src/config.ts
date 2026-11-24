@@ -22,10 +22,10 @@ function relativeContentRoot(value: string): string {
   const normalized = value.normalize("NFC").replace(/\/+$/g, "");
   if (
     !normalized ||
-    normalized === "." ||
     path.isAbsolute(normalized) ||
     normalized.includes("\\") ||
-    normalized.split("/").some((part) => !part || part === "." || part === "..")
+    (normalized !== "." &&
+      normalized.split("/").some((part) => !part || part === "." || part === ".."))
   ) {
     throw new RuntimeError(
       "contentRootはproject root内の相対pathで指定してください",
@@ -172,11 +172,16 @@ export async function loadConfig(
     );
   }
   const projectRoot = path.dirname(absoluteConfig);
+  const config = {
+    ...result.config,
+    contentRoot: result.config.contentRoot ?? ".",
+    outputDir: result.config.outputDir ?? "dist"
+  };
   if (
-    path.isAbsolute(result.config.contentRoot) ||
-    result.config.contentRoot === "." ||
-    result.config.contentRoot.includes("\\") ||
-    result.config.contentRoot.split("/").some((part) => part === ".." || part === ".")
+    path.isAbsolute(config.contentRoot) ||
+    config.contentRoot.includes("\\") ||
+    (config.contentRoot !== "." &&
+      config.contentRoot.split("/").some((part) => part === ".." || part === "."))
   ) {
     throw new RuntimeError(
       "contentRootはproject root内の相対pathで指定してください",
@@ -184,15 +189,16 @@ export async function loadConfig(
       "CONTENT_ROOT"
     );
   }
-  const contentRoot = path.resolve(projectRoot, result.config.contentRoot);
-  const outputDir = path.resolve(projectRoot, result.config.outputDir);
-  if (!isInside(projectRoot, contentRoot)) {
+  const contentRoot = path.resolve(projectRoot, config.contentRoot);
+  const outputDir = path.resolve(projectRoot, config.outputDir);
+  if (contentRoot !== projectRoot && !isInside(projectRoot, contentRoot)) {
     throw new RuntimeError("contentRootはプロジェクト内を指定してください", 400, "CONTENT_ROOT");
   }
   if (
     !isInside(projectRoot, outputDir) ||
     outputDir === contentRoot ||
-    isInside(contentRoot, outputDir)
+    (contentRoot !== projectRoot &&
+      (isInside(contentRoot, outputDir) || isInside(outputDir, contentRoot)))
   ) {
     throw new RuntimeError(
       "outputDirはプロジェクト内かつcontentRoot外を指定してください",
@@ -201,7 +207,7 @@ export async function loadConfig(
     );
   }
   return {
-    config: result.config,
+    config,
     configPath: absoluteConfig,
     projectRoot,
     contentRoot,

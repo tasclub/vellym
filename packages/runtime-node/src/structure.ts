@@ -21,6 +21,7 @@ import {
 import { RuntimeError } from "./errors.js";
 import { contentHash, isInside } from "./path-utils.js";
 import { loadRepository } from "./repository.js";
+import { excludedDirectoriesFor } from "./management-root.js";
 
 export type StructureInput =
   | {
@@ -382,14 +383,17 @@ async function hasCaseInsensitiveEntry(
   );
 }
 
-async function directEntryNames(directory: string): Promise<string[]> {
+async function directEntryNames(directory: string, contentRoot: string): Promise<string[]> {
+  const excluded = new Set(await excludedDirectoriesFor(contentRoot));
   return (await readdir(directory, { withFileTypes: true }))
     .filter((entry) => {
       if (entry.isSymbolicLink() || entry.name.startsWith(".")) return false;
       if (entry.isDirectory()) {
-        return !RESERVED_DIRECTORIES.has(entry.name.toLocaleLowerCase());
+        return !RESERVED_DIRECTORIES.has(entry.name.toLocaleLowerCase()) &&
+          !excluded.has(path.resolve(directory, entry.name));
       }
       return entry.isFile() &&
+        !(excluded.size && entry.name === "vellym.config.yaml") &&
         entry.name !== "_index.yaml" &&
         /\.ya?ml$/i.test(entry.name);
     })
@@ -430,6 +434,7 @@ async function unusedArchivePath(
 
 async function fingerprint(root: string): Promise<string> {
   const values: string[] = [];
+  const excluded = new Set(await excludedDirectoriesFor(root));
   async function scan(directory: string): Promise<void> {
     const entries = await readdir(directory, { withFileTypes: true });
     entries.sort((a, b) => a.name.localeCompare(b.name));
@@ -439,6 +444,7 @@ async function fingerprint(root: string): Promise<string> {
       if (entry.isSymbolicLink()) {
         values.push(`l:${relative}`);
       } else if (entry.isDirectory()) {
+        if (excluded.has(path.resolve(target))) continue;
         values.push(`d:${relative}`);
         await scan(target);
       } else if (entry.isFile()) {
@@ -456,6 +462,7 @@ async function assertSafeDirectory(
 ): Promise<string> {
   const rootReal = await realpath(contentRoot);
   const target = path.join(contentRoot, folderPath);
+  await assertNotExcluded(contentRoot, target);
   let targetReal: string;
   try {
     targetReal = await realpath(target);
@@ -486,6 +493,21 @@ async function assertSafeDirectory(
 
 function publicPath(contentRoot: string, target: string): string {
   return path.relative(contentRoot, target).replaceAll("\\", "/") || ".";
+}
+
+async function assertNotExcluded(
+  contentRoot: string,
+  target: string,
+  includeAncestors = false
+): Promise<void> {
+  const absolute = path.resolve(target);
+  const excluded = await excludedDirectoriesFor(contentRoot);
+  if (excluded.some((directory) =>
+    absolute === directory || isInside(directory, absolute) ||
+    (includeAncestors && isInside(absolute, directory))
+  )) {
+    throw new RuntimeError("出力・画像のフォルダは構成変更できません", 422, "STRUCTURE_BOUNDARY");
+  }
 }
 
 export async function planStructureChange(
@@ -593,7 +615,7 @@ export async function planStructureChange(
     const sourcePath = path.join(contentRoot, loaded.relativePath);
     const target = path.join(destination, path.basename(sourcePath));
     if (input.destinationOrder) {
-      const entries = await directEntryNames(destination);
+      const entries = await directEntryNames(destination, contentRoot);
       assertExactOrder(input.destinationOrder, [
         ...entries.filter((entry) => entry !== path.basename(sourcePath)),
         path.basename(sourcePath)
@@ -630,7 +652,7 @@ export async function planStructureChange(
     }
     const target = path.join(destination, path.basename(source));
     if (input.destinationOrder) {
-      const entries = await directEntryNames(destination);
+      const entries = await directEntryNames(destination, contentRoot);
       assertExactOrder(input.destinationOrder, [
         ...entries.filter((entry) => entry !== path.basename(source)),
         path.basename(source)
@@ -661,7 +683,7 @@ export async function planStructureChange(
       contentRoot,
       input.folderPath
     );
-    const entries = await directEntryNames(folderDirectory);
+    const entries = await directEntryNames(folderDirectory, contentRoot);
     const missing = input.order.filter((item) => !entries.includes(item));
     if (missing.length) {
       throw new RuntimeError(
@@ -745,6 +767,12 @@ export async function planStructureChange(
     });
   }
 
+  for (const change of changes) {
+    await assertNotExcluded(contentRoot, path.join(contentRoot, change.destination));
+    if (change.source && change.operation !== "restore") {
+      await assertNotExcluded(contentRoot, path.join(contentRoot, change.source), true);
+    }
+  }
   const repositoryHash = await fingerprint(contentRoot);
   const planHash = createHash("sha256")
     .update(JSON.stringify({ input, changes, repositoryHash, conflict }))
@@ -974,9 +1002,10 @@ async function currentFolderOrder(directory: string): Promise<string[]> {
 
 async function normalizeFolderOrder(
   directory: string,
+  contentRoot: string,
   options: { append?: string; exact?: string[] } = {}
 ): Promise<void> {
-  const entries = await directEntryNames(directory);
+  const entries = await directEntryNames(directory, contentRoot);
   if (options.exact) {
     assertExactOrder(options.exact, entries);
     await writeFolderMetadata(directory, { order: options.exact });
@@ -1084,13 +1113,13 @@ export async function applyStructureChange(
       }
       await writeFile(target, output, { encoding: "utf8", flag: "wx" });
       rollback = () => rm(target, { force: true });
-      await normalizeFolderOrder(path.dirname(target), {
+      await normalizeFolderOrder(path.dirname(target), contentRoot, {
         append: path.basename(target)
       });
     } else if (current.input.type === "create-folder") {
       await mkdir(target);
       rollback = () => rmdir(target);
-      await normalizeFolderOrder(path.dirname(target), {
+      await normalizeFolderOrder(path.dirname(target), contentRoot, {
         append: path.basename(target)
       });
     } else if (current.input.type === "update-folder") {
@@ -1138,9 +1167,9 @@ export async function applyStructureChange(
         const sourceDirectory = path.dirname(source);
         const targetDirectory = path.dirname(target);
         if (sourceDirectory !== targetDirectory) {
-          await normalizeFolderOrder(sourceDirectory);
+          await normalizeFolderOrder(sourceDirectory, contentRoot);
         }
-        await normalizeFolderOrder(targetDirectory, {
+        await normalizeFolderOrder(targetDirectory, contentRoot, {
           ...(current.input.destinationOrder
             ? { exact: current.input.destinationOrder }
             : { append: path.basename(target) })
@@ -1151,11 +1180,11 @@ export async function applyStructureChange(
       ) {
         // 復元・改名したエントリを復元先フォルダのorder末尾へ追加する。
         // 復元時のsourceは_archive/配下なので正規化しない。
-        await normalizeFolderOrder(path.dirname(target), {
+        await normalizeFolderOrder(path.dirname(target), contentRoot, {
           append: path.basename(target)
         });
       } else {
-        await normalizeFolderOrder(path.dirname(source));
+        await normalizeFolderOrder(path.dirname(source), contentRoot);
       }
     }
     await loadRepository(contentRoot);
@@ -1257,6 +1286,11 @@ export async function applyStructureUndo(
         destination: safeUndoPath(contentRoot, expected.move.destination)
       }
     : undefined;
+  for (const item of metadata) await assertNotExcluded(contentRoot, item.path);
+  if (move) {
+    await assertNotExcluded(contentRoot, move.source, true);
+    await assertNotExcluded(contentRoot, move.destination, true);
+  }
   let moved = false;
   try {
     if (move) {

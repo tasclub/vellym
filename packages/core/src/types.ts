@@ -108,8 +108,8 @@ export interface I18nConfig {
 
 export interface VellymConfig {
   schemaVersion: "1.0";
-  contentRoot: string;
-  outputDir: string;
+  contentRoot?: string;
+  outputDir?: string;
   ui: { language: "ja" | "en"; [key: string]: unknown };
   i18n?: I18nConfig;
   assets?: { root?: string; maxBytes?: number; [key: string]: unknown };
