@@ -75,6 +75,8 @@ export interface PageEntry {
    * 後の横断パス（deriveRepositoryEntryIndex）で行う。
    */
   outgoingReferences?: InternalPageReference[];
+  /** 参照元locale・block IDから元YAML上のRichTextBlock配列位置を引く。 */
+  referencePaths?: Map<string, string>;
   assetReferences?: Array<{ relativePath: string; path: string }>;
   fileLinks?: Array<{ target: string; path: string }>;
   fileReadOnlyReasons?: string[];
@@ -220,6 +222,38 @@ function outgoingReferences(
   }));
 }
 
+function recordReferencePaths(
+  paths: Map<string, string>,
+  references: readonly InternalPageReference[],
+  sourceBlocks: readonly unknown[],
+  pathPrefix: string
+): void {
+  const indexesById = new Map<string, number>();
+  sourceBlocks.forEach((candidate, index) => {
+    if (!candidate || typeof candidate !== "object" || !("id" in candidate)) return;
+    const id = (candidate as { id?: unknown }).id;
+    if (typeof id === "string" && !indexesById.has(id)) {
+      indexesById.set(id, index);
+    }
+  });
+  for (const reference of references) {
+    const index = indexesById.get(reference.sourceBlockId);
+    if (index === undefined) continue;
+    paths.set(
+      `${reference.sourceLocale}\u0000${reference.sourceBlockId}`,
+      `${pathPrefix}/${index}`
+    );
+  }
+}
+
+export function pageReferencePath(
+  entry: PageEntry,
+  locale: string,
+  blockId: string
+): string | undefined {
+  return entry.referencePaths?.get(`${locale}\u0000${blockId}`);
+}
+
 /** 検索用に平坦化した見出し列を、参照解決が使える形へ戻す。 */
 export function localeHeadings(record: PageLocaleEntry): ReferenceHeading[] {
   const data = record.headingData ?? [];
@@ -336,6 +370,13 @@ export function extractPageEntryWithPage(input: {
     visibility: "published"
   });
   const references = outgoingReferences(name, BASE_LOCALE_KEY, known.blocks);
+  const referencePaths = new Map<string, string>();
+  recordReferencePaths(
+    referencePaths,
+    references,
+    page.spec.blocks ?? [],
+    "/spec/blocks"
+  );
   const assets = (blocks: RichTextBlock[], prefix: string) => blocks.flatMap((block, index) =>
     extractAssetReferences(block.content).map((relativePath) => ({ relativePath: ownedString(relativePath), path: `${prefix}/${index}/content` })));
   const assetReferences = assets(known.blocks, "/spec/blocks");
@@ -360,7 +401,14 @@ export function extractPageEntryWithPage(input: {
         visibility: translation.value.visibility ?? "published"
       }
     );
-    references.push(...outgoingReferences(name, locale, blocks.blocks));
+    const translationReferences = outgoingReferences(name, locale, blocks.blocks);
+    references.push(...translationReferences);
+    recordReferencePaths(
+      referencePaths,
+      translationReferences,
+      translation.value.blocks ?? [],
+      `/spec/translations/${translation.rawKey}/blocks`
+    );
     assetReferences.push(...assets(blocks.blocks, `/spec/translations/${translation.rawKey}/blocks`));
     fileLinks.push(...links(blocks.blocks, `/spec/translations/${translation.rawKey}/blocks`));
     translations.set(entry.locale!, entry);
@@ -394,6 +442,7 @@ export function extractPageEntryWithPage(input: {
       ...(translations.size ? { translations } : {}),
       ...(availableLocales.length ? { availableLocales } : {}),
       ...(references.length ? { outgoingReferences: references } : {}),
+      ...(referencePaths.size ? { referencePaths } : {}),
       ...(assetReferences.length ? { assetReferences } : {}),
       ...(fileLinks.length ? { fileLinks } : {}),
       ...(reasons.length ? { fileReadOnlyReasons: reasons } : {}),
@@ -628,7 +677,7 @@ function displayTitle(entry: PageEntry, locale: string): string {
 }
 
 /** そのlocale projectionが公開対象か。draft翻訳の参照を公開経路へ混入させない。 */
-function isPublishedProjection(entry: PageEntry, locale: string): boolean {
+export function isPublishedProjection(entry: PageEntry, locale: string): boolean {
   if (locale === BASE_LOCALE_KEY) return true;
   return entry.translations?.get(locale)?.visibility === "published";
 }

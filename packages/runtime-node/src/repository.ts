@@ -42,6 +42,8 @@ import {
   BASE_LOCALE_KEY,
   deriveRepositoryEntryIndex,
   extractPageEntryWithPage,
+  isPublishedProjection,
+  pageReferencePath,
   pageRelationsView,
   searchRepositoryEntries,
   type PageEntry
@@ -424,6 +426,49 @@ function runRecordSetValidators(
   }
 }
 
+function localizedReferenceMessage(
+  message: Diagnostic["message"],
+  locale: "ja" | "en"
+): string {
+  if (typeof message === "string") return message;
+  return message[locale] ?? message.en ?? message.ja ?? Object.values(message)[0] ?? "";
+}
+
+function repositoryReferenceDiagnostics(
+  entryIndex: RepositorySnapshot["entryIndex"]
+): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const seen = new Set<string>();
+  for (const reference of entryIndex.referenceDiagnostics) {
+    const source = entryIndex.byName.get(reference.pageId);
+    if (!source || !isPublishedProjection(source, reference.locale)) continue;
+    const diagnosticPath = pageReferencePath(
+      source,
+      reference.locale,
+      reference.blockId
+    );
+    if (diagnosticPath === undefined) {
+      throw new Error(
+        `参照診断のblock位置がありません: ${reference.file} ${reference.pageId} ${reference.blockId}`
+      );
+    }
+    const key = `${reference.file}\u0000${diagnosticPath}\u0000${reference.target}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    diagnostics.push({
+      file: reference.file,
+      path: diagnosticPath,
+      severity: "warning",
+      code: reference.code,
+      message: {
+        ja: `ファイル ${reference.file} のPage ${reference.pageId}（locale ${reference.locale || "base"}、block ${reference.blockId}、target ${reference.target}）: ${localizedReferenceMessage(reference.message, "ja")}`,
+        en: `File ${reference.file}, Page ${reference.pageId} (locale ${reference.locale || "base"}, block ${reference.blockId}, target ${reference.target}): ${localizedReferenceMessage(reference.message, "en")}`
+      }
+    });
+  }
+  return diagnostics;
+}
+
 export async function loadRepository(
   contentRoot: string,
   previous?: RepositorySnapshot,
@@ -570,6 +615,7 @@ export async function loadRepository(
 
   const entryIndex = deriveRepositoryEntryIndex(entries);
   diagnostics.push(...entryIndex.diagnostics);
+  diagnostics.push(...repositoryReferenceDiagnostics(entryIndex));
   for (const folder of folders) {
     if (!folder.order.length) continue;
     const childNames = new Set<string>();
