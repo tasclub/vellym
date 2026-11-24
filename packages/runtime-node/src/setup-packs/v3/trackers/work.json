@@ -1,0 +1,1 @@
+{"id":"work","title":{"ja":"作業","en":"Work"},"description":{"ja":"作業を管理する","en":"Track work"},"spec":{"ja":{"statuses":[{"id":"todo","label":"未着手","category":"open"},{"id":"done","label":"完了","category":"closed"}]},"en":{"statuses":[{"id":"todo","label":"To do","category":"open"},{"id":"done","label":"Done","category":"closed"}]}}}
