@@ -10,6 +10,7 @@ spec:
     - compatibility.yaml
     - configuration.yaml
     - official-plugins.yaml
+    - design.yaml
     - using-plugins.yaml
     - ticket-management.yaml
     - wbs.yaml

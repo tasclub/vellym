@@ -29,6 +29,12 @@ spec:
 
         [npm](https://www.npmjs.com/package/@vellym/wbs) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-wbs/README.md) · 使い方: [[wbs|WBS]]
 
+        ## @vellym/design
+
+        デザインキャンバスを作成・編集し、YAMLとDTCG JSONでGit管理できます。画面での編集、コード表示、SVG・PNG・PDFへの書き出し、静的版での閲覧に対応します。
+
+        [npm](https://www.npmjs.com/package/@vellym/design) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-design/README.md) · 使い方: [[design|デザインキャンバス]]
+
         プラグインを作る入口は[[developing-plugins|プラグインを作る]]です。Plugin APIはbeta版のあいだ変更されることがあります。
   translations:
     en:
@@ -57,5 +63,11 @@ spec:
             Displays `TicketTracker` tickets as a parent-child hierarchy with a schedule. It can be installed on its own; with `@vellym/tickets` or `@vellym/kanban` enabled, users can switch views from the same tracker.
 
             [npm](https://www.npmjs.com/package/@vellym/wbs) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-wbs/README.md) · How to use: [[wbs|WBS]]
+
+            ## @vellym/design
+
+            Create and edit design canvases, keeping them in Git as YAML and DTCG JSON. The plugin supports canvas editing, code inspection, SVG/PNG/PDF export, and read-only static output.
+
+            [npm](https://www.npmjs.com/package/@vellym/design) · [README](https://github.com/tasclub/vellym/blob/main/packages/plugin-design/README.md) · How to use: [[design|Design Canvas]]
 
             To get started with plugin development, see [[developing-plugins|Developing Plugins]]. The Plugin API may change while it is in beta.

@@ -1,0 +1,198 @@
+apiVersion: vellym.tasclub.com/v1
+kind: Page
+metadata:
+  name: design
+  title: デザインキャンバス
+spec:
+  documentType: guide
+  locale: ja
+  blocks:
+    - id: design
+      type: rich-text
+      content: |
+        `@vellym/design`は、デザインをYAMLとDTCG JSONで管理し、ブラウザで作成・編集する公式プラグインです。デザインのファイルがGitの正本で、画面の変更も同じファイルへ保存されます。
+
+        ## 導入とキャンバスの作成
+
+        Vellymプロジェクトのルートでインストールし、`vellym.config.yaml`の`plugins`へ追加します。
+
+        ```sh
+        npm install @vellym/design
+        ```
+
+        ```yaml
+        plugins:
+          - "@vellym/design"
+        ```
+
+        `vellym dev`を起動し、文書ツリーの追加メニューから「デザインキャンバスを作成」を選びます。キャンバスを開いたらボードを追加し、ページ・レイヤー・部品を使ってデザインを作成します。編集内容は自動保存されます。
+
+        ## ファイルとデータ
+
+        キャンバスは1フォルダにまとめます。キャンバス、共有スタイル、ボード、部品は、それぞれの`metadata.name`を使ったYAMLファイルです。ボードと部品は`+boards/`・`+components/`に1件ずつ保存します。トークンはDTCG JSONのまま`.tokens.json`へ置き、必要ならResolver JSONも使います。
+
+        ```text
+        docs/app/
+        ├── app.yaml                 # DesignCanvas
+        ├── app-styles.yaml          # DesignStyles
+        ├── app.tokens.json          # DTCG tokens
+        ├── app.resolver.json        # DTCG Resolver (optional)
+        ├── +boards/home.yaml        # DesignBoard
+        └── +components/button.yaml  # DesignComponent
+        ```
+
+        データ形式ではCSS・SVG・DTCGにある項目名と値をそのまま使い、そこにない概念にはFigmaの語を使います。長さはpx、角度は度です。ノードの`id`はファイル内で一意にし、作成後は変更しないでください。ボードや部品、共有スタイルなどの参照にはファイルパスでなく`metadata.name`を使います。画像は管理ルート内のパスで指定します。
+
+        詳しい種別・項目は`npx vellym schema --kind DesignBoard`などで確認できます。書き方の要点:
+
+        - `layout`の`display`・`flexDirection`・`gap`、文字の`fontSize`・`textAlign`などはCSSの名前と値です。
+        - `sizing`の`hug`・`fill`・`fixed`、`constraints`、部品のバリアントや上書きなどはFigmaの語です。
+        - `DesignBoard.spec.implementedBy`には実装ファイルへのパスをGitルートからの相対パスで指定します。区切りは`/`にします。
+        - トークンをデザイン値から参照するときは`"{color.primary}"`のように書きます。`.tokens.json`はDTCG 2025.10の形式のまま保ちます。
+
+        ## 画面の使い方
+
+        上部のツールバーで選択、フレーム、矩形、楕円、線、多角形、星、ペン、文字、画像の挿入、手のひらを切り替えます。左側にはページ・レイヤー・部品のタブがあり、中央のキャンバスでボードや要素を配置します。右側の「デザイン」では位置・サイズ・レイアウト・見た目・塗り・線・効果・文字・部品を編集し、「プロトタイプ」では画面遷移、「コード」では選択要素やボードのCSS、トークン変数、`implementedBy`を確認します。
+
+        ### キー操作
+
+        | キー | 操作 |
+        | --- | --- |
+        | `V`・`F`・`R`・`O`・`L`・`P`・`T`・`H` | 選択・フレーム・矩形・楕円・線・ペン・文字・手のひら |
+        | ダブルクリック・`Enter`／`Shift+Enter` | 子へ入る／親へ戻る。文字はダブルクリックで編集 |
+        | `Ctrl`／`Cmd`+クリック | 重なった要素のうち最も深いものを選ぶ |
+        | 矢印／`Shift`+矢印 | 1px／10px移動 |
+        | `Ctrl`／`Cmd`+`D`、`Alt`+ドラッグ | 複製 |
+        | `Ctrl`／`Cmd`+`C`・`V`・`X`、`Delete` | コピー・貼り付け・切り取り・削除 |
+        | `Ctrl`+`G`／`Cmd`+`G`、`Shift`+`Ctrl`+`G`／`Shift`+`Cmd`+`G` | グループ化・解除 |
+        | `Ctrl`／`Cmd`+`Alt`+`G`、`Shift`+`A` | フレームで包む、オートレイアウトで包む |
+        | `Ctrl`／`Cmd`+`Alt`+`K` | 部品を作る |
+        | `Ctrl`+`Z`／`Cmd`+`Z`、`Shift`+`Ctrl`+`Z`／`Shift`+`Cmd`+`Z` | 取り消し・やり直し |
+        | `Alt`（ホバー） | 他の要素との距離を表示 |
+        | `Ctrl`／`Cmd`（ドラッグ中） | スナップを一時的に無効にする |
+        | `Shift`+`R` | 定規を表示 |
+        | ホイール | パン |
+        | `Ctrl`／`Cmd`+ホイール、ピンチ | ズーム |
+        | `Shift`+`0`・`1`・`2` | 100%／全体／選択に合わせる |
+
+        ## 書き出し
+
+        ツールバーまたはデザイン欄からSVG・PNG・PDFを書き出せます。PNGは倍率を指定できます。CSSはコード欄で確認し、デザイントークンはDTCG JSONとして書き出します。書き出しはブラウザで行い、ファイルをダウンロードします。
+
+        ## フォント
+
+        キャンバスのフォント設定からGoogle Fontsを選んで追加するか、手元のTTF・OTF・WOFF・WOFF2を追加します。手元のフォントは変換せずに保存します。追加したフォントは必要な太さだけをプロジェクトの`assets/fonts/<ファミリー名>/`に保存し、ライセンス本文とともに管理します。Google Fontsの取得時だけ外部へ接続し、閲覧時は保存したフォントを使います。フォントが見つからない場合は代替フォントで表示し、警告を示します。
+
+        ## 静的版
+
+        静的出力ではキャンバス、プレゼンテーション、コード表示を閲覧できます。編集操作や保存状態は表示せず、データを書き換えません。フォントもプロジェクト内に保存されたファイルを使います。
+
+        ## 検証
+
+        デザインを書いたり直接編集したりした後は、次のコマンドを実行して診断を確認します。
+
+        ```sh
+        npx vellym validate --strict --config vellym.config.yaml
+        ```
+
+        ## 関連
+
+        - 公式プラグイン一覧 → [[official-plugins|公式プラグイン]]
+        - プラグインの導入 → [[using-plugins|プラグインを使う]]
+  translations:
+    en:
+      visibility: published
+      title: Design Canvas
+      blocks:
+        - id: design
+          type: rich-text
+          content: |
+            `@vellym/design` is the official plugin for creating and editing designs in the browser while keeping YAML and DTCG JSON as the source of truth. Changes made in the canvas are saved to the same files tracked by Git.
+
+            ## Install and create a canvas
+
+            From your Vellym project root, install the package and add it to `plugins` in `vellym.config.yaml`:
+
+            ```sh
+            npm install @vellym/design
+            ```
+
+            ```yaml
+            plugins:
+              - "@vellym/design"
+            ```
+
+            Start `vellym dev` and choose **New design canvas** from the document tree's add menu. Open the canvas, add boards, and use pages, layers, and components to build the design. Changes are saved automatically.
+
+            ## Files and data
+
+            Keep each canvas in its own folder. The canvas, shared styles, boards, and components are YAML resources named by their `metadata.name`. Store each board and component separately under `+boards/` and `+components/`. Keep tokens as DTCG JSON in `.tokens.json`; a Resolver JSON file is optional.
+
+            ```text
+            docs/app/
+            ├── app.yaml                 # DesignCanvas
+            ├── app-styles.yaml          # DesignStyles
+            ├── app.tokens.json          # DTCG tokens
+            ├── app.resolver.json        # DTCG Resolver (optional)
+            ├── +boards/home.yaml        # DesignBoard
+            └── +components/button.yaml  # DesignComponent
+            ```
+
+            The format uses CSS, SVG, and DTCG names and values where those standards define them, and Figma terminology for concepts without a standard equivalent. Lengths are in px and angles are in degrees. Keep each node's `id` unique within its file and stable after creation. Resolve boards, components, shared styles, and other resources by `metadata.name`, not by file path. Images use paths within the managed content root.
+
+            Inspect the full schema with commands such as `npx vellym schema --kind DesignBoard`. Key conventions:
+
+            - `layout.display`, `layout.flexDirection`, `layout.gap`, and text properties such as `fontSize` and `textAlign` use CSS names and values.
+            - `sizing.hug`, `sizing.fill`, `sizing.fixed`, `constraints`, component variants, and overrides use Figma terminology.
+            - Set `DesignBoard.spec.implementedBy` to implementation-file paths relative to the Git root, using `/` as the separator.
+            - Reference a token from a design value as `"{color.primary}"`. Keep `.tokens.json` in the DTCG 2025.10 format.
+
+            ## Using the canvas
+
+            The top toolbar switches between selection, frame, rectangle, ellipse, line, polygon, star, pen, text, image insertion, and hand tools. The left panel has Pages, Layers, and Components tabs; arrange boards and elements on the center canvas. Use **Design** on the right to edit position, size, layout, appearance, fills, strokes, effects, text, and components. **Prototype** configures navigation; **Code** shows CSS for the selection or board, token variables, and `implementedBy`.
+
+            ### Keyboard shortcuts
+
+            | Key | Action |
+            | --- | --- |
+            | `V`, `F`, `R`, `O`, `L`, `P`, `T`, `H` | Select, frame, rectangle, ellipse, line, pen, text, hand |
+            | Double-click, `Enter` / `Shift+Enter` | Enter a child / move to its parent. Double-click text to edit |
+            | `Ctrl` / `Cmd`+click | Select the deepest overlapping element |
+            | Arrows / `Shift`+arrows | Move by 1px / 10px |
+            | `Ctrl` / `Cmd`+`D`, `Alt`+drag | Duplicate |
+            | `Ctrl` / `Cmd`+`C`, `V`, `X`, `Delete` | Copy, paste, cut, delete |
+            | `Ctrl`+`G` / `Cmd`+`G`, `Shift`+`Ctrl`+`G` / `Shift`+`Cmd`+`G` | Group / ungroup |
+            | `Ctrl` / `Cmd`+`Alt`+`G`, `Shift`+`A` | Wrap in a frame / wrap in auto layout |
+            | `Ctrl` / `Cmd`+`Alt`+`K` | Create a component |
+            | `Ctrl`+`Z` / `Cmd`+`Z`, `Shift`+`Ctrl`+`Z` / `Shift`+`Cmd`+`Z` | Undo / redo |
+            | `Alt` (while hovering) | Show distances to other elements |
+            | `Ctrl` / `Cmd` (while dragging) | Temporarily disable snapping |
+            | `Shift`+`R` | Show rulers |
+            | Wheel | Pan |
+            | `Ctrl` / `Cmd`+wheel, pinch | Zoom |
+            | `Shift`+`0`, `1`, `2` | 100% / fit all / fit selection |
+
+            ## Export
+
+            Export SVG, PNG, and PDF from the toolbar or Design panel. PNG export supports a scale factor. Inspect CSS in the Code panel and export design tokens as DTCG JSON. Exports are generated in the browser and downloaded; they are not written to the server.
+
+            ## Fonts
+
+            Add a Google Font from the canvas's font settings or add a local TTF, OTF, WOFF, or WOFF2 font file; local files are stored without conversion. Only the selected weights are saved under `assets/fonts/<family-name>/`, together with the license text, and referenced from the canvas's font list. External access is used only when fetching a Google Font; viewing uses the saved font files. If a font cannot be found, the canvas falls back to a substitute font and shows a warning.
+
+            ## Static output
+
+            Static output supports viewing the canvas, prototype presentations, and code. It omits editing controls and save status and never changes the data. Fonts are loaded from files saved in the project.
+
+            ## Validate
+
+            After creating or editing design files directly, run the following command and review its diagnostics:
+
+            ```sh
+            npx vellym validate --strict --config vellym.config.yaml
+            ```
+
+            ## Related
+
+            - Official plugin list → [[official-plugins|Official Plugins]]
+            - Installing plugins → [[using-plugins|Using Plugins]]
