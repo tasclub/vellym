@@ -479,9 +479,9 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
       "utf8"
     );
 
-    // 4) outputDirの親に、年月日日時で一意なバージョンフォルダとして配置する。
-    const parent = path.dirname(loaded.outputDir);
-    const leaf = path.basename(loaded.outputDir);
+    // 4) outputDirの中に、年月日日時で一意なバージョンフォルダとして配置する。
+    const parent = loaded.outputDir;
+    const leaf = "vellym";
     await mkdir(parent, { recursive: true });
     target = path.join(parent, versionedFolderName(leaf, builtAt));
     while (await exists(target)) {

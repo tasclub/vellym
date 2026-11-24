@@ -761,6 +761,7 @@ spec:
     expect(run(["validate", "--config", config]).status).toBe(0);
     const output = buildDir(config);
     expect(path.basename(output)).toMatch(/^\d{8}-\d{6}-vellym$/);
+    expect(path.dirname(output)).toBe(path.join(root, "dist", "vellym"));
     expect(await readFile(path.join(output, "README.md"), "utf8")).toContain(
       "python3 -m http.server"
     );
@@ -1313,7 +1314,7 @@ spec:
     expect(run(["build", "--config", config]).status).toBe(1);
     // 失敗ビルドは既存のバージョンフォルダを変更せず、新しいフォルダも作らない。
     expect(await directoryHash(output)).toBe(first);
-    const versions = (await readdir(path.join(root, "dist"))).filter((name) =>
+    const versions = (await readdir(path.dirname(output))).filter((name) =>
       name.endsWith("-vellym")
     );
     expect(versions).toEqual([path.basename(output)]);
