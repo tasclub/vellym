@@ -5,6 +5,7 @@ export interface FolderDef {
   id: string;
   role?: Role;
   name: Localized<string>;
+  description: Localized<string>;
   children?: FolderDef[];
 }
 export type FolderTarget = string | { folderId: string; feature: true };
@@ -23,12 +24,14 @@ export interface DocumentTemplateDef {
   body: Localized<string>;
   description: Localized<string>;
   alias?: string;
+  guideText?: Localized<string>;
 }
 export interface TrackerTemplateDef {
   id: string;
   title: Localized<string>;
   description: Localized<string>;
   spec: Localized<Record<string, unknown>>;
+  guideText?: Localized<string>;
 }
 export interface SetDef {
   id: string;

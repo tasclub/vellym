@@ -27,4 +27,24 @@ describe("catalog", () => {
     locale.templates[0]!.title.en = "";
     expect(() => validateCatalog(locale)).toThrow();
   });
+  it("requires localized folder descriptions, including nested and supplementary folders", () => {
+    for (const structure of loadCatalog().structures) {
+      const invalid = structuredClone(loadCatalog());
+      const folder = invalid.structures.find(s => s.id === structure.id)!.folders[0]!;
+      (folder.children?.[0] ?? folder).description.en = "";
+      expect(() => validateCatalog(invalid)).toThrow("description");
+    }
+  });
+  it("supports optional localized document and tracker guide text", () => {
+    const catalog = structuredClone(loadCatalog());
+    expect(catalog.templates.find(t => t.id === "decision")!.guideText?.en).toContain("decision");
+    expect(() => validateCatalog(catalog)).not.toThrow();
+    catalog.trackers[0]!.guideText = { ja: "使い方", en: "Usage" };
+    expect(() => validateCatalog(catalog)).not.toThrow();
+    catalog.trackers[0]!.guideText.en = "";
+    expect(() => validateCatalog(catalog)).toThrow("guideText");
+    delete catalog.trackers[0]!.guideText;
+    catalog.templates[0]!.guideText = { ja: "使い方", en: "" };
+    expect(() => validateCatalog(catalog)).toThrow("guideText");
+  });
 });

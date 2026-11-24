@@ -1,11 +1,11 @@
 import path from "node:path";
 import { OFFICIAL_PLUGINS, VELLYM_VERSION } from "./version.js";
 import { getMessages } from "./cli-messages.js";
-import { vellymGuide } from "./vellym-guide.js";
 import {
   applyProjectSetup,
   inspectContentRoot,
   planProjectSetup,
+  vellymGuide,
   type DevelopmentMethod,
   type DocumentationLevel,
   type ProjectSize,
@@ -53,7 +53,7 @@ export async function initializeProject(
     method: options.method!,
     level: options.level ?? "standard",
     contentRoot: options.contentRoot ?? "docs",
-    agentGuide: { content: vellymGuide({ language: options.language!, contentRoot: (options.contentRoot ?? "docs").normalize("NFC").replace(/\/+$/, ""), plugins: names.map((id) => ({ id, ...OFFICIAL_PLUGINS[id]! })), version: VELLYM_VERSION }) },
+    agentGuide: { content: vellymGuide({ language: options.language!, structure: "by-type", numbered: false, folderNames: {}, contentRoot: (options.contentRoot ?? "docs").normalize("NFC").replace(/\/+$/, ""), plugins: names.map((id) => ({ id, ...OFFICIAL_PLUGINS[id]! })), version: VELLYM_VERSION }) },
     pluginPackages,
     hostVersion: VELLYM_VERSION,
     language: options.language!

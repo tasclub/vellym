@@ -20,6 +20,7 @@ export function validateCatalog(catalog: Catalog): void {
         if (!folder.id || folders.has(folder.id)) fail(`duplicate folder id: ${folder.id}`);
         folders.add(folder.id);
         localized(folder.name, `${structure.id}/${folder.id}`);
+        localized(folder.description, `${structure.id}/${folder.id}/description`);
         if (folder.role && !ROLES.includes(folder.role)) fail(`unknown role: ${folder.role}`);
         if (folder.children) visit(folder.children);
       }
@@ -33,8 +34,10 @@ export function validateCatalog(catalog: Catalog): void {
   for (const template of catalog.templates) {
     if (!ROLES.includes(template.role)) fail(`unknown template role: ${template.role}`);
     for (const key of ["title", "fileName", "body", "description"] as const) localized(template[key], `${template.id}/${key}`);
+    if (template.guideText !== undefined) localized(template.guideText, `${template.id}/guideText`);
   }
   for (const tracker of catalog.trackers) for (const key of ["title", "description", "spec"] as const) localized(tracker[key], `${tracker.id}/${key}`);
+  for (const tracker of catalog.trackers) if (tracker.guideText !== undefined) localized(tracker.guideText, `${tracker.id}/guideText`);
   for (const set of catalog.sets) {
     localized(set.title, `${set.id}/title`);
     localized(set.description, `${set.id}/description`);
