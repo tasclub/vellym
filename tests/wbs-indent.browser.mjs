@@ -2,10 +2,11 @@
 import { spawn } from "node:child_process";
 import { cp, mkdtemp, mkdir, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { chromium, expect } from "@playwright/test";
 import { parse } from "yaml";
 
-const root = await mkdtemp("/tmp/opencode/wbs-indent-");
+const root = await mkdtemp(path.join(tmpdir(), "wbs-indent-"));
 const content = path.join(root, "content");
 await mkdir(content);
 await symlink(path.resolve("node_modules"), path.join(root, "node_modules"), "dir");

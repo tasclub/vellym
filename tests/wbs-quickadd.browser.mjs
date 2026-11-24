@@ -2,10 +2,11 @@
 import { spawn } from "node:child_process";
 import { cp, mkdtemp, mkdir, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { chromium, expect } from "@playwright/test";
 import { parse } from "yaml";
 
-const root = await mkdtemp("/tmp/opencode/wbs-quickadd-");
+const root = await mkdtemp(path.join(tmpdir(), "wbs-quickadd-"));
 const content = path.join(root, "content");
 await mkdir(content);
 await symlink(path.resolve("node_modules"), path.join(root, "node_modules"), "dir");
@@ -73,7 +74,6 @@ try {
   });
   expect(dimensions.height).toBe(36);
   expect(dimensions.controls.every((c) => c.height <= 36 && c.width > 0)).toBe(true);
-  await page.screenshot({ path: "/tmp/opencode/wbs-quickadd.png", fullPage: true });
   await page.reload({ waitUntil: "networkidle" });
   await page.getByRole("button", { name: "WBS", exact: true }).click();
   await expect(page.getByRole("button", { name: "＋ Add", exact: true })).toBeVisible();
