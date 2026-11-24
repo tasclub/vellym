@@ -67,7 +67,7 @@ describe("catalog", () => {
       "detailed-design": [["対象のモジュール", "処理の流れ", "クラス・関数の責務の表", "例外"], ["Target module", "Processing flow", "Class and function responsibilities", "Exceptions"]],
     };
     const catalog = loadCatalog();
-    expect(catalog.templates).toHaveLength(16);
+    expect(catalog.templates).toHaveLength(25);
     for (const [id, [ja, en]] of Object.entries(headings)) {
       const template = catalog.templates.find(t => t.id === id);
       expect(template, id).toBeDefined();
@@ -79,6 +79,28 @@ describe("catalog", () => {
     expect(catalog.templates.find(t => t.id === "system-design")?.alias).toBe("architecture-overview");
     for (const locale of ["ja", "en"] as const) {
       expect(catalog.templates.find(t => t.id === "data-design")!.body[locale]).toContain("```mermaid\nerDiagram");
+    }
+  });
+  it("provides localized development, quality, release and operations templates", () => {
+    const headings: Record<string, [string[], string[]]> = {
+      "development-rules": [["ブランチとレビュー", "コミットのメッセージ", "コーディングの決まり", "完了の定義"], ["Branches and reviews", "Commit messages", "Coding conventions", "Definition of done"]],
+      "environment-build-deploy": [["環境の表", "ビルドの手順", "デプロイの手順と確認"], ["Environments", "Build procedure", "Deployment and verification"]],
+      "test-plan": [["対象と範囲", "テストの段階と完了条件", "環境", "体制と日程"], ["Scope", "Test levels and completion criteria", "Environment", "Roles and schedule"]],
+      "test-specification": [["観点", "テストケースの表"], ["Test perspectives", "Test cases"]],
+      "acceptance-scenario": [["機能ごとのシナリオ", "自動で確かめる手順"], ["Scenarios by feature", "Automated verification"]],
+      "release-record": [["版・日付・タグ", "含むもの", "入らなかったもの", "判定", "利用者向けの変更点", "振り返りへのリンク"], ["Version, date and tag", "Included work", "Excluded work", "Release decision", "User-facing changes", "Retrospective link"]],
+      "migration-plan": [["移行の対象", "方式と手順", "確かめ方", "切り戻しの条件と手順"], ["Migration scope", "Method and procedure", "Verification", "Rollback conditions and procedure"]],
+      "operations-design": [["運用の体制", "監視の表", "バックアップと復旧", "定常作業"], ["Operations roles", "Monitoring", "Backup and recovery", "Routine tasks"]],
+      "incident-response": [["検知と連絡先", "切り分けの手順", "暫定対応", "記録の残し方"], ["Detection and contacts", "Diagnosis", "Temporary response", "Recording the incident"]],
+    };
+    const catalog = loadCatalog();
+    for (const [id, [ja, en]] of Object.entries(headings)) {
+      const template = catalog.templates.find(t => t.id === id);
+      expect(template, id).toBeDefined();
+      for (const heading of ja) expect(template!.body.ja).toContain(`## ${heading}\n`);
+      for (const heading of en) expect(template!.body.en).toContain(`## ${heading}\n`);
+      expect(template!.guideText?.ja).toBeTruthy();
+      expect(template!.guideText?.en).toBeTruthy();
     }
   });
 });
