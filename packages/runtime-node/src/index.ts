@@ -11,6 +11,7 @@ export * from "./repository.js";
 export * from "./resource-schema.js";
 export * from "./server.js";
 export * from "./setup.js";
+export * from "./setup-add.js";
 export * from "./setup-catalog.js";
 export * from "./setup-pack.js";
 export * from "./setup-selection.js";
