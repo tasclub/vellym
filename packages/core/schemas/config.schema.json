@@ -11,6 +11,11 @@
       "minLength": 1,
       "pattern": "^(?:\\.|(?![./\\\\])(?!.*/(?:\\.|\\.\\.)(?:/|$))[^\\\\\\0]+)$"
     },
+    "repositoryRoot": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![\\\\/])[^\\\\\\0]+$"
+    },
     "outputDir": { "type": "string", "minLength": 1 },
     "ui": {
       "type": "object",

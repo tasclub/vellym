@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { parse, parseDocument } from "yaml";
 import { validateConfig } from "@vellym-internal/core";
 import { resolveLocalizedText } from "@vellym/plugin-api";
@@ -8,6 +10,23 @@ import { RuntimeError } from "./errors.js";
 import { isInside } from "./path-utils.js";
 import type { LoadedConfig } from "./types.js";
 import { loadRepository } from "./repository.js";
+
+const execute = promisify(execFile);
+
+async function gitRepositoryRoot(projectRoot: string): Promise<string> {
+  try {
+    const result = await execute("git", ["rev-parse", "--show-toplevel"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+      timeout: 15_000
+    });
+    const root = result.stdout.trim();
+    if (root) return path.resolve(projectRoot, root);
+  } catch {
+    // A non-Git project uses the parent of the configuration directory.
+  }
+  return path.dirname(projectRoot);
+}
 
 export interface ContentRootPlan {
   contentRoot: string;
@@ -178,6 +197,23 @@ export async function loadConfig(
     outputDir: result.config.outputDir ?? "dist"
   };
   if (
+    config.repositoryRoot !== undefined &&
+    (path.isAbsolute(config.repositoryRoot) ||
+      path.win32.isAbsolute(config.repositoryRoot) ||
+      config.repositoryRoot.includes("\\") ||
+      config.repositoryRoot.includes("\0"))
+  ) {
+    throw new RuntimeError(
+      "repositoryRootは設定フォルダからの相対pathで指定してください",
+      400,
+      "REPOSITORY_ROOT"
+    );
+  }
+  const repositoryRoot =
+    config.repositoryRoot === undefined
+      ? await gitRepositoryRoot(projectRoot)
+      : path.resolve(projectRoot, config.repositoryRoot);
+  if (
     path.isAbsolute(config.contentRoot) ||
     config.contentRoot.includes("\\") ||
     (config.contentRoot !== "." &&
@@ -210,6 +246,7 @@ export async function loadConfig(
     config,
     configPath: absoluteConfig,
     projectRoot,
+    repositoryRoot,
     contentRoot,
     outputDir,
     assetsRoot: path.resolve(projectRoot, process.env.VELLYM_ASSETS_DIR || result.config.assets?.root || "assets"),

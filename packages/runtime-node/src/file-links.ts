@@ -11,7 +11,7 @@ function inside(root: string, target: string): boolean {
 export async function diagnoseFileLinks(config: LoadedConfig, snapshot: RepositorySnapshot): Promise<Diagnostic[]> {
   const references = snapshot.pages.flatMap((page) => (page.fileLinks ?? []).map((link) => ({ ...link, file: page.relativePath })));
   if (!references.length) return [];
-  const root = await realpath(config.projectRoot);
+  const root = await realpath(config.repositoryRoot);
   const contentRoot = await realpath(config.contentRoot);
   const diagnostics: Diagnostic[] = [];
   for (const reference of references) {

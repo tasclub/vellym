@@ -11,6 +11,7 @@ export interface LoadedConfig {
   config: VellymConfig;
   configPath: string;
   projectRoot: string;
+  repositoryRoot: string;
   contentRoot: string;
   outputDir: string;
   assetsRoot: string;
