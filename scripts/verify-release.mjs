@@ -47,6 +47,12 @@ for (const [key, packagePath] of Object.entries(packagePaths)) {
     throw new Error(`privateのパッケージを公開しようとしています: ${manifests[key].name}`);
   }
 }
+// npm verifies provenance against repository.url; a package without it fails at publish time.
+for (const manifest of Object.values(manifests).filter((m) => !m.private)) {
+  if (!/github\.com\/tasclub\/vellym(\.git)?$/.test(manifest.repository?.url ?? "")) {
+    throw new Error(`${manifest.name}のrepository.urlがありません（npmのprovenanceの検証に必要）`);
+  }
+}
 for (const key of ["tickets", "kanban", "wbs", "design"].filter((name) => !manifests[name].private)) {
   const plugin = manifests[key];
   const pluginApiRange = plugin.peerDependencies?.["@vellym/plugin-api"] ?? "";
