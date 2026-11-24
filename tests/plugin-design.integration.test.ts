@@ -25,7 +25,7 @@ import {
   DESIGN_CANVAS_VIEW_ID,
   nextBoardPosition,
   resolveCanvasBoards
-} from "../packages/plugin-design/src/model.js";
+} from "../packages/plugin-design/src/model/index.js";
 
 function record(
   kind: string,
@@ -179,17 +179,19 @@ describe("design plugin manifest", () => {
 
 describe("design kind schemas", () => {
   it("accepts the documented board and canvas shapes", () => {
-    expect(validateKindSpec(validBoardSpec(), "30-設計/+boards/m1.yaml", DESIGN_BOARD_SPEC_SCHEMA))
+    expect(validateKindSpec(
+      { canvas: "ux-canvas", x: 0, y: 0, root: { id: "root", type: "frame", children: [] } },
+      "30-設計/+boards/m1.yaml", DESIGN_BOARD_SPEC_SCHEMA))
       .toEqual([]);
     expect(validateKindSpec(
-      { pages: [{ id: "mobile", title: "スマホ" }], notes: [{ x: 0, y: -260, text: "スマホ", kind: "title" }], tokens: "brand-tokens" },
+      { formatVersion: 1, pages: [{ id: "mobile", title: "スマホ" }], notes: [{ x: 0, y: -260, text: "スマホ", kind: "title" }], tokens: { files: ["tokens.tokens.json"] } },
       "30-設計/ux-canvas.yaml",
       DESIGN_CANVAS_SPEC_SCHEMA
     )).toEqual([]);
-    expect(validateKindSpec({}, "30-設計/ux-canvas.yaml", DESIGN_CANVAS_SPEC_SCHEMA)).toEqual([]);
+    expect(validateKindSpec({ formatVersion: 1 }, "30-設計/ux-canvas.yaml", DESIGN_CANVAS_SPEC_SCHEMA)).toEqual([]);
   });
 
-  it("warns instead of rejecting when x is a string or html is missing", () => {
+  it("warns instead of rejecting when x is a string or root is missing", () => {
     const withStringX = validateKindSpec(
       { ...validBoardSpec(), x: "30px" },
       "30-設計/+boards/bad-x.yaml",
@@ -199,14 +201,14 @@ describe("design kind schemas", () => {
     expect(withStringX.every((item) => item.severity === "warning")).toBe(true);
     expect(withStringX.some((item) => item.code === "PLUGIN_SPEC_SCHEMA_MISMATCH")).toBe(true);
 
-    const withoutHtml = validateKindSpec(
-      { canvas: "ux-canvas", x: 0, y: 0, w: 390, h: 844, title: "html欠落" },
-      "30-設計/+boards/no-html.yaml",
+    const withoutRoot = validateKindSpec(
+      { canvas: "ux-canvas", x: 0, y: 0 },
+      "30-設計/+boards/no-root.yaml",
       DESIGN_BOARD_SPEC_SCHEMA
     );
-    expect(withoutHtml.length).toBeGreaterThan(0);
-    expect(withoutHtml.every((item) => item.severity === "warning")).toBe(true);
-    expect(withoutHtml.some((item) => item.code === "PLUGIN_SPEC_SCHEMA_MISMATCH")).toBe(true);
+    expect(withoutRoot.length).toBeGreaterThan(0);
+    expect(withoutRoot.every((item) => item.severity === "warning")).toBe(true);
+    expect(withoutRoot.some((item) => item.code === "PLUGIN_SPEC_SCHEMA_MISMATCH")).toBe(true);
   });
 });
 
@@ -402,10 +404,10 @@ kind: DesignCanvas
 metadata:
   name: ux-canvas
   title: UXキャンバス
-spec: {}
+spec: { formatVersion: 1 }
 `;
     await writeFile(path.join(root, "30-design/ux-canvas.yaml"), canvasSource, "utf8");
-    // `x`が文字列で`html`の無いアートボード。警告にはなるが、読めるものとして扱う
+    // `x`が文字列で`root`の無いアートボード。警告にはなるが、読めるものとして扱う
     const brokenSource = `apiVersion: vellym.tasclub.com/v1
 kind: DesignBoard
 metadata:

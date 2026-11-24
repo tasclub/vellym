@@ -16,7 +16,7 @@ import {
   folderOf,
   nextBoardPosition,
   resolveCanvasBoards
-} from "./model.js";
+} from "./model/index.js";
 
 /**
  * 公開済み`@vellym/design`のNode entry。

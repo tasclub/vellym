@@ -4,6 +4,10 @@ import type {
   PluginResourceRecord
 } from "@vellym/plugin-api";
 
+export * from "./types.js";
+export * from "./values.js";
+export * from "./schema.js";
+
 /**
  * `@vellym/design`の共通モデル。
  *
@@ -15,6 +19,8 @@ import type {
 
 export const DESIGN_CANVAS_KIND = "DesignCanvas";
 export const DESIGN_BOARD_KIND = "DesignBoard";
+export const DESIGN_COMPONENT_KIND = "DesignComponent";
+export const DESIGN_STYLES_KIND = "DesignStyles";
 export const DESIGN_CANVAS_VIEW_ID = "design-canvas";
 export const CREATE_CANVAS_COMMAND_ID = "design.create-canvas";
 export const CREATE_BOARD_COMMAND_ID = "design.create-board";
@@ -24,71 +30,6 @@ export const DEFAULT_BOARD_W = 390;
 export const DEFAULT_BOARD_H = 844;
 /** 同じキャンバス・同じページで既存のアートボードの右端から空ける距離。 */
 export const BOARD_GAP = 80;
-
-/**
- * `DesignCanvas`の`spec`。
- *
- * アートボードの位置は載せない（キャンバス側の`spec.boards`は作らない）。
- * `pages`・`notes`・`tokens`は段階2以降で使うが、スキーマでは受け付ける。
- */
-export const DESIGN_CANVAS_SPEC_SCHEMA = {
-  type: "object",
-  properties: {
-    pages: {
-      type: "array",
-      items: {
-        type: "object",
-        required: ["id"],
-        properties: {
-          id: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
-          title: { type: "string" }
-        },
-        additionalProperties: false
-      }
-    },
-    notes: {
-      type: "array",
-      items: {
-        type: "object",
-        required: ["x", "y", "text"],
-        properties: {
-          x: { type: "number" },
-          y: { type: "number" },
-          text: { type: "string" },
-          kind: { enum: ["title", "sticky"] }
-        },
-        additionalProperties: false
-      }
-    },
-    tokens: { type: "string" }
-  },
-  additionalProperties: false
-} as const;
-
-/**
- * `DesignBoard`の`spec`。
- *
- * `html`は必須だが空文字してよい（作成コマンドのドラフトは空のHTMLを持つ）。
- * `w`・`h`は正の数。`x`・`y`は座標で、負も許す（キャンバスは無限面）。
- */
-export const DESIGN_BOARD_SPEC_SCHEMA = {
-  type: "object",
-  required: ["canvas", "x", "y", "w", "h", "title", "html"],
-  properties: {
-    canvas: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
-    page: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
-    x: { type: "number" },
-    y: { type: "number" },
-    w: { type: "number", exclusiveMinimum: 0 },
-    h: { type: "number", exclusiveMinimum: 0 },
-    order: { type: "number" },
-    title: { type: "string", minLength: 1 },
-    html: { type: "string" },
-    interactive: { type: "boolean" },
-    props: { type: "object" }
-  },
-  additionalProperties: false
-} as const;
 
 /** `rendererData`に載せるアートボード1枚。画面が最小限に読む形 */
 export interface DesignBoardRow {

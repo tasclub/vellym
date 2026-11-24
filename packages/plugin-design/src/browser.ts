@@ -5,7 +5,7 @@ import {
   DESIGN_CANVAS_VIEW_ID,
   type DesignBoardRow,
   type DesignNotice
-} from "./model.js";
+} from "./model/index.js";
 
 /**
  * ブラウザ側エントリ。**段階1aの仮画面**（キャンバス名とアートボード名の一覧と
