@@ -25,9 +25,11 @@ export default defineConfig({
     }
   },
   test: {
-    include: ["tests/**/*.test.ts"],
-    exclude: ["packages/**/dist/**"],
     setupFiles: ["./tests/setup-i18n.ts"],
+    projects: [
+      { extends: true, test: { name: "unit", include: ["tests/**/*.test.ts"], exclude: ["tests/**/*.integration.test.ts"] } },
+      { extends: true, test: { name: "integration", include: ["tests/**/*.integration.test.ts"] } }
+    ],
     coverage: {
       provider: "v8",
       // 計測対象は製品コードのみ。テスト用fixtureとビルド成果物は含めない。

@@ -4,6 +4,19 @@ import { describe, expect, it } from "vitest";
 
 const workspaceRoot = process.cwd();
 
+describe("test layers", () => {
+  it("keeps integration operations out of unit tests", () => {
+    const forbidden = ["node:child_" + "process", "@playwright/" + "test", "mkd" + "temp",
+      "tmp" + "dir(", "dist/" + "cli", ".lis" + "ten(", "create" + "Server", "startDev" + "Server"];
+    const root = path.join(workspaceRoot, "tests");
+    const hits = (readdirSync(root, { recursive: true }) as string[])
+      .filter((file) => file.endsWith(".test.ts") && !file.endsWith(".integration.test.ts"))
+      .filter((file) => forbidden.some((word) => readFileSync(path.join(root, file), "utf8").includes(word)))
+      .sort();
+    expect(hits).toEqual([]);
+  });
+});
+
 function sourceText(packageName: string, exclude: readonly string[] = []): string {
   const sourceRoot = path.join(workspaceRoot, "packages", packageName, "src");
   return readdirSync(sourceRoot)

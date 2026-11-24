@@ -265,10 +265,16 @@ errors can contain absolute paths outside the project.
 | Command | Covers |
 | --- | --- |
 | `npm test` | Unit and integration tests, including package boundaries |
+| `npm run test:unit` | Unit tests |
+| `npm run test:integration` | Build and run integration tests |
 | `npm run coverage` | Same, with coverage reporting |
 | `npm run verify:core` | Real browser: accessibility, keyboard, Japanese IME, CommonMark round-trip, search response time at 100 pages |
 | `npm run pack:smoke` | The published tarball, in an empty environment |
 | `npm run site:verify` | The generated static site, in a real browser |
+
+Unit tests use memory and may read repository files; they do not start processes or
+servers or create temporary files. Integration tests use files, processes or servers
+and are named `tests/**/*.integration.test.ts`; other `tests/**/*.test.ts` are unit tests.
 
 `verify:core` runs in CI on every pull request. It is the only check that exercises
 the actual UI, so a UI change that passes `npm test` is not yet verified.

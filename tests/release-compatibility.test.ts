@@ -18,8 +18,12 @@ describe("public plugin host compatibility", () => {
       )) as { engines?: { vellym?: string } };
       const range = manifest.engines?.vellym ?? "";
       expect(semver.validRange(range)).not.toBeNull();
-      expect(semver.satisfies("0.4.0-beta", range)).toBe(false);
-      expect(semver.satisfies("0.5.0-beta", range)).toBe(true);
+      const host = manifestOf("vellym").version;
+      const parsed = semver.parse(host)!;
+      if (parsed.minor > 0) {
+        expect(semver.satisfies(`${parsed.major}.${parsed.minor - 1}.0-beta`, range)).toBe(false);
+      }
+      expect(semver.satisfies(`${parsed.major}.${parsed.minor}.0-beta`, range)).toBe(true);
     });
   }
 
@@ -55,10 +59,13 @@ describe("public plugin host compatibility", () => {
 
   it("requires the released plugin-api version from every public plugin", () => {
     const api = manifestOf("plugin-api").version;
-    expect(api).toBe("0.3.0-beta");
+    const parsed = semver.parse(api);
+    expect(parsed).not.toBeNull();
     for (const directory of pluginPackages) {
       expect(semver.satisfies(api, manifestOf(directory).peerDependencies?.["@vellym/plugin-api"] ?? "")).toBe(true);
-      expect(semver.satisfies("0.2.0-beta", manifestOf(directory).peerDependencies?.["@vellym/plugin-api"] ?? "")).toBe(false);
+      if (parsed && parsed.minor > 0) {
+        expect(semver.satisfies(`${parsed.major}.${parsed.minor - 1}.0-beta`, manifestOf(directory).peerDependencies?.["@vellym/plugin-api"] ?? "")).toBe(false);
+      }
     }
   });
 

@@ -20,6 +20,18 @@ npm run typecheck
 npm test
 ```
 
+### Testing
+
+| Command | Covers |
+| --- | --- |
+| `npm test` | Build and run both test layers |
+| `npm run test:unit` | Unit tests |
+| `npm run test:integration` | Build and run integration tests |
+
+Unit tests use memory and may read repository files; they do not start processes or
+servers or create temporary files. Integration tests use files, processes or servers
+and are named `tests/**/*.integration.test.ts`; other `tests/**/*.test.ts` are unit tests.
+
 Run `npm run pack:smoke` for packaging changes, `npm run verify:core` for browser, accessibility, and 100-page verification, `npm run verify:browser` for all `tests/*.browser.mjs` checks (including Git commit/push and image upload), `npm run verify:ui-locale` to check that an English-only project shows no Japanese UI text on the main screens, and `npm run verify:scale:git` to check that related commits stay fast in a 10,000-commit repository. The browser checks require Playwright Chromium; see *Seeing the screen* below. Pull requests must describe YAML read/write and compatibility impact.
 
 ## Changing the UI
