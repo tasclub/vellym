@@ -1,0 +1,8 @@
+apiVersion: vellym.tasclub.com/v1
+kind: DesignBoard
+metadata: { name: settings, title: Settings }
+spec:
+  canvas: app
+  x: 470
+  y: 0
+  root: { id: root, type: frame, width: 390, height: 844, children: [] }

@@ -1,0 +1,6 @@
+apiVersion: vellym.tasclub.com/v1
+kind: DesignCanvas
+metadata: { name: app, title: App }
+spec:
+  formatVersion: 1
+  styles: app-styles

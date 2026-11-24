@@ -1,0 +1,6 @@
+apiVersion: vellym.tasclub.com/v1
+kind: DesignStyles
+metadata: { name: app-styles, title: Shared styles }
+spec:
+  styles:
+    primary: { fills: [{ color: "#047857" }], radius: 8 }

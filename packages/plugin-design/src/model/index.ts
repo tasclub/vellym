@@ -7,6 +7,7 @@ import type {
 export * from "./types.js";
 export * from "./values.js";
 export * from "./schema.js";
+export { canvasResourceName, boardResourceName, folderOf } from "./names.js";
 
 /**
  * `@vellym/design`の共通モデル。
@@ -188,42 +189,4 @@ export function nextBoardPosition(
   const right = Math.max(...placed.map((box) => box.x + box.w));
   const top = Math.min(...placed.map((box) => box.y));
   return { x: right + BOARD_GAP, y: top };
-}
-
-/** `metadata.name`の規則に収めるスラッグ。`ticket-engine`のtrackerNameと同じ手つき */
-function slugOf(value: string): string {
-  return value
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-}
-
-/** Crockford base32の短い接尾辞。衝突と「名前から作って空になる」への保険 */
-function suffix(): string {
-  const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
-  const bytes = new Uint8Array(6);
-  globalThis.crypto.getRandomValues(bytes);
-  let out = "";
-  for (const byte of bytes) out += alphabet[byte % 32];
-  return out;
-}
-
-/** 新規`DesignCanvas`の`metadata.name`。`metadata.title`（人が見る名）からは作らない */
-export function canvasResourceName(title: string): string {
-  const base = slugOf(title);
-  return base ? `${base}-${suffix()}` : `design-canvas-${suffix()}`;
-}
-
-/** 新規`DesignBoard`の`metadata.name`。キャンバス名を接頭辞に置く */
-export function boardResourceName(canvasName: string): string {
-  const base = slugOf(canvasName) || "design-board";
-  return `${base}-board-${suffix()}`;
-}
-
-/** 相対パスから所属フォルダ。`ticket-engine`のfolderOfと同じ */
-export function folderOf(relativePath: string): string {
-  const index = relativePath.lastIndexOf("/");
-  return index === -1 ? "" : relativePath.slice(0, index);
 }

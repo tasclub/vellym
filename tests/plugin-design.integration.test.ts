@@ -12,7 +12,7 @@ import type {
   VellymPluginHost
 } from "@vellym/plugin-api";
 import { validateKindSpec, validatePluginManifest } from "@vellym-internal/core";
-import { startDevServer } from "@vellym-internal/runtime-node";
+import { loadRepository, startDevServer } from "@vellym-internal/runtime-node";
 import plugin from "@vellym/design";
 import browserPlugin from "../packages/plugin-design/src/browser.js";
 import {
@@ -128,14 +128,18 @@ describe("design plugin manifest", () => {
     expect(validatePluginManifest(raw.vellym).errors).toEqual([]);
     expect(raw.vellym.contributes.kinds).toEqual([
       { kind: DESIGN_CANVAS_KIND, showInDocumentTree: true, hasBlocks: false },
-      { kind: DESIGN_BOARD_KIND, showInDocumentTree: false, hasBlocks: false }
+      { kind: DESIGN_BOARD_KIND, showInDocumentTree: false, hasBlocks: false },
+      { kind: "DesignComponent", showInDocumentTree: false, hasBlocks: false },
+      { kind: "DesignStyles", showInDocumentTree: false, hasBlocks: false }
     ]);
     expect(raw.vellym.contributes.views).toEqual([
       { id: DESIGN_CANVAS_VIEW_ID, kind: DESIGN_CANVAS_KIND, type: "detail", static: false }
     ]);
     expect(raw.vellym.contributes.commands).toEqual([
       expect.objectContaining({ id: CREATE_CANVAS_COMMAND_ID, static: false, placement: "document-tree" }),
-      expect.objectContaining({ id: CREATE_BOARD_COMMAND_ID, static: false })
+      expect.objectContaining({ id: CREATE_BOARD_COMMAND_ID, static: false }),
+      expect.objectContaining({ id: "design.create-component", static: false }),
+      expect.objectContaining({ id: "design.create-styles", static: false })
     ]);
     const packageJson = JSON.parse(
       readFileSync(path.join(process.cwd(), "packages/plugin-design/package.json"), "utf8")
@@ -159,7 +163,9 @@ describe("design plugin manifest", () => {
      */
     expect(projections.size).toBe(0);
     expect(views.has(DESIGN_CANVAS_VIEW_ID)).toBe(true);
-    expect([...commands.keys()].sort()).toEqual([CREATE_BOARD_COMMAND_ID, CREATE_CANVAS_COMMAND_ID]);
+    expect([...commands.keys()].sort()).toEqual([
+      CREATE_BOARD_COMMAND_ID, CREATE_CANVAS_COMMAND_ID, "design.create-component", "design.create-styles"
+    ]);
   });
 
   it("registers the placeholder canvas screen from the browser entry", () => {
@@ -302,7 +308,7 @@ describe("canvas resolution", () => {
     expect(descriptor.fields).toEqual([]);
     expect(descriptor.body).toBe("none");
     const rendererData = descriptor.rendererData!;
-    expect(rendererData.canvasName).toBe("ux-canvas");
+    expect(rendererData.canvas).toMatchObject({ name: "ux-canvas", relativePath: canvas.relativePath, spec: {} });
     expect((rendererData.boards as { name: string }[]).map((item) => item.name)).toEqual(["b1"]);
     expect(rendererData.notices).toEqual([]);
   });
@@ -340,12 +346,12 @@ describe("creation commands", () => {
     const draft = capture.drafts[0]!;
     expect(draft.kind).toBe(DESIGN_CANVAS_KIND);
     expect(draft.title).toBe("UXキャンバス");
-    expect(draft.folder).toBe("30-設計");
-    expect(draft.spec).toEqual({});
+    expect(draft.folder).toBe(`30-設計/${draft.name}`);
+    expect(draft.spec).toEqual({ formatVersion: 1 });
     expect(draft.name).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
   });
 
-  it("create-board drafts a board under the canvas's +boards with an empty html", async () => {
+  it("create-board drafts a board under the canvas's +boards with an empty frame", async () => {
     const { commands } = activated();
     const command = commands.get(CREATE_BOARD_COMMAND_ID)!;
     const noTarget = commandContext({ capture: { drafts: [] } });
@@ -368,10 +374,7 @@ describe("creation commands", () => {
       canvas: "ux-canvas",
       x: 0,
       y: 0,
-      w: 390,
-      h: 844,
-      title: "新しいアートボード",
-      html: ""
+      root: { id: "root", type: "frame", width: 390, height: 844, children: [] }
     });
   });
 
@@ -381,7 +384,7 @@ describe("creation commands", () => {
     const capture: CommandCapture = { drafts: [] };
     const definitions = [
       canvas,
-      board("a", validBoardSpec({ x: 0, y: 0, w: 390, h: 844 })),
+      board("a", validBoardSpec({ x: 0, y: 0, root: { id: "root", type: "frame", width: 390, height: 844, children: [] } })),
       board("b", { ...validBoardSpec(), canvas: "no-such-canvas", x: 900, y: 0, w: 400, h: 400 }),
       board("c", validBoardSpec({ x: 800, y: 0, w: 390, h: 844, page: "wide" }))
     ];
@@ -395,6 +398,24 @@ describe("creation commands", () => {
 });
 
 describe("design plugin on the real runtime", () => {
+  it("loads the sample canvas with zero validate diagnostics through the real repository", async () => {
+    const kinds = new Map<string, Parameters<VellymPluginHost["registerKind"]>[0]>();
+    const validators = new Map<string, Parameters<VellymPluginHost["registerRecordSetValidator"]>[1][]>();
+    plugin.activate({
+      pluginId: "design", hostVersion: "0.6.0-beta",
+      registerKind: (value) => { kinds.set(value.kind, value); },
+      registerView: () => {}, registerCommand: () => {}, registerRecordProjection: () => {},
+      registerRecordSetValidator: (kind, value) => { validators.set(kind, [value]); },
+      reportDiagnostic: () => {}
+    });
+    const repository = await loadRepository(path.resolve("tests/fixtures/design-canvas"), undefined, {
+      knownKinds: new Set(kinds.keys()),
+      kindSchemas: new Map([...kinds].map(([kind, value]) => [kind, value.specSchema!])),
+      recordSetValidators: validators
+    });
+    expect(repository.diagnostics).toEqual([]);
+  });
+
   it("drafts with commands, writes one file on save, and reads broken boards as warnings", async () => {
     const project = await mkdtemp(path.join(tmpdir(), "vellym-design-server-"));
     const root = path.join(project, "docs/content");
@@ -514,7 +535,9 @@ plugins:
       );
       expect(boardDraftBody.data.draft.kind).toBe(DESIGN_BOARD_KIND);
       expect(boardDraftBody.data.draft.spec.canvas).toBe("ux-canvas");
-      expect(boardDraftBody.data.draft.spec.html).toBe("");
+      expect(boardDraftBody.data.draft.spec.root).toEqual({
+        id: "root", type: "frame", width: 390, height: 844, children: []
+      });
       await expect(
         access(path.join(root, boardDraftBody.data.relativePath))
       ).rejects.toThrow();
@@ -538,6 +561,30 @@ plugins:
         "broken-board.yaml",
         `${boardDraftBody.data.draft.name}.yaml`
       ]);
+
+      // The other two resource commands use the same draft/save filename contract.
+      for (const [id, kind, folder] of [
+        ["design.create-component", "DesignComponent", "30-design/+components"],
+        ["design.create-styles", "DesignStyles", "30-design"]
+      ]) {
+        const response = await fetch(`${server.url}/api/v1/plugins/commands/${id}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: "ux-canvas" })
+        });
+        expect(response.status).toBe(200);
+        const body = await response.json() as {
+          data: { draft: { name: string; kind: string }; relativePath: string };
+        };
+        expect(body.data.draft.kind).toBe(kind);
+        expect(body.data.relativePath).toBe(`${folder}/${body.data.draft.name}.yaml`);
+        await expect(access(path.join(root, body.data.relativePath))).rejects.toThrow();
+        const saved = await fetch(`${server.url}/api/v1/plugins/resources`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseHash: null, draft: body.data.draft })
+        });
+        expect(saved.status).toBe(201);
+        expect(await readFile(path.join(root, body.data.relativePath), "utf8")).toContain(`kind: ${kind}`);
+      }
 
       // 保存済みのキャンバス作成ドラフトも同じ経路で1ファイルになる
       const savedCanvas = await fetch(`${server.url}/api/v1/plugins/resources`, {

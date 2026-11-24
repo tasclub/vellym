@@ -38,7 +38,9 @@
     "contributes": {
       "kinds": [
         { "kind": "DesignCanvas", "showInDocumentTree": true, "hasBlocks": false },
-        { "kind": "DesignBoard", "showInDocumentTree": false, "hasBlocks": false }
+        { "kind": "DesignBoard", "showInDocumentTree": false, "hasBlocks": false },
+        { "kind": "DesignComponent", "showInDocumentTree": false, "hasBlocks": false },
+        { "kind": "DesignStyles", "showInDocumentTree": false, "hasBlocks": false }
       ],
       "views": [
         {
@@ -57,7 +59,17 @@
         },
         {
           "id": "design.create-board",
-          "title": { "ja": "アートボードを追加", "en": "New artboard" },
+          "title": { "ja": "ボードを追加", "en": "New board" },
+          "static": false
+        },
+        {
+          "id": "design.create-component",
+          "title": { "ja": "部品を作成", "en": "New component" },
+          "static": false
+        },
+        {
+          "id": "design.create-styles",
+          "title": { "ja": "共有スタイルを作成", "en": "New shared styles" },
           "static": false
         }
       ]

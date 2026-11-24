@@ -1,0 +1,10 @@
+apiVersion: vellym.tasclub.com/v1
+kind: DesignComponent
+metadata: { name: button, title: Button }
+spec:
+  canvas: app
+  root:
+    id: root
+    type: frame
+    styles: [primary]
+    children: [{ id: label, type: text, text: Continue }]

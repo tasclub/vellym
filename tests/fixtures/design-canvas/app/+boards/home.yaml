@@ -1,0 +1,18 @@
+apiVersion: vellym.tasclub.com/v1
+kind: DesignBoard
+metadata: { name: home, title: Home }
+spec:
+  canvas: app
+  x: 0
+  y: 0
+  implementedBy: [src/Home.tsx]
+  root:
+    id: root
+    type: frame
+    width: 390
+    height: 844
+    children:
+      - id: button
+        type: instance
+        component: button
+        reactions: [{ trigger: click, action: navigate, destination: settings }]
