@@ -23,7 +23,7 @@
   },
   "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --outfile=dist/browser/index.js --external:@vellym/plugin-api"
+    "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --outfile=dist/browser/index.js --external:@vellym/plugin-api && esbuild src/render/vector.ts src/render/boolean.ts --bundle --splitting --format=esm --platform=browser --outdir=dist/browser/render"
   },
   "publishConfig": { "access": "public" },
   "peerDependencies": {
@@ -31,7 +31,8 @@
   },
   "devDependencies": {
     "@vellym/plugin-api": "*",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "paper": "0.17.0"
   },
   "vellym": {
     "id": "design",
