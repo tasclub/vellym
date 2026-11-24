@@ -56,7 +56,8 @@ for (const key of ["tickets", "kanban", "wbs", "design"].filter((name) => !manif
     );
   }
   const vellymRange = plugin.engines?.vellym ?? "";
-  if (!semver.validRange(vellymRange) || !semver.satisfies(manifests.vellym.version, vellymRange)) {
+  // Same rule as the host's plugin loader (runtime-node plugins.ts): beta host versions must match.
+  if (!semver.validRange(vellymRange) || !semver.satisfies(manifests.vellym.version, vellymRange, { includePrerelease: true })) {
     throw new Error(
       `${plugin.name}のengines.vellymが公開版を満たしません: vellym@${manifests.vellym.version}は${vellymRange}の範囲外です`
     );
@@ -92,7 +93,9 @@ const documents = [
 ];
 for (const relativePath of documents) {
   const source = await readFile(new URL(relativePath, import.meta.url), "utf8");
-  const commands = source.match(/npx vellym(?:@[\w.-]+)?/g) ?? [];
+  // Only `init` runs before a project exists. Later commands (`npx vellym dev` etc.) run inside
+  // the project, where init pinned the host version in package.json, so they need no dist-tag.
+  const commands = (source.match(/npx vellym(?:@[\w.-]+)? init\b/g) ?? []).map((command) => command.replace(/ init$/, ""));
   if (!commands.length) {
     throw new Error(`導入コマンドが見つかりません: ${relativePath}`);
   }

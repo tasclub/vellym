@@ -10,16 +10,18 @@ beta版のあいだは、文書形式・CLI・Plugin APIに破壊的変更が入
 
 ## [Unreleased]
 
+## [0.5.1-beta] - 2026-11-23
+
 ### 追加
 
 - `vellym init`でcontent rootに人とAI向けの`VELLYM.md`を生成する。
 - プラグイン画面からドラフトを開かずリソースを作成できる。
 - TicketTrackerに条件ルールを宣言し、違反を警告できる。
-
 - 本文のリポジトリ内ファイルへの相対リンクを`validate`と`build`で検査する。
 
 ### 変更
 
+- `@vellym/plugin-api`を0.3.0-beta（`createResourceNow`）に更新し、公式プラグインを0.3.0-betaにした。
 - WBSの行メニューでチケットを字下げ・字上げし、ボタンとTab操作で階層を組み替えられる。
 - WBSで題名と任意の詳細列を入力し、画面を移らず最上位・子チケットを連続追加できる。
 - npmのREADME、CLI、公開サイトからAI向け案内と利用ガイドを見つけられるようにした。

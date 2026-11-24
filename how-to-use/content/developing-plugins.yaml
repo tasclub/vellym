@@ -61,10 +61,10 @@ spec:
             "typecheck": "tsc -p tsconfig.json --noEmit"
           },
           "peerDependencies": {
-            "@vellym/plugin-api": "^0.1.0-beta"
+            "@vellym/plugin-api": "^0.3.0-beta"
           },
           "devDependencies": {
-            "@vellym/plugin-api": "0.1.0-beta",
+            "@vellym/plugin-api": "0.3.0-beta",
             "typescript": "^5.9.0"
           },
           "vellym": {
@@ -492,10 +492,10 @@ spec:
                 "typecheck": "tsc -p tsconfig.json --noEmit"
               },
               "peerDependencies": {
-                "@vellym/plugin-api": "^0.1.0-beta"
+                "@vellym/plugin-api": "^0.3.0-beta"
               },
               "devDependencies": {
-                "@vellym/plugin-api": "0.1.0-beta",
+                "@vellym/plugin-api": "0.3.0-beta",
                 "typescript": "^5.9.0"
               },
               "vellym": {

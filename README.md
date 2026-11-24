@@ -154,6 +154,8 @@ Vellym currently provides `init`, `dev`, `validate`, `list`, `build`, and `migra
 - Images: insert from the editor, store in an images folder, validate references, and copy them into static output ([guide](https://vellym.tasclub.com/en/pages/images/))
 - [`@vellym/kanban`](packages/plugin-kanban/) (Kanban board) and [`@vellym/wbs`](packages/plugin-wbs/) (work breakdown with a date timeline)
 
+`0.5.1-beta` improves WBS breakdown operations and AI entry points, and adds Tracker conditional rules and validation of links to repository files in content.
+
 Additional block types and presets are not implemented. Pull, merge, and branch operations stay on the command line. The `v1` contract may still change before RC.
 
 ## License
@@ -316,6 +318,8 @@ Docker の公開先は `127.0.0.1:4173` に限定し、同一ネットワーク�
 - 画面からの変更の確認・コミット・プッシュと、文書ごとの履歴と差分（[利用ガイド](https://vellym.tasclub.com/pages/changes-and-history/)）
 - 画像: 編集画面からの挿入、画像フォルダへの保存、参照の検証、静的出力へのコピー（[利用ガイド](https://vellym.tasclub.com/pages/images/)）
 - [`@vellym/kanban`](packages/plugin-kanban/)（カンバン）と [`@vellym/wbs`](packages/plugin-wbs/)（日程つきのWBS）
+
+0.5.1-betaではWBSの分解操作とAI向けの入口を改善し、Trackerの条件ルールと本文からリポジトリ内ファイルへのリンクの検査を追加した。
 
 追加ブロック、preset は未実装。pull・マージ・ブランチの操作はコマンドラインで行う。`v1`契約はRCまで変更される可能性がある。
 

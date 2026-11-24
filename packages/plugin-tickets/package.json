@@ -1,6 +1,6 @@
 {
   "name": "@vellym/tickets",
-  "version": "0.2.0-beta",
+  "version": "0.3.0-beta",
   "description": "Official ticket management plugin for Vellym",
   "keywords": [
     "vellym",
@@ -48,7 +48,7 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@vellym/plugin-api": "^0.2.0-beta",
+    "@vellym/plugin-api": "^0.3.0-beta",
     "react": ">=18"
   },
   "devDependencies": {
@@ -62,7 +62,9 @@
       "ja": "https://vellym.tasclub.com/pages/ticket-management/",
       "en": "https://vellym.tasclub.com/en/pages/ticket-management/"
     },
-    "styles": ["tickets-settings.css"],
+    "styles": [
+      "tickets-settings.css"
+    ],
     "contributes": {
       "kinds": [
         {
