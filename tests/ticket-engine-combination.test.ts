@@ -5,7 +5,7 @@ import { validateTrackerCombinations } from "../packages/ticket-engine/src/defin
 const statuses = [{ id: "open", category: "open" }, { id: "done", category: "closed" }];
 function tracker(relativePath: string, spec: Record<string, unknown> = {}): PluginResourceRecord {
   return { kind: "TicketTracker", name: relativePath, title: relativePath, relativePath, readOnly: false,
-    spec: { statuses, kanban: { orderField: "board" }, wbs: { orderField: "tree" }, ...spec } };
+    spec: { statuses, ...spec } };
 }
 function check(records: PluginResourceRecord[]) {
   return validateTrackerCombinations([], { records: () => records });
@@ -29,17 +29,31 @@ describe("tracker combination warnings", () => {
     expect(check([tracker("a/tracker.yaml"), tracker("ab/tracker.yaml", { statuses: [] })])).toEqual([]);
   });
 
-  it("warns for identical order fields including omitted defaults", () => {
-    for (const spec of [
-      { kanban: { orderField: "rank" }, wbs: { orderField: "rank" } },
-      { kanban: {}, wbs: {} },
-      { kanban: { orderField: "order" }, wbs: {} }
-    ]) {
-      const warnings = check([tracker("tracker.yaml", spec)]);
-      expect(warnings).toHaveLength(1);
-      expect(warnings[0]).toMatchObject({ file: "tracker.yaml", severity: "warning", code: "TICKET_ORDER_FIELD_CONFLICT" });
-      expect(warnings[0]!.message).toMatchObject({ ja: expect.any(String), en: expect.any(String) });
-    }
+  it("warns only when Kanban and WBS use the same order field", () => {
     expect(check([tracker("tracker.yaml")])).toEqual([]);
+    expect(check([tracker("tracker.yaml", { fields: [{ id: "order", type: "number" }] })])).toEqual([]);
+
+    const warnings = check([tracker("tracker.yaml", {
+      fields: [{ id: "order", type: "number" }],
+      wbs: { orderField: "order" }
+    })]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ file: "tracker.yaml", severity: "warning", code: "TICKET_ORDER_FIELD_CONFLICT" });
+    expect(warnings[0]!.message).toMatchObject({ ja: expect.any(String), en: expect.any(String) });
+
+    expect(check([tracker("tracker.yaml", {
+      fields: [{ id: "order", type: "number" }],
+      kanban: { orderField: "order" }
+    })])).toEqual([]);
+    expect(check([tracker("tracker.yaml", {
+      fields: [{ id: "rank", type: "number" }],
+      kanban: { orderField: "rank" },
+      wbs: { orderField: "rank" }
+    })])).toHaveLength(1);
+    expect(check([tracker("tracker.yaml", {
+      fields: [{ id: "rank", type: "number" }, { id: "tree", type: "number" }],
+      kanban: { orderField: "rank" },
+      wbs: { orderField: "tree" }
+    })])).toEqual([]);
   });
 });

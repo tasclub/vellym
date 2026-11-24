@@ -302,15 +302,25 @@ export function validateTrackerCombinations(
     const setting = (value: unknown): Record<string, unknown> =>
       typeof value === "object" && value !== null && !Array.isArray(value)
         ? value as Record<string, unknown> : {};
-    const kanban = setting(record.spec.kanban).orderField ?? "order";
-    const wbs = setting(record.spec.wbs).orderField ?? "order";
-    if (typeof kanban === "string" && kanban === wbs) {
+    const kanban = setting(record.spec.kanban);
+    const wbs = setting(record.spec.wbs);
+    const hasNumericOrderField = asArray(record.spec.fields).some((entry) => {
+      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return false;
+      const field = entry as Record<string, unknown>;
+      return field.id === "order" && field.type === "number";
+    });
+    const requestedKanbanOrder = kanban.orderField;
+    const kanbanOrderField = requestedKanbanOrder === undefined || requestedKanbanOrder === null
+      ? (hasNumericOrderField ? "order" : undefined)
+      : asString(requestedKanbanOrder);
+    const wbsOrderField = asString(wbs.orderField);
+    if (kanbanOrderField && kanbanOrderField === wbsOrderField) {
       diagnostics.push({
         file: record.relativePath, path: "/spec/wbs/orderField", severity: "warning",
         code: "TICKET_ORDER_FIELD_CONFLICT",
         message: {
-          ja: `カンバンとWBSの並び順に同じ項目「${kanban}」が指定されています`,
-          en: `Kanban and WBS use the same order field "${kanban}".`
+          ja: `カンバンとWBSの並び順に同じ項目「${kanbanOrderField}」が指定されています`,
+          en: `Kanban and WBS use the same order field "${kanbanOrderField}".`
         }
       });
     }
