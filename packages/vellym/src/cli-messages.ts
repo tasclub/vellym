@@ -33,6 +33,7 @@ export interface CliMessages {
   externalBindWarning(): string;
   configMissing(url: string): string;
   configUnreadable(url: string): string;
+  configCandidates(candidates: string[]): string;
   portInvalid(): string;
   languageInvalid(): string;
   unknownCommand(command: string): string;
@@ -172,6 +173,7 @@ Options:
     "警告: 外部bind(0.0.0.0)で起動しました。Vellymに認証はなく、到達できる相手は文書の閲覧・編集・構成変更ができます。信頼できるネットワークだけで使用してください。",
   configMissing: (url) => `設定ファイルがありません。ブラウザで初期セットアップを開いてください: ${url}`,
   configUnreadable: (url) => `設定ファイルを読み込めません。ブラウザで理由を確認できます: ${url}`,
+  configCandidates: (candidates) => `設定ファイルが複数見つかりました:\n${candidates.map((candidate) => `  ${candidate}`).join("\n")}\n--configで使用するファイルを指定してください。`,
   portInvalid: () => "--portは1から65535の整数で指定してください",
   languageInvalid: () => "--languageはjaまたはenを指定してください",
   unknownCommand: (command) => `不明なコマンドです: ${command}`,
@@ -319,6 +321,7 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
     "Warning: started with an external bind (0.0.0.0). Vellym has no authentication, so anyone who can reach this address can read, edit, and restructure your documents. Use it only on a trusted network.",
   configMissing: (url) => `Configuration file not found. Open initial setup in your browser: ${url}`,
   configUnreadable: (url) => `Could not read the configuration file. See the reason in your browser: ${url}`,
+  configCandidates: (candidates) => `Multiple configuration files were found:\n${candidates.map((candidate) => `  ${candidate}`).join("\n")}\nChoose one with --config.`,
   portInvalid: () => "--port must be an integer between 1 and 65535",
   languageInvalid: () => "--language must be ja or en",
   unknownCommand: (command) => `Unknown command: ${command}`,

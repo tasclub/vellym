@@ -1,4 +1,5 @@
 export * from "./config.js";
+export * from "./config-discovery.js";
 export * from "./errors.js";
 export * from "./folder-store.js";
 export * from "./locale-hash.js";

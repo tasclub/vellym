@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import {
   loadConfig,
+  discoverConfig,
   diagnoseAssets,
   diagnoseFileLinks,
   loadRepository,
@@ -86,8 +87,15 @@ function option(args: string[], name: string): string | undefined {
   return value;
 }
 
-function resolveConfigPath(args: string[]): string {
-  return path.resolve(option(args, "--config") ?? "vellym.config.yaml");
+async function resolveConfigPath(args: string[]): Promise<string> {
+  const explicit = option(args, "--config");
+  if (explicit !== undefined) return path.resolve(explicit);
+
+  const discovery = await discoverConfig(process.cwd());
+  if (discovery.candidates.length > 1) {
+    throw new UsageError(messages.configCandidates(discovery.candidates));
+  }
+  return discovery.path ?? path.resolve("vellym.config.yaml");
 }
 
 function output(
@@ -115,7 +123,7 @@ function output(
 async function validateCommand(args: string[]): Promise<number> {
   const json = args.includes("--json");
   const strict = args.includes("--strict");
-  const loaded = await loadConfig(resolveConfigPath(args), cliLanguageFromArgs(args) ?? "ja");
+  const loaded = await loadConfig(await resolveConfigPath(args), cliLanguageFromArgs(args) ?? "ja");
   if (!cliLanguageFromArgs(args)) setLanguage(loaded.config.ui.language);
   // プラグインの失敗は警告。strictでは警告も失敗にする。
   const plugins = await loadPlugins({
@@ -148,7 +156,7 @@ async function listCommand(args: string[]): Promise<number> {
   }
   const languageValue = option(args, "--language");
   if (languageValue && languageValue !== "ja" && languageValue !== "en") throw new UsageError(messages.languageInvalid());
-  const loaded = await loadConfig(resolveConfigPath(args), cliLanguageFromArgs(args) ?? "ja");
+  const loaded = await loadConfig(await resolveConfigPath(args), cliLanguageFromArgs(args) ?? "ja");
   if (!cliLanguageFromArgs(args)) setLanguage(loaded.config.ui.language);
   const plugins = await loadPlugins({ configDir: path.dirname(loaded.configPath), packageNames: loaded.config.plugins, hostVersion: VELLYM_VERSION });
   const kinds = pluginKinds(plugins);
@@ -302,7 +310,7 @@ async function schemaCommand(args: string[]): Promise<number> {
 
 async function buildCommand(args: string[]): Promise<number> {
   const json = args.includes("--json");
-  const result = await buildStatic(resolveConfigPath(args));
+  const result = await buildStatic(await resolveConfigPath(args));
   output(json, result.data, result.diagnostics, result.message);
   return result.exitCode;
 }
@@ -311,7 +319,7 @@ async function migrateCommand(args: string[]): Promise<number> {
   const json = args.includes("--json");
   const target = option(args, "--to");
   if (target !== "v1") throw new UsageError(messages.migrationTargetInvalid());
-  const configPath = resolveConfigPath(args);
+  const configPath = await resolveConfigPath(args);
   const loaded = await loadConfig(configPath);
   if (!cliLanguageFromArgs(args)) setLanguage(loaded.config.ui.language);
   const plan = await planMigration(configPath);
@@ -339,7 +347,7 @@ async function devCommand(args: string[]): Promise<void> {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new UsageError(messages.portInvalid());
   }
-  const configPath = resolveConfigPath(args);
+  const configPath = await resolveConfigPath(args);
   const directory = path.dirname(fileURLToPath(import.meta.url));
   // 読み込めなかったプラグインを起動時に示す。serverの起動は妨げない。
   let configProblem: "missing" | "unreadable" | undefined;
