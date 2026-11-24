@@ -170,7 +170,8 @@ async function benchTickets() {
         });
         sample.wbs = await measure(async () => {
           await page.getByRole("group", { name: "表示", exact: true }).getByRole("button", { name: "WBS", exact: true }).click();
-          await expect(page.getByRole("treegrid", { name: "WBSの階層" })).toHaveAttribute("aria-rowcount", "1001");
+          // 1000 tickets + header row + the "add task" row (role="row") added by inline quick add.
+          await expect(page.getByRole("treegrid", { name: "WBSの階層" })).toHaveAttribute("aria-rowcount", "1002");
           await expect(page.locator('.wbs-row[data-ticket-name="bench-ticket-0000"]')).toBeVisible();
         });
         const firstName = await page.locator(".wbs-row[data-ticket-name]").first().getAttribute("data-ticket-name");
