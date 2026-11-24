@@ -1,0 +1,1 @@
+{"id":"screen-list","role":"requirements","title":{"ja":"画面一覧","en":"Screen list"},"fileName":{"ja":"画面一覧","en":"screen-list"},"description":{"ja":"画面と遷移の一覧","en":"Screens and transitions"},"guideText":{"ja":"画面の目的と利用者を一覧にします。\n各画面設計へリンクし、遷移図を更新します。","en":"List screen purposes and users.\nLink each screen design and maintain the transition diagram."}}
