@@ -1660,9 +1660,12 @@ export async function startDevServer(options: {
     async close() {
       await closeWatcher();
       for (const client of clients) client.end();
-      await new Promise<void>((resolve, reject) =>
+      const closed = new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve()))
       );
+      // Keep-alive connections (browsers, fetch) would otherwise hold close() open.
+      server.closeAllConnections();
+      await closed;
     }
   };
 }

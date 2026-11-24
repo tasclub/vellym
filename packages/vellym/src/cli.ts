@@ -372,10 +372,17 @@ async function devCommand(args: string[]): Promise<void> {
   }
   process.stdout.write(`Vellym: ${server.url}\n`);
   let closing = false;
+  // Stopping `dev` (Ctrl+C, or SIGTERM from a test or process manager) must end the process.
+  // Closing waits for the file watcher and open connections, which can stall, so it is bounded.
   const close = async () => {
     if (closing) return;
     closing = true;
-    await server.close();
+    setTimeout(() => process.exit(0), 3000).unref();
+    try {
+      await server.close();
+    } finally {
+      process.exit(0);
+    }
   };
   process.once("SIGINT", () => void close());
   process.once("SIGTERM", () => void close());

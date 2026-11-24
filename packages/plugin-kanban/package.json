@@ -3,6 +3,15 @@
   "version": "0.3.0-beta",
   "description": "Kanban view plugin for Vellym tickets",
   "license": "MIT",
+  "homepage": "https://vellym.tasclub.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tasclub/vellym.git",
+    "directory": "packages/plugin-kanban"
+  },
+  "bugs": {
+    "url": "https://github.com/tasclub/vellym/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.12.0",
