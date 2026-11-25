@@ -1,0 +1,350 @@
+apiVersion: vellym.tasclub.com/v1alpha1
+kind: Page
+metadata:
+  name: templates
+  title: テンプレートとセット
+spec:
+  documentType: guide
+  locale: ja
+  blocks:
+    - id: templates
+      type: rich-text
+      format: commonmark
+      content: |
+        初期設定では設定・入口・`VELLYM.md`とフォルダの枠を作り、テンプレートの文書やTicket管理は必要になったときに追加します。テンプレートは文書1つ、Ticket管理テンプレートはプラグインが提供する`TicketTracker`、セットは複数のテンプレートをまとめたものです。追加した文書は利用者のものになり、テンプレートが後で変わっても書き換わりません。
+
+        ## 構成の型を選ぶ
+
+        初期セットアップ画面または`vellym init --structure <id>`で選びます。迷ったら、標準の「種類別」から始めてください。構成の型は追加時の役割の行き先を決めます。フォルダ名や番号は初期設定で調整でき、追加時には行き先を指定して上書きできます。
+
+        | ID | 構成 | 向いている使い方 |
+        | --- | --- | --- |
+        | `by-type` | 種類別。概要・管理・要求・設計など、文書の種類ごとに分ける。番号なしが既定 | まず文書を少しずつ足す一般的な開発。下のシナリオA |
+        | `by-phase` | 工程別。要件定義・基本設計・製造・テストなど、工程の順に分ける。番号ありが既定 | 工程ごとに成果物とレビューを管理する日本型WF。シナリオB |
+        | `by-feature` | 機能別。要求・外部設計・内部設計を機能ごとのフォルダにまとめる | 機能単位で要求から設計までを一緒に見たい場合 |
+
+        機能別では、これらの文書を追加するときに機能名が必要です。CLIの`--name`は機能フォルダ名と文書名の両方に使われます。テンプレートの標準タイトルを保つ場合は、`--folder`で機能フォルダを直接指定してください。
+
+        「利用者向け（`guide`）」は既存の型に足せる補助構成です。チュートリアル・使い方・リファレンス・解説のフォルダを追加します（`vellym init --with-guide-folders`）。
+
+        ## 使い方の例
+
+        ### 2人とAIで作る小さなWebアプリ（アジャイル）
+
+        種類別・番号なしを使います。導入時にチケットとカンバンのプラグインを有効にし、立ち上げのセットを追加します。バックログのTicket管理にストーリーを集め、ロードマップや機能要件、非機能要件、アーキテクチャ概要、決定記録など必要な文書を選んで作ります。スプリントごとに名前付きの「スプリント」セットを足し、スプリントのページにゴール・レビュー・振り返りを書きます。Ticketはバックログの場所に置いたまま「スプリント」項目で振り分けます。リリース時はリリース記録を追加します。
+
+        ```bash
+        npx vellym init --plugins tickets,kanban
+        vellym add set start
+        vellym add template tickets:backlog --folder "管理"
+        vellym add set sprint --name "Sprint 3"
+        vellym add template release-record
+        ```
+
+        上の`--folder "管理"`は、日本語・種類別の既定構成での例です。`--folder`のパスは文書ルート（`contentRoot`）からの相対パスです。カンバンの表示には`@vellym/kanban`も有効にします。
+
+        ### 日本型WFの受託案件
+
+        工程別・番号ありを使い、チケットとWBSのプラグインを有効にします。立ち上げ・計画のセットと予測型の追加を使って、計画、WBS、課題・QA・変更要求・リスクの管理を始めます。各工程で名前付きの「工程」セットを繰り返し追加し、その工程のページとレビュー指摘のTicket管理を置きます。要件定義書、業務フロー、画面一覧、方式設計、データ設計、テスト仕様、移行計画など、成果物に合わせて文書テンプレートを追加します。
+
+        ```bash
+        npx vellym init --structure by-phase --plugins tickets,wbs
+        vellym add set start
+        vellym add set planning
+        vellym add set predictive
+        vellym add set phase --name "要件定義"
+        vellym add template requirements-definition
+        ```
+
+        どちらの例も出発点です。すべてを一度に作らず、使うものだけ追加してください。細かな流れは[[getting-started|はじめかた]]、プラグインの導入は[[using-plugins|プラグインを使う]]を参照。
+
+        ## テンプレート・Ticket管理・セットの一覧
+
+        IDは`vellym add`で使うカタログ上のIDです。名前はカタログの表示名です。
+
+        ### 文書テンプレート
+
+        | ID | 名前 | 用途 |
+        | --- | --- | --- |
+        | `acceptance-scenario` | 受入シナリオ | 受入シナリオと自動で確かめる手順 |
+        | `api-design` | API設計 | APIの操作・入出力・エラー |
+        | `architecture-overview` | アーキテクチャ概要 | システム構成と品質の優先順位 |
+        | `background-and-problem` | 背景と課題 | 背景、利用者の課題、解決後の変化 |
+        | `batch-design` | バッチ設計 | 起動条件、処理、エラーと再実行 |
+        | `business-flow` | 業務フロー | 業務の流れと各手順 |
+        | `communication-plan` | コミュニケーション計画 | 会議体と連絡方法 |
+        | `completion-handover` | 完了報告と引継ぎ | 達成度、成果物、残作業と運用の引継ぎ |
+        | `current-status` | 現在地 | 現在の状態、次にすること、停滞事項 |
+        | `data-design` | データ設計 | ER図、テーブル定義と保持期間 |
+        | `decision` | 決定記録 | 判断の背景、代替案と採用理由 |
+        | `design-doc` | デザインドック | 大きな設計案と代替案の議論 |
+        | `detailed-design` | 詳細設計 | モジュールの処理、責務と例外 |
+        | `development-rules` | 開発ルール | 開発・レビュー・完了の決まり |
+        | `environment-build-deploy` | 環境・ビルド・デプロイ | 環境とビルド・デプロイの手順 |
+        | `external-interface-design` | 外部インターフェース設計 | 外部システムとの連携方式と再送 |
+        | `functional-requirements` | 機能要件 | 機能ごとの要件と受入条件 |
+        | `glossary` | 用語集 | 用語と意味 |
+        | `incident-response` | 障害対応手順 | 障害の検知、切り分けと対応 |
+        | `meeting-minutes` | 議事録 | 議題、決定事項と宿題 |
+        | `migration-plan` | 移行計画 | 移行手順、確認と切り戻し |
+        | `non-functional-requirements` | 非機能要件 | 品質・運用の目標値と確認方法 |
+        | `operations-design` | 運用設計 | 運用体制、監視と定常作業 |
+        | `phase` | 工程 | 工程の目的、成果物と完了・承認の記録 |
+        | `project-charter` | プロジェクト憲章 | 目的、成功指標、範囲と関係者 |
+        | `project-plan` | プロジェクト計画 | 進め方、品質、会議、リスクと変更 |
+        | `release-record` | リリース記録 | 版の範囲、判定と利用者向け変更 |
+        | `report-design` | 帳票設計 | 帳票の項目、レイアウトと出力条件 |
+        | `requirements-definition` | 要件定義書 | 業務と機能・非機能要件の全体像 |
+        | `retrospective` | 振り返り | よかったこと、困ったことと改善 |
+        | `roadmap` | ロードマップ | 版、節目と判断待ち |
+        | `scope` | スコープ | 対象、対象外と変更の手続き |
+        | `screen-design` | 画面設計 | 画面の項目、操作とエラー表示 |
+        | `screen-list` | 画面一覧 | 画面の目的、利用者と画面遷移 |
+        | `sprint` | スプリント | ゴール、Ticket、レビューと振り返り |
+        | `stakeholders` | 関係者と体制 | 関係者、役割・責任と承認者 |
+        | `system-design` | 方式設計 | 構成と採用技術。`architecture-overview`と同じ内容の別名 |
+        | `test-plan` | テスト計画 | 対象、段階、完了条件と体制 |
+        | `test-specification` | テスト仕様 | 観点とテストケース・結果 |
+
+        `phase`と`sprint`は繰り返しセットにも使われる文書テンプレートです。`system-design`は`architecture-overview`の別名です。「プロジェクト文書の案内」は`init`が作る入口で、追加用のテンプレートではありません。
+
+        ### Ticket管理テンプレート
+
+        Ticket管理は`@vellym/tickets`プラグインが提供します。プラグインをインストールして設定へ追加したプロジェクトで使えます。IDの`tickets:`はプラグインIDです。
+
+        | ID | 名前 | 用途 |
+        | --- | --- | --- |
+        | `tickets:backlog` | バックログ | ストーリーの優先度やスプリントを管理 |
+        | `tickets:bug` | 不具合 | 再現手順、原因と対応を管理 |
+        | `tickets:change-request` | 変更要求 | 変更の理由、影響と判断を管理 |
+        | `tickets:issue` | 課題 | 影響、担当と対応結果を管理 |
+        | `tickets:qa` | QA | 質問、回答と反映先を管理 |
+        | `tickets:review` | レビュー指摘 | 対象文書、指摘と確認を管理 |
+        | `tickets:risk` | リスク | 発生可能性、影響と対応を管理 |
+        | `tickets:work` | 作業 | 担当、優先度、期限と関連文書を管理 |
+
+        チケット管理の設定方法と画面は[[ticket-management|チケット管理]]を参照してください。プラグイン自体の追加方法は[[using-plugins|プラグインを使う]]を参照。
+
+        ### セット
+
+        セットを足すと、中に含まれる文書テンプレートとTicket管理をまとめて追加します。プラグイン提供のテンプレートが含まれる場合、そのプラグインが無効なら該当項目は飛ばされ、理由が表示されます。
+
+        | ID | 名前 | 内容 |
+        | --- | --- | --- |
+        | `start` | 立ち上げ | プロジェクト憲章、背景と課題、関係者と体制、用語集 |
+        | `planning` | 計画 | ロードマップ、現在地、スコープ、作業・リスクのTicket管理 |
+        | `predictive` | 予測型の追加 | プロジェクト計画、コミュニケーション計画、課題・QA・変更要求のTicket管理 |
+        | `iterative` | 反復型の追加 | バックログのTicket管理 |
+        | `requirements` | 要求 | 機能要件、非機能要件 |
+        | `design` | 設計 | アーキテクチャ概要、最初の決定記録、画面設計、データ設計 |
+        | `quality-release` | 品質・リリース | テスト計画、受入シナリオ、リリース記録、不具合のTicket管理 |
+        | `operations` | 運用 | 運用設計、障害対応手順 |
+        | `sprint` | スプリント | 名前付きフォルダにスプリントのページを作る（繰り返し） |
+        | `phase` | 工程 | 名前付きフォルダに工程のページとレビュー指摘のTicket管理を作る（繰り返し） |
+
+        ## 画面から追加する
+
+        追加したいフォルダのメニューから「テンプレートから作る」または「セットを足す」を選びます。テンプレートやセットを選ぶと、作成するファイル・飛ばすファイル・行き先を確認できます。繰り返しセットでは名前を入力してから内容を確認し、「作る」を選びます。同じ場所にファイルがある場合は上書きせず飛ばします。
+
+        確認画面の「VELLYM.mdにこの使い方を追記する」を選ぶと、既存の`VELLYM.md`の末尾に使い方を追加します。既存の本文は置き換えず、同じ節は重ねて追加しません。ファイルがない場合は作成しません。
+
+        ## CLIから追加する
+
+        `vellym add --list template`または`vellym add --list set`で候補を確認し、IDを指定します。
+
+        ```bash
+        vellym add --list template
+        vellym add --list set
+        vellym add template roadmap
+        vellym add set start
+        vellym add set sprint --name "Sprint 3"
+        vellym add set phase --name "要件定義" --dry-run
+        ```
+
+        文書テンプレートは既定で構成の型に対応する役割のフォルダに作ります。`--folder <path>`を付けると行き先を指定できます。プラグインのテンプレートを直接追加する場合は`<プラグインID>:<ID>`と`--folder`の両方が必要です。たとえば、日本語・種類別の既定構成なら次のようにします。
+
+        ```bash
+        vellym add template tickets:work --folder "管理"
+        ```
+
+        `--dry-run`は作成計画だけを表示し、ファイルを書きません。`--json`はJSON出力、`--config <path>`は設定ファイルの指定です。`--guide`を付けると`VELLYM.md`へ使い方を追記します。既定は追記しない（`--no-guide`）ため、既存ガイドを変えたくないときはそのまま実行できます。
+
+        ## 関連
+
+        - 初期化と最短の流れ → [[getting-started|はじめかた]]
+        - CLIの全コマンド → [[cli-reference|CLIリファレンス]]
+        - Ticket管理の操作 → [[ticket-management|チケット管理]]
+        - プラグインの導入 → [[using-plugins|プラグインを使う]]
+  translations:
+    en:
+      visibility: published
+      title: Templates and Sets
+      blocks:
+        - id: templates
+          type: rich-text
+          format: commonmark
+          content: |
+            Initialization creates the configuration, entry page, `VELLYM.md`, and folder structure. Add template documents and ticket management when you need them. A document template creates one document; a ticket-management template is a `TicketTracker` provided by a plugin; a set combines multiple templates. Added documents belong to you and are not rewritten when a template changes later.
+
+            ## Choose a structure
+
+            Choose in the setup screen or with `vellym init --structure <id>`. If unsure, start with the default, "By type." The structure maps each template role to a destination folder. You can adjust folder names and numbering during setup, and override the destination when adding a template.
+
+            | ID | Structure | Suitable for |
+            | --- | --- | --- |
+            | `by-type` | By type: group documents such as overview, management, requirements, and design. Unnumbered by default. | General development that adds documents as needed. Scenario A below. |
+            | `by-phase` | By phase: group documents by stages such as requirements, basic design, implementation, and testing. Numbered by default. | Japanese-style waterfall projects with deliverables and reviews for each phase. Scenario B. |
+            | `by-feature` | By feature: collect requirements, external design, and internal design in a folder for each feature. | When you want to keep each feature's requirements and designs together. |
+
+            When adding one of these documents in By feature, provide a feature name. The CLI's `--name` is used for both the feature folder and document name. To keep the template's default title, set the feature folder directly with `--folder`.
+
+            "User guide" (`guide`) is a supplement to an existing structure. It adds folders for tutorials, how-to guides, reference, and explanations (`vellym init --with-guide-folders`).
+
+            ## Example workflows
+
+            ### A small web app built by two people and AI (agile)
+
+            Use By type without numbering. Enable the Ticket and Kanban plugins at setup and add the Start set. Put stories in a backlog tracker, then add only the documents you need, such as a roadmap, functional and non-functional requirements, architecture overview, and decision records. Add a named Sprint set for each iteration; write its goal, review, and retrospective on the sprint page. Keep tickets in the backlog and group them by the Sprint field. Add a release record when releasing.
+
+            ```bash
+            npx vellym init --plugins tickets,kanban
+            vellym add set start
+            vellym add template tickets:backlog --folder "管理"
+            vellym add set sprint --name "Sprint 3"
+            vellym add template release-record
+            ```
+
+            `--folder "管理"` is an example for the default Japanese, By type structure. `--folder` paths are relative to the document root (`contentRoot`). The `@vellym/kanban` plugin must also be enabled to show Kanban.
+
+            ### A Japanese-style waterfall project
+
+            Use numbered By phase and enable the Ticket and WBS plugins. Add the Start and Planning sets, plus Predictive additions, to begin tracking the plan, WBS, issues, questions and answers, change requests, and risks. Add a named Phase set for each phase; it creates a phase page and a review-finding tracker. Add documents as deliverables require them, such as a requirements definition, business flow, screen list, system design, data design, and test specification.
+
+            ```bash
+            npx vellym init --structure by-phase --plugins tickets,wbs
+            vellym add set start
+            vellym add set planning
+            vellym add set predictive
+            vellym add set phase --name "Requirements"
+            vellym add template requirements-definition
+            ```
+
+            Both are starting points. Add only what you use rather than creating everything up front. See [[getting-started|Getting Started]] for the short path and [[using-plugins|Using Plugins]] for installing plugins.
+
+            ## Template, ticket-management, and set catalog
+
+            IDs are the catalog IDs used by `vellym add`; names are the catalog display names.
+
+            ### Document templates
+
+            | ID | Name | Purpose |
+            | --- | --- | --- |
+            | `acceptance-scenario` | Acceptance scenario | Acceptance scenarios and steps to verify automatically |
+            | `api-design` | API design | API operations, inputs, outputs, and errors |
+            | `architecture-overview` | Architecture overview | System structure and quality priorities |
+            | `background-and-problem` | Background and problem | Context, user problems, and expected change |
+            | `batch-design` | Batch design | Triggers, processing, errors, and recovery |
+            | `business-flow` | Business flow | Business process and steps |
+            | `communication-plan` | Communication plan | Meetings and communication methods |
+            | `completion-handover` | Completion report and handover | Outcomes, deliverables, remaining work, and operational handover |
+            | `current-status` | Current status | Current position, next steps, and blockers |
+            | `data-design` | Data design | ER diagram, table definitions, and retention |
+            | `decision` | Decision record | Context, alternatives, and rationale |
+            | `design-doc` | Design document | Discussion of a major design proposal and alternatives |
+            | `detailed-design` | Detailed design | Module processing, responsibilities, and exceptions |
+            | `development-rules` | Development rules | Development, review, and completion conventions |
+            | `environment-build-deploy` | Environments, build and deployment | Environments and build/deployment procedures |
+            | `external-interface-design` | External interface design | Integration methods and retries |
+            | `functional-requirements` | Functional requirements | Feature requirements and acceptance criteria |
+            | `glossary` | Glossary | Terms and definitions |
+            | `incident-response` | Incident response procedure | Incident detection, triage, and response |
+            | `meeting-minutes` | Meeting minutes | Agenda, decisions, and follow-up actions |
+            | `migration-plan` | Migration plan | Migration steps, verification, and rollback |
+            | `non-functional-requirements` | Non-functional requirements | Quality and operational targets and how to verify them |
+            | `operations-design` | Operations design | Operations roles, monitoring, and routine work |
+            | `phase` | Phase | Phase purpose, deliverables, completion, and approval |
+            | `project-charter` | Project charter | Purpose, success measures, scope, and stakeholders |
+            | `project-plan` | Project plan | Approach, quality, meetings, risks, and change management |
+            | `release-record` | Release record | Release scope, decision, and user-facing changes |
+            | `report-design` | Report design | Report fields, layout, and output conditions |
+            | `requirements-definition` | Requirements definition | Overview of the business and functional/non-functional requirements |
+            | `retrospective` | Retrospective | What went well, problems, and improvements |
+            | `roadmap` | Roadmap | Releases, milestones, and pending decisions |
+            | `scope` | Scope | In scope, out of scope, and change process |
+            | `screen-design` | Screen design | Screen fields, interactions, and error display |
+            | `screen-list` | Screen list | Screen purpose, users, and transitions |
+            | `sprint` | Sprint | Goal, tickets, review, and retrospective |
+            | `stakeholders` | Stakeholders and roles | Stakeholders, responsibilities, and approvers |
+            | `system-design` | System design | Architecture and adopted technologies; an alias of `architecture-overview` |
+            | `test-plan` | Test plan | Scope, test stages, completion criteria, and team |
+            | `test-specification` | Test specification | Test viewpoints, cases, and results |
+
+            `phase` and `sprint` are also used as pages in repeatable sets. `system-design` is an alias of `architecture-overview`. The "Project document guide" is the entry created by `init`, not an addable template.
+
+            ### Ticket-management templates
+
+            Ticket management is provided by the `@vellym/tickets` plugin. Install and enable it in the project to use these templates. The `tickets:` prefix is the plugin ID.
+
+            | ID | Name | Purpose |
+            | --- | --- | --- |
+            | `tickets:backlog` | Backlog | Manage story priority and sprint |
+            | `tickets:bug` | Bug | Manage reproduction steps, cause, and fix |
+            | `tickets:change-request` | Change request | Manage reasons, impact, and decisions |
+            | `tickets:issue` | Issue | Manage impact, owner, and response |
+            | `tickets:qa` | Questions and answers | Manage questions, answers, and documents updated |
+            | `tickets:review` | Review finding | Manage target document, finding, and confirmation |
+            | `tickets:risk` | Risk | Manage likelihood, impact, and response |
+            | `tickets:work` | Work | Manage owner, priority, due date, and related documents |
+
+            See [[ticket-management|Ticket Management]] for setup and use, and [[using-plugins|Using Plugins]] to install the plugin.
+
+            ### Sets
+
+            A set adds its document and ticket-management templates together. If a set includes a plugin template and that plugin is not enabled, that item is skipped with a reason.
+
+            | ID | Name | Contents |
+            | --- | --- | --- |
+            | `start` | Start | Project charter, background and problem, stakeholders and roles, glossary |
+            | `planning` | Planning | Roadmap, current status, scope, work and risk trackers |
+            | `predictive` | Predictive additions | Project plan, communication plan, issue, Q&A, and change-request trackers |
+            | `iterative` | Iterative additions | Backlog tracker |
+            | `requirements` | Requirements | Functional and non-functional requirements |
+            | `design` | Design | Architecture overview, first decision record, screen design, data design |
+            | `quality-release` | Quality and release | Test plan, acceptance scenario, release record, bug tracker |
+            | `operations` | Operations | Operations design, incident response procedure |
+            | `sprint` | Sprint | A sprint page in a folder named for the sprint (repeatable) |
+            | `phase` | Phase | A phase page and review-finding tracker in a folder named for the phase (repeatable) |
+
+            ## Add from the UI
+
+            Open the menu for the folder where you want to add content, then choose "Create from template" or "Add a set." Select the template or set to see the files to create or skip and their destinations. For a repeatable set, enter a name before reviewing the plan, then choose "Create." Existing files at the same path are skipped rather than overwritten.
+
+            Select "Append this usage to VELLYM.md" in the confirmation dialog to add usage instructions to the end of an existing `VELLYM.md`. Existing content is preserved and the same section is not added twice. If the file does not exist, Vellym does not create it.
+
+            ## Add from the CLI
+
+            List candidates with `vellym add --list template` or `vellym add --list set`, then use their IDs.
+
+            ```bash
+            vellym add --list template
+            vellym add --list set
+            vellym add template roadmap
+            vellym add set start
+            vellym add set sprint --name "Sprint 3"
+            vellym add set phase --name "Requirements" --dry-run
+            ```
+
+            A document template goes to the folder for its role in the selected structure by default. Use `--folder <path>` to override it. To add a plugin template directly, provide both `<plugin-id>:<id>` and `--folder`. For example, in the default Japanese By type structure:
+
+            ```bash
+            vellym add template tickets:work --folder "管理"
+            ```
+
+            `--dry-run` displays the plan without writing files. `--json` emits JSON; `--config <path>` selects a config file. Add `--guide` to append usage instructions to `VELLYM.md`. By default no guide is appended (`--no-guide`), so a normal add does not change the existing guide.
+
+            ## Related
+
+            - Initialization and the short path → [[getting-started|Getting Started]]
+            - All CLI commands → [[cli-reference|CLI Reference]]
+            - Ticket management → [[ticket-management|Ticket Management]]
+            - Installing plugins → [[using-plugins|Using Plugins]]

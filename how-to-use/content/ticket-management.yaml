@@ -20,6 +20,7 @@ spec:
         `vellym dev`の文書ツリーで、管理したい工程のフォルダにある追加メニューから
         「チケット管理」を選ぶ。たとえば開発、テスト、リリース準備の各フォルダへ
         一つずつ置けば、工程ごとに別のチケット管理を持てる。
+        Ticket管理テンプレートの一覧と追加方法は[[templates|テンプレートとセット]]を参照。
 
         ## 所属は置き場所で決まる
 
@@ -248,6 +249,7 @@ spec:
             you want to manage and choose "Ticket tracker." Place one in each of your
             development, testing, and release-preparation folders to manage those stages
             separately.
+            See [[templates|Templates and Sets]] for the ticket-management template catalog and how to add one.
 
             ## Location determines ownership
 

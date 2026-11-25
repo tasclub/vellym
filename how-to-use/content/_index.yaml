@@ -13,6 +13,7 @@ spec:
     - design.yaml
     - using-plugins.yaml
     - ticket-management.yaml
+    - templates.yaml
     - wbs.yaml
     - developing-plugins.yaml
     - plugin-design-notes.yaml
