@@ -9,6 +9,8 @@ import {
 import { canvasResourceName, childResourceName, folderOf } from "./model/names.js";
 import { validateDesign } from "./model/validate.js";
 import { designText as text } from "./i18n.js";
+import { resolveTokens } from "./tokens/resolve.js";
+import { resolveResolver, resolverInputs, resolverReferencedFiles } from "./tokens/resolver.js";
 
 function row(record: PluginResourceRecord) {
   return { name: record.name, title: record.title, relativePath: record.relativePath,
@@ -18,6 +20,21 @@ const root = () => ({ id: "root", type: "frame", width: 390, height: 844, childr
 
 export default definePlugin({
   activate(host) {
+    host.registerFileKind({ id: "tokens", pattern: "*.tokens.json", format: "json", maxBytes: 5 * 1024 * 1024 });
+    host.registerFileKind({ id: "resolver", pattern: "*.resolver.json", format: "json", maxBytes: 5 * 1024 * 1024 });
+    host.registerFileSetValidator("tokens", (files, context) => {
+      const resolvers = context.pluginFiles.resolver ?? [];
+      const sources = [...files, ...resolvers];
+      const referenced = new Set(resolvers.flatMap(f => [...resolverReferencedFiles(f.value, sources, f.relativePath)]));
+      return files.flatMap(file => resolveTokens(file.value, file.relativePath, {
+        deferAliases: referenced.has(file.relativePath)
+      }).diagnostics);
+    });
+    host.registerFileSetValidator("resolver", (files, context) => files.flatMap(file => {
+      const sources = [...(context.pluginFiles.tokens ?? []), ...files];
+      return [...resolverInputs(file.value, sources, file.relativePath)].flatMap(input =>
+        resolveResolver(file.value, sources, input, file.relativePath).diagnostics);
+    }));
     for (const [kind, specSchema] of [
       [DESIGN_CANVAS_KIND, DESIGN_CANVAS_SPEC_SCHEMA],
       [DESIGN_BOARD_KIND, DESIGN_BOARD_SPEC_SCHEMA],
@@ -42,7 +59,7 @@ export default definePlugin({
             canvas: canvas ? row(canvas) : null,
             boards: children(DESIGN_BOARD_KIND), components: children(DESIGN_COMPONENT_KIND),
             styles: context.records(DESIGN_STYLES_KIND).filter((r) => r.name === canvas?.spec.styles).map(row),
-            tokenFiles: [],
+            tokenFiles: context.files ?? [],
             notices: validateDesign(context).map((d) => ({
               code: d.code, file: d.file,
               ...(typeof d.message === "string" ? { ja: d.message, en: d.message } : d.message)

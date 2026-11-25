@@ -291,6 +291,11 @@ export interface PluginFileRecord {
   value: unknown;
 }
 
+/** 同じプラグインの登録JSONだけを、種類ごと・relativePath順に渡す。 */
+export interface PluginFileValidationContext extends PluginDefinitionContext {
+  pluginFiles: Readonly<Record<string, readonly PluginFileRecord[]>>;
+}
+
 /** descriptorを組み立てるときにCoreが渡す文脈 */
 export interface PluginViewContext extends PluginDefinitionContext {
   /** このプラグインが登録したファイルだけ。relativePathの順。 */

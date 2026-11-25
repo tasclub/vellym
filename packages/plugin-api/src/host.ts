@@ -10,6 +10,7 @@ import type { PluginLocalizedText } from "./text.js";
 import type { PluginIndexValue } from "./records.js";
 import type {
   PluginDefinitionContext,
+  PluginFileValidationContext,
   PluginFileRecord,
   PluginFieldDescriptor,
   PluginViewContext,
@@ -204,7 +205,7 @@ export interface PluginFileKindContribution {
 /** ファイル種別の全件検証。例外は警告、同じ関数と診断は重複除去する。 */
 export type PluginFileSetValidator = (
   files: readonly PluginFileRecord[],
-  context: PluginDefinitionContext
+  context: PluginFileValidationContext
 ) => readonly PluginDiagnostic[];
 
 export interface VellymPluginHost {

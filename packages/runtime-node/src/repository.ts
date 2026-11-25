@@ -431,7 +431,9 @@ async function loadPluginFiles(
       if (!byKind.has(id)) continue;
       for (const validate of new Set(validators)) {
         try {
-          for (const item of validate(byKind.get(id)!, context) ?? []) report(item);
+          for (const item of validate(byKind.get(id)!, {
+            ...context, pluginFiles: Object.fromEntries(byKind)
+          }) ?? []) report(item);
         } catch {
           report({ file: ".", path: `${pluginId}/${id}`, severity: "warning",
             code: "PLUGIN_FILE_SET_VALIDATION_FAILED",

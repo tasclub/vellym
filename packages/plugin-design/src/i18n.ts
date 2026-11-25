@@ -1,5 +1,9 @@
 /** Node contributions and diagnostics share the same Japanese/English dictionary. */
 export const designText = {
+  invalidToken: { ja: "トークンの型または値が不正です", en: "Invalid token type or value." },
+  tokenCycle: { ja: "トークンの参照が循環しています", en: "Token references form a cycle." },
+  tokenMissing: { ja: "参照先のトークンがありません", en: "Referenced token does not exist." },
+  invalidResolver: { ja: "Resolverの定義・参照またはモードの選択が不正です", en: "Invalid resolver definition, reference, or mode selection." },
   canvas: { ja: "キャンバス", en: "Canvas" },
   createCanvas: { ja: "デザインキャンバスを作成", en: "New design canvas" },
   createBoard: { ja: "ボードを追加", en: "New board" },
