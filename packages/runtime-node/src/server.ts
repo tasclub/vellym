@@ -18,6 +18,7 @@ import {
   type ContentRootPlan
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
+import { savePluginFile } from "./plugin-files.js";
 import { readAsset, saveAsset, saveFontAsset } from "./assets.js";
 import { fetchGoogleFont } from "./fonts.js";
 import { readGitHistory } from "./git-history.js";
@@ -1414,6 +1415,22 @@ export async function startDevServer(options: {
         return;
       }
       // 未作成Resourceの初回保存。commandとは分け、離脱だけでは到達しない。
+      if (url.pathname === "/api/v1/plugins/files" && request.method === "PUT") {
+        if (!request.headers.origin) throw new RuntimeError("Originが必要です", 403, "ORIGIN");
+        assertAllowedOrigin(request.method, request.headers.origin, request.headers.host);
+        const ready = requireReady();
+        const body = (await readJson(request)) as { pluginId?: unknown; relativePath?: unknown; baseHash?: unknown; value?: unknown };
+        if (typeof body.pluginId !== "string" || typeof body.relativePath !== "string" ||
+            !(body.baseHash === null || (typeof body.baseHash === "string" && /^[a-f0-9]{64}$/.test(body.baseHash))) ||
+            !Object.hasOwn(body, "value")) {
+          throw new RuntimeError("保存の指定が不正です", 400, "INVALID_JSON");
+        }
+        const result = await savePluginFile(ready.loadedConfig.contentRoot, body.relativePath, body.value, body.baseHash, kindOptions.fileKinds?.get(body.pluginId) ?? []);
+        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot, kindOptions);
+        publishChange();
+        json(response, 200, envelope(result, snapshot.diagnostics));
+        return;
+      }
       const deleteResourceMatch = url.pathname.match(/^\/api\/v1\/plugins\/resources\/([a-z0-9-]+)$/);
       if (deleteResourceMatch && request.method === "DELETE") {
         if (!request.headers.origin) {

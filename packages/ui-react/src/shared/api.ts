@@ -723,6 +723,14 @@ export function deletePluginResource(name: string, pluginId: string, baseHash: s
   });
 }
 
+export function savePluginFile(pluginId: string, relativePath: string, value: unknown, baseHash: string | null): Promise<Envelope<{ hash: string }>> {
+  return request("/api/v1/plugins/files", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pluginId, relativePath, value, baseHash })
+  });
+}
+
 export function fetchPage(
   name: string,
   signal?: AbortSignal

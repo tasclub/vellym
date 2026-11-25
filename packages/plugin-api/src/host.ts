@@ -339,6 +339,8 @@ export interface PluginRenderContext extends PluginViewContext {
   createResourceNow?(draft: PluginResourceDraft & { name: string }): Promise<PluginCreateResult>;
   /** Delete a registered resource using the hash obtained when it was loaded. */
   deleteResource?(name: string, options: { baseHash: string }): Promise<PluginSaveResult>;
+  /** Save a registered JSON file using its loaded hash, or null to create it. */
+  saveFile?(relativePath: string, value: unknown, options: { baseHash: string | null }): Promise<PluginSaveResult>;
   /**
    * 開いているリソースの正本へ書き戻す。
    *
