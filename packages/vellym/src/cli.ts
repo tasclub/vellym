@@ -17,7 +17,7 @@ import {
   startDevServer
 } from "@vellym-internal/runtime-node";
 import { API_SCHEMA_VERSION, type Diagnostic } from "@vellym-internal/core";
-import { initializeProject } from "./init-command.js";
+import { initializeProject, initEnvironmentLanguage } from "./init-command.js";
 import { addCommand, AddUsageError } from "./add-command.js";
 import { buildStatic } from "./static-builder.js";
 import { VELLYM_VERSION } from "./version.js";
@@ -400,9 +400,15 @@ async function devCommand(args: string[]): Promise<void> {
 }
 
 async function main(args = process.argv.slice(2)): Promise<void> {
-  const argLanguage = cliLanguageFromArgs(args);
+  const initInlineLanguage = args[0] === "init" ? args.findLast(arg => arg.startsWith("--language="))?.slice("--language=".length) : undefined;
+  const argLanguage = cliLanguageFromArgs(args) ?? (initInlineLanguage === "ja" || initInlineLanguage === "en" ? initInlineLanguage : undefined);
   if (argLanguage) setLanguage(argLanguage);
   const command = args[0];
+  if (command === "init" && !argLanguage) setLanguage(initEnvironmentLanguage());
+  if (command === "init") {
+    const removed = args.slice(1).find(item => ["--size", "--method", "--level", "--content-root", "--use-existing-content-root"].includes(item.split("=")[0]!));
+    if (removed) throw new UsageError(messages.initRemoved(removed));
+  }
   if (!command || command === "help" || command === "--help") {
     process.stdout.write(usage());
     return;
@@ -424,41 +430,42 @@ async function main(args = process.argv.slice(2)): Promise<void> {
   }
   if (command === "init") {
     const initArgs = args.slice(1);
-    const allowed = new Set(["--size", "--method", "--language", "--content-root", "--plugins", "--level", "--dry-run", "--use-existing-content-root", "--json"]);
-    const unsupported = initArgs.find(
-      (item) => item.startsWith("--") && !allowed.has(item)
-    );
-    if (unsupported) {
-      throw new UsageError(language === "en" ? `Unsupported init option: ${unsupported}` : `initでは${unsupported}を使用できません`);
+    const values = new Map<string, string>();
+    const flags = new Set<string>();
+    const positionals: string[] = [];
+    const valueOptions = ["--language", "--root", "--structure", "--plugins"];
+    for (let index = 0; index < initArgs.length; index++) {
+      const item = initArgs[index]!;
+      const [key, inline] = item.split(/=(.*)/s);
+      if (valueOptions.includes(key!)) {
+        const value = inline ?? initArgs[++index];
+        if (!value || value.startsWith("-")) throw new UsageError(`${key}: ${language === "en" ? "a value is required" : "値が必要です"}`);
+        values.set(key!, value);
+      } else if (["--numbered", "--no-numbered", "--with-guide-folders", "--dry-run", "--json"].includes(item)) {
+        flags.add(item);
+      } else if (item.startsWith("-")) {
+        throw new UsageError(language === "en" ? `Unsupported init option: ${item}` : `initでは${item}を使用できません`);
+      } else positionals.push(item);
     }
-    const languageValue = option(initArgs, "--language");
-    if (languageValue && languageValue !== "ja" && languageValue !== "en") {
-      throw new UsageError(messages.languageInvalid());
-    }
-    const sizeValue = option(initArgs, "--size");
-    if (sizeValue && !["personal", "small-team", "medium-large"].includes(sizeValue)) {
-      throw new UsageError(language === "en" ? "--size must be personal, small-team, or medium-large" : "--sizeはpersonal、small-team、medium-largeから指定してください");
-    }
-    const methodValue = option(initArgs, "--method");
-    if (methodValue && !["agile", "hybrid", "waterfall"].includes(methodValue)) {
-      throw new UsageError(language === "en" ? "--method must be agile, hybrid, or waterfall" : "--methodはagile、hybrid、waterfallから指定してください");
-    }
-    const levelValue = option(initArgs, "--level");
-    if (levelValue && !["light", "standard", "strict"].includes(levelValue)) {
-      throw new UsageError(language === "en" ? "--level must be light, standard, or strict" : "--levelはlight、standard、strictから指定してください");
-    }
+    if (positionals.length > 1) throw new UsageError(messages.initHelp());
+    const languageValue = values.get("--language");
+    if (languageValue !== undefined && !["ja", "en"].includes(languageValue)) throw new UsageError(messages.languageInvalid());
+    const root = values.get("--root");
+    if (root !== undefined && !["docs", "vellym", "."].includes(root)) throw new UsageError("--root: docs | vellym | .");
+    const structure = values.get("--structure");
+    if (structure !== undefined && !["by-type", "by-phase", "by-feature"].includes(structure)) throw new UsageError("--structure: by-type | by-phase | by-feature");
+    if (flags.has("--numbered") && flags.has("--no-numbered")) throw new UsageError("--numbered / --no-numbered");
     await initializeProject(
-      args[1] && !args[1].startsWith("--") ? args[1] : undefined,
+      positionals[0],
       {
-        size: sizeValue as import("@vellym-internal/runtime-node").ProjectSize | undefined,
-        method: methodValue as import("@vellym-internal/runtime-node").DevelopmentMethod | undefined,
         language: languageValue as "ja" | "en" | undefined,
-        contentRoot: option(initArgs, "--content-root"),
-        plugins: option(initArgs, "--plugins"),
-        level: levelValue as import("@vellym-internal/runtime-node").DocumentationLevel | undefined,
-        dryRun: initArgs.includes("--dry-run"),
-        useExistingContentRoot: initArgs.includes("--use-existing-content-root"),
-        json: initArgs.includes("--json")
+        root: root as "docs" | "vellym" | "." | undefined,
+        structure: structure as "by-type" | "by-phase" | "by-feature" | undefined,
+        numbered: flags.has("--numbered") ? true : flags.has("--no-numbered") ? false : undefined,
+        withGuideFolders: flags.has("--with-guide-folders"),
+        plugins: values.get("--plugins"),
+        dryRun: flags.has("--dry-run"),
+        json: flags.has("--json")
       }
     );
     return;

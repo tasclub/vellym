@@ -1,6 +1,6 @@
 // CLIの表示文言を日本語・英語で切り替えるための軽量なメッセージ表。
 // --language／ui.languageに応じて同じフラグで日英どちらの出力も得られる。
-// initは候補選択を持たず、規模・開発方式・言語と--level（既定standard）から生成する。
+// initは管理ルートと構成の型からフォルダの枠と入口を作る。
 
 import { OFFICIAL_PLUGINS } from "./version.js";
 
@@ -11,6 +11,7 @@ const officialPluginList = (): string => Object.keys(OFFICIAL_PLUGINS).join(",")
 export interface CliMessages {
   usage(): string;
   initHelp(): string;
+  initRemoved(option: string): string;
   addHelp(): string;
   devHelp(): string;
   validateHelp(): string;
@@ -39,20 +40,14 @@ export interface CliMessages {
   languageInvalid(): string;
   unknownCommand(command: string): string;
   initCancelled(): string;
-  initMissing(missing: string[]): string;
   initUnknownPlugin(name: string, available: readonly string[]): string;
-  initConflict(paths: string): string;
   initComplete(target: string, created: number, skipped: number): string;
   initNext(): string;
   initLinks(): string;
   initGuides(): string;
   initAgentGuide(contentRoot: string): string;
-  initPackageJsonKept(): string;
   initPackageJsonUnreadable(): string;
-  initInstallPlugins(): string;
-  initPlan(target: string, create: string[], skip: string[], conflict: string[]): string;
-  initForeignContentRoot(contentRoot: string): string;
-  initForeignContentRootWarning(contentRoot: string): string;
+  initPlan(target: string, create: string[], skip: string[], update: string[]): string;
   migrationTargetInvalid(): string;
   migrationPlanSummary(files: number, diagnostics: number): string;
   migrationSummary(files: number): string;
@@ -62,7 +57,7 @@ const ja: CliMessages = {
   usage: () => `Vellym
 
 Usage:
-  vellym init [directory] --size <size> --method <method> --language <ja|en> [--content-root <path>]
+  vellym init [project root] [--root docs|vellym|.] [--structure by-type|by-phase|by-feature]
   vellym add template|set <id> [options]
   vellym dev [--config <path>] [--host <address>] [--port <number>]
   vellym validate [--config <path>] [--json] [--strict]
@@ -85,22 +80,23 @@ vellym add --list [template|set]
 --dry-run: 計画だけ表示  --json: JSON出力  --config <path>: 設定
 プラグインのテンプレートは <プラグインID>:<ID> と --folder を指定します。
 `,
-  initHelp: () => `vellym init [directory] [options]
+  initRemoved: (option) => `${option}は廃止しました。新しい引数の例: vellym init my-project --root docs --structure by-type --language ja`,
+  initHelp: () => `vellym init [project root] [options]
 
-規模と開発方式に対応するFolder・Pageを、--levelの大きさで一括生成します。
+引数無しでdocs/に種類別・番号なしのフォルダの枠と入口を作ります。
 
 Options:
-  --size <value>        personal | small-team | medium-large
-  --method <value>      agile | hybrid | waterfall
-  --language <ja|en>    初期生成言語
+  --root <value>        docs | vellym | .（管理ルート。既定: docs）
+  --structure <value>   by-type | by-phase | by-feature（既定: by-type）
+  --numbered / --no-numbered  番号の有無（既定: 工程別はあり、他はなし）
+  --with-guide-folders  利用者向けのフォルダを追加
+  --language <ja|en>    初期生成言語（既定: LC_ALL・LC_MESSAGES・LANG。日本語以外は英語）
   --plugins <list>      ${officialPluginList()}（任意）
-  --level <value>       light | standard | strict（既定: standard。ブラウザの初回設定と同じ）
-  --dry-run             作成・skip・競合するファイルを表示し、何も書かない（--jsonでJSON）
-  --use-existing-content-root  Vellymの文書ではないファイルがあるcontent rootをそのまま使う
-  --content-root <path> project rootからのcontent root相対path（既定: docs）
+  --dry-run            作成・skip・更新するファイルを表示し、何も書かない
+  --json               計画をJSONで表示
 
 例:
-  vellym init ./my-docs --size small-team --method hybrid --language ja
+  vellym init ./my-docs --root docs --structure by-type --language ja
 `,
   devHelp: () => `vellym dev [options]
 
@@ -187,27 +183,20 @@ Options:
   languageInvalid: () => "--languageはjaまたはenを指定してください",
   unknownCommand: (command) => `不明なコマンドです: ${command}`,
   initCancelled: () => "初期化をキャンセルしました",
-  initMissing: (missing) => `必須オプションが不足しています: ${missing.join(", ")}\n指定できる値: --size personal|small-team|medium-large, --method agile|hybrid|waterfall, --language ja|en\n例: vellym init my-project --size small-team --method hybrid --language ja --plugins tickets,kanban`,
   initUnknownPlugin: (name, available) => `不明なプラグイン: ${name} (${available.join(", ")})`,
-  initConflict: (paths) => `既存ファイルと競合しています: ${paths}`,
   initComplete: (target, created, skipped) => `初期化しました: ${target}\n作成: ${created}件、skip: ${skipped}件`,
   initNext: () => "次のコマンド:",
   initLinks: () => "利用ガイド: https://vellym.tasclub.com/\nAI向け案内: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "プラグインの使い方:",
-  initAgentGuide: (root) => `AIエージェントには${root}/VELLYM.mdを読ませてください。`,
-  initPackageJsonKept: () => "既存のpackage.jsonは変更していません。",
+  initAgentGuide: (root) => `AGENTS.mdに次の1行を追加してください:\n作業前に${root === "." ? "" : `${root}/`}VELLYM.mdを読んでください。`,
   initPackageJsonUnreadable: () => "注意: package.jsonがJSONとして読めません。変更していないので、手で直してください。",
-  initInstallPlugins: () => "vellymとプラグインをプロジェクトに入れるには次を実行します:",
-  initPlan: (target, create, skip, conflict) => [
+  initPlan: (target, create, skip, update) => [
     `初期化の計画（何も書いていません）: ${target}`,
-    `作成: ${create.length}件、skip: ${skip.length}件、競合: ${conflict.length}件`,
+    `作成: ${create.length}件、skip: ${skip.length}件、更新: ${update.length}件`,
     ...create.map((file) => `create: ${file}`),
     ...skip.map((file) => `skip: ${file}`),
-    ...conflict.map((file) => `conflict: ${file}`),
-    ...(conflict.length ? ["競合があるため、実際のinitはここで止まります。"] : [])
+    ...update.map((file) => `update: ${file}`)
   ].join("\n"),
-  initForeignContentRoot: (contentRoot) => `${contentRoot}にはVellymの文書ではないファイルがあります。別の場所を--content-rootで指定するか、そのまま使う場合は--use-existing-content-rootを付けてください。`,
-  initForeignContentRootWarning: (contentRoot) => `注意: ${contentRoot}にはVellymの文書ではないファイルがあります。実際のinitは、--content-rootで別の場所を指定するか--use-existing-content-rootを付けない限り止まります。`,
   migrationTargetInvalid: () => "--to v1を指定してください",
   migrationPlanSummary: (files, diagnostics) =>
     `migration予定: ${files}ファイル、診断${diagnostics}件`,
@@ -218,7 +207,7 @@ const en: CliMessages = {
   usage: () => `Vellym
 
 Usage:
-  vellym init [directory] --size <size> --method <method> --language <ja|en> [--content-root <path>]
+  vellym init [project root] [--root docs|vellym|.] [--structure by-type|by-phase|by-feature]
   vellym add template|set <id> [options]
   vellym dev [--config <path>] [--host <address>] [--port <number>]
   vellym validate [--config <path>] [--json] [--strict]
@@ -241,22 +230,23 @@ vellym add --list [template|set]
 --dry-run: preview only  --json: JSON output  --config <path>: configuration
 For plugin templates use <plugin-id>:<id> and --folder.
 `,
-  initHelp: () => `vellym init [directory] [options]
+  initRemoved: (option) => `${option} has been removed. New arguments example: vellym init my-project --root docs --structure by-type --language en`,
+  initHelp: () => `vellym init [project root] [options]
 
-Creates the Folder and Page set for the selected size and development method, at the --level size.
+With no arguments, creates a by-type folder skeleton and entry page in docs/, without numbering.
 
 Options:
-  --size <value>        personal | small-team | medium-large
-  --method <value>      agile | hybrid | waterfall
-  --language <ja|en>    Language for generated documents
+  --root <value>        docs | vellym | . (management root; default: docs)
+  --structure <value>   by-type | by-phase | by-feature (default: by-type)
+  --numbered / --no-numbered  Number folders (default: on for by-phase, off otherwise)
+  --with-guide-folders  Add user guide folders
+  --language <ja|en>    Document language (default: LC_ALL, LC_MESSAGES, LANG; English unless Japanese)
   --plugins <list>      ${officialPluginList()} (optional)
-  --level <value>       light | standard | strict (default: standard, as in the browser setup)
-  --dry-run             List the files to create, skip, or conflict, and write nothing (--json for JSON)
-  --use-existing-content-root  Use a content root that holds non-Vellym files as it is
-  --content-root <path> Content root relative to the project root (default: docs)
+  --dry-run            List files to create, skip, or update, and write nothing
+  --json               Print the plan as JSON
 
 Examples:
-  vellym init ./my-docs --size small-team --method hybrid --language en
+  vellym init ./my-docs --root docs --structure by-type --language en
 `,
   devHelp: () => `vellym dev [options]
 
@@ -343,27 +333,20 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   languageInvalid: () => "--language must be ja or en",
   unknownCommand: (command) => `Unknown command: ${command}`,
   initCancelled: () => "Initialization cancelled",
-  initMissing: (missing) => `Missing required options: ${missing.join(", ")}\nAvailable values: --size personal|small-team|medium-large, --method agile|hybrid|waterfall, --language ja|en\nExample: vellym init my-project --size small-team --method hybrid --language en --plugins tickets,kanban`,
   initUnknownPlugin: (name, available) => `Unknown plugin: ${name} (${available.join(", ")})`,
-  initConflict: (paths) => `init: already exists (existing_file): ${paths}`,
   initComplete: (target, created, skipped) => `Vellym workspace created: ${target}\nCreated: ${created}, skipped: ${skipped}`,
   initNext: () => "Next commands:",
   initLinks: () => "User guide: https://vellym.tasclub.com/en/\nAI guide: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "How to use the plugins:",
-  initAgentGuide: (root) => `Have AI agents read ${root}/VELLYM.md.`,
-  initPackageJsonKept: () => "The existing package.json was left unchanged.",
+  initAgentGuide: (root) => `Add this line to AGENTS.md:\nRead ${root === "." ? "" : `${root}/`}VELLYM.md before starting work.`,
   initPackageJsonUnreadable: () => "Warning: package.json is not valid JSON. It was left unchanged; fix it by hand.",
-  initInstallPlugins: () => "To add vellym and the plugins to the project, run:",
-  initPlan: (target, create, skip, conflict) => [
+  initPlan: (target, create, skip, update) => [
     `Setup plan (nothing written): ${target}`,
-    `Create: ${create.length}, skip: ${skip.length}, conflicts: ${conflict.length}`,
+    `Create: ${create.length}, skip: ${skip.length}, update: ${update.length}`,
     ...create.map((file) => `create: ${file}`),
     ...skip.map((file) => `skip: ${file}`),
-    ...conflict.map((file) => `conflict: ${file}`),
-    ...(conflict.length ? ["The real init stops here because of the conflicts."] : [])
+    ...update.map((file) => `update: ${file}`)
   ].join("\n"),
-  initForeignContentRoot: (contentRoot) => `${contentRoot} holds files that are not Vellym documents. Choose another place with --content-root, or add --use-existing-content-root to use it as it is.`,
-  initForeignContentRootWarning: (contentRoot) => `Warning: ${contentRoot} holds files that are not Vellym documents. The real init stops unless you choose another place with --content-root or add --use-existing-content-root.`,
   migrationTargetInvalid: () => "Specify --to v1",
   migrationPlanSummary: (files, diagnostics) =>
     `Migration plan: ${files} file(s), ${diagnostics} diagnostic(s)`,

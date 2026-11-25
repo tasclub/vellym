@@ -1,122 +1,89 @@
 import path from "node:path";
+import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { OFFICIAL_PLUGINS, VELLYM_VERSION } from "./version.js";
-import { getMessages } from "./cli-messages.js";
-import {
-  applyProjectSetup,
-  inspectContentRoot,
-  planProjectSetup,
-  vellymGuide,
-  type DevelopmentMethod,
-  type DocumentationLevel,
-  type ProjectSize,
-  type SetupLanguage
-} from "@vellym-internal/runtime-node";
+import { getMessages, type CliLanguage } from "./cli-messages.js";
+import { applyInit, planInit, type InitRequest } from "@vellym-internal/runtime-node";
+import { loadCatalog } from "../../runtime-node/src/catalog/load.js";
 
 export interface InitializeOptions {
-  size?: ProjectSize;
-  method?: DevelopmentMethod;
-  contentRoot?: string;
-  language?: SetupLanguage;
+  root?: InitRequest["root"];
+  structure?: InitRequest["structure"];
+  numbered?: boolean;
+  withGuideFolders?: boolean;
+  language?: CliLanguage;
   plugins?: string;
-  /** Size of the generated set; the browser setup uses the same three. Default standard. */
-  level?: DocumentationLevel;
-  /** Print the plan and write nothing. */
   dryRun?: boolean;
-  /** Write into a content root that already holds non-Vellym files. */
-  useExistingContentRoot?: boolean;
   json?: boolean;
 }
 
-export async function initializeProject(
-  targetArgument?: string,
-  options: InitializeOptions = {}
-): Promise<void> {
-  const missing: string[] = [];
-  if (!options.size) missing.push("--size");
-  if (!options.method) missing.push("--method");
-  if (!options.language) missing.push("--language");
-  if (missing.length) {
-    const detail = (lang: SetupLanguage) => getMessages(lang).initMissing(missing);
-    throw new Error(options.language ? detail(options.language) : `${detail("ja")}\n\n${detail("en")}`);
-  }
-  const messages = getMessages(options.language!);
-  const names = options.plugins === undefined ? [] : [...new Set(options.plugins.split(",").map((name) => name.trim()))];
+export function initEnvironmentLanguage(): CliLanguage {
+  const locale = process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG || "";
+  return /^ja(?:[_\-.@]|$)/i.test(locale) ? "ja" : "en";
+}
+
+export async function initializeProject(targetArgument?: string, options: InitializeOptions = {}): Promise<void> {
+  const language = options.language ?? initEnvironmentLanguage();
+  const messages = getMessages(language);
+  const names = options.plugins === undefined ? [] : [...new Set(options.plugins.split(",").map(name => name.trim()))];
   for (const name of names) {
     if (!Object.hasOwn(OFFICIAL_PLUGINS, name)) throw new Error(messages.initUnknownPlugin(name, Object.keys(OFFICIAL_PLUGINS)));
   }
-  const pluginPackages = names.map((name) => ({ name: OFFICIAL_PLUGINS[name]!.name, version: OFFICIAL_PLUGINS[name]!.version }));
-
-  const target = path.resolve(targetArgument ?? ".");
-  const baseOptions = {
-    mode: "recommended" as const,
-    size: options.size!,
-    method: options.method!,
-    level: options.level ?? "standard",
-    contentRoot: options.contentRoot ?? "docs",
-    agentGuide: { content: vellymGuide({ language: options.language!, structure: "by-type", numbered: false, folderNames: {}, contentRoot: (options.contentRoot ?? "docs").normalize("NFC").replace(/\/+$/, ""), plugins: names.map((id) => ({ id, ...OFFICIAL_PLUGINS[id]! })), version: VELLYM_VERSION }) },
-    pluginPackages,
-    hostVersion: VELLYM_VERSION,
-    language: options.language!
+  const structure = options.structure ?? "by-type";
+  const request: InitRequest = {
+    root: options.root ?? "docs",
+    structure,
+    numbered: options.numbered ?? loadCatalog().structures.find(item => item.id === structure)!.numberedByDefault,
+    supplementGuide: options.withGuideFolders ?? false,
+    language,
+    plugins: names.map(id => ({ id, name: OFFICIAL_PLUGINS[id]!.name, version: OFFICIAL_PLUGINS[id]!.version })),
+    hostVersion: VELLYM_VERSION
   };
-  const contentRootState = await inspectContentRoot(target, baseOptions.contentRoot);
-  const foreign = contentRootState === "foreign" && !options.useExistingContentRoot;
-  if (foreign && !options.dryRun) throw new Error(messages.initForeignContentRoot(baseOptions.contentRoot));
-  let plan = await planProjectSetup(target, baseOptions);
-
-  // CLIは対話的な競合解決を行わない。Page候補のpath競合だけをskipし、
-  // config/root metadata等の競合は安全のためapply前にエラーとして残す。
-  const resolutions = Object.fromEntries(
-    plan.files
-      .filter((file) => file.templateId && file.status === "conflict")
-      .map((file) => [file.templateId!, "skip" as const])
-  );
-  if (Object.keys(resolutions).length) {
-    plan = await planProjectSetup(target, {
-      ...baseOptions,
-      conflictResolutions: resolutions
-    });
+  const target = path.resolve(targetArgument ?? ".");
+  // The shared planner requires an existing root. For a new dry-run target use
+  // an isolated empty scratch project, never creating anything in the target.
+  let scratch: string | undefined;
+  let planningRoot = target;
+  try {
+    await realpath(target);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    if (options.dryRun) {
+      scratch = await mkdtemp(path.join(tmpdir(), "vellym-init-plan-"));
+      planningRoot = path.join(scratch, path.basename(target));
+      await mkdir(planningRoot);
+    } else await mkdir(target, { recursive: true });
   }
-
-  const conflicts = plan.files.filter((file) => file.status === "conflict");
-  const created = plan.files.filter((file) => file.status === "create");
-  const skipped = plan.files.filter((file) => file.status === "skip");
-  if (options.dryRun) {
-    const paths = (files: typeof plan.files) => files.map((file) => file.relativePath);
-    const warnings = foreign ? [messages.initForeignContentRootWarning(baseOptions.contentRoot)] : [];
-    if (options.json) {
-      process.stdout.write(`${JSON.stringify({ target, level: baseOptions.level, create: paths(created), skip: paths(skipped), conflict: paths(conflicts), warnings }, null, 2)}\n`);
-    } else {
-      process.stdout.write(`${messages.initPlan(target, paths(created), paths(skipped), paths(conflicts))}\n`);
-      for (const warning of warnings) process.stdout.write(`${warning}\n`);
-    }
+  const plan = await (async () => {
+    try { return await planInit(planningRoot, request); }
+    finally { if (scratch) await rm(scratch, { recursive: true }); }
+  })();
+  const paths = (status: "create" | "skip" | "update") => plan.files.filter(file => file.status === status).map(file => file.relativePath);
+  if (!options.dryRun) await applyInit(plan);
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({
+      ...plan, projectRoot: target,
+      // A scratch preview is not an apply token for a real project.
+      planHash: scratch ? undefined : plan.planHash,
+      create: paths("create"), skip: paths("skip"), update: paths("update")
+    }, null, 2)}\n`);
     return;
   }
-  if (conflicts.length) throw new Error(messages.initConflict(conflicts.map((file) => file.relativePath).join(", ")));
-  await applyProjectSetup(plan);
-  const keptPackage = plan.files.find((file) => file.kind === "package-json" && file.status === "skip");
-  if (keptPackage?.note === "unreadable-json") process.stderr.write(`${messages.initPackageJsonUnreadable()}\n`);
-  process.stdout.write(`${messages.initComplete(target, created.length, skipped.length)}\n`);
-  for (const file of skipped) process.stdout.write(`skip: ${file.relativePath}\n`);
-  if (keptPackage) process.stdout.write(`${messages.initPackageJsonKept()}\n`);
-  // Existing package.json files stay untouched; print the exact commands needed
-  // to install this Vellym version and any selected plugins.
-  if (keptPackage) {
-    const commands = [
-      `npm install -D vellym@${VELLYM_VERSION}`,
-      ...(pluginPackages.length
-        ? [`npm install ${pluginPackages.map((item) => `${item.name}@${item.version}`).join(" ")}`]
-        : [])
-    ];
-    process.stdout.write(`${messages.initInstallPlugins()}\n${commands.map((command) => `  ${command}`).join("\n")}\n`);
+  if (options.dryRun) {
+    process.stdout.write(`${messages.initPlan(target, paths("create"), paths("skip"), paths("update"))}\n`);
+    return;
   }
-  process.stdout.write(`${messages.initNext()}\n${keptPackage ? "" : "  npm install\n"}  npx vellym dev\n`);
+  const managementRoot = request.root === "." ? target : path.join(target, request.root);
+  process.stdout.write(`${messages.initComplete(managementRoot, paths("create").length, paths("skip").length)}\n`);
+  for (const file of paths("skip")) process.stdout.write(`skip: ${file}\n`);
+  if (plan.files.some(file => file.reason === "unreadable-json")) process.stderr.write(`${messages.initPackageJsonUnreadable()}\n`);
+  process.stdout.write(`${messages.initNext()}\n  cd '${target.replaceAll("'", "'\\''")}'\n  npm install\n  npx vellym dev\n`);
   process.stdout.write(`${messages.initLinks()}\n`);
-  // Each selected plugin names its own guide (package.json vellym.guideUrl); the host knows no plugin.
-  const guides = [...new Set(names.flatMap((name) => {
+  const guides = [...new Set(names.flatMap(name => {
     const url = OFFICIAL_PLUGINS[name]!.guideUrl;
-    const chosen = url?.[options.language!] ?? url?.en ?? url?.ja;
+    const chosen = url?.[language] ?? url?.en ?? url?.ja;
     return chosen ? [chosen] : [];
   }))];
-  if (guides.length) process.stdout.write(`${messages.initGuides()}\n${guides.map((url) => `  ${url}`).join("\n")}\n`);
-  process.stdout.write(`${messages.initAgentGuide(plan.contentRoot)}\n`);
+  if (guides.length) process.stdout.write(`${messages.initGuides()}\n${guides.map(url => `  ${url}`).join("\n")}\n`);
+  process.stdout.write(`${messages.initAgentGuide(request.root)}\n`);
 }

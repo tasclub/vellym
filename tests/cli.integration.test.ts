@@ -75,17 +75,16 @@ function run(args: string[]) {
 }
 
 describe("init agent guide", () => {
-  for (const contentRoot of ["docs", "content"]) {
+  for (const contentRoot of ["docs", "vellym"]) {
     it(`creates and validates ${contentRoot}/VELLYM.md`, async () => {
       const root = await mkdtemp(path.join(tmpdir(), "vellym-guide-"));
-      const result = run(["init", root, "--size", "small-team", "--method", "hybrid", "--language", "ja", "--content-root", contentRoot]);
+      const result = run(["init", root, "--language", "ja", "--root", contentRoot]);
       expect(result.status, result.stderr).toBe(0);
       expect(result.stdout).toContain(`${contentRoot}/VELLYM.md`);
       const guide = await readFile(path.join(root, contentRoot, "VELLYM.md"), "utf8");
-      expect(guide).toContain(`${contentRoot}/VELLYM.md`);
-      expect(guide).toContain(`${contentRoot}/`);
-      if (contentRoot === "content") expect(guide).not.toContain("docs/");
-      const validation = run(["validate", "--strict", "--json", "--config", path.join(root, "vellym.config.yaml")]);
+      expect(guide).toContain("VELLYM.md");
+      expect(guide).toContain("文書");
+      const validation = run(["validate", "--strict", "--json", "--config", path.join(root, contentRoot, "vellym.config.yaml")]);
       expect(validation.status, validation.stderr + validation.stdout).toBe(0);
       expect(JSON.parse(validation.stdout).diagnostics).toEqual([]);
     });
@@ -97,7 +96,7 @@ describe("init agent guide", () => {
     const result = run(initArgs(root, ["--dry-run", "--json"]));
     expect(result.status, result.stderr).toBe(0);
     expect(JSON.parse(result.stdout).skip).toContain("docs/VELLYM.md");
-    const actual = run(initArgs(root, ["--use-existing-content-root"]));
+    const actual = run(initArgs(root));
     expect(actual.status, actual.stderr).toBe(0);
     expect(await readFile(path.join(root, "docs", "VELLYM.md"), "utf8")).toBe("custom");
   });
@@ -117,14 +116,8 @@ function initArgs(root: string, extra: string[] = []): string[] {
   return [
     "init",
     root,
-    "--size",
-    "small-team",
-    "--method",
-    "hybrid",
     "--language",
     extra.includes("--language") ? extra[extra.indexOf("--language") + 1]! : "ja",
-    "--content-root",
-    "docs",
     ...extra.filter((_, index) => index !== extra.indexOf("--language") && index !== extra.indexOf("--language") + 1 || !extra.includes("--language"))
   ];
 }
@@ -153,16 +146,6 @@ async function workspaceVersion(packageDir: string): Promise<string> {
     await readFile(path.join(process.cwd(), "packages", packageDir, "package.json"), "utf8")
   ) as { version: string };
   return manifest.version;
-}
-
-// 公開ガイド（getting-started.yaml）に載せた最小TicketTrackerのYAMLを取り出す。
-// ガイドの例が実際に検証できることをテストで保証するため、両言語分を返す。
-function guideTicketTrackerExamples(): string[] {
-  const guide = readFileSync(path.join(process.cwd(), "how-to-use/content/getting-started.yaml"), "utf8");
-  const blocks = [...guide.matchAll(/```yaml\n([\s\S]*?)```/g)]
-    .map((match) => { const text = match[1]!; const indent = text.match(/^ */)![0].length; return text.split("\n").map((line) => line.slice(indent)).join("\n"); })
-    .filter((block) => /^kind: TicketTracker$/m.test(block));
-  return blocks;
 }
 
 async function directoryHash(directory: string): Promise<string> {
@@ -269,7 +252,7 @@ describe("published CLI shape", () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-schema-plugin-warning-"));
     const initialized = run(initArgs(root, ["--plugins", "tickets"]));
     expect(initialized.status, initialized.stderr).toBe(0);
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     expect(existsSync(path.join(root, "node_modules"))).toBe(false);
 
     const listed = run(["schema", "--list", "--config", config]);
@@ -305,7 +288,7 @@ describe("published CLI shape", () => {
   it("lists filtered plugin index rows without changing resources", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-list-"));
     expect(run(initArgs(root)).status).toBe(0);
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     await writeFile(config, (await readFile(config, "utf8")).replace("plugins: []", "plugins: ['@vellym/tickets']"));
     await mkdir(path.join(root, "node_modules/@vellym"), { recursive: true });
     for (const name of ["tickets", "plugin-api"]) await symlink(path.join(process.cwd(), `packages/plugin-${name}`), path.join(root, `node_modules/@vellym/${name}`), "dir");
@@ -356,40 +339,28 @@ spec: { status: ${status}, fields: { priority: high } }
     expect(run(["--version"]).stdout.trim()).toBe(manifest.version);
   });
 
-  it("creates the strict recommended structure in Japanese and English", async () => {
+  it("creates the recommended skeleton in Japanese and English", async () => {
     for (const language of ["ja", "en"] as const) {
       const root = await mkdtemp(path.join(tmpdir(), `vellym-product-${language}-`));
       const result = run([
-        "init", root, "--size", "small-team", "--method", "agile",
-        "--language", language, "--content-root", "docs"
+        "init", root, "--language", language
       ]);
       expect(result.status).toBe(0);
       const repository = run([
-        "validate", "--config", path.join(root, "vellym.config.yaml"), "--json"
+        "validate", "--config", path.join(root, "docs/vellym.config.yaml"), "--json"
       ]);
       expect(repository.status).toBe(0);
-      expect(JSON.parse(repository.stdout).data.pages.length).toBeGreaterThan(20);
-      const charter = await readFile(
-        path.join(
-          root,
-          "docs",
-          language === "ja"
-            ? "00_プロジェクト概要/プロジェクト憲章.yaml"
-            : "00_project-overview/project-charter.yaml"
-        ),
-        "utf8"
-      );
-      expect(charter).toContain(
-        language === "ja" ? "## このPageの目的" : "## Purpose of this page"
-      );
-      // The strict CLI run produces the same multi-level hierarchy as the browser.
+      expect(JSON.parse(repository.stdout).data.pages).toHaveLength(1);
+      const entry = await readFile(path.join(root, "docs/index.yaml"), "utf8");
+      expect(entry).toContain(language === "ja" ? "文書の地図" : "Document map");
+      // The skeleton retains nested folders but creates no document templates.
       const nested = await readFile(
         path.join(
           root,
           "docs",
           language === "ja"
-            ? "03_アーキテクチャ/01_arc42/_index.yaml"
-            : "03_architecture/01_arc42/_index.yaml"
+            ? "アーキテクチャ/決定記録/_index.yaml"
+            : "architecture/decisions/_index.yaml"
         ),
         "utf8"
       );
@@ -413,7 +384,7 @@ spec:
 `);
 
     const english = run([
-      "validate", "--config", path.join(root, "vellym.config.yaml"), "--language", "en"
+      "validate", "--config", path.join(root, "docs/vellym.config.yaml"), "--language", "en"
     ]);
     expect(english.status).toBe(1);
     expect(english.stdout).toContain("(PAGE_SCHEMA)");
@@ -421,7 +392,7 @@ spec:
     expect(english.stdout).not.toContain("である必要があります");
 
     const japanese = run([
-      "validate", "--config", path.join(root, "vellym.config.yaml"), "--language", "ja"
+      "validate", "--config", path.join(root, "docs/vellym.config.yaml"), "--language", "ja"
     ]);
     expect(japanese.status).toBe(1);
     expect(japanese.stdout).toContain("(PAGE_SCHEMA)");
@@ -431,7 +402,7 @@ spec:
   it("supports strict validation of ticket warnings without changing JSON or files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-strict-"));
     expect(run(initArgs(root)).status).toBe(0);
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     const configSource = await readFile(config, "utf8");
     await writeFile(config, configSource.replace("plugins: []", "plugins: ['@vellym/tickets']"));
     await mkdir(path.join(root, "node_modules/@vellym"), { recursive: true });
@@ -507,7 +478,7 @@ plugins: []
   it("previews and applies an explicit v1 migration", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-migrate-"));
     expect(run(initArgs(root)).status).toBe(0);
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     // initはv1で生成するため、alpha時代のprojectをv1alpha1へ戻して再現する。
     const welcome = path.join(root, "docs/index.yaml");
     await writeFile(
@@ -529,7 +500,7 @@ plugins: []
   it("bakes plugin views and assets into the static output", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-plugin-"));
     expect(run(initArgs(root)).status).toBe(0);
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     // 同じリポジトリのworkspaceを解決させる。第三者と同じ経路（package名）で読む。
     // 生成された設定には`plugins: []`が既にある。足すのではなく差し替える。
     const baseConfig = await readFile(config, "utf8");
@@ -658,7 +629,7 @@ spec:
   it("bakes a standalone WBS on a TicketTracker without a WBS resource", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-wbs-"));
     expect(run(initArgs(root)).status).toBe(0);
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     await writeFile(config, (await readFile(config, "utf8"))
       .replace("plugins: []", 'plugins:\n  - "@vellym/wbs"'));
     await mkdir(path.join(root, "node_modules/@vellym"), { recursive: true });
@@ -699,7 +670,7 @@ spec:
   it("bakes a standalone Kanban with its indexed cards and browser asset", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-kanban-"));
     expect(run(initArgs(root)).status).toBe(0);
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     await writeFile(config, (await readFile(config, "utf8"))
       .replace("plugins: []", 'plugins:\n  - "@vellym/kanban"'));
     await mkdir(path.join(root, "node_modules/@vellym"), { recursive: true });
@@ -757,11 +728,11 @@ spec:
 `,
       "utf8"
     );
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     expect(run(["validate", "--config", config]).status).toBe(0);
     const output = buildDir(config);
     expect(path.basename(output)).toMatch(/^\d{8}-\d{6}-vellym$/);
-    expect(path.dirname(output)).toBe(path.join(root, "dist", "vellym"));
+    expect(path.dirname(output)).toBe(path.join(root, "docs", "dist"));
     expect(await readFile(path.join(output, "README.md"), "utf8")).toContain(
       "python3 -m http.server"
     );
@@ -798,39 +769,32 @@ spec:
   it("does not overwrite an existing project", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-existing-"));
     expect(run(initArgs(root)).status).toBe(0);
-    expect(run(initArgs(root)).status).toBe(1);
+    const before = await directoryHash(path.join(root, "docs"));
+    const repeated = run(initArgs(root));
+    expect(repeated.status, repeated.stderr).toBe(0);
+    expect(repeated.stdout).toContain("skip: docs/index.yaml");
+    expect(await directoryHash(path.join(root, "docs"))).toBe(before);
   });
 
-  it("reports missing init arguments with values and examples in both languages", async () => {
+  it("initializes with no required options", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-missing-"));
     const result = run(["init", root]);
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("--size personal|small-team|medium-large");
-    expect(result.stderr).toContain("--method agile|hybrid|waterfall");
-    expect(result.stderr).toContain("--language ja|en");
-    expect(result.stderr).toContain(
-      "vellym init my-project --size small-team --method hybrid --language ja --plugins tickets,kanban"
-    );
-    expect(result.stderr).toContain("vellym init my-project --size small-team --method hybrid --language en");
-    expect(result.stderr).toContain("必須オプション");
-    expect(result.stderr).toContain("Missing required options");
+    expect(result.status, result.stderr).toBe(0);
+    await access(path.join(root, "docs/vellym.config.yaml"));
+    await access(path.join(root, "docs/index.yaml"));
   });
 
   it("reports init errors in the requested language", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-language-"));
-    const missing = run(["init", root, "--language", "en"]);
-    expect(missing.status).toBe(1);
-    expect(missing.stderr).toContain("Missing required options");
-    expect(missing.stderr).toContain("Available values:");
+    const missing = run(["init", root, "--language", "en", "--size", "personal"]);
+    expect(missing.status).toBe(2);
+    expect(missing.stderr).toContain("has been removed");
+    expect(missing.stderr).toContain("--root docs --structure by-type");
     expect(missing.stderr).not.toContain("次の1つを実行してください");
 
     const created = run([
       "init",
       root,
-      "--size",
-      "personal",
-      "--method",
-      "agile",
       "--language",
       "en"
     ]);
@@ -841,17 +805,11 @@ spec:
     const conflict = run([
       "init",
       root,
-      "--size",
-      "personal",
-      "--method",
-      "agile",
       "--language",
       "en"
     ]);
-    expect(conflict.status).toBe(1);
-    expect(conflict.stderr).toContain("init: already exists (existing_file):");
-    expect(conflict.stderr).toContain("vellym.config.yaml");
-    expect(conflict.stderr).not.toContain("既存のファイルと衝突");
+    expect(conflict.status).toBe(0);
+    expect(conflict.stdout).toContain("skip: docs/vellym.config.yaml");
   });
 
   it("adds official plugin dependencies for --plugins without running install", async () => {
@@ -859,7 +817,7 @@ spec:
     const result = run(initArgs(root, ["--language", "en", "--plugins", "tickets,kanban,wbs"]));
     expect(result.status, result.stderr).toBe(0);
 
-    const config = await readFile(path.join(root, "vellym.config.yaml"), "utf8");
+    const config = await readFile(path.join(root, "docs/vellym.config.yaml"), "utf8");
     expect(config).toContain('  - "@vellym/tickets"\n  - "@vellym/kanban"\n  - "@vellym/wbs"');
     expect(config.match(/@vellym\/tickets/g)).toHaveLength(1);
 
@@ -900,45 +858,18 @@ spec:
     expect(packageJson.devDependencies).toEqual({
       vellym: `^${await workspaceVersion("vellym")}`
     });
-    const config = await readFile(path.join(root, "vellym.config.yaml"), "utf8");
+    const config = await readFile(path.join(root, "docs/vellym.config.yaml"), "utf8");
     expect(config).toContain("plugins: []");
     expect(result.stdout).toContain("  npx vellym dev");
     expect(result.stdout).toContain("  npm install");
   });
 
-  describe("init --level, --dry-run and existing content roots (ticket-01m7ety1e647x33mq7jwkns67c)", () => {
+  describe("init --dry-run and existing management roots", () => {
     const plan = (root: string, extra: string[] = []) => {
       const result = run(initArgs(root, ["--language", "en", "--dry-run", "--json", ...extra]));
       expect(result.status, result.stderr).toBe(0);
-      return JSON.parse(result.stdout) as { level: string; create: string[]; skip: string[]; conflict: string[]; warnings: string[] };
+      return JSON.parse(result.stdout) as { create: string[]; skip: string[]; update: string[] };
     };
-    const pages = (files: string[]) => files.filter((file) => file.endsWith(".yaml") && !file.endsWith("_index.yaml") && file !== "vellym.config.yaml");
-
-    it("sizes the set by --level, defaults to standard, and matches the browser's light choice", async () => {
-      const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-level-"));
-      const light = plan(root, ["--level", "light"]);
-      const standard = plan(root, ["--level", "standard"]);
-      const strict = plan(root, ["--level", "strict"]);
-      expect(plan(root).level).toBe("standard");
-      expect(plan(root).create).toEqual(standard.create);
-      expect(pages(light.create).length).toBeLessThan(pages(standard.create).length);
-      expect(pages(standard.create).length).toBeLessThanOrEqual(pages(strict.create).length);
-      // The browser uses the same selection, but only the CLI creates VELLYM.md.
-      const { setupCatalog, planProjectSetup } = await import("../packages/runtime-node/src/index.js");
-      const { buildCatalogIndex, estimateSelection } = await import("../packages/ui-react/src/setup/setup-catalog-tree.js");
-      const estimate = estimateSelection(
-        // The browser receives the same catalog as JSON through its own copy of the type.
-        buildCatalogIndex(setupCatalog("en") as unknown as Parameters<typeof buildCatalogIndex>[0]),
-        "small-team", "hybrid", "light");
-      const browser = await planProjectSetup(root, {
-        mode: "recommended", size: "small-team", method: "hybrid", level: "light", contentRoot: "docs", language: "en",
-        selectedTemplateIds: [...estimate.pageIds], pluginPackages: []
-      });
-      expect(browser.files.filter((file) => file.status === "create").map((file) => file.relativePath).sort()).toEqual(light.create.filter((file: string) => file !== "docs/VELLYM.md").sort());
-      const invalid = run(initArgs(root, ["--language", "en", "--level", "huge"]));
-      expect(invalid.status).toBe(2);
-      expect(invalid.stderr).toContain("--level must be light, standard, or strict");
-    });
 
     it("writes nothing with --dry-run", async () => {
       const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-dry-"));
@@ -949,19 +880,16 @@ spec:
       expect(await readdir(root)).toEqual([]);
     });
 
-    it("stops on a content root with non-Vellym files unless told to use it", async () => {
+    it("preserves non-Vellym files and skips existing planned files", async () => {
       const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-foreign-"));
       await mkdir(path.join(root, "docs"), { recursive: true });
       await writeFile(path.join(root, "docs", "README.md"), "# Existing docs\n");
-      const stopped = run(initArgs(root, ["--language", "en"]));
-      expect(stopped.status).toBe(1);
-      expect(stopped.stderr).toContain("--use-existing-content-root");
-      await expect(access(path.join(root, "vellym.config.yaml"))).rejects.toThrow();
-      expect(plan(root).warnings.join("\n")).toContain("not Vellym documents");
-      expect(run(initArgs(root, ["--language", "en", "--use-existing-content-root"])).status).toBe(0);
-      await access(path.join(root, "vellym.config.yaml"));
-      // A Vellym content root is not foreign: a second init just skips existing files.
-      expect(plan(root).warnings).toEqual([]);
+      await writeFile(path.join(root, "docs", "index.yaml"), "custom entry\n");
+      expect(plan(root).skip).toContain("docs/index.yaml");
+      expect(run(initArgs(root, ["--language", "en"])).status).toBe(0);
+      await access(path.join(root, "docs/vellym.config.yaml"));
+      expect(await readFile(path.join(root, "docs/README.md"), "utf8")).toBe("# Existing docs\n");
+      expect(await readFile(path.join(root, "docs/index.yaml"), "utf8")).toBe("custom entry\n");
     });
 
     it("points to each selected plugin's own guide after init", async () => {
@@ -979,18 +907,18 @@ spec:
   });
 
   describe("init with an existing package.json (ticket-01m7q82gf3f03qq1r3f1kk9an8)", () => {
-    it("leaves a valid package.json untouched and finishes the rest", async () => {
+    it("preserves existing package fields while adding dependencies", async () => {
       const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-pkg-"));
       const original = '{\n  "name": "keep-me",\n  "scripts": { "x": "echo" }\n}\n';
       await writeFile(path.join(root, "package.json"), original);
       const result = run(initArgs(root, ["--language", "en"]));
       expect(result.status, result.stderr).toBe(0);
-      expect(await readFile(path.join(root, "package.json"), "utf8")).toBe(original);
-      await access(path.join(root, "vellym.config.yaml"));
-      expect(result.stdout).toContain("The existing package.json was left unchanged.");
-      expect(result.stdout).toMatch(/npm install -D vellym@\S+/);
+      const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+      expect(pkg).toMatchObject({ name: "keep-me", scripts: { x: "echo" }, devDependencies: { vellym: `^${await workspaceVersion("vellym")}` } });
+      await access(path.join(root, "docs/vellym.config.yaml"));
+      expect(result.stdout).toContain("npm install");
       const plan = JSON.parse(run(initArgs(root, ["--language", "en", "--dry-run", "--json"])).stdout);
-      expect(plan.skip).toContain("package.json");
+      expect(plan.update).toContain("package.json");
     });
 
     it("leaves a broken package.json untouched, warns, and finishes the rest", async () => {
@@ -1000,18 +928,19 @@ spec:
       expect(result.status, result.stderr).toBe(0);
       expect(await readFile(path.join(root, "package.json"), "utf8")).toBe("{broken");
       expect(result.stderr).toContain("package.jsonがJSONとして読めません");
-      await access(path.join(root, "vellym.config.yaml"));
+      await access(path.join(root, "docs/vellym.config.yaml"));
     });
 
-    it("prints install commands instead of adding dependencies with --plugins", async () => {
+    it("adds plugin dependencies without replacing existing package fields", async () => {
       const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-pkg-plugins-"));
       await writeFile(path.join(root, "package.json"), '{ "name": "existing" }\n');
       const result = run(initArgs(root, ["--language", "en", "--plugins", "tickets"]));
       expect(result.status, result.stderr).toBe(0);
-      expect(await readFile(path.join(root, "package.json"), "utf8")).toBe('{ "name": "existing" }\n');
-      expect(result.stdout).toMatch(/npm install -D vellym@\S+/);
-      expect(result.stdout).toMatch(/npm install @vellym\/tickets@\S+/);
-      expect(await readFile(path.join(root, "vellym.config.yaml"), "utf8")).toContain("@vellym/tickets");
+      expect(JSON.parse(await readFile(path.join(root, "package.json"), "utf8"))).toMatchObject({
+        name: "existing", dependencies: { "@vellym/tickets": `^${await workspaceVersion("plugin-tickets")}` }
+      });
+      expect(result.stdout).toContain("npm install");
+      expect(await readFile(path.join(root, "docs/vellym.config.yaml"), "utf8")).toContain("@vellym/tickets");
     });
   });
 
@@ -1036,10 +965,7 @@ spec:
     expect(error.stderr).toContain(`Unknown plugin: nope (${ids.join(", ")})`);
   });
 
-  it("validates a plugin project with the guide TicketTracker at zero diagnostics", async () => {
-    const trackerYaml = guideTicketTrackerExamples();
-    expect(trackerYaml.length).toBeGreaterThanOrEqual(2);
-
+  it("validates an initialized plugin project strictly at zero diagnostics", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-init-guide-"));
     const created = run(initArgs(root, ["--language", "en", "--plugins", "tickets"]));
     expect(created.status, created.stderr).toBe(0);
@@ -1050,72 +976,39 @@ spec:
       await symlink(path.join(process.cwd(), `packages/plugin-${name}`),
         path.join(root, `node_modules/@vellym/${name}`), "dir");
     }
-    for (const [index, tracker] of trackerYaml.entries()) {
-      // Trackerは1フォルダに1つ。例が同じフォルダで衝突しないように分ける。
-      const folder = path.join(root, "docs", `guide-${index}`);
-      await mkdir(folder, { recursive: true });
-      await writeFile(
-        path.join(folder, "tracker.yaml"),
-        tracker.replace("name: tickets", `name: tickets-${index}`),
-        "utf8"
-      );
-    }
-
     const result = run([
       "validate",
       "--config",
-      path.join(root, "vellym.config.yaml"),
-      "--json"
+      path.join(root, "docs/vellym.config.yaml"),
+      "--json", "--strict"
     ]);
     expect(result.status, result.stdout).toBe(0);
     const parsed = JSON.parse(result.stdout) as { diagnostics: unknown[] };
     expect(parsed.diagnostics).toEqual([]);
   });
 
-  it("rejects removed interactive init options", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-plan-"));
-    const result = run(initArgs(root, ["--plan", "--json"]));
+  it.each(["--size", "--method", "--level", "--content-root", "--use-existing-content-root"])("rejects removed init option %s before creating anything", async (option) => {
+    const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-removed-"));
+    const result = run(initArgs(root, ["--language", "en", option]));
     expect(result.status).toBe(2);
-    expect(result.stderr).toContain("--plan");
-    await expect(access(path.join(root, "vellym.config.yaml"))).rejects.toThrow();
-  });
-
-  it("rejects template selection because CLI uses one strict generation path", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-guides-"));
-    const result = run(initArgs(root, [
-      "--template",
-      "welcome,project-guide,yaml-editing-guide"
-    ]));
-    expect(result.status).toBe(2);
-    expect(result.stderr).toContain("--template");
-  });
-
-  it("rejects removed profile selection", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-profiles-"));
-    const preview = run(initArgs(root, [
-      "--profile",
-      "software-basic,arc42",
-      "--plan",
-      "--json"
-    ]));
-    expect(preview.status).toBe(2);
-    expect(preview.stderr).toContain("--profile");
+    expect(result.stderr).toContain(option);
+    expect(result.stderr).toContain("vellym init my-project --root docs --structure by-type");
+    expect(await readdir(root)).toEqual([]);
   });
 
   it("skips conflicting Page files and preserves user content", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-safe-existing-"));
-    const existing = path.join(root, "docs/02_要求・要件/要求.yaml");
+    const existing = path.join(root, "docs/index.yaml");
     await mkdir(path.dirname(existing), { recursive: true });
     await writeFile(existing, "利用者が作成した既存内容\n", "utf8");
     await writeFile(path.join(root, "unrelated.txt"), "keep\n", "utf8");
 
-    // docs/ holds only a non-Vellym file, so init asks for explicit consent to write there.
-    const result = run(initArgs(root, ["--use-existing-content-root"]));
+    const result = run(initArgs(root));
 
     expect(result.status).toBe(0);
     expect(await readFile(existing, "utf8")).toBe("利用者が作成した既存内容\n");
     expect(await readFile(path.join(root, "unrelated.txt"), "utf8")).toBe("keep\n");
-    expect(await readFile(path.join(root, "vellym.config.yaml"), "utf8")).toContain("contentRoot: docs");
+    expect(await readFile(path.join(root, "docs/vellym.config.yaml"), "utf8")).toContain("structure: by-type");
     expect(result.stdout).toContain("skip:");
   });
 
@@ -1125,7 +1018,7 @@ spec:
     const result = run([
       "validate",
       "--config",
-      path.join(root, "vellym.config.yaml"),
+      path.join(root, "docs/vellym.config.yaml"),
       "--json"
     ]);
     expect(result.status).toBe(0);
@@ -1135,7 +1028,7 @@ spec:
   it("creates deterministic baked data for unchanged input", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-deterministic-"));
     run(initArgs(root));
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     // フォルダ名やREADMEの生成日時は都度変わるため、焼き込みデータの再現性を検証する。
     const first = await directoryHash(path.join(buildDir(config), "data"));
     const second = await directoryHash(path.join(buildDir(config), "data"));
@@ -1145,10 +1038,9 @@ spec:
   it("sets the static document language from the project config", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-static-language-"));
     expect(run([
-      "init", root, "--size", "personal", "--method", "agile",
-      "--language", "en", "--content-root", "docs"
+      "init", root, "--language", "en"
     ]).status).toBe(0);
-    const output = buildDir(path.join(root, "vellym.config.yaml"));
+    const output = buildDir(path.join(root, "docs/vellym.config.yaml"));
     const index = await readFile(path.join(output, "index.html"), "utf8");
     expect(index).toContain('<html lang="en" dir="ltr">');
   });
@@ -1175,7 +1067,7 @@ spec:
 `,
       "utf8"
     );
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     const output = buildDir(config);
     const index = await readFile(path.join(output, "index.html"), "utf8");
     expect(index).toContain("__VELLYM_STATIC__");
@@ -1303,7 +1195,7 @@ spec:
   it("leaves existing versions untouched when validation fails", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "vellym-cli-preserve-output-"));
     run(initArgs(root));
-    const config = path.join(root, "vellym.config.yaml");
+    const config = path.join(root, "docs/vellym.config.yaml");
     const output = buildDir(config);
     const first = await directoryHash(output);
     await writeFile(
