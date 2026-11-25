@@ -194,6 +194,13 @@ comes from being local:
 - All responses carry `nosniff`, `DENY`, and `no-referrer`
 - Writes are confined to the content root by real-path checks
 
+| Threat | Defense | Test |
+| --- | --- | --- |
+| DNS rebinding | Loopback Host allowlist | `tests/security/http-boundary.integration.test.ts` |
+| Cross-site writes | Origin validation; resource deletion requires Origin | `tests/security/http-boundary.integration.test.ts` |
+| Cross-origin reads | No CORS grants | `tests/security/http-boundary.integration.test.ts` |
+| Content sniffing, framing, referrer leakage | Security response headers | `tests/security/http-boundary.integration.test.ts` |
+
 If you add an endpoint, it inherits the header and origin handling from the shared
 helpers — but the path boundary check is per-operation and must be written explicitly.
 

@@ -39,6 +39,8 @@ Run `npm run pack:smoke` for packaging changes, `npm run verify:core` for browse
 
 ### Writing tests
 
+- When adding an API, classify it in the read-only or write table in `tests/security/http-boundary.integration.test.ts`; unclassified literal routes fail the coverage test. Add a method/path entry for every write.
+
 - Write new screen/browser tests and automated acceptance steps in `e2e/`, not
   new `tests/*.browser.mjs` files or `scripts/acceptance/` modules. Use
   `e2e/setup/` for setup, `e2e/design/` for design screens, and `e2e/acceptance/`

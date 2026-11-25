@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { request as httpRequest } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -112,7 +111,7 @@ spec:
     expect(await diagnoseAssets(config, snapshot)).toEqual([]);
   });
 
-  it("serves images and accepts bounded raw-body uploads with origin protection", async () => {
+  it("serves images and accepts bounded raw-body uploads", async () => {
     const server = await startDevServer({ configPath, uiRoot: directory, port: 0 });
     close = server.close;
     const uploaded = await fetch(`${server.url}/api/v1/assets`, { method: "POST", headers: { "Content-Type": "image/png" }, body: png });
@@ -124,15 +123,7 @@ spec:
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(Buffer.from(await response.arrayBuffer())).toEqual(png);
     expect((await fetch(`${server.url}/api/v1/assets?path=..%2Fsecret.png`)).status).toBe(400);
-    expect((await fetch(`${server.url}/api/v1/assets`, { method: "POST", headers: { Origin: "https://evil.example", "Content-Type": "image/png" }, body: png })).status).toBe(403);
-    const hostileHostStatus = await new Promise<number | undefined>((resolve, reject) => {
-      const request = httpRequest(`${server.url}/api/v1/assets`, {
-        method: "POST", headers: { Host: "evil.example", "Content-Type": "image/png" }
-      }, (response) => { response.resume(); resolve(response.statusCode); });
-      request.on("error", reject);
-      request.end(png);
-    });
-    expect(hostileHostStatus).toBe(403);
+
   });
 
   it("honors editor-policy images=false without blocking image reads", async () => {

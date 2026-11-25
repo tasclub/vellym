@@ -7,7 +7,6 @@ import {
   unlink,
   writeFile
 } from "node:fs/promises";
-import { request } from "node:http";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
@@ -88,37 +87,6 @@ spec:
       title: Brouillon
       blocks: []
 `;
-}
-
-// fetchはHostヘッダを差し替えられないため、Host検証の確認だけnode:httpで送る。
-function requestWithHost(
-  serverUrl: string,
-  host: string
-): Promise<{ status: number; body: string }> {
-  const target = new URL("/api/v1/bootstrap", serverUrl);
-  return new Promise((resolve, reject) => {
-    const call = request(
-      {
-        hostname: target.hostname,
-        port: target.port,
-        path: target.pathname,
-        method: "GET",
-        headers: { Host: host }
-      },
-      (response) => {
-        let body = "";
-        response.setEncoding("utf8");
-        response.on("data", (chunk: string) => {
-          body += chunk;
-        });
-        response.on("end", () =>
-          resolve({ status: response.statusCode ?? 0, body })
-        );
-      }
-    );
-    call.on("error", reject);
-    call.end();
-  });
 }
 
 async function fixture(): Promise<string> {
@@ -919,15 +887,6 @@ plugins: []
           message: expect.stringContaining("en")
         }]
       });
-      const forbidden = await fetch(`${server.url}/api/v1/pages/test-page`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: "https://example.com"
-        },
-        body: JSON.stringify({ baseHash: detailBody.data.hash, title: "Forbidden" })
-      });
-      expect(forbidden.status).toBe(403);
       const updated = await fetch(`${server.url}/api/v1/pages/test-page`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1089,53 +1048,6 @@ plugins: []
       expect(
         (await fetch(`${server.url}/api/v1/repository?locale=en-u-ca-japanese`)).status
       ).toBe(400);
-    } finally {
-      await server.close();
-    }
-  });
-
-  it("limits the Host header while bound to loopback", async () => {
-    const project = await mkdtemp(path.join(tmpdir(), "vellym-host-"));
-    const root = path.join(project, "docs/content");
-    await mkdir(root, { recursive: true });
-    await writeFile(path.join(root, "page.yaml"), source(), "utf8");
-    const configPath = path.join(project, "vellym.config.yaml");
-    await writeFile(
-      configPath,
-      `schemaVersion: "1.0"
-contentRoot: docs/content
-outputDir: dist/vellym
-ui:
-  language: ja
-plugins: []
-`,
-      "utf8"
-    );
-    const ui = await mkdtemp(path.join(tmpdir(), "vellym-ui-host-"));
-    await writeFile(path.join(ui, "index.html"), "<h1>UI</h1>", "utf8");
-    const server = await startDevServer({
-      configPath,
-      uiRoot: ui,
-      host: "127.0.0.1",
-      port: 0
-    });
-    try {
-      expect((await fetch(`${server.url}/api/v1/bootstrap`)).status).toBe(200);
-      // DNS rebindingでは攻撃者のhost名でloopbackへ到達する。
-      // fetchはHostを差し替えられないため、node:httpで直接送る。
-      const rebound = await requestWithHost(server.url, "attacker.example");
-      expect(rebound.status).toBe(403);
-      expect(
-        (await fetch(`${server.url}/api/v1/bootstrap`)).headers.get(
-          "x-content-type-options"
-        )
-      ).toBe("nosniff");
-      expect(
-        (JSON.parse(rebound.body) as { diagnostics: Array<{ code: string }> })
-          .diagnostics[0]?.code
-      ).toBe("HOST");
-      const allowed = await requestWithHost(server.url, "localhost");
-      expect(allowed.status).toBe(200);
     } finally {
       await server.close();
     }
