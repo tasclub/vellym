@@ -196,6 +196,7 @@
   "error.CONFIG_PLAN_CONFLICT": "The configuration changed after you reviewed it. Please review it again.",
   "error.CONFIG_SCHEMA": "The configuration file is not valid.",
   "error.CONFIG_YAML": "The configuration YAML could not be parsed.",
+  "error.REPOSITORY_ROOT": "Set `repositoryRoot` in the configuration as a path relative to the configuration file's folder.",
   "error.CONTENT_ROOT": "The content location is not valid.",
   "error.CONTENT_ROOT_NOT_FOUND": "The content folder was not found.",
   "error.DUPLICATE_PAGE_SLUG": "Another document already uses this URL name.",

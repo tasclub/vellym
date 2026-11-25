@@ -197,6 +197,7 @@
   "error.CONFIG_PLAN_CONFLICT": "確認後に設定が変更されました。もう一度確認してください。",
   "error.CONFIG_SCHEMA": "設定ファイルの内容が正しくありません。",
   "error.CONFIG_YAML": "設定ファイルのYAMLを解析できません。",
+  "error.REPOSITORY_ROOT": "設定の`repositoryRoot`は、設定ファイルのフォルダからの相対パスで書いてください。",
   "error.CONTENT_ROOT": "保存先の指定が正しくありません。",
   "error.CONTENT_ROOT_NOT_FOUND": "保存先のフォルダが見つかりません。",
   "error.DUPLICATE_PAGE_SLUG": "同じURL名の文書がすでにあります。",
