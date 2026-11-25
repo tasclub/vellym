@@ -4,14 +4,14 @@ import path from "node:path";
 import { parse, stringify } from "yaml";
 import { STABLE_API_VERSION } from "@vellym-internal/core";
 import { loadCatalog } from "./catalog/load.js";
-import type { FolderDef, Role } from "./catalog/types.js";
+import type { FolderDef, ResourceTemplateDef, Role } from "./catalog/types.js";
 import { RuntimeError } from "./errors.js";
 import { isInside } from "./path-utils.js";
 import type { LoadedConfig } from "./types.js";
 import { applyFileTransaction } from "./file-transaction.js";
 
 export interface AddRequest {
-  kind: "template" | "tracker" | "set";
+  kind: "template" | "resource" | "set";
   id: string;
   folder?: string;
   name?: string;
@@ -23,7 +23,8 @@ export interface AddPlanFile {
   /** Relative to contentRoot, not the project root. */
   relativePath: string;
   status: "create" | "skip" | "rename";
-  kind: "Page" | "Folder" | "TicketTracker";
+  kind: string;
+  reason?: { code: "EXISTS" | "PLUGIN_NOT_ENABLED"; message: { ja: string; en: string } };
   title: string;
   name?: string;
   /** Complete source, included in the plan hash. */
@@ -37,6 +38,10 @@ export interface AddPlan {
   /** Stable random identities let apply rebuild exactly the previewed plan. */
   identities: string[];
   planHash: string;
+}
+
+export interface AddOptions {
+  resources?: ResourceTemplateDef[];
 }
 
 function invalid(message: string): never {
@@ -104,8 +109,8 @@ async function boundary(root: string, relative: string): Promise<void> {
   }
 }
 
-async function buildPlan(config: LoadedConfig, input: AddRequest, seeds?: string[]): Promise<AddPlan> {
-  if (!input || !["template", "tracker", "set"].includes(input.kind) ||
+async function buildPlan(config: LoadedConfig, input: AddRequest, options: AddOptions, seeds?: string[]): Promise<AddPlan> {
+  if (!input || !["template", "resource", "set"].includes(input.kind) ||
       !["ja", "en"].includes(input.language) || typeof input.id !== "string" ||
       (input.name !== undefined && (typeof input.name !== "string" || !input.name.trim() || /[\0\r\n]/.test(input.name))) ||
       (input.folder !== undefined && typeof input.folder !== "string") ||
@@ -119,7 +124,8 @@ async function buildPlan(config: LoadedConfig, input: AddRequest, seeds?: string
   // setup is read from the configuration source so older core config types need
   // not know the new optional hint; no configuration file is rewritten here.
   const setup = parse(configSource)?.setup as { structure?: string; numbered?: boolean; folderNames?: Record<string, string> } | undefined;
-  const catalog = loadCatalog();
+  const catalog = loadCatalog(options.resources);
+  const usedResources: ResourceTemplateDef[] = [];
   const structure = catalog.structures.find(item => item.id === (setup?.structure ?? "by-type"));
   if (!structure || structure.supplement) invalid("不明な構成の型です");
   const folders = new Map<string, string>();
@@ -197,17 +203,34 @@ async function buildPlan(config: LoadedConfig, input: AddRequest, seeds?: string
       }
     }
   };
-  const add = async (kind: "template" | "tracker", id: string, directory?: string, customName?: string) => {
+  const add = async (kind: "template" | "resource", id: string, directory?: string, customName?: string) => {
     const template = kind === "template" ? catalog.templates.find(item => item.id === id) : undefined;
-    const tracker = kind === "tracker" ? catalog.trackers.find(item => item.id === id) : undefined;
-    if (!template && !tracker) invalid(`不明なテンプレートです: ${id}`);
-    const resourceKind = template ? "Page" : "TicketTracker";
-    const namePrefix = template ? "page" : "ticket-tracker";
-    const folder = directory ?? destination(template?.role ?? "management");
+    const resource = kind === "resource" ? catalog.resources.find(item => item.id === id) : undefined;
+    if (kind === "template" && !template) invalid(`不明なテンプレートです: ${id}`);
+    const folder = directory ?? (template ? destination(template.role) : request.folder);
+    if (folder === undefined) invalid("リソースのテンプレートには作成先のfolderが必要です");
+    if (!template && !resource) {
+      if (request.kind !== "set") invalid(`不明なテンプレートです: ${id}`);
+      // An unavailable plugin cannot supply its localized filename; use the
+      // contribution's local id for the skipped placeholder. No file is created.
+      const relativePath = path.posix.join(folder, `${id.split(":")[1]}.yaml`);
+      safeFolder(relativePath);
+      files.push({
+        relativePath, kind: "resource", title: id, status: "skip", source: "",
+        reason: { code: "PLUGIN_NOT_ENABLED", message: {
+          ja: `プラグインが有効ではありません: ${id}`,
+          en: `Plugin is not enabled: ${id}`
+        } }
+      });
+      return;
+    }
+    if (resource) usedResources.push(resource);
+    const resourceKind = template ? "Page" : resource!.kind;
+    const namePrefix = template ? "page" : "resource";
     await ensureFolders(folder);
     const rawFilename = template
       ? customName ? `${slugOf(customName) || "page"}.yaml` : template.fileName[language]
-      : `${id}.yaml`;
+      : resource!.fileName[language];
     const filename = /\.ya?ml$/i.test(rawFilename) ? rawFilename : `${rawFilename}.yaml`;
     const relativePath = path.posix.join(folder, filename);
     safeFolder(relativePath);
@@ -219,15 +242,19 @@ async function buildPlan(config: LoadedConfig, input: AddRequest, seeds?: string
     let suffix = 2;
     while (names.has(name)) name = `${baseName}-${suffix++}`;
     if (!exists) names.add(name);
-    const title = customName ?? (template ?? tracker)!.title[language];
+    const title = customName ?? (template ?? resource)!.title[language];
     files.push({
       relativePath, kind: resourceKind, title, name,
       status: exists ? "skip" : name === baseName ? "create" : "rename",
+      ...(exists ? { reason: { code: "EXISTS" as const, message: {
+        ja: `同じパスが存在します: ${relativePath}`,
+        en: `Path already exists: ${relativePath}`
+      } } } : {}),
       source: stringify({
         apiVersion: STABLE_API_VERSION, kind: resourceKind, metadata: { name, title },
         spec: template
           ? { locale: language, blocks: [{ id: "body", type: "rich-text", content: template.body[language] }] }
-          : tracker!.spec[language]
+          : resource!.spec[language]
       }, { lineWidth: 0, blockQuote: "literal" })
     });
   };
@@ -248,7 +275,7 @@ async function buildPlan(config: LoadedConfig, input: AddRequest, seeds?: string
     }
     for (const item of set.items) {
       if ("template" in item) await add("template", item.template, directory);
-      else await add("tracker", item.tracker, directory);
+      else await add("resource", item.resource, directory);
     }
   } else {
     await add(request.kind, request.id, undefined, request.name);
@@ -258,20 +285,20 @@ async function buildPlan(config: LoadedConfig, input: AddRequest, seeds?: string
     ...(request.guide !== undefined ? { guide: { append: request.guide } } : {})
   };
   const planHash = hash(canonical({
-    plan, root, configSource,
+    plan, root, configSource, resources: usedResources,
     state: Object.entries(state).sort(([a], [b]) => a.localeCompare(b))
   }));
   return { ...plan, planHash };
 }
 
-export async function planAdd(config: LoadedConfig, request: AddRequest): Promise<AddPlan> {
-  return buildPlan(config, request);
+export async function planAdd(config: LoadedConfig, request: AddRequest, options: AddOptions = {}): Promise<AddPlan> {
+  return buildPlan(config, request, options);
 }
 
-export async function applyAdd(config: LoadedConfig, expected: AddPlan): Promise<void> {
+export async function applyAdd(config: LoadedConfig, expected: AddPlan, options: AddOptions = {}): Promise<void> {
   let current: AddPlan;
   try {
-    current = await buildPlan(config, expected.request, expected.identities);
+    current = await buildPlan(config, expected.request, options, expected.identities);
   } catch (error) {
     // An ancestor may now be a file, or the configuration/root may have
     // disappeared. These are stale previews too, and must not start a write.

@@ -32,10 +32,18 @@ export interface PluginManifest {
 }
 
 export interface PluginContributions {
+  templates?: readonly PluginManifestTemplate[];
   kinds?: readonly PluginManifestKind[];
   views?: readonly PluginManifestView[];
   commands?: readonly PluginManifestCommand[];
   settings?: readonly PluginManifestSetting[];
+}
+
+export interface PluginManifestTemplate {
+  id: string;
+  /** JSON file relative to the package root. */
+  file: string;
+  group: { ja: string; en: string };
 }
 
 export interface PluginManifestKind {

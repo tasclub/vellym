@@ -36,13 +36,27 @@ export function validateCatalog(catalog: Catalog): void {
     for (const key of ["title", "fileName", "body", "description"] as const) localized(template[key], `${template.id}/${key}`);
     if (template.guideText !== undefined) localized(template.guideText, `${template.id}/guideText`);
   }
-  for (const tracker of catalog.trackers) for (const key of ["title", "description", "spec"] as const) localized(tracker[key], `${tracker.id}/${key}`);
-  for (const tracker of catalog.trackers) if (tracker.guideText !== undefined) localized(tracker.guideText, `${tracker.id}/guideText`);
+  for (const resource of catalog.resources) {
+    if (typeof resource.pluginId !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(resource.pluginId) ||
+        typeof resource.id !== "string" || !resource.id.startsWith(`${resource.pluginId}:`) ||
+        !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(resource.id.slice(resource.pluginId.length + 1)) ||
+        typeof resource.kind !== "string" || !/^[A-Z][A-Za-z0-9]*$/.test(resource.kind)) fail(`invalid resource: ${resource.id}`);
+    for (const key of ["group", "title", "description", "spec", "fileName"] as const) localized(resource[key], `${resource.id}/${key}`);
+    for (const language of ["ja", "en"] as const) {
+      for (const key of ["group", "title", "description", "fileName"] as const) {
+        if (typeof resource[key][language] !== "string") fail(`invalid resource ${key}: ${resource.id}`);
+      }
+      if (!resource.spec[language] || typeof resource.spec[language] !== "object" || Array.isArray(resource.spec[language])) fail(`invalid resource spec: ${resource.id}`);
+      if (!/^[^/\\\0]+\.ya?ml$/i.test(resource.fileName[language]) || resource.fileName[language].startsWith(".")) fail(`invalid resource fileName: ${resource.id}`);
+    }
+    if (resource.guideText !== undefined) localized(resource.guideText, `${resource.id}/guideText`);
+  }
   for (const set of catalog.sets) {
     localized(set.title, `${set.id}/title`);
     localized(set.description, `${set.id}/description`);
     for (const item of set.items) {
-      if ("template" in item ? !catalog.templates.some(t => t.id === item.template) : !catalog.trackers.some(t => t.id === item.tracker)) fail(`unknown set item: ${set.id}`);
+      // Resources may belong to a plugin that is not enabled.
+      if ("template" in item ? !catalog.templates.some(t => t.id === item.template) : !("resource" in item) || !/^[a-z0-9-]+:[a-z0-9-]+$/.test(item.resource)) fail(`unknown set item: ${set.id}`);
     }
     if (set.repeat) {
       localized(set.repeat.folderName, `${set.id}/repeat`);

@@ -1,12 +1,17 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import type { Catalog, DocumentTemplateDef } from "./types.js";
+import type { Catalog, DocumentTemplateDef, ResourceTemplateDef } from "./types.js";
 import { validateCatalog } from "./validate.js";
 
 let cached: Catalog | undefined;
-export function loadCatalog(): Catalog {
-  if (cached) return cached;
+export function loadCatalog(resources: ResourceTemplateDef[] = []): Catalog {
+  if (cached) {
+    if (!resources.length) return cached;
+    const catalog = { ...cached, resources };
+    validateCatalog(catalog);
+    return catalog;
+  }
   // In the bundled CLI import.meta.url is dist/cli.mjs; source execution uses catalog/load.ts.
   const here = path.dirname(fileURLToPath(import.meta.url));
   const root = here.endsWith(`${path.sep}catalog`)
@@ -22,8 +27,8 @@ export function loadCatalog(): Catalog {
       en: readFileSync(path.join(root, "templates", `${template.id}.en.md`), "utf8")
     }
   }));
-  const catalog: Catalog = { structures: read("structures"), templates, trackers: read("trackers"), sets: read("sets") };
+  const catalog: Catalog = { structures: read("structures"), templates, resources: [], sets: read("sets") };
   validateCatalog(catalog);
   cached = catalog;
-  return catalog;
+  return loadCatalog(resources);
 }

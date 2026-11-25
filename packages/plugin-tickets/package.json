@@ -37,6 +37,7 @@
     }
   },
   "files": [
+    "templates",
     "dist",
     "README.md",
     "LICENSE"
@@ -66,6 +67,13 @@
       "tickets-settings.css"
     ],
     "contributes": {
+      "templates": [
+        {
+          "id": "work",
+          "file": "templates/work.json",
+          "group": { "ja": "チケット管理を作る", "en": "Create ticket management" }
+        }
+      ],
       "kinds": [
         {
           "kind": "Ticket"

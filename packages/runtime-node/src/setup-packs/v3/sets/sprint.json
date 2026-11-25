@@ -1,1 +1,1 @@
-{"id":"sprint","title":{"ja":"スプリント","en":"Sprint"},"description":{"ja":"スプリントの作業","en":"Sprint work"},"items":[{"tracker":"work"}],"repeat":{"folderName":{"ja":"スプリント","en":"sprint"},"page":"decision"}}
+{"id":"sprint","title":{"ja":"スプリント","en":"Sprint"},"description":{"ja":"スプリントの作業","en":"Sprint work"},"items":[{"resource":"tickets:work"}],"repeat":{"folderName":{"ja":"スプリント","en":"sprint"},"page":"decision"}}

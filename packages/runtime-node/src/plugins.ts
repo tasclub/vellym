@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -26,6 +26,9 @@ import {
   type VellymPluginHost,
   type VellymPluginModule
 } from "@vellym/plugin-api";
+import type { ResourceTemplateDef } from "./catalog/types.js";
+import { loadCatalog } from "./catalog/load.js";
+import { isInside } from "./path-utils.js";
 
 export interface LoadedPlugin {
   /** `plugins`へ書かれたパッケージ名 */
@@ -34,6 +37,8 @@ export interface LoadedPlugin {
   id: string;
   version?: string;
   manifest: PluginManifest;
+  /** Package root used to resolve declarative assets. */
+  packageRoot?: string;
   /**
    * ブラウザ側の資産を置いた実path。`exports["./browser"]`が指す先の
    * ディレクトリである。宣言していないプラグインでは`undefined`になる。
@@ -64,6 +69,28 @@ export interface PluginRegistry {
   /** kind → それを解釈するプラグイン。先に登録した方が勝つ */
   kinds: Map<string, LoadedPlugin>;
   diagnostics: Diagnostic[];
+}
+
+/** Read only templates contributed by successfully loaded, enabled plugins. */
+export function pluginResourceTemplates(plugins: LoadedPlugin[]): ResourceTemplateDef[] {
+  const resources: ResourceTemplateDef[] = [];
+  for (const plugin of plugins) {
+    for (const declaration of plugin.manifest.contributes?.templates ?? []) {
+      if (!plugin.packageRoot) throw new Error(`Missing package root: ${plugin.id}`);
+      const root = realpathSync(plugin.packageRoot);
+      const file = realpathSync(path.resolve(root, declaration.file));
+      if (!isInside(root, file)) throw new Error(`Template outside package: ${declaration.file}`);
+      const definition = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+      resources.push({
+        ...definition,
+        id: `${plugin.id}:${declaration.id}`,
+        pluginId: plugin.id,
+        group: declaration.group
+      } as unknown as ResourceTemplateDef);
+    }
+  }
+  loadCatalog(resources); // Validate opaque specs and localized presentation fields.
+  return resources;
 }
 
 /**
@@ -412,6 +439,7 @@ async function loadOne(
     id: validated.manifest.id,
     ...(typeof packageJson.version === "string" ? { version: packageJson.version } : {}),
     manifest: validated.manifest,
+    packageRoot: path.dirname(packageJsonPath),
     ...(browser ? { browserRoot: browser.root, browserEntry: browser.entry } : {}),
     ...(browser && validated.manifest.styles?.length
       ? { browserStyles: [...validated.manifest.styles] }

@@ -26,8 +26,12 @@ export interface DocumentTemplateDef {
   alias?: string;
   guideText?: Localized<string>;
 }
-export interface TrackerTemplateDef {
+export interface ResourceTemplateDef {
   id: string;
+  pluginId: string;
+  group: Localized<string>;
+  kind: string;
+  fileName: Localized<string>;
   title: Localized<string>;
   description: Localized<string>;
   spec: Localized<Record<string, unknown>>;
@@ -37,12 +41,12 @@ export interface SetDef {
   id: string;
   title: Localized<string>;
   description: Localized<string>;
-  items: ({ template: string } | { tracker: string })[];
+  items: ({ template: string } | { resource: string })[];
   repeat?: { folderName: Localized<string>; page: string };
 }
 export interface Catalog {
   structures: StructureDef[];
   templates: DocumentTemplateDef[];
-  trackers: TrackerTemplateDef[];
+  resources: ResourceTemplateDef[];
   sets: SetDef[];
 }

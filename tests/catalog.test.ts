@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { loadCatalog } from "../packages/runtime-node/src/catalog/load.js";
 import { ROLES } from "../packages/runtime-node/src/catalog/types.js";
 import { validateCatalog } from "../packages/runtime-node/src/catalog/validate.js";
+import { loadPlugins, pluginResourceTemplates } from "../packages/runtime-node/src/plugins.js";
+import work from "../packages/plugin-tickets/templates/work.json";
+import { validatePluginManifest } from "../packages/core/src/index.js";
+const resources = [{ ...work, id: "tickets:work", pluginId: "tickets",
+  group: { ja: "チケット管理を作る", en: "Create ticket management" } }];
 
 describe("catalog", () => {
   it("loads and caches complete definitions", () => {
@@ -35,17 +40,44 @@ describe("catalog", () => {
       expect(() => validateCatalog(invalid)).toThrow("description");
     }
   });
-  it("supports optional localized document and tracker guide text", () => {
-    const catalog = structuredClone(loadCatalog());
+  it("supports optional localized document and resource guide text", () => {
+    const catalog = structuredClone(loadCatalog(resources));
     expect(catalog.templates.find(t => t.id === "decision")!.guideText?.en).toContain("decision");
     expect(() => validateCatalog(catalog)).not.toThrow();
-    catalog.trackers[0]!.guideText = { ja: "使い方", en: "Usage" };
+    catalog.resources[0]!.guideText = { ja: "使い方", en: "Usage" };
     expect(() => validateCatalog(catalog)).not.toThrow();
-    catalog.trackers[0]!.guideText.en = "";
+    catalog.resources[0]!.guideText.en = "";
     expect(() => validateCatalog(catalog)).toThrow("guideText");
-    delete catalog.trackers[0]!.guideText;
+    delete catalog.resources[0]!.guideText;
     catalog.templates[0]!.guideText = { ja: "使い方", en: "" };
     expect(() => validateCatalog(catalog)).toThrow("guideText");
+  });
+  it("loads namespaced templates only from enabled plugins without caching them", async () => {
+    const registry = await loadPlugins({ configDir: process.cwd(), packageNames: ["@vellym/tickets"], hostVersion: "0.5.0-beta" });
+    expect(registry.plugins).toHaveLength(1);
+    const loaded = pluginResourceTemplates(registry.plugins);
+    expect(loaded).toEqual(resources);
+    expect(loadCatalog(loaded).resources).toEqual(resources);
+    expect(loadCatalog().resources).toEqual([]);
+    expect(pluginResourceTemplates([])).toEqual([]);
+    expect(loadCatalog().sets.find(s => s.id === "sprint")!.items).toEqual([{ resource: "tickets:work" }]);
+  });
+  it("rejects malformed resource definitions and duplicate contributions", () => {
+    const catalog = structuredClone(loadCatalog(resources));
+    catalog.resources.push(catalog.resources[0]!);
+    expect(() => validateCatalog(catalog)).toThrow("duplicate");
+    catalog.resources.pop();
+    catalog.resources[0]!.fileName.en = "../escape.yaml";
+    expect(() => validateCatalog(catalog)).toThrow("fileName");
+  });
+  it("validates manifest template paths and both group locales", () => {
+    const declaration = { id: "work", file: "templates/work.json", group: resources[0]!.group };
+    const manifest = { id: "example", contributes: { templates: [declaration] } };
+    expect(validatePluginManifest(manifest).manifest).toBeDefined();
+    for (const file of ["../outside.json", "/absolute.json", "templates\\work.json"]) {
+      expect(validatePluginManifest({ ...manifest, contributes: { templates: [{ ...declaration, file }] } }).manifest).toBeUndefined();
+    }
+    expect(validatePluginManifest({ ...manifest, contributes: { templates: [{ ...declaration, group: { ja: "のみ" } }] } }).manifest).toBeUndefined();
   });
   it("provides the requirements and architecture templates with localized headings", () => {
     const headings: Record<string, [string[], string[]]> = {

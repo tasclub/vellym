@@ -7,6 +7,9 @@ import { loadConfig } from "../packages/runtime-node/src/config.js";
 import { planAdd, applyAdd, type AddRequest } from "../packages/runtime-node/src/setup-add.js";
 import { loadCatalog } from "../packages/runtime-node/src/catalog/load.js";
 import type { LoadedConfig } from "../packages/runtime-node/src/types.js";
+import work from "../packages/plugin-tickets/templates/work.json";
+const resources = [{ ...work, id: "tickets:work", pluginId: "tickets",
+  group: { ja: "チケット管理を作る", en: "Create ticket management" } }];
 
 const faults = vi.hoisted(() => ({ renames: 0, failRename: 0, failWrite: false, race: "", freeze: false }));
 vi.mock("node:crypto", async importOriginal => {
@@ -87,6 +90,7 @@ describe("setup add planning and execution", () => {
     const plan = await planAdd(config, request({ folder: "custom" }));
     expect(plan.files).toHaveLength(1);
     expect(plan.files[0]!.status).toBe("skip");
+    expect(plan.files[0]!.reason?.code).toBe("EXISTS");
     await applyAdd(config, plan);
     expect(await fs.readFile(path.join(config.contentRoot, "custom/decision.yaml"), "utf8")).toBe("user contents");
   });
@@ -103,22 +107,22 @@ describe("setup add planning and execution", () => {
   });
 
   it("creates Tracker spec directly beneath the chosen folder", async () => {
-    const plan = await planAdd(config, request({ kind: "tracker", id: "work", folder: "backlog", name: "Our work" }));
+    const plan = await planAdd(config, request({ kind: "resource", id: "tickets:work", folder: "backlog", name: "Our work" }), { resources });
     expect(plan.files.at(-1)).toMatchObject({ relativePath: "backlog/work.yaml", kind: "TicketTracker" });
-    await applyAdd(config, plan);
+    await applyAdd(config, plan, { resources });
     const tracker = parse(await fs.readFile(path.join(config.contentRoot, "backlog/work.yaml"), "utf8"));
     expect(tracker.kind).toBe("TicketTracker");
-    expect(tracker.spec).toEqual(loadCatalog().trackers.find(item => item.id === "work")!.spec.en);
+    expect(tracker.spec).toEqual(work.spec.en);
   });
 
   it("requires repeat names and creates separate folders even with the same name", async () => {
     await expect(planAdd(config, request({ kind: "set", id: "sprint" }))).rejects.toMatchObject({ status: 400 });
     const input = request({ kind: "set", id: "sprint", name: "Sprint 1", folder: "iterations" });
-    const first = await planAdd(config, input);
-    await applyAdd(config, first);
-    const second = await planAdd(config, input);
+    const first = await planAdd(config, input, { resources });
+    await applyAdd(config, first, { resources });
+    const second = await planAdd(config, input, { resources });
     expect(second.files.every(file => file.relativePath.startsWith("iterations/sprint-1-2/"))).toBe(true);
-    await applyAdd(config, second);
+    await applyAdd(config, second, { resources });
     expect(await entries()).toContain("iterations/sprint-1-2/work.yaml");
     expect(await entries()).toContain("iterations/sprint-1/decision.yaml");
   });
@@ -135,8 +139,42 @@ describe("setup add planning and execution", () => {
 
   it("uses the numbered phase role mapping", async () => {
     await structure("by-phase");
-    const plan = await planAdd(config, request({ kind: "tracker", id: "work" }));
-    expect(plan.files.at(-1)!.relativePath).toBe("00_project-management/work.yaml");
+    const plan = await planAdd(config, request({ id: "functional-requirements" }));
+    expect(plan.files.at(-1)!.relativePath).toBe("01_requirements/functional-requirements.yaml");
+  });
+  it("requires resource folders rather than routing resources by a document role", async () => {
+    await expect(planAdd(config, request({ kind: "resource", id: "tickets:work" }), { resources })).rejects.toMatchObject({ status: 400 });
+    await expect(planAdd(config, request({ kind: "resource", id: "missing:work", folder: "" }))).rejects.toMatchObject({ status: 400 });
+  });
+  it("creates arbitrary plugin kinds and opaque localized specs", async () => {
+    const opaque = [{ ...resources[0]!, id: "example:sample", pluginId: "example", kind: "ExampleData",
+      fileName: { ja: "sample-ja.yaml", en: "sample.yaml" },
+      spec: { ja: { custom: ["日本語"] }, en: { custom: ["English"] } } }];
+    const plan = await planAdd(config, request({ kind: "resource", id: "example:sample", folder: "", language: "ja" }), { resources: opaque });
+    await applyAdd(config, plan, { resources: opaque });
+    expect(parse(await fs.readFile(path.join(config.contentRoot, "sample-ja.yaml"), "utf8"))).toMatchObject({
+      kind: "ExampleData", spec: { custom: ["日本語"] }
+    });
+  });
+  it("skips unavailable set resources with a localized reason", async () => {
+    const plan = await planAdd(config, request({ kind: "set", id: "sprint", name: "Sprint 1", folder: "iterations" }));
+    expect(plan.files.at(-1)).toMatchObject({ relativePath: "iterations/sprint-1/work.yaml", status: "skip",
+      reason: { code: "PLUGIN_NOT_ENABLED", message: { ja: expect.any(String), en: expect.any(String) } } });
+    await applyAdd(config, plan);
+    expect(await entries()).not.toContain("iterations/sprint-1/work.yaml");
+    expect(await entries()).toContain("iterations/sprint-1/decision.yaml");
+  });
+  it("rejects changed, removed or newly enabled resource definitions at apply time", async () => {
+    const input = request({ kind: "set", id: "sprint", name: "Sprint 1", folder: "iterations" });
+    const plan = await planAdd(config, input, { resources });
+    const changed = structuredClone(resources);
+    changed[0]!.spec.ja.statuses[0]!.label = "Changed unselected locale";
+    for (const options of [{ resources: changed }, {}]) {
+      await expect(applyAdd(config, plan, options)).rejects.toMatchObject({ status: 409 });
+    }
+    const missing = await planAdd(config, input);
+    await expect(applyAdd(config, missing, { resources })).rejects.toMatchObject({ status: 409 });
+    expect(await entries()).toEqual([]);
   });
 
   it("routes ordinary set items independently, unless folder overrides all roles", async () => {
