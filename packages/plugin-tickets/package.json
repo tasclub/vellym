@@ -71,7 +71,66 @@
         {
           "id": "work",
           "file": "templates/work.json",
-          "group": { "ja": "チケット管理を作る", "en": "Create ticket management" }
+          "group": {
+            "ja": "チケット管理を作る",
+            "en": "Create ticket management"
+          }
+        },
+        {
+          "id": "backlog",
+          "file": "templates/backlog.json",
+          "group": {
+            "ja": "チケット管理を作る",
+            "en": "Create ticket management"
+          }
+        },
+        {
+          "id": "risk",
+          "file": "templates/risk.json",
+          "group": {
+            "ja": "チケット管理を作る",
+            "en": "Create ticket management"
+          }
+        },
+        {
+          "id": "issue",
+          "file": "templates/issue.json",
+          "group": {
+            "ja": "チケット管理を作る",
+            "en": "Create ticket management"
+          }
+        },
+        {
+          "id": "qa",
+          "file": "templates/qa.json",
+          "group": {
+            "ja": "チケット管理を作る",
+            "en": "Create ticket management"
+          }
+        },
+        {
+          "id": "change-request",
+          "file": "templates/change-request.json",
+          "group": {
+            "ja": "チケット管理を作る",
+            "en": "Create ticket management"
+          }
+        },
+        {
+          "id": "bug",
+          "file": "templates/bug.json",
+          "group": {
+            "ja": "チケット管理を作る",
+            "en": "Create ticket management"
+          }
+        },
+        {
+          "id": "review",
+          "file": "templates/review.json",
+          "group": {
+            "ja": "チケット管理を作る",
+            "en": "Create ticket management"
+          }
         }
       ],
       "kinds": [

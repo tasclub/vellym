@@ -1,0 +1,157 @@
+{
+  "kind": "TicketTracker",
+  "title": {
+    "ja": "不具合",
+    "en": "Bug"
+  },
+  "description": {
+    "ja": "不具合を管理する",
+    "en": "Manage bug"
+  },
+  "fileName": {
+    "ja": "bug.yaml",
+    "en": "bug.yaml"
+  },
+  "spec": {
+    "ja": {
+      "statuses": [
+        {
+          "id": "new",
+          "label": "新規",
+          "category": "open"
+        },
+        {
+          "id": "doing",
+          "label": "対応中",
+          "category": "open"
+        },
+        {
+          "id": "review",
+          "label": "確認待ち",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "完了",
+          "category": "closed"
+        },
+        {
+          "id": "onhold",
+          "label": "保留",
+          "category": "open"
+        }
+      ],
+      "fields": [
+        {
+          "id": "severity",
+          "label": "重大度",
+          "type": "text"
+        },
+        {
+          "id": "phase",
+          "label": "発見した工程",
+          "type": "text"
+        },
+        {
+          "id": "assignee",
+          "label": "担当",
+          "type": "text"
+        },
+        {
+          "id": "version",
+          "label": "版",
+          "type": "text"
+        },
+        {
+          "id": "updatedDocuments",
+          "label": "直した文書",
+          "type": "multiline"
+        }
+      ],
+      "ticketTemplate": "## 現象\n\n\n## 再現手順\n\n\n## 原因\n\n\n## 対応\n",
+      "rules": [
+        {
+          "id": "updated-documents",
+          "when": {
+            "statusCategory": "closed"
+          },
+          "require": [
+            "updatedDocuments"
+          ]
+        }
+      ]
+    },
+    "en": {
+      "statuses": [
+        {
+          "id": "new",
+          "label": "New",
+          "category": "open"
+        },
+        {
+          "id": "doing",
+          "label": "In progress",
+          "category": "open"
+        },
+        {
+          "id": "review",
+          "label": "Awaiting confirmation",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "Done",
+          "category": "closed"
+        },
+        {
+          "id": "onhold",
+          "label": "On hold",
+          "category": "open"
+        }
+      ],
+      "fields": [
+        {
+          "id": "severity",
+          "label": "Severity",
+          "type": "text"
+        },
+        {
+          "id": "phase",
+          "label": "Discovery phase",
+          "type": "text"
+        },
+        {
+          "id": "assignee",
+          "label": "Assignee",
+          "type": "text"
+        },
+        {
+          "id": "version",
+          "label": "Version",
+          "type": "text"
+        },
+        {
+          "id": "updatedDocuments",
+          "label": "Updated documents",
+          "type": "multiline"
+        }
+      ],
+      "ticketTemplate": "## Symptoms\n\n\n## Reproduction steps\n\n\n## Cause\n\n\n## Resolution\n",
+      "rules": [
+        {
+          "id": "updated-documents",
+          "when": {
+            "statusCategory": "closed"
+          },
+          "require": [
+            "updatedDocuments"
+          ]
+        }
+      ]
+    }
+  },
+  "guideText": {
+    "ja": "不具合をチケットで管理します。",
+    "en": "Manage bug with tickets."
+  }
+}

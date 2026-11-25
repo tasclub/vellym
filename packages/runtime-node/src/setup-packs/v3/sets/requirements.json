@@ -1,0 +1,19 @@
+{
+  "id": "requirements",
+  "title": {
+    "ja": "要求",
+    "en": "Requirements"
+  },
+  "description": {
+    "ja": "要求のセット",
+    "en": "Requirements set"
+  },
+  "items": [
+    {
+      "template": "functional-requirements"
+    },
+    {
+      "template": "non-functional-requirements"
+    }
+  ]
+}

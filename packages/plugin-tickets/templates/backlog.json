@@ -1,0 +1,169 @@
+{
+  "kind": "TicketTracker",
+  "title": {
+    "ja": "バックログ",
+    "en": "Backlog"
+  },
+  "description": {
+    "ja": "バックログを管理する",
+    "en": "Manage backlog"
+  },
+  "fileName": {
+    "ja": "backlog.yaml",
+    "en": "backlog.yaml"
+  },
+  "spec": {
+    "ja": {
+      "statuses": [
+        {
+          "id": "unrefined",
+          "label": "未整理",
+          "category": "open"
+        },
+        {
+          "id": "ready",
+          "label": "準備完了",
+          "category": "open"
+        },
+        {
+          "id": "sprint",
+          "label": "スプリント中",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "完了",
+          "category": "closed"
+        },
+        {
+          "id": "cancelled",
+          "label": "中止",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "sprint",
+          "label": "スプリント",
+          "type": "text"
+        },
+        {
+          "id": "estimate",
+          "label": "見積り（ポイント）",
+          "type": "number"
+        },
+        {
+          "id": "priority",
+          "label": "優先度",
+          "type": "text"
+        },
+        {
+          "id": "assignee",
+          "label": "担当",
+          "type": "text"
+        },
+        {
+          "id": "updatedDocuments",
+          "label": "直した文書",
+          "type": "multiline"
+        }
+      ],
+      "ticketTemplate": "## ストーリー（誰が・何を・なぜ）\n\n\n## 受入条件\n\n\n## 関連する文書\n\n\n## 直した文書\n",
+      "rules": [
+        {
+          "id": "updated-documents",
+          "when": {
+            "statusCategory": "closed"
+          },
+          "require": [
+            "updatedDocuments"
+          ]
+        }
+      ],
+      "kanban": {
+        "card": [
+          "priority",
+          "estimate"
+        ]
+      }
+    },
+    "en": {
+      "statuses": [
+        {
+          "id": "unrefined",
+          "label": "Unrefined",
+          "category": "open"
+        },
+        {
+          "id": "ready",
+          "label": "Ready",
+          "category": "open"
+        },
+        {
+          "id": "sprint",
+          "label": "In sprint",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "Done",
+          "category": "closed"
+        },
+        {
+          "id": "cancelled",
+          "label": "Cancelled",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "sprint",
+          "label": "Sprint",
+          "type": "text"
+        },
+        {
+          "id": "estimate",
+          "label": "Estimate (points)",
+          "type": "number"
+        },
+        {
+          "id": "priority",
+          "label": "Priority",
+          "type": "text"
+        },
+        {
+          "id": "assignee",
+          "label": "Assignee",
+          "type": "text"
+        },
+        {
+          "id": "updatedDocuments",
+          "label": "Updated documents",
+          "type": "multiline"
+        }
+      ],
+      "ticketTemplate": "## Story (who, what and why)\n\n\n## Acceptance criteria\n\n\n## Related documents\n\n\n## Updated documents\n",
+      "rules": [
+        {
+          "id": "updated-documents",
+          "when": {
+            "statusCategory": "closed"
+          },
+          "require": [
+            "updatedDocuments"
+          ]
+        }
+      ],
+      "kanban": {
+        "card": [
+          "priority",
+          "estimate"
+        ]
+      }
+    }
+  },
+  "guideText": {
+    "ja": "バックログをチケットで管理します。",
+    "en": "Manage backlog with tickets."
+  }
+}

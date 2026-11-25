@@ -1,1 +1,25 @@
-{"id":"start","title":{"ja":"立ち上げ","en":"Start"},"description":{"ja":"立ち上げの一部","en":"Initial documents"},"items":[{"template":"functional-requirements"},{"template":"decision"}]}
+{
+  "id": "start",
+  "title": {
+    "ja": "立ち上げ",
+    "en": "Start"
+  },
+  "description": {
+    "ja": "立ち上げのセット",
+    "en": "Start set"
+  },
+  "items": [
+    {
+      "template": "project-charter"
+    },
+    {
+      "template": "background-and-problem"
+    },
+    {
+      "template": "stakeholders"
+    },
+    {
+      "template": "glossary"
+    }
+  ]
+}

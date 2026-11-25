@@ -1,0 +1,25 @@
+{
+  "id": "quality-release",
+  "title": {
+    "ja": "品質・リリース",
+    "en": "Quality and release"
+  },
+  "description": {
+    "ja": "品質・リリースのセット",
+    "en": "Quality and release set"
+  },
+  "items": [
+    {
+      "template": "test-plan"
+    },
+    {
+      "template": "acceptance-scenario"
+    },
+    {
+      "template": "release-record"
+    },
+    {
+      "resource": "tickets:bug"
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "kind": "TicketTracker",
+  "title": {
+    "ja": "変更要求",
+    "en": "Change request"
+  },
+  "description": {
+    "ja": "変更要求を管理する",
+    "en": "Manage change request"
+  },
+  "fileName": {
+    "ja": "change-request.yaml",
+    "en": "change-request.yaml"
+  },
+  "spec": {
+    "ja": {
+      "statuses": [
+        {
+          "id": "proposed",
+          "label": "提案",
+          "category": "open"
+        },
+        {
+          "id": "evaluating",
+          "label": "評価中",
+          "category": "open"
+        },
+        {
+          "id": "approved",
+          "label": "承認",
+          "category": "open"
+        },
+        {
+          "id": "rejected",
+          "label": "却下",
+          "category": "closed"
+        },
+        {
+          "id": "implemented",
+          "label": "反映済み",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "requester",
+          "label": "要求者",
+          "type": "text"
+        },
+        {
+          "id": "costImpact",
+          "label": "影響（費用）",
+          "type": "text"
+        },
+        {
+          "id": "scheduleImpact",
+          "label": "影響（期間）",
+          "type": "text"
+        },
+        {
+          "id": "approver",
+          "label": "承認者",
+          "type": "text"
+        }
+      ],
+      "ticketTemplate": "## 変更の内容\n\n\n## 理由\n\n\n## 影響の評価\n\n\n## 判断\n"
+    },
+    "en": {
+      "statuses": [
+        {
+          "id": "proposed",
+          "label": "Proposed",
+          "category": "open"
+        },
+        {
+          "id": "evaluating",
+          "label": "Evaluating",
+          "category": "open"
+        },
+        {
+          "id": "approved",
+          "label": "Approved",
+          "category": "open"
+        },
+        {
+          "id": "rejected",
+          "label": "Rejected",
+          "category": "closed"
+        },
+        {
+          "id": "implemented",
+          "label": "Implemented",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "requester",
+          "label": "Requester",
+          "type": "text"
+        },
+        {
+          "id": "costImpact",
+          "label": "Cost impact",
+          "type": "text"
+        },
+        {
+          "id": "scheduleImpact",
+          "label": "Schedule impact",
+          "type": "text"
+        },
+        {
+          "id": "approver",
+          "label": "Approver",
+          "type": "text"
+        }
+      ],
+      "ticketTemplate": "## Change\n\n\n## Reason\n\n\n## Impact assessment\n\n\n## Decision\n"
+    }
+  },
+  "guideText": {
+    "ja": "変更要求をチケットで管理します。",
+    "en": "Manage change request with tickets."
+  }
+}

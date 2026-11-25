@@ -1,1 +1,223 @@
-{"kind":"TicketTracker","title":{"ja":"作業","en":"Work"},"description":{"ja":"作業を管理する","en":"Track work"},"fileName":{"ja":"work.yaml","en":"work.yaml"},"spec":{"ja":{"statuses":[{"id":"todo","label":"未着手","category":"open"},{"id":"done","label":"完了","category":"closed"}]},"en":{"statuses":[{"id":"todo","label":"To do","category":"open"},{"id":"done","label":"Done","category":"closed"}]}}}
+{
+  "kind": "TicketTracker",
+  "title": {
+    "ja": "作業",
+    "en": "Work"
+  },
+  "description": {
+    "ja": "作業を管理する",
+    "en": "Manage work"
+  },
+  "fileName": {
+    "ja": "work.yaml",
+    "en": "work.yaml"
+  },
+  "spec": {
+    "ja": {
+      "statuses": [
+        {
+          "id": "todo",
+          "label": "未着手",
+          "category": "open"
+        },
+        {
+          "id": "doing",
+          "label": "作業中",
+          "category": "open"
+        },
+        {
+          "id": "review",
+          "label": "レビュー待ち",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "完了",
+          "category": "closed"
+        },
+        {
+          "id": "cancelled",
+          "label": "中止",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "assignee",
+          "label": "担当",
+          "type": "text"
+        },
+        {
+          "id": "priority",
+          "label": "優先度",
+          "type": "text"
+        },
+        {
+          "id": "due",
+          "label": "期限",
+          "type": "date"
+        },
+        {
+          "id": "version",
+          "label": "版",
+          "type": "text"
+        },
+        {
+          "id": "documents",
+          "label": "関連する文書",
+          "type": "multiline"
+        },
+        {
+          "id": "parent",
+          "label": "親",
+          "type": "reference"
+        },
+        {
+          "id": "start",
+          "label": "開始",
+          "type": "date"
+        },
+        {
+          "id": "end",
+          "label": "終了",
+          "type": "date"
+        },
+        {
+          "id": "sequence",
+          "label": "並び順",
+          "type": "number"
+        },
+        {
+          "id": "updatedDocuments",
+          "label": "直した文書",
+          "type": "multiline"
+        }
+      ],
+      "ticketTemplate": "## 目的\n\n\n## 受入条件\n\n\n## 関連する文書\n\n\n## 直した文書\n\n\n## 実行記録\n",
+      "rules": [
+        {
+          "id": "updated-documents",
+          "when": {
+            "statusCategory": "closed"
+          },
+          "require": [
+            "updatedDocuments"
+          ]
+        }
+      ],
+      "hierarchy": {
+        "parentField": "parent"
+      },
+      "wbs": {
+        "startField": "start",
+        "endField": "end",
+        "orderField": "sequence"
+      }
+    },
+    "en": {
+      "statuses": [
+        {
+          "id": "todo",
+          "label": "To do",
+          "category": "open"
+        },
+        {
+          "id": "doing",
+          "label": "In progress",
+          "category": "open"
+        },
+        {
+          "id": "review",
+          "label": "In review",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "Done",
+          "category": "closed"
+        },
+        {
+          "id": "cancelled",
+          "label": "Cancelled",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "assignee",
+          "label": "Assignee",
+          "type": "text"
+        },
+        {
+          "id": "priority",
+          "label": "Priority",
+          "type": "text"
+        },
+        {
+          "id": "due",
+          "label": "Due date",
+          "type": "date"
+        },
+        {
+          "id": "version",
+          "label": "Version",
+          "type": "text"
+        },
+        {
+          "id": "documents",
+          "label": "Related documents",
+          "type": "multiline"
+        },
+        {
+          "id": "parent",
+          "label": "Parent",
+          "type": "reference"
+        },
+        {
+          "id": "start",
+          "label": "Start",
+          "type": "date"
+        },
+        {
+          "id": "end",
+          "label": "End",
+          "type": "date"
+        },
+        {
+          "id": "sequence",
+          "label": "Order",
+          "type": "number"
+        },
+        {
+          "id": "updatedDocuments",
+          "label": "Updated documents",
+          "type": "multiline"
+        }
+      ],
+      "ticketTemplate": "## Purpose\n\n\n## Acceptance criteria\n\n\n## Related documents\n\n\n## Updated documents\n\n\n## Execution log\n",
+      "rules": [
+        {
+          "id": "updated-documents",
+          "when": {
+            "statusCategory": "closed"
+          },
+          "require": [
+            "updatedDocuments"
+          ]
+        }
+      ],
+      "hierarchy": {
+        "parentField": "parent"
+      },
+      "wbs": {
+        "startField": "start",
+        "endField": "end",
+        "orderField": "sequence"
+      }
+    }
+  },
+  "guideText": {
+    "ja": "作業をチケットで管理します。",
+    "en": "Manage work with tickets."
+  }
+}

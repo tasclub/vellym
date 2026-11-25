@@ -1,0 +1,28 @@
+{
+  "id": "predictive",
+  "title": {
+    "ja": "予測型の追加",
+    "en": "Predictive additions"
+  },
+  "description": {
+    "ja": "予測型の追加のセット",
+    "en": "Predictive additions set"
+  },
+  "items": [
+    {
+      "template": "project-plan"
+    },
+    {
+      "template": "communication-plan"
+    },
+    {
+      "resource": "tickets:issue"
+    },
+    {
+      "resource": "tickets:qa"
+    },
+    {
+      "resource": "tickets:change-request"
+    }
+  ]
+}

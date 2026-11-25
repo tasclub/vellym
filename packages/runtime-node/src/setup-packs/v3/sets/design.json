@@ -1,0 +1,25 @@
+{
+  "id": "design",
+  "title": {
+    "ja": "設計",
+    "en": "Design"
+  },
+  "description": {
+    "ja": "設計のセット",
+    "en": "Design set"
+  },
+  "items": [
+    {
+      "template": "architecture-overview"
+    },
+    {
+      "template": "decision"
+    },
+    {
+      "template": "screen-design"
+    },
+    {
+      "template": "data-design"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "operations",
+  "title": {
+    "ja": "運用",
+    "en": "Operations"
+  },
+  "description": {
+    "ja": "運用のセット",
+    "en": "Operations set"
+  },
+  "items": [
+    {
+      "template": "operations-design"
+    },
+    {
+      "template": "incident-response"
+    }
+  ]
+}

@@ -1,1 +1,19 @@
-{"id":"sprint","title":{"ja":"スプリント","en":"Sprint"},"description":{"ja":"スプリントの作業","en":"Sprint work"},"items":[{"resource":"tickets:work"}],"repeat":{"folderName":{"ja":"スプリント","en":"sprint"},"page":"decision"}}
+{
+  "id": "sprint",
+  "title": {
+    "ja": "スプリント",
+    "en": "Sprint"
+  },
+  "description": {
+    "ja": "スプリントのセット",
+    "en": "Sprint set"
+  },
+  "items": [],
+  "repeat": {
+    "folderName": {
+      "ja": "スプリント",
+      "en": "sprint"
+    },
+    "page": "sprint"
+  }
+}

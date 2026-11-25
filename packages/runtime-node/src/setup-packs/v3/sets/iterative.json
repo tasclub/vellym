@@ -1,0 +1,16 @@
+{
+  "id": "iterative",
+  "title": {
+    "ja": "反復型の追加",
+    "en": "Iterative additions"
+  },
+  "description": {
+    "ja": "反復型の追加のセット",
+    "en": "Iterative additions set"
+  },
+  "items": [
+    {
+      "resource": "tickets:backlog"
+    }
+  ]
+}

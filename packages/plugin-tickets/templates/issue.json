@@ -1,0 +1,115 @@
+{
+  "kind": "TicketTracker",
+  "title": {
+    "ja": "課題",
+    "en": "Issue"
+  },
+  "description": {
+    "ja": "課題を管理する",
+    "en": "Manage issue"
+  },
+  "fileName": {
+    "ja": "issue.yaml",
+    "en": "issue.yaml"
+  },
+  "spec": {
+    "ja": {
+      "statuses": [
+        {
+          "id": "open",
+          "label": "未対応",
+          "category": "open"
+        },
+        {
+          "id": "doing",
+          "label": "対応中",
+          "category": "open"
+        },
+        {
+          "id": "review",
+          "label": "確認待ち",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "完了",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "priority",
+          "label": "優先度",
+          "type": "text"
+        },
+        {
+          "id": "assignee",
+          "label": "担当",
+          "type": "text"
+        },
+        {
+          "id": "due",
+          "label": "期限",
+          "type": "date"
+        },
+        {
+          "id": "reporter",
+          "label": "起票者",
+          "type": "text"
+        }
+      ],
+      "ticketTemplate": "## 内容\n\n\n## 影響\n\n\n## 対応\n\n\n## 結果\n"
+    },
+    "en": {
+      "statuses": [
+        {
+          "id": "open",
+          "label": "Open",
+          "category": "open"
+        },
+        {
+          "id": "doing",
+          "label": "In progress",
+          "category": "open"
+        },
+        {
+          "id": "review",
+          "label": "Awaiting confirmation",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "Done",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "priority",
+          "label": "Priority",
+          "type": "text"
+        },
+        {
+          "id": "assignee",
+          "label": "Assignee",
+          "type": "text"
+        },
+        {
+          "id": "due",
+          "label": "Due date",
+          "type": "date"
+        },
+        {
+          "id": "reporter",
+          "label": "Reporter",
+          "type": "text"
+        }
+      ],
+      "ticketTemplate": "## Description\n\n\n## Impact\n\n\n## Response\n\n\n## Result\n"
+    }
+  },
+  "guideText": {
+    "ja": "課題をチケットで管理します。",
+    "en": "Manage issue with tickets."
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "kind": "TicketTracker",
+  "title": {
+    "ja": "レビュー指摘",
+    "en": "Review finding"
+  },
+  "description": {
+    "ja": "レビュー指摘を管理する",
+    "en": "Manage review finding"
+  },
+  "fileName": {
+    "ja": "review.yaml",
+    "en": "review.yaml"
+  },
+  "spec": {
+    "ja": {
+      "statuses": [
+        {
+          "id": "reported",
+          "label": "指摘",
+          "category": "open"
+        },
+        {
+          "id": "doing",
+          "label": "対応中",
+          "category": "open"
+        },
+        {
+          "id": "review",
+          "label": "確認待ち",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "完了",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "document",
+          "label": "対象の文書",
+          "type": "reference"
+        },
+        {
+          "id": "severity",
+          "label": "重大度",
+          "type": "text"
+        },
+        {
+          "id": "reviewer",
+          "label": "指摘者",
+          "type": "text"
+        },
+        {
+          "id": "assignee",
+          "label": "担当",
+          "type": "text"
+        }
+      ],
+      "ticketTemplate": "## 指摘\n\n\n## 対応\n\n\n## 確認\n"
+    },
+    "en": {
+      "statuses": [
+        {
+          "id": "reported",
+          "label": "Reported",
+          "category": "open"
+        },
+        {
+          "id": "doing",
+          "label": "In progress",
+          "category": "open"
+        },
+        {
+          "id": "review",
+          "label": "Awaiting confirmation",
+          "category": "open"
+        },
+        {
+          "id": "done",
+          "label": "Done",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "document",
+          "label": "Document",
+          "type": "reference"
+        },
+        {
+          "id": "severity",
+          "label": "Severity",
+          "type": "text"
+        },
+        {
+          "id": "reviewer",
+          "label": "Reviewer",
+          "type": "text"
+        },
+        {
+          "id": "assignee",
+          "label": "Assignee",
+          "type": "text"
+        }
+      ],
+      "ticketTemplate": "## Finding\n\n\n## Response\n\n\n## Verification\n"
+    }
+  },
+  "guideText": {
+    "ja": "レビュー指摘をチケットで管理します。",
+    "en": "Manage review finding with tickets."
+  }
+}

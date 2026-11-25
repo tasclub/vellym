@@ -1,0 +1,23 @@
+{
+  "id": "phase",
+  "title": {
+    "ja": "工程",
+    "en": "Phase"
+  },
+  "description": {
+    "ja": "工程のセット",
+    "en": "Phase set"
+  },
+  "items": [
+    {
+      "resource": "tickets:review"
+    }
+  ],
+  "repeat": {
+    "folderName": {
+      "ja": "工程",
+      "en": "phase"
+    },
+    "page": "phase"
+  }
+}

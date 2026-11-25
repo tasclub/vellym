@@ -1,0 +1,105 @@
+{
+  "kind": "TicketTracker",
+  "title": {
+    "ja": "QA",
+    "en": "Questions and answers"
+  },
+  "description": {
+    "ja": "QAを管理する",
+    "en": "Manage questions and answers"
+  },
+  "fileName": {
+    "ja": "qa.yaml",
+    "en": "qa.yaml"
+  },
+  "spec": {
+    "ja": {
+      "statuses": [
+        {
+          "id": "asked",
+          "label": "質問中",
+          "category": "open"
+        },
+        {
+          "id": "answered",
+          "label": "回答済み",
+          "category": "open"
+        },
+        {
+          "id": "confirmed",
+          "label": "確認済み",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "recipient",
+          "label": "質問先",
+          "type": "text"
+        },
+        {
+          "id": "respondent",
+          "label": "回答者",
+          "type": "text"
+        },
+        {
+          "id": "due",
+          "label": "期限",
+          "type": "date"
+        },
+        {
+          "id": "documents",
+          "label": "関連する文書",
+          "type": "multiline"
+        }
+      ],
+      "ticketTemplate": "## 質問\n\n\n## 回答\n\n\n## 反映先（直した文書）\n"
+    },
+    "en": {
+      "statuses": [
+        {
+          "id": "asked",
+          "label": "Asked",
+          "category": "open"
+        },
+        {
+          "id": "answered",
+          "label": "Answered",
+          "category": "open"
+        },
+        {
+          "id": "confirmed",
+          "label": "Confirmed",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "recipient",
+          "label": "Question recipient",
+          "type": "text"
+        },
+        {
+          "id": "respondent",
+          "label": "Respondent",
+          "type": "text"
+        },
+        {
+          "id": "due",
+          "label": "Due date",
+          "type": "date"
+        },
+        {
+          "id": "documents",
+          "label": "Related documents",
+          "type": "multiline"
+        }
+      ],
+      "ticketTemplate": "## Question\n\n\n## Answer\n\n\n## Updated documents\n"
+    }
+  },
+  "guideText": {
+    "ja": "QAをチケットで管理します。",
+    "en": "Manage questions and answers with tickets."
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "planning",
+  "title": {
+    "ja": "計画",
+    "en": "Planning"
+  },
+  "description": {
+    "ja": "計画のセット",
+    "en": "Planning set"
+  },
+  "items": [
+    {
+      "template": "roadmap"
+    },
+    {
+      "template": "current-status"
+    },
+    {
+      "template": "scope"
+    },
+    {
+      "resource": "tickets:work"
+    },
+    {
+      "resource": "tickets:risk"
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "kind": "TicketTracker",
+  "title": {
+    "ja": "リスク",
+    "en": "Risk"
+  },
+  "description": {
+    "ja": "リスクを管理する",
+    "en": "Manage risk"
+  },
+  "fileName": {
+    "ja": "risk.yaml",
+    "en": "risk.yaml"
+  },
+  "spec": {
+    "ja": {
+      "statuses": [
+        {
+          "id": "identified",
+          "label": "特定",
+          "category": "open"
+        },
+        {
+          "id": "responding",
+          "label": "対応中",
+          "category": "open"
+        },
+        {
+          "id": "monitoring",
+          "label": "監視",
+          "category": "open"
+        },
+        {
+          "id": "closed",
+          "label": "終了",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "likelihood",
+          "label": "発生の見込み",
+          "type": "text"
+        },
+        {
+          "id": "impact",
+          "label": "影響",
+          "type": "text"
+        },
+        {
+          "id": "response",
+          "label": "対応の方針",
+          "type": "select",
+          "options": [
+            {
+              "value": "avoid",
+              "label": "回避"
+            },
+            {
+              "value": "mitigate",
+              "label": "軽減"
+            },
+            {
+              "value": "transfer",
+              "label": "移転"
+            },
+            {
+              "value": "accept",
+              "label": "受容"
+            }
+          ]
+        },
+        {
+          "id": "assignee",
+          "label": "担当",
+          "type": "text"
+        }
+      ],
+      "ticketTemplate": "## 内容\n\n\n## きっかけ\n\n\n## 対応\n\n\n## 監視のしかた\n"
+    },
+    "en": {
+      "statuses": [
+        {
+          "id": "identified",
+          "label": "Identified",
+          "category": "open"
+        },
+        {
+          "id": "responding",
+          "label": "Responding",
+          "category": "open"
+        },
+        {
+          "id": "monitoring",
+          "label": "Monitoring",
+          "category": "open"
+        },
+        {
+          "id": "closed",
+          "label": "Closed",
+          "category": "closed"
+        }
+      ],
+      "fields": [
+        {
+          "id": "likelihood",
+          "label": "Likelihood",
+          "type": "text"
+        },
+        {
+          "id": "impact",
+          "label": "Impact",
+          "type": "text"
+        },
+        {
+          "id": "response",
+          "label": "Response strategy",
+          "type": "select",
+          "options": [
+            {
+              "value": "avoid",
+              "label": "Avoid"
+            },
+            {
+              "value": "mitigate",
+              "label": "Mitigate"
+            },
+            {
+              "value": "transfer",
+              "label": "Transfer"
+            },
+            {
+              "value": "accept",
+              "label": "Accept"
+            }
+          ]
+        },
+        {
+          "id": "assignee",
+          "label": "Assignee",
+          "type": "text"
+        }
+      ],
+      "ticketTemplate": "## Description\n\n\n## Trigger\n\n\n## Response\n\n\n## Monitoring\n"
+    }
+  },
+  "guideText": {
+    "ja": "リスクをチケットで管理します。",
+    "en": "Manage risk with tickets."
+  }
+}
