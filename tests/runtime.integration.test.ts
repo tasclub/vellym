@@ -1240,23 +1240,21 @@ plugins: []
       expect(catalog.status).toBe(200);
       expect(await catalog.json()).toMatchObject({
         data: {
-          packId: "vellym-core-project-structure",
-          packVersion: "2.0.0",
-          folders: expect.arrayContaining([
-            expect.objectContaining({ id: "area-architecture" })
+          structures: expect.arrayContaining([
+            expect.objectContaining({ id: "by-type", numberedByDefault: false })
           ]),
-          pages: expect.arrayContaining([
-            expect.objectContaining({ id: "arc42-context", parentFolderId: "arc-arc42" })
-          ])
+          templates: expect.any(Array),
+          resources: [],
+          sets: expect.any(Array)
         }
       });
-      // The pre-hierarchy path stays available as an alias.
-      expect((await fetch(`${server.url}/api/v1/setup/profiles`)).status).toBe(200);
+      expect((await fetch(`${server.url}/api/v1/setup/profiles`)).status).toBe(404);
       const input = {
-        mode: "templates",
-        selectedTemplateIds: ["welcome", "project-guide"],
-        conflictResolutions: {},
-        pageFileNames: { "project-guide": "start.yaml" }
+        root: "docs",
+        structure: "by-type",
+        numbered: false,
+        language: "ja",
+        plugins: []
       };
       const preview = await fetch(`${server.url}/api/v1/setup/plan`, {
         method: "POST",
@@ -1265,17 +1263,13 @@ plugins: []
       });
       expect(preview.status).toBe(200);
       const previewBody = await preview.json() as {
-        data: { planHash: string; plannedPageIds: Record<string, string>; projectRoot?: string };
+        data: { planHash: string; request: unknown; projectRoot?: string };
       };
       expect(previewBody.data.projectRoot).toBe(project);
       const applied = await fetch(`${server.url}/api/v1/setup/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...input,
-          planHash: previewBody.data.planHash,
-          plannedPageIds: previewBody.data.plannedPageIds
-        })
+        body: JSON.stringify(previewBody.data)
       });
       expect(applied.status).toBe(200);
       expect(JSON.parse(await readFile(path.join(project, "package.json"), "utf8")))
@@ -1288,8 +1282,8 @@ plugins: []
       expect(
         (await fetch(`${server.url}/api/v1/repository`)).status
       ).toBe(200);
-      expect(await readFile(path.join(project, "docs/start.yaml"), "utf8"))
-        .toContain("プロジェクト文書の案内");
+      expect(await readFile(path.join(project, "docs/index.yaml"), "utf8"))
+        .toContain("文書の入口");
     } finally {
       await server.close();
     }

@@ -55,20 +55,11 @@ import {
   localizedSearchRepository,
   pageSummaries
 } from "./repository.js";
-import {
-  applyProjectSetup,
-  planProjectSetup,
-  setupCatalog,
-  type SetupPlan,
-  type SetupLanguage,
-  type SetupOperation
-} from "./setup.js";
-import type {
-  DevelopmentMethod,
-  DocumentationLevel,
-  ProjectSize,
-  SetupMode
-} from "./setup-catalog.js";
+import { applyInit, planInit, type InitRequest } from "./setup-init.js";
+import { applyAdd, planAdd, type AddRequest, type AddPlan } from "./setup-add.js";
+import { loadCatalog } from "./catalog/load.js";
+import { pluginResourceTemplates } from "./plugins.js";
+import { appendGuideSection } from "./vellym-guide.js";
 import {
   applySlugMigration,
   planSlugMigration,
@@ -289,146 +280,29 @@ function reloadFailureSnapshot(
   };
 }
 
-interface SetupHttpInput {
-  operation?: SetupOperation;
-  mode?: SetupMode;
-  size?: ProjectSize;
-  method?: DevelopmentMethod;
-  level?: DocumentationLevel;
-  selectedTemplateIds?: string[];
-  selectedFolderIds?: string[];
-  conflictResolutions: Record<string, "skip" | "alternate">;
-  contentRoot: string;
-  language: SetupLanguage;
-  folderNames: Record<string, string>;
-  pageFileNames: Record<string, string>;
-  pageTitles: Record<string, string>;
-  plannedPageIds?: Record<string, string>;
-}
-
-function setupInput(value: unknown): SetupHttpInput {
+function objectInput(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new RuntimeError(
-      "セットアップ入力が不正です",
-      400,
-      "SETUP_INPUT"
-    );
+    throw new RuntimeError("入力が不正です", 400, "SETUP_INPUT");
   }
-  const input = value as Record<string, unknown>;
-  const operation = input.operation;
-  const mode = input.mode;
-  const size = input.size;
-  const method = input.method;
-  const level = input.level;
-  if (
-    (operation !== undefined && operation !== "initialize" && operation !== "add") ||
-    (mode !== undefined && !["recommended", "templates", "empty"].includes(String(mode))) ||
-    (size !== undefined && !["personal", "small-team", "medium-large"].includes(String(size))) ||
-    (method !== undefined && !["agile", "hybrid", "waterfall"].includes(String(method))) ||
-    (level !== undefined && !["light", "standard", "strict"].includes(String(level)))
-  ) {
-    throw new RuntimeError("おすすめ構成の入力が不正です", 400, "SETUP_RECOMMENDATION");
-  }
-  const selectedTemplateIds = input.selectedTemplateIds;
-  if (
-    selectedTemplateIds !== undefined &&
-    (!Array.isArray(selectedTemplateIds) ||
-      selectedTemplateIds.some((item) => typeof item !== "string"))
-  ) {
-    throw new RuntimeError(
-      "選択文書が不正です",
-      400,
-      "SETUP_TEMPLATE"
-    );
-  }
-  const selectedFolderIds = input.selectedFolderIds;
-  if (
-    selectedFolderIds !== undefined &&
-    (!Array.isArray(selectedFolderIds) ||
-      selectedFolderIds.some((item) => typeof item !== "string"))
-  ) {
-    throw new RuntimeError(
-      "選択Folderが不正です",
-      400,
-      "SETUP_FOLDER"
-    );
-  }
-  const rawResolutions = input.conflictResolutions ?? {};
-  if (
-    !rawResolutions ||
-    typeof rawResolutions !== "object" ||
-    Array.isArray(rawResolutions)
-  ) {
-    throw new RuntimeError(
-      "競合時の処理が不正です",
-      400,
-      "SETUP_RESOLUTION"
-    );
-  }
-  const conflictResolutions: Record<string, "skip" | "alternate"> = {};
-  for (const [templateId, resolution] of Object.entries(rawResolutions)) {
-    if (resolution !== "skip" && resolution !== "alternate") {
-      throw new RuntimeError(
-        "競合時の処理が不正です",
-        400,
-        "SETUP_RESOLUTION"
-      );
-    }
-    conflictResolutions[templateId] = resolution;
-  }
-  const contentRoot = input.contentRoot ?? "docs";
-  const language = input.language ?? "ja";
-  const rawFolderNames = input.folderNames ?? {};
-  const rawPageFileNames = input.pageFileNames ?? {};
-  const rawPageTitles = input.pageTitles ?? {};
-  const rawPlannedPageIds = input.plannedPageIds;
-  if (
-    typeof contentRoot !== "string" ||
-    (language !== "ja" && language !== "en") ||
-    !rawFolderNames ||
-    typeof rawFolderNames !== "object" ||
-    Array.isArray(rawFolderNames) ||
-    Object.values(rawFolderNames).some((value) => typeof value !== "string") ||
-    !rawPageFileNames ||
-    typeof rawPageFileNames !== "object" ||
-    Array.isArray(rawPageFileNames) ||
-    Object.values(rawPageFileNames).some((value) => typeof value !== "string") ||
-    !rawPageTitles ||
-    typeof rawPageTitles !== "object" ||
-    Array.isArray(rawPageTitles) ||
-    Object.values(rawPageTitles).some((value) => typeof value !== "string") ||
-    (rawPlannedPageIds !== undefined &&
-      (!rawPlannedPageIds ||
-        typeof rawPlannedPageIds !== "object" ||
-        Array.isArray(rawPlannedPageIds) ||
-        Object.values(rawPlannedPageIds).some((value) => typeof value !== "string")))
-  ) {
-    throw new RuntimeError("セットアップの保存先または言語が不正です", 400, "SETUP_INPUT");
-  }
-  return {
-    ...(operation === undefined ? {} : { operation: operation as SetupOperation }),
-    ...(mode === undefined ? {} : { mode: mode as SetupMode }),
-    ...(size === undefined ? {} : { size: size as ProjectSize }),
-    ...(method === undefined ? {} : { method: method as DevelopmentMethod }),
-    ...(level === undefined ? {} : { level: level as DocumentationLevel }),
-    selectedTemplateIds: selectedTemplateIds as string[] | undefined,
-    selectedFolderIds: selectedFolderIds as string[] | undefined,
-    conflictResolutions,
-    contentRoot,
-    language,
-    folderNames: rawFolderNames as Record<string, string>,
-    pageFileNames: rawPageFileNames as Record<string, string>,
-    pageTitles: rawPageTitles as Record<string, string>,
-    ...(rawPlannedPageIds === undefined
-      ? {}
-      : { plannedPageIds: rawPlannedPageIds as Record<string, string> })
-  };
+  return value as Record<string, unknown>;
 }
 
-function publicPlan(plan: SetupPlan): Omit<SetupPlan, "projectRoot"> & {
-  projectRoot: string;
-} {
-  return plan;
+function assertPlanHash(value: unknown): asserts value is string {
+  if (typeof value !== "string") {
+    throw new RuntimeError("plan hashが必要です", 400, "SETUP_PLAN_HASH");
+  }
+}
+
+/** Localize catalog presentation without interpreting contributed resource kinds. */
+function localizedCatalog(value: unknown, language: "ja" | "en"): unknown {
+  if (Array.isArray(value)) return value.map(item => localizedCatalog(item, language));
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if ("ja" in record && "en" in record) return record[language];
+    return Object.fromEntries(Object.entries(record).map(([key, item]) =>
+      [key, localizedCatalog(item, language)]));
+  }
+  return value;
 }
 
 function diagnostic(
@@ -462,7 +336,7 @@ export async function startDevServer(options: {
   const allowedHosts: ReadonlySet<string> = isLoopbackHost(host)
     ? new Set(["localhost", "127.0.0.1", "[::1]", host.toLowerCase()])
     : new Set<string>();
-  const configPath = path.resolve(options.configPath);
+  let configPath = path.resolve(options.configPath);
   const projectRoot = path.dirname(configPath);
   let loadedConfig: LoadedConfig | undefined;
   let snapshot: RepositorySnapshot | undefined;
@@ -791,68 +665,52 @@ export async function startDevServer(options: {
         return;
       }
       if (
-        // `/setup/profiles` stays as an alias so a browser tab loaded before the
-        // hierarchy change keeps working until it reloads.
-        (url.pathname === "/api/v1/setup/catalog" ||
-          url.pathname === "/api/v1/setup/profiles") &&
+        url.pathname === "/api/v1/setup/catalog" &&
         request.method === "GET"
       ) {
         if (state !== "setup" && state !== "ready") requireSetup();
         const language = url.searchParams.get("language") === "en" ? "en" : "ja";
-        json(response, 200, envelope(setupCatalog(language)));
+        const resources = pluginResourceTemplates(pluginRegistry?.plugins ?? []);
+        json(response, 200, envelope(localizedCatalog(loadCatalog(resources), language)));
         return;
       }
       if (
         url.pathname === "/api/v1/setup/plan" &&
         request.method === "POST"
       ) {
-        const input = setupInput(await readJson(request));
-        if (input.operation === "add") requireReady();
-        else requireSetup();
-        const plan = await planProjectSetup(projectRoot, {
-          ...input,
+        requireSetup();
+        const input = objectInput(await readJson(request));
+        const plan = await planInit(projectRoot, {
+          ...input as unknown as InitRequest,
           ...(options.hostVersion ? { hostVersion: options.hostVersion } : {})
         });
-        json(response, 200, envelope(publicPlan(plan)));
+        const nextConfigPath = path.join(projectRoot, plan.request.root, "vellym.config.yaml");
+        json(response, 200, envelope({ ...plan, configPath: nextConfigPath }));
         return;
       }
       if (
         url.pathname === "/api/v1/setup/apply" &&
         request.method === "POST"
       ) {
-        const raw = await readJson(request);
-        if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-          throw new RuntimeError(
-            "セットアップ入力が不正です",
-            400,
-            "SETUP_INPUT"
-          );
-        }
-        const expectedHash = (raw as Record<string, unknown>).planHash;
-        if (typeof expectedHash !== "string") {
-          throw new RuntimeError(
-            "plan hashが必要です",
-            400,
-            "SETUP_PLAN_HASH"
-          );
-        }
-        const input = setupInput(raw);
-        if (input.operation === "add") requireReady();
-        else requireSetup();
-        const plan = await planProjectSetup(projectRoot, {
-          ...input,
+        requireSetup();
+        const raw = objectInput(await readJson(request));
+        assertPlanHash(raw.planHash);
+        const input = objectInput(raw.request);
+        const plan = await planInit(projectRoot, {
+          ...input as unknown as InitRequest,
           ...(options.hostVersion ? { hostVersion: options.hostVersion } : {})
         });
-        if (plan.planHash !== expectedHash) {
+        if (plan.planHash !== raw.planHash) {
           throw new RuntimeError(
             "preview後に対象が変更されました。もう一度確認してください",
             409,
             "SETUP_PLAN_CONFLICT"
           );
         }
-        await applyProjectSetup(plan);
+        await applyInit(plan);
+        configPath = path.join(projectRoot, plan.request.root, "vellym.config.yaml");
         await activateReady();
-        publishChange(plan.operation === "initialize" ? "setup-complete" : "template-add");
+        publishChange("setup-complete");
         json(
           response,
           200,
@@ -863,6 +721,54 @@ export async function startDevServer(options: {
           })
         );
         return;
+      }
+      if (
+        (url.pathname === "/api/v1/templates/plan" ||
+          url.pathname === "/api/v1/templates/apply") &&
+        request.method === "POST"
+      ) {
+        const { loadedConfig: config } = requireReady();
+        const raw = objectInput(await readJson(request));
+        const resources = pluginResourceTemplates(pluginRegistry?.plugins ?? []);
+        if (url.pathname.endsWith("/plan")) {
+          const plan = await planAdd(config, raw as unknown as AddRequest, { resources });
+          json(response, 200, envelope(plan));
+          return;
+        }
+        assertPlanHash(raw.planHash);
+        objectInput(raw.request);
+        if (!Array.isArray(raw.files) || !Array.isArray(raw.identities) ||
+            raw.identities.some(item => typeof item !== "string")) {
+          throw new RuntimeError("計画が不正です", 400, "ADD_REQUEST");
+        }
+        const plan = raw as unknown as AddPlan;
+        await applyAdd(config, plan, { resources });
+        if (plan.request.guide) {
+          const catalog = loadCatalog(resources);
+          const definition = plan.request.kind === "set"
+            ? catalog.sets.find(item => item.id === plan.request.id)
+            : [...catalog.templates, ...catalog.resources].find(item => item.id === plan.request.id);
+          if (definition) {
+            const language = plan.request.language;
+            const body = "guideText" in definition && definition.guideText
+              ? definition.guideText[language] : definition.description[language];
+            const kind = plan.request.kind === "resource" ? "template" : plan.request.kind;
+            await appendGuideSection(path.join(path.dirname(config.configPath), "VELLYM.md"), {
+              id: `add-${kind}-${plan.request.id}`, title: definition.title[language], body
+            });
+          }
+        }
+        await activateReady();
+        publishChange("template-add");
+        json(response, 200, envelope({
+          state: "ready",
+          created: plan.files.filter(file => file.status !== "skip"),
+          skipped: plan.files.filter(file => file.status === "skip")
+        }));
+        return;
+      }
+      if (url.pathname.startsWith("/api/v1/setup/") || url.pathname.startsWith("/api/v1/templates/")) {
+        throw new RuntimeError("Not found", 404, "NOT_FOUND");
       }
       if (request.method === "GET" && url.pathname === "/api/v1/git/status") {
         json(response, 200, envelope(await readGitChanges(requireReady().loadedConfig.contentRoot)));

@@ -245,6 +245,100 @@ export interface SetupApplyResult {
   skipped: SetupPlan["files"];
 }
 
+export interface InitInput {
+  root: "docs" | "vellym" | ".";
+  structure: "by-type" | "by-phase" | "by-feature";
+  numbered: boolean;
+  folderNames?: Record<string, string>;
+  supplementGuide?: boolean;
+  language: "ja" | "en";
+  plugins: Array<string | { name: string; version: string; id?: string }>;
+}
+
+export interface InitPlan {
+  projectRoot: string;
+  configPath: string;
+  request: InitInput;
+  files: Array<{
+    relativePath: string;
+    status: "create" | "skip" | "update";
+    source: string;
+    reason?: string;
+    expectedHash?: string;
+  }>;
+  planHash: string;
+}
+
+export interface TemplateInput {
+  kind: "template" | "resource" | "set";
+  id: string;
+  folder?: string;
+  name?: string;
+  language: "ja" | "en";
+  guide?: boolean;
+}
+
+export interface TemplatePlan {
+  request: TemplateInput;
+  files: Array<{
+    relativePath: string;
+    status: "create" | "skip" | "rename";
+    kind: string;
+    title: string;
+    name?: string;
+    source: string;
+    reason?: { code: "EXISTS" | "PLUGIN_NOT_ENABLED"; message: { ja: string; en: string } };
+  }>;
+  guide?: { append: boolean };
+  identities: string[];
+  planHash: string;
+}
+
+export interface InitCatalogFolder {
+  id: string;
+  role?: string;
+  name: string;
+  description: string;
+  children?: InitCatalogFolder[];
+}
+
+export interface InitCatalog {
+  structures: Array<{
+    id: string;
+    numberedByDefault: boolean;
+    folders: InitCatalogFolder[];
+    roleMap: Record<string, string | { folderId: string; feature: true }>;
+    supplement?: true;
+  }>;
+  templates: Array<{
+    id: string;
+    role: string;
+    title: string;
+    fileName: string;
+    body: string;
+    description: string;
+    guideText?: string;
+  }>;
+  resources: Array<{
+    id: string;
+    pluginId: string;
+    group: string;
+    kind: string;
+    title: string;
+    fileName: string;
+    description: string;
+    spec: Record<string, unknown>;
+    guideText?: string;
+  }>;
+  sets: Array<{
+    id: string;
+    title: string;
+    description: string;
+    items: Array<{ template: string } | { resource: string }>;
+    repeat?: { folderName: string; page: string };
+  }>;
+}
+
 export interface ContentRootPlan {
   contentRoot: string;
   resolvedContentRoot: string;
@@ -520,11 +614,44 @@ export async function fetchBootstrap(
   };
 }
 
+/** Legacy wizard types remain until the wizard is migrated to the init API. */
 export function fetchSetupCatalog(
   language: "ja" | "en",
   signal?: AbortSignal
 ): Promise<Envelope<SetupCatalog>> {
   return request(`/api/v1/setup/catalog?language=${language}`, { signal });
+}
+
+export function fetchInitCatalog(language: "ja" | "en", signal?: AbortSignal): Promise<Envelope<InitCatalog>> {
+  return request(`/api/v1/setup/catalog?language=${language}`, { signal });
+}
+
+export function previewInit(input: InitInput): Promise<Envelope<InitPlan>> {
+  return request("/api/v1/setup/plan", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input)
+  });
+}
+
+export function applyInit(plan: InitPlan): Promise<Envelope<{
+  state: "ready"; created: InitPlan["files"]; skipped: InitPlan["files"];
+}>> {
+  return request("/api/v1/setup/apply", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(plan)
+  });
+}
+
+export function previewTemplates(input: TemplateInput): Promise<Envelope<TemplatePlan>> {
+  return request("/api/v1/templates/plan", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input)
+  });
+}
+
+export function applyTemplates(plan: TemplatePlan): Promise<Envelope<{
+  state: "ready"; created: TemplatePlan["files"]; skipped: TemplatePlan["files"];
+}>> {
+  return request("/api/v1/templates/apply", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(plan)
+  });
 }
 
 export function previewSetup(
