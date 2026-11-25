@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { startDevServer } from "../packages/runtime-node/src/server.js";
-import type { InitInput, InitPlan } from "../packages/ui-react/src/shared/api.js";
+import type { InitInput, InitPlan, TemplatePlan } from "../packages/ui-react/src/shared/api.js";
 import type { AddPlan } from "../packages/runtime-node/src/setup-add.js";
 
 let root: string;
@@ -97,6 +97,7 @@ describe("setup and template HTTP APIs", () => {
     const guidePath = path.join(root, "docs/VELLYM.md");
     const original = await readFile(guidePath, "utf8");
     const plan = await preview<AddPlan>("templates", { ...add, guide: true });
+    expect(plan.guide).toMatchObject({ available: true, append: true });
     expect(await readFile(guidePath, "utf8")).toBe(original);
     const events = await fetch(`${server.url}/api/v1/events`, { signal: AbortSignal.timeout(5000) });
     const reader = events.body!.getReader();
@@ -123,6 +124,18 @@ describe("setup and template HTTP APIs", () => {
     const noGuide = await preview<AddPlan>("templates", { ...add, name: "another", guide: false });
     expect((await post("templates/apply", noGuide)).status).toBe(200);
     expect(await readFile(guidePath, "utf8")).toBe(updated);
+  });
+
+  it("reports guide availability at the configuration root, not the content folder", async () => {
+    await initialize();
+    const plan = await preview<TemplatePlan>("templates", add);
+    expect(plan.guide).toEqual({ available: true });
+    expect((await post("templates/apply", plan)).status).toBe(200);
+    await unlink(path.join(root, "docs/VELLYM.md"));
+    const absent = await preview<TemplatePlan>("templates", { ...add, name: "without guide", guide: true });
+    expect(absent.guide).toEqual({ available: false, append: true });
+    expect((await post("templates/apply", absent)).status).toBe(200);
+    expect(await readdir(path.join(root, "docs"))).not.toContain("VELLYM.md");
   });
 
   it("rejects stale or tampered addition previews", async () => {

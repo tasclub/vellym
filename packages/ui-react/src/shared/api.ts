@@ -289,7 +289,7 @@ export interface TemplatePlan {
     source: string;
     reason?: { code: "EXISTS" | "PLUGIN_NOT_ENABLED"; message: { ja: string; en: string } };
   }>;
-  guide?: { append: boolean };
+  guide?: { append?: boolean; available: boolean };
   identities: string[];
   planHash: string;
 }

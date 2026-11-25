@@ -58,6 +58,8 @@ import type {
   PluginSpecWrite
 } from "@vellym/plugin-api";
 import { FolderView } from "../editor/folder-view.js";
+import { AddFromTemplateDialog, type AddMode } from "../editor/add-from-template-dialog.js";
+import type { InitCatalog } from "../shared/api.js";
 import {
   draftCopyText,
   type SaveState
@@ -299,6 +301,7 @@ export function App() {
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [selected, setSelected] = useState<string>();
   const [selectedFolder, setSelectedFolder] = useState<string>();
+  const [templateAdd, setTemplateAdd] = useState<{ mode: AddMode; catalog: InitCatalog; folder: string }>();
   const [area, setArea] = useState<"documents" | "changes" | "settings">("documents");
   const [gitStatus, setGitStatus] = useState<GitStatus>({ available: false });
   const [changePath, setChangePath] = useState<string>();
@@ -1637,6 +1640,10 @@ export function App() {
         ) : selectedFolder !== undefined || pages.length === 0 ? (
           <FolderView
             folder={selectedFolderNode}
+            language={bootstrap.project.uiLocale === "ja" ? "ja" : "en"}
+            onAdd={bootstrap.capabilities.structure && bootstrap.capabilities.live
+              ? (mode, catalog) => setTemplateAdd({ mode, catalog, folder: selectedFolder ?? "" })
+              : undefined}
             onSelectPage={navigate}
             onSelectFolder={setSelectedFolder}
             onCreatePage={
@@ -1907,6 +1914,18 @@ export function App() {
         )}
         </div>
       </WorkspaceShell>
+      {templateAdd && <AddFromTemplateDialog
+        {...templateAdd}
+        language={bootstrap.project.uiLocale === "ja" ? "ja" : "en"}
+        onClose={() => setTemplateAdd(undefined)}
+        onCreated={async name => {
+          await loadList();
+          if (name) {
+            setSelectedFolder(undefined);
+            navigate(name);
+          }
+        }}
+      />}
       <AppOverlays
         unsavedChanges={{
           isOpen: Boolean(pendingLeave),

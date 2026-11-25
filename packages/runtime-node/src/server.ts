@@ -732,7 +732,9 @@ export async function startDevServer(options: {
         const resources = pluginResourceTemplates(pluginRegistry?.plugins ?? []);
         if (url.pathname.endsWith("/plan")) {
           const plan = await planAdd(config, raw as unknown as AddRequest, { resources });
-          json(response, 200, envelope(plan));
+          const available = await access(path.join(path.dirname(config.configPath), "VELLYM.md"))
+            .then(() => true, () => false);
+          json(response, 200, envelope({ ...plan, guide: { ...plan.guide, available } }));
           return;
         }
         assertPlanHash(raw.planHash);
@@ -742,6 +744,12 @@ export async function startDevServer(options: {
           throw new RuntimeError("計画が不正です", 400, "ADD_REQUEST");
         }
         const plan = raw as unknown as AddPlan;
+        // Availability belongs to the HTTP preview, not the signed write plan.
+        if (raw.guide && typeof raw.guide === "object" && "available" in raw.guide) {
+          const { available: _available, ...guide } = raw.guide;
+          if (Object.keys(guide).length) plan.guide = guide as { append: boolean };
+          else delete plan.guide;
+        }
         await applyAdd(config, plan, { resources });
         if (plan.request.guide) {
           const catalog = loadCatalog(resources);
