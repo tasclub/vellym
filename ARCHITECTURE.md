@@ -267,6 +267,9 @@ errors can contain absolute paths outside the project.
 | `npm test` | Unit and integration tests, including package boundaries |
 | `npm run test:unit` | Unit tests |
 | `npm run test:integration` | Build and run integration tests |
+| `npm run test:e2e` | Build and run Playwright E2E tests in `e2e/` |
+| `npm run test:e2e:smoke` | Build and run the critical `@smoke` journeys |
+| `npx playwright test <spec>` | One E2E spec, using already-built artifacts |
 | `npm run coverage` | Same, with coverage reporting |
 | `npm run verify:core` | Real browser: accessibility, keyboard, Japanese IME, CommonMark round-trip, search response time at 100 pages |
 | `npm run pack:smoke` | The published tarball, in an empty environment |
@@ -276,5 +279,7 @@ Unit tests use memory and may read repository files; they do not start processes
 servers or create temporary files. Integration tests use files, processes or servers
 and are named `tests/**/*.integration.test.ts`; other `tests/**/*.test.ts` are unit tests.
 
-`verify:core` runs in CI on every pull request. It is the only check that exercises
-the actual UI, so a UI change that passes `npm test` is not yet verified.
+Playwright E2E tests exercise the actual UI with isolated projects and servers.
+Legacy `verify:core` and browser scripts remain until their checks migrate to
+`e2e/`; new screen tests belong there. A UI change that passes `npm test` alone
+is not yet verified.

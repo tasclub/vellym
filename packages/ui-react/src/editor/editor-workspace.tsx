@@ -448,7 +448,7 @@ export function EditorWorkspace(props: {
                 <div className={styles["document-actions"]}>
                   {props.languageSwitcher}
                   {props.canEdit && (
-                <Button className="edit-start-action" tone="primary" onClick={props.onStartEdit}>
+                <Button data-testid="document-edit" className="edit-start-action" tone="primary" onClick={props.onStartEdit}>
                   {t("editor.edit")}
                 </Button>
                   )}
@@ -621,6 +621,7 @@ export function EditorWorkspace(props: {
               props.saveState === "saving" ||
               props.saveState === "conflict"
             }
+            data-testid="document-save"
             onClick={props.onSave}
           >
             {t("editor.save")}

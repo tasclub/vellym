@@ -278,7 +278,7 @@ export function KanbanScreen({ context }: PluginViewProps) {
   }
 
   return (
-    <section aria-label={resolveLocalizedText({ ja: "チケットのカンバン", en: "Ticket Kanban" }, context.locale)}>
+    <section data-testid="kanban-board" aria-label={resolveLocalizedText({ ja: "チケットのカンバン", en: "Ticket Kanban" }, context.locale)}>
       {!context.isStatic && data.diagnostics.length > 0 ? (
         <div role="alert">
           <strong>{resolveLocalizedText({ ja: "カンバンの設定に問題があります", en: "Check the Kanban definition" }, context.locale)}</strong>

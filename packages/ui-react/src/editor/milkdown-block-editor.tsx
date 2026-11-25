@@ -85,6 +85,7 @@ export function MilkdownBlockEditor(props: {
           '[contenteditable="true"]'
         );
         editorElement?.setAttribute("aria-label", callbacks.current.label);
+        editorElement?.setAttribute("role", "textbox");
         editorElement?.setAttribute("aria-multiline", "true");
         setReady(true);
         callbacks.current.onReady(created, (files) => uploadRef.current(files));

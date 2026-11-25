@@ -625,7 +625,7 @@ export function PluginListView({
   if (!rows.length) {
     // `plugin-list`は紙の幅を変えるための目印。`:has()`が参照するので残す
     return (
-      <div className="plugin-list dense">
+      <div className="plugin-list dense" data-testid="plugin-list">
         {header}
         <p className="notice">
           {descriptor.emptyState
@@ -654,7 +654,7 @@ export function PluginListView({
   const allSelected = rows.every((row) => selected.includes(row.name));
 
   return (
-    <div className="plugin-list">
+    <div className="plugin-list" data-testid="plugin-list">
       {header}
       <DataTable
         rows={rows}

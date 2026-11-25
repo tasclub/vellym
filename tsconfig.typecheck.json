@@ -16,5 +16,6 @@
     "paths": {
       "@vellym/plugin-api/ui": ["./packages/ui-react/src/shared/index.ts"]
     }
-  }
+  },
+  "include": ["packages/**/*.ts", "packages/**/*.tsx", "scripts/**/*.mjs", "tests/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"]
 }

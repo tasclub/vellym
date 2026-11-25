@@ -648,11 +648,11 @@ export async function fetchPluginView(
   if (viewId) params.set("view", viewId);
   const query = params.size ? `?${params.toString()}` : "";
   try {
-    const envelope = await request<PluginViewPayload>(
+    const envelope = await request<PluginViewPayload | null>(
       `/api/v1/plugins/views/${encodeURIComponent(name)}${query}`,
       { signal }
     );
-    return envelope.data;
+    return envelope.data ?? undefined;
   } catch {
     return undefined;
   }

@@ -27,12 +27,41 @@ npm test
 | `npm test` | Build and run both test layers |
 | `npm run test:unit` | Unit tests |
 | `npm run test:integration` | Build and run integration tests |
+| `npm run test:e2e` | Build and run Playwright E2E tests |
+| `npm run test:e2e:smoke` | Build and run the `@smoke` E2E subset |
+| `npx playwright test <spec>` | Run one E2E spec (build first) |
 
 Unit tests use memory and may read repository files; they do not start processes or
 servers or create temporary files. Integration tests use files, processes or servers
 and are named `tests/**/*.integration.test.ts`; other `tests/**/*.test.ts` are unit tests.
 
 Run `npm run pack:smoke` for packaging changes, `npm run verify:core` for browser, accessibility, and 100-page verification, `npm run verify:browser` for all `tests/*.browser.mjs` checks (including Git commit/push and image upload), `npm run verify:ui-locale` to check that an English-only project shows no Japanese UI text on the main screens, and `npm run verify:scale:git` to check that related commits stay fast in a 10,000-commit repository. The browser checks require Playwright Chromium; see *Seeing the screen* below. Pull requests must describe YAML read/write and compatibility impact.
+
+### Writing tests
+
+- Write new screen/browser tests and automated acceptance steps in `e2e/`, not
+  new `tests/*.browser.mjs` files or `scripts/acceptance/` modules. Use
+  `e2e/setup/` for setup, `e2e/design/` for design screens, and `e2e/acceptance/`
+  for acceptance scenarios. Include the acceptance step ID in each test title,
+  e.g. `opens a document @CORE-A01` or `edits a diagram @DESIGN-A01`.
+- Import `test` and `expect` from `e2e/fixtures.ts`. It creates an isolated YAML
+  project directly (without depending on `init`), starts the built CLI on an
+  OS-allocated port, checks browser errors, and cleans up resources. Configure
+  optional plugins with `test.use({ plugins: ["tickets", "kanban", "wbs"] })`.
+  Extend the project fixture to add documents before the server starts.
+- Locate elements with `getByRole` or `data-testid`, not `getByText` or translated
+  UI wording. If an accessible name is UI copy, prefer a stable test ID.
+  Fixture-owned document names can be used with roles.
+- Read version numbers from `package.json`; do not hard-code them in expectations.
+- Create disposable directories with `mkdtemp` under `os.tmpdir()` and delete
+  them afterward. Let the OS allocate ports (`listen(0)`); never use fixed ports
+  or external network services.
+- For bug fixes, add a reproduction test in the smallest layer that can catch it.
+- Quarantine flaky tests with `test.fixme` and track the fix in a Ticket. Retries
+  belong only to E2E in CI (one retry), not to unit or integration tests.
+- Tag only the minimum critical user journeys `@smoke`. Playwright supplies
+  parallelism, sharding, CI reports, and traces on the first retry; do not build
+  another browser runner.
 
 ## Changing the UI
 

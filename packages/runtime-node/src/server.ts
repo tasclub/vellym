@@ -1455,13 +1455,14 @@ export async function startDevServer(options: {
         return;
       }
       // プラグインが登録したビュー。開いたリソースのkindで決まる。
-      // 対応するビューが無ければ404にし、SPAは通常の表示へ戻る。
+      // 資源そのものが無ければ404。資源はあるが対応するビューが無いのは
+      // 正常な結果なので、200で`data: null`を返し、SPAは通常の表示へ戻る。
       const viewMatch = url.pathname.match(/^\/api\/v1\/plugins\/views\/([a-z0-9-]+)$/);
       if (viewMatch && request.method === "GET") {
         const ready = requireReady();
         const localeState = localeRequest(url, ready.loadedConfig.config);
         const entry = ready.snapshot.byName.get(viewMatch[1]!);
-        if (!entry || !pluginRegistry) {
+        if (!entry) {
           throw new RuntimeError("ビューが見つかりません", 404, "NOT_FOUND");
         }
         // **静的生成と同じ経路を通す。** 索引行の集め方や注意の分け方が
@@ -1477,7 +1478,8 @@ export async function startDevServer(options: {
             : {})
         });
         if (!payload) {
-          throw new RuntimeError("ビューが見つかりません", 404, "NOT_FOUND");
+          json(response, 200, envelope(null, ready.snapshot.diagnostics));
+          return;
         }
         json(response, 200, envelope(payload, ready.snapshot.diagnostics));
         return;
