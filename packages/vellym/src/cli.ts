@@ -18,6 +18,7 @@ import {
 } from "@vellym-internal/runtime-node";
 import { API_SCHEMA_VERSION, type Diagnostic } from "@vellym-internal/core";
 import { initializeProject } from "./init-command.js";
+import { addCommand, AddUsageError } from "./add-command.js";
 import { buildStatic } from "./static-builder.js";
 import { VELLYM_VERSION } from "./version.js";
 import { resolveLocalizedText } from "@vellym/plugin-api";
@@ -49,6 +50,8 @@ function commandHelp(command: string): string {
     case "init": {
       return messages.initHelp();
     }
+    case "add":
+      return messages.addHelp();
     case "dev":
       return messages.devHelp();
     case "validate":
@@ -409,10 +412,14 @@ async function main(args = process.argv.slice(2)): Promise<void> {
     return;
   }
   if (
-    ["init", "dev", "validate", "list", "schema", "build", "migrate"].includes(command) &&
+    ["init", "add", "dev", "validate", "list", "schema", "build", "migrate"].includes(command) &&
     args.slice(1).includes("--help")
   ) {
     process.stdout.write(commandHelp(command));
+    return;
+  }
+  if (command === "add") {
+    process.exitCode = await addCommand(args.slice(1), await resolveConfigPath(args));
     return;
   }
   if (command === "init") {
@@ -490,5 +497,5 @@ main().catch((error) => {
     return;
   }
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.exitCode = error instanceof UsageError ? 2 : 1;
+  process.exitCode = error instanceof UsageError || error instanceof AddUsageError ? 2 : 1;
 });

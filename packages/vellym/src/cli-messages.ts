@@ -11,6 +11,7 @@ const officialPluginList = (): string => Object.keys(OFFICIAL_PLUGINS).join(",")
 export interface CliMessages {
   usage(): string;
   initHelp(): string;
+  addHelp(): string;
   devHelp(): string;
   validateHelp(): string;
   listHelp(): string;
@@ -62,6 +63,7 @@ const ja: CliMessages = {
 
 Usage:
   vellym init [directory] --size <size> --method <method> --language <ja|en> [--content-root <path>]
+  vellym add template|set <id> [options]
   vellym dev [--config <path>] [--host <address>] [--port <number>]
   vellym validate [--config <path>] [--json] [--strict]
   vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]
@@ -75,6 +77,13 @@ Usage:
 利用ガイド: https://vellym.tasclub.com/
 AI向け案内: https://vellym.tasclub.com/llms.txt
 スキーマ一覧: vellym schema --list
+`,
+  addHelp: () => `vellym add template|set <id> [--folder <path>] [--name <名前>]
+vellym add --list [template|set]
+
+--guide / --no-guide: VELLYM.mdへ追記するか（既定は追記しない）
+--dry-run: 計画だけ表示  --json: JSON出力  --config <path>: 設定
+プラグインのテンプレートは <プラグインID>:<ID> と --folder を指定します。
 `,
   initHelp: () => `vellym init [directory] [options]
 
@@ -210,6 +219,7 @@ const en: CliMessages = {
 
 Usage:
   vellym init [directory] --size <size> --method <method> --language <ja|en> [--content-root <path>]
+  vellym add template|set <id> [options]
   vellym dev [--config <path>] [--host <address>] [--port <number>]
   vellym validate [--config <path>] [--json] [--strict]
   vellym list --kind <kind> [--where <key>=<value>]... [--json] [--config <path>] [--language ja|en]
@@ -223,6 +233,13 @@ Run "vellym <command> --help" for per-command details and examples.
 User guide: https://vellym.tasclub.com/en/
 AI guide: https://vellym.tasclub.com/llms.txt
 List schemas: vellym schema --list
+`,
+  addHelp: () => `vellym add template|set <id> [--folder <path>] [--name <name>]
+vellym add --list [template|set]
+
+--guide / --no-guide: append to VELLYM.md (default: no append)
+--dry-run: preview only  --json: JSON output  --config <path>: configuration
+For plugin templates use <plugin-id>:<id> and --folder.
 `,
   initHelp: () => `vellym init [directory] [options]
 
