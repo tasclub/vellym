@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { lstat, mkdir, open, readFile, readdir, realpath, rename, rm, rmdir, stat } from "node:fs/promises";
+import { lstat, readFile, readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { parse, stringify } from "yaml";
 import { STABLE_API_VERSION } from "@vellym-internal/core";
@@ -8,6 +8,7 @@ import type { FolderDef, Role } from "./catalog/types.js";
 import { RuntimeError } from "./errors.js";
 import { isInside } from "./path-utils.js";
 import type { LoadedConfig } from "./types.js";
+import { applyFileTransaction } from "./file-transaction.js";
 
 export interface AddRequest {
   kind: "template" | "tracker" | "set";
@@ -284,63 +285,6 @@ export async function applyAdd(config: LoadedConfig, expected: AddPlan): Promise
     throw new RuntimeError("preview後に対象が変更されました。もう一度確認してください", 409, "ADD_PLAN_CONFLICT");
   }
   const root = await realpath(config.contentRoot);
-  const directories: string[] = [];
-  const temporary: string[] = [];
-  const reserved: string[] = [];
-  try {
-    const staged: Array<{ target: string; temp: string }> = [];
-    for (const file of current.files.filter(file => file.status !== "skip")) {
-      const parts = file.relativePath.split("/");
-      parts.pop();
-      let directory = root;
-      for (const part of parts) {
-        directory = path.join(directory, part);
-        try { await mkdir(directory); directories.push(directory); }
-        catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-        }
-        await boundary(root, path.relative(root, directory));
-        if (!(await stat(directory)).isDirectory()) invalid("作成先がフォルダではありません");
-        directory = await realpath(directory);
-      }
-      await boundary(root, file.relativePath);
-      const target = path.join(directory, path.posix.basename(file.relativePath));
-      const temp = path.join(directory, `.vellym-add-${randomBytes(12).toString("hex")}.tmp`);
-      const handle = await open(temp, "wx");
-      temporary.push(temp);
-      try { await handle.writeFile(file.source, "utf8"); }
-      finally { await handle.close(); }
-      staged.push({ target, temp });
-    }
-    // Reserve *all* destinations exclusively before renaming staged sources.
-    // rename alone would silently overwrite a file created since preview.
-    for (const { target } of staged) {
-      await boundary(root, path.relative(root, target));
-      const handle = await open(target, "wx");
-      reserved.push(target);
-      await handle.close();
-    }
-    for (const { target, temp } of staged) {
-      await boundary(root, path.relative(root, target));
-      await rename(temp, target);
-    }
-  } catch (error) {
-    const rollback = await Promise.allSettled([...reserved, ...temporary].map(target => rm(target, { force: true })));
-    let directoryRollbackFailed = false;
-    for (const directory of directories.reverse()) {
-      try { await rmdir(directory); } catch (cleanupError) {
-        // Another writer's files must survive, but report actual cleanup failures.
-        if (!["ENOENT", "ENOTEMPTY", "EEXIST"].includes((cleanupError as NodeJS.ErrnoException).code ?? "")) {
-          directoryRollbackFailed = true;
-        }
-      }
-    }
-    if (directoryRollbackFailed || rollback.some(result => result.status === "rejected")) {
-      throw new RuntimeError("追加に失敗し、作成したファイルを戻せませんでした", 500, "ADD_ROLLBACK");
-    }
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-      throw new RuntimeError("同じ場所にファイルが作成されました", 409, "ADD_PLAN_CONFLICT");
-    }
-    throw error;
-  }
+  await applyFileTransaction(root, current.files.filter(file => file.status !== "skip")
+    .map(file => ({ type: "create", path: file.relativePath, content: file.source })));
 }
