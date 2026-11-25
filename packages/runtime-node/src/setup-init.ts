@@ -17,6 +17,7 @@ export interface InitRequest {
   supplementGuide?: boolean;
   language: "ja" | "en";
   plugins: Array<string | { name: string; version: string; id?: string }>;
+  guideSections?: Array<{ id: string; title: string; body: string }>;
   hostVersion?: string;
 }
 export interface InitPlanFile {
@@ -134,7 +135,7 @@ export async function planInit(projectRoot: string, input: InitRequest): Promise
   }));
   let guide = vellymGuide({
     language: request.language, structure: request.structure, numbered: request.numbered,
-    folderNames: names, plugins: plugins.map(plugin => ({ id: plugin.id ?? plugin.name, name: plugin.name })), version
+    folderNames: names, plugins: plugins.map(plugin => ({ id: plugin.id ?? plugin.name, name: plugin.name })), sections: request.guideSections, version
   });
   if (supplementMap.length) {
     // Keep the supplement in the document map, before the workflow section.

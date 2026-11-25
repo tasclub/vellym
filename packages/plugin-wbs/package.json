@@ -30,6 +30,7 @@
     }
   },
   "files": [
+    "guide",
     "dist",
     "README.md",
     "LICENSE"
@@ -64,6 +65,7 @@
       "wbs.css"
     ],
     "contributes": {
+      "guide": {"id": "wbs", "title": {"ja": "WBS", "en": "WBS"}, "file": {"ja": "guide/ja.md", "en": "guide/en.md"}},
       "kinds": [
         {
           "kind": "Ticket"

@@ -39,6 +39,27 @@
     "contributes": {
       "type": "object",
       "properties": {
+        "guide": {
+          "type": "object",
+          "required": ["id", "title", "file"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+            "title": {
+              "type": "object", "required": ["ja", "en"],
+              "properties": { "ja": { "type": "string", "minLength": 1 }, "en": { "type": "string", "minLength": 1 } },
+              "additionalProperties": false
+            },
+            "file": {
+              "type": "object", "required": ["ja", "en"],
+              "properties": {
+                "ja": { "type": "string", "pattern": "^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\\.md$" },
+                "en": { "type": "string", "pattern": "^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\\.md$" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "templates": {
           "type": "array",
           "items": {

@@ -32,6 +32,7 @@ export interface PluginManifest {
 }
 
 export interface PluginContributions {
+  guide?: { id: string; title: { ja: string; en: string }; file: { ja: string; en: string } };
   templates?: readonly PluginManifestTemplate[];
   kinds?: readonly PluginManifestKind[];
   views?: readonly PluginManifestView[];

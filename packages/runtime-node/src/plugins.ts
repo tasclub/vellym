@@ -76,6 +76,29 @@ export interface PluginRegistry {
   diagnostics: Diagnostic[];
 }
 
+/** Read declarative guide sections without executing plugin code. */
+export function pluginGuideSections(
+  plugins: LoadedPlugin[], language: "ja" | "en", diagnostics: Diagnostic[] = []
+): Array<{ id: string; title: string; body: string }> {
+  const sections: Array<{ id: string; title: string; body: string }> = [];
+  plugins.forEach((plugin, index) => {
+    const guide = plugin.manifest.contributes?.guide;
+    if (!guide) return;
+    try {
+      const relative = guide.file[language];
+      if (!/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*\.md$/.test(relative)) throw new Error("Invalid guide path");
+      if (!plugin.packageRoot) throw new Error("Missing package root");
+      const root = realpathSync(plugin.packageRoot);
+      const file = realpathSync(path.resolve(root, relative));
+      if (!isInside(root, file)) throw new Error("Guide outside package");
+      sections.push({ id: guide.id, title: guide.title[language], body: readFileSync(file, "utf8").trim() });
+    } catch (error) {
+      diagnostics.push(diagnostic(index, "PLUGIN_GUIDE_READ", `Cannot read guide for ${plugin.packageName}: ${reason(error)}`));
+    }
+  });
+  return sections;
+}
+
 /** Read only templates contributed by successfully loaded, enabled plugins. */
 export function pluginResourceTemplates(plugins: LoadedPlugin[]): ResourceTemplateDef[] {
   const resources: ResourceTemplateDef[] = [];

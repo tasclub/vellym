@@ -30,6 +30,7 @@
     }
   },
   "files": [
+    "guide",
     "dist",
     "README.md",
     "LICENSE"
@@ -64,6 +65,7 @@
       "kanban.css"
     ],
     "contributes": {
+      "guide": {"id": "kanban", "title": {"ja": "カンバン", "en": "Kanban"}, "file": {"ja": "guide/ja.md", "en": "guide/en.md"}},
       "kinds": [
         {
           "kind": "Ticket"

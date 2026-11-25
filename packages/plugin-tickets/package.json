@@ -37,6 +37,7 @@
     }
   },
   "files": [
+    "guide",
     "templates",
     "dist",
     "README.md",
@@ -67,6 +68,7 @@
       "tickets-settings.css"
     ],
     "contributes": {
+      "guide": {"id": "tickets", "title": {"ja": "チケット管理", "en": "Ticket management"}, "file": {"ja": "guide/ja.md", "en": "guide/en.md"}},
       "templates": [
         {
           "id": "work",

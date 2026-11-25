@@ -1,0 +1,2 @@
+Trackerの`spec.kanban`に列を設定する。
+組み合わせるときは入れ子の管理の状態IDとcategoryを揃える。WBSとは別の並び順の項目を使い、validateの警告を確認する。

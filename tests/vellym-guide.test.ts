@@ -17,9 +17,10 @@ describe("vellym guide", () => {
     expect(guide).toContain("validate --strict --json");
   });
   it("localizes and describes only selected plugins", () => {
-    const guide = vellymGuide({ ...defaults, language: "en", contentRoot: "content", plugins: [{ id: "tickets", name: "@vellym/tickets", guideUrl: { en: "https://example.com" } }] });
+    const guide = vellymGuide({ ...defaults, language: "en", contentRoot: "content", plugins: [{ id: "tickets", name: "@vellym/tickets", guideUrl: { en: "https://example.com" } }], sections: [{ id: "tickets", title: "Tickets", body: "Use +tickets/." }] });
     expect(guide).not.toContain("## 要点");
     expect(guide).toContain("+tickets/");
+    expect(guide).toContain("<!-- vellym:guide:tickets -->\n### Tickets\n\nUse +tickets/.");
     expect(guide).not.toContain("spec.kanban");
     expect(guide).toContain("https://example.com");
   });
@@ -46,7 +47,7 @@ describe("vellym guide", () => {
           };
           visit(loadCatalog().structures.find(item => item.id === structure)!.folders);
           expect(guide.includes(language === "ja" ? "## 5. プラグイン" : "## 5. Plugins")).toBe(withPlugins);
-          expect(guide.includes("spec.kanban")).toBe(withPlugins);
+          expect(guide).not.toContain("spec.kanban");
           expect(guide).not.toContain("spec.wbs");
           expect(guide).toContain("npx vellym schema --kind <kind>");
           expect(guide).toContain("npx vellym list --kind <kind>");

@@ -24,9 +24,9 @@ export async function appendGuideSection(path: string, section: { id: string; ti
   }
 }
 
-export function vellymGuide({ language, structure, numbered, folderNames, contentRoot = ".", plugins, version }: {
+export function vellymGuide({ language, structure, numbered, folderNames, contentRoot = ".", plugins, sections = [], version }: {
   language: "ja" | "en"; structure: string; numbered: boolean; folderNames: Record<string, string>;
-  contentRoot?: string; plugins: GuidePlugin[]; version: string;
+  contentRoot?: string; plugins: GuidePlugin[]; sections?: Array<{ id: string; title: string; body: string }>; version: string;
 }): string {
   const ja = language === "ja";
   const root = contentRoot.replace(/\/+$/, "");
@@ -42,12 +42,7 @@ export function vellymGuide({ language, structure, numbered, folderNames, conten
     });
   };
   visit(definition.folders);
-  const pluginText: Record<string, [string, string]> = {
-    tickets: ["任意のフォルダにTicketTrackerを1つ置き、その下の`+tickets/`にTicketを置く。状態は`spec.statuses`、項目は`spec.fields`で決める。", "Place one TicketTracker in any folder and its Tickets in `+tickets/` below it. Define statuses in `spec.statuses` and fields in `spec.fields`."],
-    kanban: ["Trackerの`spec.kanban`に列を設定する。", "Configure columns in the Tracker's `spec.kanban`."],
-    wbs: ["Trackerの`spec.wbs`に親・開始・終了・並び順の項目を設定する。", "Configure parent, start, end and ordering fields in the Tracker's `spec.wbs`."]
-  };
-  const details = plugins.map((p) => `- ${p.name}: ${pluginText[p.id]?.[ja ? 0 : 1] ?? ""}`).join("\n");
+  const details = sections.map(section => `<!-- vellym:guide:${section.id} -->\n### ${section.title}\n\n${section.body}`).join("\n\n");
   const urls = [...new Set(plugins.map((p) => p.guideUrl?.[language] ?? p.guideUrl?.en ?? p.guideUrl?.ja).filter(Boolean))];
   const validate = "npx vellym validate --strict --config vellym.config.yaml";
   return `# ${ja ? "このプロジェクトのVellym" : "Vellym in this project"}
@@ -88,13 +83,11 @@ ${ja ? `- 正本はYAMLとGit。画面や出力はその表示であり、変更
 - 必要な文書だけ作る。要件・設計は版ごとに複製せず上書きして育てる。完了した作業や文書も消さずに残す。
 - 完了とは、受入条件と検証を満たし、仕様を変えたなら要件・設計も同じ作業で直し、実行結果と直した文書を記録した状態。
 - 判断は決定記録に、理由・代替案とともに残す。版を締めたときや大きな判断の後に現在地を更新する。
-- 参照はファイル名でなく\`metadata.name\`を使った\`[[名前]]\`で書く。
-- 組み合わせるときは、入れ子の管理の状態IDとcategoryを揃える。カンバンとWBSの並び順は別の項目にし、validateの警告を確認する。` : `- YAML and Git are the source of truth; screens and exports are views. Keep history in Git and resolve conflicts through normal branches and pull requests.
+- 参照はファイル名でなく\`metadata.name\`を使った\`[[名前]]\`で書く。` : `- YAML and Git are the source of truth; screens and exports are views. Keep history in Git and resolve conflicts through normal branches and pull requests.
 - Create only needed documents. Evolve requirements and designs in place rather than copying them per version. Do not delete completed work or documents.
 - Done means acceptance criteria and verification pass, changed specifications are reflected in requirements and designs in the same work, and results and updated documents are recorded.
 - Keep decisions with their reasons and alternatives in decision records. Update current position at release closure and after major decisions.
-- Link using \`[[name]]\` with \`metadata.name\`, not a file name.
-- When combining tools, align nested management status IDs and categories. Use separate ordering fields for kanban and WBS, and review validate warnings.`}
+- Link using \`[[name]]\` with \`metadata.name\`, not a file name.`}
 
 ## ${ja ? "4. AIの手順" : "4. AI procedure"}
 
@@ -115,7 +108,7 @@ spec:
 
 ### ${ja ? "今の状態を調べる" : "Inspect the current state"}
 
-${ja ? "Trackerや設定の現在の中身は、このファイルではなくコマンドで調べます。" : "Inspect current Tracker and configuration contents using commands rather than this file."}
+${ja ? "管理情報や設定の現在の中身は、このファイルではなくコマンドで調べます。" : "Inspect current management and configuration contents using commands rather than this file."}
 
 \`\`\`sh
 npx vellym schema --list --config vellym.config.yaml
@@ -142,8 +135,8 @@ ${urls.map((url) => `- ${url}`).join("\n")}
 ## ${ja ? "AGENTS.md（またはCLAUDE.md）に足す行の例" : "Lines to add to AGENTS.md (or CLAUDE.md)"}
 
 \`\`\`text
-${ja ? `文書とTicketの正本は${root}/（Vellym）。書き方は${root}/VELLYM.mdを読む。` : `The source of truth for documents and Tickets is ${root}/ (Vellym). Read ${root}/VELLYM.md for instructions.`}
-${ja ? `文書・Ticketを変えたら ${validate} を実行し、診断0件にする。` : `After changing documents or Tickets, run ${validate} and ensure zero diagnostics.`}
+${ja ? `文書と作業の正本は${root}/（Vellym）。書き方は${root}/VELLYM.mdを読む。` : `The source of truth for documents and work is ${root}/ (Vellym). Read ${root}/VELLYM.md for instructions.`}
+${ja ? `文書・作業を変えたら ${validate} を実行し、診断0件にする。` : `After changing documents or work, run ${validate} and ensure zero diagnostics.`}
 ${ja ? "形は npx vellym schema --kind <kind> --config vellym.config.yaml で調べる。" : "Inspect schemas with npx vellym schema --kind <kind> --config vellym.config.yaml."}
 \`\`\`
 `;
