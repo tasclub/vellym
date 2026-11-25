@@ -16,8 +16,8 @@ import { readPluginViewSettings, writePluginViewSettings } from "./view-settings
  * **保存はCoreの経路をそのまま通す。** プラグインへファイルへの書き込みを
  * 渡さない。非破壊往復、realpath境界、hash競合の検出はこの経路で効く。
  *
- * hashは書く直前に取り直す。索引行はhashを持たないため、画面を開いてから
- * 時間が経っていると古い値で衝突する。
+ * baseHashを指定した保存は読み込み時の版と照合する。
+ * 省略した既存プラグインの保存だけ、書く直前にhashを取り直す。
  */
 export function createRenderContext(options: {
   payload: PluginViewPayload;
@@ -46,6 +46,7 @@ export function createRenderContext(options: {
   const rows: PluginIndexRow[] = options.payload.allRows.map((row) => ({
     name: row.name,
     title: row.title,
+    ...("hash" in row && typeof row.hash === "string" ? { hash: row.hash } : {}),
     values: row.values
   }));
 
@@ -115,7 +116,7 @@ export function createRenderContext(options: {
     },
     async save(
       writes: readonly PluginSpecWrite[],
-      saveOptions?: { targetName?: string }
+      saveOptions?: { targetName?: string; baseHash?: string }
     ): Promise<PluginSaveResult> {
       if (isStaticApp()) {
         const error = new ApiError("Saving is unavailable in static output.", 405, [], "STATIC_WRITE_UNAVAILABLE");
@@ -128,16 +129,16 @@ export function createRenderContext(options: {
           return { ok: true };
         }
         const targetName = saveOptions?.targetName ?? options.targetName;
-        const edit = await fetchPageEdit(targetName);
-        await patchPage(targetName, {
-          baseHash: edit.data.hash,
+        const baseHash = saveOptions?.baseHash ?? (await fetchPageEdit(targetName)).data.hash;
+        const result = await patchPage(targetName, {
+          baseHash,
           specValues: writes.map((write) => ({
             path: [...write.path],
             value: write.value as PluginSpecValue
           }))
         });
         await options.onSaved();
-        return { ok: true };
+        return { ok: true, hash: result.data.hash };
       } catch (error) {
         return {
           ok: false,

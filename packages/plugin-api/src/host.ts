@@ -271,7 +271,8 @@ export interface PluginSpecWrite {
 }
 
 export type PluginSaveResult =
-  | { ok: true }
+  /** Persisted PATCH saves return the new hash; draft/command flows may omit it. */
+  | { ok: true; hash?: string }
   /** 競合や検証の失敗。利用者へ見せる1行を持つ */
   | { ok: false; message: string; reason: "conflict" | "error" };
 
@@ -287,6 +288,7 @@ export type PluginOpenResourceResult =
 export interface PluginIndexRow {
   name: string;
   title: string;
+  hash?: string;
   values: Readonly<Record<string, PluginIndexValue>>;
 }
 
@@ -325,12 +327,13 @@ export interface PluginRenderContext extends PluginViewContext {
    * 書き込み先を省略すると開いているリソースを更新する。別リソースを更新する場合は
    * `metadata.name`を`options.targetName`へ渡す。パスは指定できない。
    * ハッシュ競合は`reason: "conflict"`で区別する。
+   * `baseHash`を指定するとその版と照合する。省略時は保存直前の版を使う。
    *
    * 静的出力では常に失敗する。`isStatic`を見て操作自体を出さないこと。
    */
   save(
     writes: readonly PluginSpecWrite[],
-    options?: { targetName?: string }
+    options?: { targetName?: string; baseHash?: string }
   ): Promise<PluginSaveResult>;
   /** metadata.nameで別リソースを開く。URLの組み立てはhostが行う。 */
   openResource(name: string): Promise<PluginOpenResourceResult>;

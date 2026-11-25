@@ -464,6 +464,7 @@ export type PluginIndexRow = Readonly<
 export interface PluginViewRow {
   name: string;
   title: string;
+  hash?: string;
   relativePath: string;
   values: PluginIndexRow;
   /** この行についての注意の件数。0なら印を出さない。値は読めていて編集もできる */
@@ -827,6 +828,7 @@ export function buildPluginViewFromSnapshot(options: {
       name: string;
       title: string;
       relativePath: string;
+      hash?: string;
       readOnly: boolean;
       indexRow?: Readonly<Record<string, PluginIndexValue>>;
     }[];
@@ -864,6 +866,7 @@ export function buildPluginViewFromSnapshot(options: {
       name: candidate.name,
       title: candidate.title,
       relativePath: candidate.relativePath,
+      hash: candidate.hash,
       values: candidate.indexRow,
       ...(notices ? { noticeCount: notices } : {}),
       ...(errors ? { errorCount: errors } : {})
@@ -878,6 +881,7 @@ export function buildPluginViewFromSnapshot(options: {
     name: entry.name,
     title: entry.title,
     relativePath: entry.relativePath,
+    hash: entry.hash,
     spec: {},
     readOnly: entry.readOnly
   };
@@ -893,6 +897,7 @@ export function buildPluginViewFromSnapshot(options: {
             name: entry.name,
             title: entry.title,
             relativePath: entry.relativePath,
+            hash: entry.hash,
             values: entry.indexRow
           }
         }

@@ -16,6 +16,8 @@ export interface PluginResourceRecord {
   slug?: string;
   /** content root相対path。表示と診断にだけ使う */
   relativePath: string;
+  /** SHA-256 of the source file, used as the baseline for saving. */
+  hash?: string;
   /** 正本の言語 */
   locale?: string;
   labels?: Readonly<Record<string, string>>;

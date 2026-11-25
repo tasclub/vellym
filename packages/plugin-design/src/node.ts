@@ -11,7 +11,8 @@ import { validateDesign } from "./model/validate.js";
 import { designText as text } from "./i18n.js";
 
 function row(record: PluginResourceRecord) {
-  return { name: record.name, title: record.title, relativePath: record.relativePath, spec: record.spec };
+  return { name: record.name, title: record.title, relativePath: record.relativePath,
+    ...(record.hash !== undefined ? { hash: record.hash } : {}), spec: record.spec };
 }
 const root = () => ({ id: "root", type: "frame", width: 390, height: 844, children: [] });
 

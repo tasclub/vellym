@@ -352,6 +352,7 @@ function pluginRecord(
     title: entry.title,
     ...(entry.slug === entry.name ? {} : { slug: entry.slug }),
     relativePath: entry.relativePath,
+    hash: entry.hash,
     ...(entry.configuredBaseLocale ? { locale: entry.configuredBaseLocale } : {}),
     ...(entry.labels ? { labels: entry.labels } : {}),
     ...(entry.annotations ? { annotations: entry.annotations } : {}),
@@ -488,6 +489,9 @@ export async function loadRepository(
   const previousEntries = new Map(
     (previous?.entryIndex.pages ?? []).map((entry) => [entry.relativePath, entry])
   );
+  const previousDefinitions = new Map(
+    (previous?.definitionRecords ?? []).map((record) => [record.relativePath, record])
+  );
   const diagnostics: Diagnostic[] = [];
   const knownKindsUnchanged =
     previous === undefined ||
@@ -512,6 +516,8 @@ export async function loadRepository(
       knownKindsUnchanged
     ) {
       entries.push(previousEntry);
+      const definition = previousDefinitions.get(relativePath);
+      if (definition) definitionRecords.push(definition);
       reusedAnyEntry = true;
       continue;
     }
