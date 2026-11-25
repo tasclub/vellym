@@ -18,7 +18,7 @@ import {
   type ContentRootPlan
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
-import { readAsset, saveAsset } from "./assets.js";
+import { readAsset, saveAsset, saveFontAsset } from "./assets.js";
 import { readGitHistory } from "./git-history.js";
 import { readGitChanges, writeGitChanges, readChangeDiff } from "./git-changes.js";
 import {
@@ -669,7 +669,11 @@ export async function startDevServer(options: {
       }
       if (url.pathname === "/api/v1/assets" && request.method === "POST") {
         const { loadedConfig: config } = requireReady();
-        if (options.editorPolicy?.images === false) throw new RuntimeError("Image writes are disabled", 403, "ASSET_DISABLED");
+        const mime = (request.headers["content-type"] ?? "").split(";")[0]!.trim().toLowerCase();
+        const isFontAsset = mime.startsWith("font/") || mime === "text/plain";
+        if (options.editorPolicy?.images === false && !isFontAsset) {
+          throw new RuntimeError("Image writes are disabled", 403, "ASSET_DISABLED");
+        }
         const chunks: Buffer[] = [];
         let size = 0;
         for await (const chunk of request) {
@@ -677,7 +681,12 @@ export async function startDevServer(options: {
           if (size > config.assetsMaxBytes) throw new RuntimeError("Image is too large", 413, "ASSET_LIMIT");
           chunks.push(Buffer.from(chunk));
         }
-        const saved = await saveAsset(config, Buffer.concat(chunks), (request.headers["content-type"] ?? "").split(";")[0]!.trim());
+        const families = url.searchParams.getAll("family");
+        if (families.length > 1) throw new RuntimeError("Invalid font family", 400, "ASSET_PATH");
+        const body = Buffer.concat(chunks);
+        const saved = isFontAsset
+          ? await saveFontAsset(config, body, mime, families[0])
+          : await saveAsset(config, body, mime);
         json(response, 201, envelope(saved));
         return;
       }
