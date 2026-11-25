@@ -16,27 +16,22 @@ spec:
         - **Node.js 22.12以降** と **npm**（22・24系で動作確認済み）。
         - Node.jsをホストへ導入したくない場合は、Dockerを使う方法もある（[[self-hosting|静的配信と自己ホスト]]）。
 
-        以下は、開発リポジトリ内の生成済みCLI（`packages/vellym/dist/cli.mjs`）を
-        直接呼び出す例で示す。配布物のCLIでは`vellym`コマンドとして実行できる。
-
         ## 最短の流れ
 
         1. **プロジェクトを初期化する**
 
            ```bash
-           npx vellym@beta init myproject --size small-team --method hybrid --language ja
+           npx vellym init
            ```
 
-           規模と開発方式に応じた標準の構成（`--level`で`light`・`strict`も選べる）のFolderとPage YAML、`vellym.config.yaml`が作成される。実行した`vellym`の版も`package.json`の`devDependencies`に記録される。
-           個別に選びながら始めたい場合は、初期化せずに`vellym dev`を起動し、ブラウザの3段階
-           セットアップから開始する。指定できるオプションは[[cli-reference|CLIリファレンス]]を参照。
-
-           CLIの`init`はcontent root（既定`docs/`）に、人やAI向けの設定・書き方の案内`VELLYM.md`も作る。自由に編集でき、既存ファイルは上書きしない。
+           `docs/`に設定、文書の入口`index.yaml`、フォルダと`VELLYM.md`を作る。
+           `package.json`にもVellymの依存を記録する。既存ファイルは上書きしない。
+           AI向けにプロジェクトの`AGENTS.md`へ「文書の作業は `docs/VELLYM.md` を読む。」と1行追加できる。
+           オプションは[[cli-reference|CLIリファレンス]]を参照。
 
         2. **依存をインストールする**
 
            ```bash
-           cd myproject
            npm install
            ```
 
@@ -56,59 +51,8 @@ spec:
 
         ## AIに導入を依頼する
 
-        AIエージェントにVellym導入を任せる場合も、手順は対話不要のコマンドで構成できる。
-
-        1. **対話不要で初期化する**
-
-           ```bash
-           npx vellym@beta init myproject --size small-team --method hybrid --language ja --plugins tickets
-           ```
-
-           `--size`・`--method`・`--language`のどれかが欠けると、CLIは足りないオプションと
-           指定できる値、実行例を一覧表示して終了コード`1`で止まる（`--language`自体が
-           未指定なら候補は日英の両方で表示される）。AIは一覧から値を選び、必要な
-           オプションをすべて指定して実行し直せばよい。`--plugins`は公式プラグインの
-           短縮名をカンマ区切りで渡し、公式パッケージを`dependencies`へ、実行した
-           `vellym`の版を`devDependencies`へ書き込む。
-           `init`は`npm install`を実行しない。
-
-        2. **依存をインストールする**
-
-           ```bash
-           cd myproject
-           npm install
-           ```
-
-        3. **最初のチケット管理を作る**
-
-           `--plugins tickets`を有効にしたプロジェクトでは、任意のフォルダへ
-           `TicketTracker` YAMLを1つ置くとチケット一覧が使えるようになる。最小の形は：
-
-           ```yaml
-           apiVersion: vellym.tasclub.com/v1
-           kind: TicketTracker
-           metadata:
-             name: tickets
-             title: チケット
-           spec:
-             statuses:
-               - { id: todo, label: 未着手, category: open }
-               - { id: doing, label: 対応中, category: open }
-               - { id: done, label: 完了, category: closed }
-             fields: []
-           ```
-
-           置いたら`npx vellym validate`で診断0件を確認できる。チケットそのものや項目の
-           書き方は[[ticket-management|チケット管理]]を参照。
-
-        4. **開発サーバーを起動して確認する**
-
-           ```bash
-           npx vellym dev
-           ```
-
-           起動時に表示されるURLをブラウザで開くと、置いた`TicketTracker`の一覧が
-           表示される。
+        `init`は対話不要で、`npm install`は実行しない。`VELLYM.md`を読んで必要な
+        文書を`vellym add`または画面から追加する。チケット管理は[[ticket-management|チケット管理]]を参照。
 
         ## 設定ファイルなしで始める
 
@@ -159,32 +103,22 @@ spec:
             - If you would rather not install Node.js on the host, there is a Docker path
               ([[self-hosting|Static Publishing and Self-Hosting]]).
 
-            The examples below invoke the built CLI in the development repo
-            (`packages/vellym/dist/cli.mjs`) directly. In a distributed build you run it as
-            the `vellym` command.
-
             ## Shortest path
 
             1. **Initialize a project**
 
                ```bash
-               npx vellym@beta init myproject --size small-team --method hybrid --language ja
+               npx vellym init
                ```
 
-               Writes `vellym.config.yaml` plus the standard folder and page hierarchy (choose `--level light` or `strict` for others) for the
-               given size and method. It also records the running Vellym version in
-               `package.json`'s `devDependencies`. To choose folders and pages individually
-               instead, skip `init` and run `vellym dev` to use the three-step browser setup. See
-               [[cli-reference|CLI Reference]] for the available options.
-
-               CLI `init` also creates `VELLYM.md` in the content root (default `docs/`),
-               a guide to configuration and writing for people and AI. You can edit it freely;
-               an existing file is never overwritten.
+               Creates configuration, an entry page `index.yaml`, folders and `VELLYM.md` in
+               `docs/`, and records Vellym in `package.json`. Existing files are not overwritten.
+               Add a line to your project's `AGENTS.md`: “For documentation work, read
+               `docs/VELLYM.md`.” See [[cli-reference|CLI Reference]] for options.
 
             2. **Install dependencies**
 
                ```bash
-               cd myproject
                npm install
                ```
 
@@ -203,59 +137,9 @@ spec:
 
             ## Asking an AI to set it up
 
-            When an AI agent introduces Vellym, every step is a non-interactive command.
-
-            1. **Initialize without prompts**
-
-               ```bash
-               npx vellym@beta init myproject --size small-team --method hybrid --language en --plugins tickets
-               ```
-
-               If `--size`, `--method`, or `--language` is missing, the CLI lists the missing
-               options, the values they accept, and example commands, then exits with code
-               `1` (when `--language` itself is unset, the candidates appear in both Japanese
-               and English). The agent picks values from that list and reruns the command
-               with every required option. `--plugins` takes comma-separated official plugin
-               short names and writes the official packages into `dependencies`; it writes
-               the running Vellym version into `devDependencies`. `init` never runs
-               `npm install` itself.
-
-            2. **Install the dependencies**
-
-               ```bash
-               cd myproject
-               npm install
-               ```
-
-            3. **Create the first ticket tracker**
-
-               With `--plugins tickets` enabled, placing one `TicketTracker` YAML in any
-               folder turns on the ticket list. The minimal shape is:
-
-               ```yaml
-               apiVersion: vellym.tasclub.com/v1
-               kind: TicketTracker
-               metadata:
-                 name: tickets
-                 title: Tickets
-               spec:
-                 statuses:
-                   - { id: todo, label: todo, category: open }
-                   - { id: doing, label: doing, category: open }
-                   - { id: done, label: done, category: closed }
-                 fields: []
-               ```
-
-               After placing it, `npx vellym validate` reports zero diagnostics. See
-               [[ticket-management|Ticket Management]] for tickets and fields.
-
-            4. **Start the dev server and check**
-
-               ```bash
-               npx vellym dev
-               ```
-
-               Open the URL printed at startup; the list for the tracker you placed appears.
+            `init` is non-interactive and does not run `npm install`. Read `VELLYM.md` and
+            add only the documents you need with `vellym add` or in the UI. See
+            [[ticket-management|Ticket Management]] for ticket management.
 
             ## Start without a config file
 

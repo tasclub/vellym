@@ -29,7 +29,7 @@ Word and Notion are difficult for AI agents to handle structurally, while plain 
 
 > Vellym is in beta, so breaking changes to the document format, CLI, and Plugin API may occur. Format changes will include a `vellym migrate` path and be documented in the changelog; Vellym will release 1.0 once usage has stabilized ([document format and compatibility](https://vellym.tasclub.com/en/#page=document-format)).
 
-> The CLI provides `init`, `dev`, `validate`, `build`, and `migrate`.
+> The CLI provides `init`, `add`, `dev`, `validate`, `build`, and `migrate`.
 
 ## Quick start
 
@@ -37,12 +37,12 @@ Requirements: Node.js 22.12 or later and npm (tested with Active LTS 22 and 24).
 
 ```bash
 # Initialize a project with the CLI, then start the browser UI
-npx vellym@beta init myproject --size small-team --method hybrid --language en
-cd myproject
+npx vellym init
+npm install
 npx vellym@beta dev
 ```
 
-For ticket management, add `--plugins tickets,kanban` to `init`, then run `npm install` in the project before `npx vellym@beta dev`. Create your first tracker in the UI or follow the [AI setup guide](https://vellym.tasclub.com/en/#page=getting-started).
+This creates a config, entry page, folders and `VELLYM.md` in `docs/`. Add “For documentation work, read `docs/VELLYM.md`.” to `AGENTS.md`. For ticket management, add `--plugins tickets,kanban` to `init`; see the [setup guide](https://vellym.tasclub.com/en/#page=getting-started).
 
 `dev` binds to `127.0.0.1` by default. Run `vellym dev --host 0.0.0.0` only when you need to connect from outside the container. Then open `http://127.0.0.1:4173` in a browser.
 
@@ -52,19 +52,19 @@ Vellym has no authentication. Anyone who can reach a server started with `--host
 
 | Command | Purpose |
 | --- | --- |
-| `vellym init [dir]` | Generate Folder and Page YAML files for a project size and development method (`--level light\|standard\|strict`, default `standard`). |
+| `vellym init [dir]` | Create a documentation skeleton and configuration. |
+| `vellym add --list` | List templates and sets to add. |
 | `vellym dev` | Start the local web server for viewing and editing. |
 | `vellym validate` | Validate the source YAML against its schemas and report diagnostics. |
 | `vellym build` | Generate a read-only static HTML snapshot. |
 | `vellym migrate --to v1` | Explicitly migrate `v1alpha1` Page and Folder resources to `v1`. |
 
 ```bash
-vellym init ./my-docs --size personal --method agile --language en
-vellym init ./small-team-docs --size small-team --method hybrid --language en
-vellym init ./large-docs --size medium-large --method waterfall --language en
+vellym init ./my-docs --root docs --structure by-type --language en
+vellym add --list
 ```
 
-The CLI generates the structure for the selected size, development method, and `--level` (default `standard`, as in the browser); it does not offer individual template choices. `--dry-run` lists the files without writing them. If a Page with the same path already exists, only that Page is skipped. Existing files are never overwritten or deleted. In the browser, choose a lightweight, standard, or strict setup and add or remove proposed Pages. Later, add more structure explicitly in settings; Vellym does not add it automatically or send reminders.
+`init` is non-interactive; `--dry-run` previews changes. Add documents as needed with `vellym add` or in the browser. Config discovery checks the current directory, `docs/`, and `vellym/`; use `--config` if more than one exists.
 
 To migrate existing documents to `v1`, commit them to Git, preview the changes with `vellym migrate --to v1 --plan`, then explicitly run `vellym migrate --to v1` to apply them.
 
@@ -160,7 +160,7 @@ Word や Notion は AI エージェントが構造的に扱いにくく、素の
 
 > beta版のあいだは文書形式・CLI・Plugin APIに破壊的変更が入り得る。形式変更時は`vellym migrate`による移行手段を用意して変更履歴に記載し、使い方が安定したら正式版（1.0）をリリースする（[文書形式と互換性](https://vellym.tasclub.com/#page=document-format)）。
 
-> CLI は `init` / `dev` / `validate` / `build` / `migrate` を提供する。
+> CLI は `init` / `add` / `dev` / `validate` / `build` / `migrate` を提供する。
 
 ## クイックスタート
 
@@ -170,10 +170,12 @@ Ticket管理には`init`に`--plugins tickets,kanban`を付け、プロジェク
 
 ```bash
 # CLI で初期化してからブラウザで起動
-npx vellym@beta init myproject --size small-team --method hybrid --language ja
-cd myproject
+npx vellym init
+npm install
 npx vellym@beta dev
 ```
+
+`docs/`に設定、入口ページ、フォルダ、`VELLYM.md`ができる。`AGENTS.md`に「文書の作業は `docs/VELLYM.md` を読む。」と追加できる。
 
 `dev` は既定で `127.0.0.1` にバインドする。コンテナ内など外部から接続する場合のみ `vellym dev --host 0.0.0.0` を明示する。起動後はブラウザで `http://127.0.0.1:4173` を開く。
 
@@ -183,19 +185,19 @@ Vellym に認証はない。`--host 0.0.0.0` で起動したサーバーへ到�
 
 | コマンド | 役割 |
 | --- | --- |
-| `vellym init [dir]` | 規模と開発方式に応じたFolderとPage YAMLを生成（`--level light\|standard\|strict`、既定は`standard`） |
+| `vellym init [dir]` | 文書のひな形と設定を作成 |
+| `vellym add --list` | 追加できるテンプレートとセットを一覧 |
 | `vellym dev` | ローカル Web サーバーを起動し、閲覧・編集 |
 | `vellym validate` | 正本 YAML をスキーマ検証し、診断を出力 |
 | `vellym build` | 節目の閲覧専用スナップショット（静的 HTML）を生成 |
 | `vellym migrate --to v1` | `v1alpha1`のPage／Folderを明示的に`v1`へ移行 |
 
 ```bash
-vellym init ./my-docs --size personal --method agile --language ja
-vellym init ./small-team-docs --size small-team --method hybrid --language ja
-vellym init ./large-docs --size medium-large --method waterfall --language ja
+vellym init ./my-docs --root docs --structure by-type --language ja
+vellym add --list
 ```
 
-CLIは個別候補の選択を行わず、指定された規模・開発方式・`--level`（既定は`standard`。ブラウザと同じ）の構成を一括生成する。`--dry-run`で書かずに一覧だけを見られる。Page候補と同じpathが既にある場合はそのPageだけをskipし、既存ファイルを上書き・削除しない。ブラウザでは軽量・標準・厳格から選択し、生成候補を追加・除外できる。後から必要になった構成は設定画面から明示的に追加でき、自動追加やリマインドは行わない。
+`init`は対話不要で、`--dry-run`で変更を確認できる。必要な文書は`vellym add`または画面で追加する。設定はカレントディレクトリ、`docs/`、`vellym/`を探し、複数ある場合は`--config`で指定する。
 
 既存文書の形式を`v1`へ移す場合は、Gitへcommitした上で`vellym migrate --to v1 --plan`で対象を確認し、`vellym migrate --to v1`を明示的に実行する。
 

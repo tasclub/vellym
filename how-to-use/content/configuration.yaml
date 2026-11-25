@@ -13,8 +13,9 @@ spec:
       content: |
         ## vellym.config.yaml
 
-        プロジェクトの設定は、project root直下の`vellym.config.yaml`に置く。
-        既定のファイル名で、`--config`で別パスも指定できる（[[cli-reference|CLIリファレンス]]）。
+        設定は管理ルート（既定は`docs/`）の`vellym.config.yaml`に置く。
+        project root直下に置く形も使える。探索と`--config`は[[cli-reference|CLIリファレンス]]を参照。
+        パスは設定ファイルのあるフォルダを基準に解決する。
 
         ```yaml
         schemaVersion: "1.0"
@@ -37,8 +38,9 @@ spec:
         | キー | 必須 | 型・値 | 説明 |
         | --- | --- | --- | --- |
         | `schemaVersion` | はい | `"1.0"` | 設定スキーマのバージョン。現在は`"1.0"`固定。 |
-        | `contentRoot` | はい | 文字列 | 正本YAMLを置くルートディレクトリ（project rootからの相対path）。`./`や`..`で始まる指定はできない。 |
-        | `outputDir` | はい | 文字列 | 静的サイト生成（`build`）の出力先の基準。 |
+        | `contentRoot` | いいえ | 文字列 | 正本YAMLのルート。省略時は設定フォルダ（`.`）。 |
+        | `outputDir` | いいえ | 文字列 | 静的サイト生成の出力先の基準。省略時は`dist`。 |
+        | `repositoryRoot` | いいえ | 相対パス | リポジトリ内ファイルへのリンクの基準。省略時はGitルート、Git外では設定フォルダの親。例えば`docs/`内の設定からリポジトリを指すには`..`。 |
         | `ui.language` | はい | `ja` \| `en` | Vellym自身のUI表示言語。`i18n.defaultLocale`省略時は文書の既定言語も兼ねる。 |
         | `i18n.defaultLocale` | いいえ | locale文字列 | URLで言語を省略したときの文書言語。 |
         | `i18n.displayNames` | いいえ | 文字列の対応表 | 言語切り替えに表示するlocale名を上書きする。 |
@@ -75,9 +77,9 @@ spec:
 
         ## outputDirと生成先
 
-        `build`は、`outputDir`をそのまま出力先にするのではなく、`outputDir`の**親**
-        ディレクトリの下に、生成日時を付けた一意なフォルダを作る
-        （例: `20260728-143002-dist`）。これにより毎回の生成が上書きされずに残る。
+        `build`は、`outputDir`の下に生成日時を付けた一意なフォルダを作る
+        （例: `20260728-143002-vellym`）。これにより毎回の生成が上書きされずに残る。
+        既定の`docs/vellym.config.yaml`では`docs/dist/`の下に作る。
         配信・世代管理の詳細は[[self-hosting|静的配信と自己ホスト]]を参照。
 
         ## 言語と設定の関係
@@ -103,8 +105,9 @@ spec:
           content: |
             ## vellym.config.yaml
 
-            Project configuration lives in `vellym.config.yaml` at the project root. That is
-            the default name; you can point to another path with `--config` ([[cli-reference|CLI Reference]]).
+            Configuration lives in `vellym.config.yaml` in the management root (`docs/` by
+            default); placing it at the project root also works. See [[cli-reference|CLI Reference]]
+            for discovery and `--config`. Paths resolve relative to the config directory.
 
             ```yaml
             schemaVersion: "1.0"
@@ -127,8 +130,9 @@ spec:
             | Key | Required | Type / value | Description |
             | --- | --- | --- | --- |
             | `schemaVersion` | yes | `"1.0"` | Config schema version. Fixed at `"1.0"` for now. |
-            | `contentRoot` | yes | string | Root directory of the source YAML (relative to project root). Cannot start with `./` or `..`. |
-            | `outputDir` | yes | string | Base for static site output (`build`). |
+            | `contentRoot` | no | string | Source YAML root; defaults to the config directory (`.`). |
+            | `outputDir` | no | string | Base for static site output (`build`); defaults to `dist`. |
+            | `repositoryRoot` | no | relative path | Base for links to repository files; defaults to the Git root, or the config directory's parent outside Git. For a config in `docs/`, use `..` to refer to the repository root. |
             | `ui.language` | yes | `ja` \| `en` | Language of Vellym's own UI. Also acts as the document default only when `i18n.defaultLocale` is omitted. |
             | `i18n.defaultLocale` | no | locale string | Document language used when the URL omits a locale. |
             | `i18n.displayNames` | no | string map | Overrides locale names shown in the language switcher. |
@@ -167,8 +171,9 @@ spec:
 
             ## outputDir and generated output
 
-            `build` does not write into `outputDir` itself. Instead it creates a unique,
-            timestamped folder under the **parent** of `outputDir` (e.g. `20260728-143002-dist`).
+            `build` creates a unique timestamped folder under `outputDir`
+            (e.g. `20260728-143002-vellym`). With the default `docs/vellym.config.yaml`,
+            it is created under `docs/dist/`.
             This keeps each build without overwriting the previous one. See [[self-hosting|Static Publishing and Self-Hosting]].
 
             ## Language and configuration

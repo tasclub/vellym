@@ -13,7 +13,7 @@ spec:
       content: |
         ## 概要
 
-        現在のCLIは、`init`・`dev`・`validate`・`list`・`schema`・`build`・`migrate`を提供する。
+        現在のCLIは、`init`・`add`・`dev`・`validate`・`list`・`schema`・`build`・`migrate`を提供する。
         以下は生成済みCLIを直接呼ぶ例で示す。
 
         ```bash
@@ -38,28 +38,15 @@ spec:
 
         | オプション | 説明 |
         | --- | --- |
-        | `--size <value>` | `personal`、`small-team`、`medium-large`のいずれか。 |
-        | `--method <value>` | `agile`、`hybrid`、`waterfall`のいずれか。 |
-        | `--language ja\|en` | UIと初期文書の言語。 |
-        | `--content-root <path>` | 正本を置くディレクトリ（project rootからの相対path）。 |
+        | `--root docs\|vellym\|.` | 管理ルート。既定は`docs`。 |
+        | `--structure by-type\|by-phase\|by-feature` | フォルダ構成。既定は`by-type`。 |
+        | `--numbered` / `--no-numbered` | フォルダ番号の有無。既定は`by-phase`のみ有効。 |
+        | `--with-guide-folders` | 利用ガイド用フォルダを追加。 |
+        | `--language ja\|en` | UIと初期文書の言語。省略時は環境の言語。 |
         | `--plugins <list>` | 公式プラグインの短縮名をカンマ区切り（例`tickets,kanban,wbs`）。設定ファイルと`package.json`の依存に公式パッケージを追加する。未知の名前は候補を一覧にして終了コード`1`。完了時に、選んだプラグインの使い方のページを案内する。 |
-        | `--level light\|standard\|strict` | 作る構成の大きさ。ブラウザの初期セットアップの「軽量・標準・厳格」と同じ。省略時は`standard`。`--size`・`--method`とは独立。 |
-        | `--dry-run` | 作成・skip・競合するファイルを一覧にし、何も書かない。`--json`を付けるとJSONで出す。 |
-        | `--use-existing-content-root` | Vellymの文書ではないファイルがあるcontent rootへ、そのまま書く。 |
+        | `--dry-run` | 作成・skip・更新するファイルを一覧にし、何も書かない。`--json`でJSON出力。 |
 
-        CLIは対話選択を行わず、指定した規模・開発方式・大きさ（`--level`）の構成を一括生成する。
-        個別候補の追加・除外はブラウザの初期セットアップまたは設定画面で行う。
-
-        content rootのフォルダ（省略時は`docs`）に、Vellymの文書（PageやFolder）ではないファイルだけがあるときは、
-        既存の文書を混ぜないよう、何も書かずに終了コード`1`で止まる。別の場所を`--content-root`で指定するか、
-        そのまま使うなら`--use-existing-content-root`を付ける。`--dry-run`では止まらず警告を出す。
-
-        **必須引数の候補表示**
-
-        `--size`・`--method`・`--language`のどれかが無い場合は、足りないオプションと
-        指定できる値、実行例を一覧表示して終了コード`1`で終わる。`--language`が未指定なら
-        候補は日英の両方で表示される。値を決められる側（AIエージェントを含む）は、
-        一覧から選んで必要なオプションをすべて指定し直して実行する。
+        CLIは対話不要で、フォルダと入口を作る。以前の規模・開発方式・構成レベルを指定する引数は廃止された。
 
         **公式プラグインの導入**
 
@@ -70,7 +57,18 @@ spec:
 
         **安全な初期化**
 
-        Page候補と同じpathが既に存在する場合はそのPageだけをskipする。既存ファイルを上書き・変更・削除しない。
+        既存文書はskipする。`package.json`は依存の追加のため更新されることがある。
+
+        ## add — テンプレートの追加
+
+        `vellym add --list [template|set]`で候補を一覧し、
+        `vellym add template|set <id> [--folder <path>] [--name <name>]`で追加する。
+        プラグインのテンプレートは`<plugin-id>:<id>`と`--folder`を指定する。
+        `--dry-run`で計画を確認でき、`--json`でJSON出力する。`--guide`は`VELLYM.md`へ追記し、
+        既定の`--no-guide`では追記しない。`--config <path>`で設定を指定できる。
+
+        設定は明示的な`--config`を優先し、省略時はカレントディレクトリ、その`docs/`、
+        `vellym/`の設定を探す。複数見つかれば`--config`で指定する。親には遡らない。
 
         ## dev — 開発サーバー
 
@@ -84,7 +82,7 @@ spec:
         | --- | --- |
         | `--host 127.0.0.1\|0.0.0.0` | バインド先。既定は`127.0.0.1`。コンテナ内からホストへ繋ぐ場合のみ`0.0.0.0`。 |
         | `--port <number>` | 待受ポート。既定は`4173`（1〜65535）。 |
-        | `--config <path>` | 設定ファイルのパス。既定は`vellym.config.yaml`。 |
+        | `--config <path>` | 設定ファイルのパス。省略時は上記の順に探索。 |
 
         設定ファイルが無いディレクトリで起動すると、ブラウザの初期セットアップを表示する。
 
@@ -131,8 +129,8 @@ spec:
         既定言語はルートへ、公開済みtranslationはlocale別pathへ一回のbuildで生成する。
         出力先・配信手順・注意点は[[self-hosting|静的配信と自己ホスト]]を参照。
 
-        設定の`outputDir`は、出力先そのものではなく「版フォルダの置き場所と名前の元」である。
-        `outputDir: dist/vellym`なら、`dist/`の下に`<YYYYMMDD-HHmmss>-vellym/`という
+        設定の`outputDir`は、版フォルダを置く場所である。
+        `outputDir: dist`なら、`dist/`の下に`<YYYYMMDD-HHmmss>-vellym/`という
         日時つきのフォルダを毎回新しく作る。公開中の版を上書きせず、生成に失敗しても前の版が残るための作りである。
         実際の出力先は`--json`の`data.outputDir`で分かる。古い版は自動では消さないので、不要になったら手で消す。
 
@@ -166,7 +164,7 @@ spec:
           content: |
             ## Overview
 
-            The CLI provides `init`, `dev`, `validate`, `list`, `schema`, `build`, and `migrate`.
+            The CLI provides `init`, `add`, `dev`, `validate`, `list`, `schema`, `build`, and `migrate`.
             The examples below invoke the built CLI directly.
 
             ```bash
@@ -192,32 +190,16 @@ spec:
 
             | Option | Description |
             | --- | --- |
-            | `--size <value>` | One of `personal`, `small-team`, or `medium-large`. |
-            | `--method <value>` | One of `agile`, `hybrid`, or `waterfall`. |
-            | `--language ja\|en` | Language of the UI and initial documents. |
-            | `--content-root <path>` | Directory that holds the source (relative to project root). |
+            | `--root docs\|vellym\|.` | Management root, default `docs`. |
+            | `--structure by-type\|by-phase\|by-feature` | Folder structure, default `by-type`. |
+            | `--numbered` / `--no-numbered` | Folder numbering; enabled by default only for `by-phase`. |
+            | `--with-guide-folders` | Add user guide folders. |
+            | `--language ja\|en` | UI and initial document language; defaults to the environment locale. |
             | `--plugins <list>` | Official plugin short names, comma-separated (example: `tickets,kanban,wbs`). Adds the official packages to the config file and to `package.json` dependencies. An unknown name lists the candidates and exits with code `1`. When init finishes, it points to the guide of each selected plugin. |
-            | `--level light\|standard\|strict` | How large a set to create; the same as light, standard, and strict in the browser setup. Defaults to `standard`. Independent of `--size` and `--method`. |
-            | `--dry-run` | Lists the files to create, skip, or conflict, and writes nothing. Add `--json` for JSON. |
-            | `--use-existing-content-root` | Writes into a content root that holds files that are not Vellym documents. |
+            | `--dry-run` | Lists files to create, skip, or update without writing. Add `--json` for JSON. |
 
-            The CLI is non-interactive and creates the structure for the selected size,
-            development method, and `--level`. Add or remove individual candidates in the
-            browser setup or later from Settings.
-
-            When the content root folder (`docs` if omitted) holds only files that are not
-            Vellym documents (Pages or Folders), init writes nothing and exits with code `1`,
-            so existing documents are not mixed in. Choose another place with `--content-root`,
-            or add `--use-existing-content-root` to use it as it is. `--dry-run` warns instead
-            of stopping.
-
-            **Candidate list for missing options**
-
-            If `--size`, `--method`, or `--language` is missing, the CLI lists the missing
-            options, the values they accept, and example commands, then exits with code `1`.
-            When `--language` itself is unset, the candidates appear in both Japanese and
-            English. Whoever chooses the values (an AI agent included) picks from that list
-            and reruns with every required option.
+            The CLI is non-interactive and creates folders and an entry page. The former
+            project size, development method and structure level options have been removed.
 
             **Official plugin installation**
 
@@ -228,10 +210,19 @@ spec:
 
             **Safe initialization**
 
-            If a Page candidate path already exists, the CLI skips that Page. It does not
-            overwrite, change, or delete existing files, directories, or unrelated files. It
-            creates the other non-conflicting
-            candidates.
+            Existing documents are skipped. `package.json` may be updated to add dependencies.
+
+            ## add — add templates
+
+            List candidates with `vellym add --list [template|set]`, then use
+            `vellym add template|set <id> [--folder <path>] [--name <name>]`.
+            Plugin templates require `<plugin-id>:<id>` and `--folder`. Use `--dry-run`
+            to preview and `--json` for JSON. `--guide` appends to `VELLYM.md`;
+            the default `--no-guide` does not. `--config <path>` selects a config.
+
+            An explicit `--config` takes precedence. Otherwise Vellym checks the current
+            directory and its `docs/` and `vellym/` subdirectories, without walking parents.
+            If multiple configs are found, select one with `--config`.
 
             ## dev — dev server
 
@@ -246,7 +237,7 @@ spec:
             | --- | --- |
             | `--host 127.0.0.1\|0.0.0.0` | Bind address. Defaults to `127.0.0.1`. Use `0.0.0.0` only to reach the host from inside a container. |
             | `--port <number>` | Listen port. Defaults to `4173` (1–65535). |
-            | `--config <path>` | Config file path. Defaults to `vellym.config.yaml`. |
+            | `--config <path>` | Config file path; searched as described above if omitted. |
 
             Started in a directory with no config file, it shows the in-browser setup.
 
@@ -297,8 +288,7 @@ spec:
             translations under locale-specific paths. See [[self-hosting|Static Publishing and Self-Hosting]]
             for output location, serving, and caveats.
 
-            The config's `outputDir` is not the output folder itself but the place and base
-            name for versioned folders. With `outputDir: dist/vellym`, each build creates a new
+            The config's `outputDir` is the parent of versioned folders. With `outputDir: dist`, each build creates a new
             timestamped folder `<YYYYMMDD-HHmmss>-vellym/` under `dist/`. This keeps the published
             version intact and leaves the previous one in place if a build fails. The actual
             location is reported as `data.outputDir` by `--json`. Old versions are never removed
