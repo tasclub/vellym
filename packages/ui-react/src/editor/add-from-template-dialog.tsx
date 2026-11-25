@@ -92,7 +92,7 @@ export function AddFromTemplateDialog(props: {
   }
 
   return <Dialog isOpen title={props.mode.kind === "resource"
-    ? t("templateAdd.groupAction", { group: props.mode.group })
+    ? props.mode.group ?? ""
     : t(props.mode.kind === "set" ? "templateAdd.setAction" : "templateAdd.templateAction")}
     onClose={() => { if (!busy) props.onClose(); }} dismissable={!busy}
     actions={<>

@@ -35,7 +35,7 @@ export function FolderView(props: {
     {[...new Set(catalog?.resources.map(item => item.group) ?? [])].map(group =>
       <Button key={group} data-testid="folder-add-resource"
         onClick={() => catalog && props.onAdd?.({ kind: "resource", group }, catalog)}>
-        {t("templateAdd.groupAction", { group })}
+        {group}
       </Button>)}
     <Button data-testid="folder-add-set" disabled={!catalog}
       onClick={() => catalog && props.onAdd?.({ kind: "set" }, catalog)}>{t("templateAdd.setAction")}</Button>

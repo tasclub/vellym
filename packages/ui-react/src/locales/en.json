@@ -1,6 +1,5 @@
 {
   "templateAdd.templateAction": "Create from template",
-  "templateAdd.groupAction": "Create {{group}}",
   "templateAdd.setAction": "Add a set",
   "templateAdd.role": "Role",
   "templateAdd.allRoles": "All roles",

@@ -1,6 +1,5 @@
 {
   "templateAdd.templateAction": "テンプレートから作る",
-  "templateAdd.groupAction": "{{group}}を作る",
   "templateAdd.setAction": "セットを足す",
   "templateAdd.role": "役割",
   "templateAdd.allRoles": "すべての役割",

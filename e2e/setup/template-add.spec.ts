@@ -113,7 +113,10 @@ test.describe("plugin contributions", () => {
   test("creates a plugin management resource and one record @CORE-MANUAL-E02", async ({ page, server, project }) => {
     await page.goto(server);
     await page.getByRole("treegrid").getByRole("row", { name: /Target folder/ }).click();
-    await page.getByTestId("folder-add-resource").click();
+    const addResource = page.getByTestId("folder-add-resource");
+    await expect(addResource).toHaveText("Create ticket management");
+    await addResource.click();
+    await expect(page.getByRole("heading", { name: "Create ticket management", exact: true })).toBeVisible();
     await page.getByTestId("template-add-option-tickets:work").check();
     await expect(page.getByTestId("template-add-create")).toBeEnabled();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
