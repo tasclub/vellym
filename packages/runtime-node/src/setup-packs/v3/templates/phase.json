@@ -1,0 +1,1 @@
+{"id": "phase", "role": "management", "title": {"ja": "工程", "en": "Phase"}, "fileName": {"ja": "工程", "en": "phase"}, "description": {"ja": "工程を記録します。", "en": "Record phase."}, "guideText": {"ja": "工程を必要に応じて作成し、関係者と共有します。\n内容が変わったら更新し、関連する文書やTicketから参照します。", "en": "Create and share the phase when needed.\nKeep it current and link it from related documents or tickets."}}

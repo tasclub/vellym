@@ -99,7 +99,7 @@ describe("catalog", () => {
       "detailed-design": [["対象のモジュール", "処理の流れ", "クラス・関数の責務の表", "例外"], ["Target module", "Processing flow", "Class and function responsibilities", "Exceptions"]],
     };
     const catalog = loadCatalog();
-    expect(catalog.templates).toHaveLength(25);
+    expect(catalog.templates).toHaveLength(39);
     for (const [id, [ja, en]] of Object.entries(headings)) {
       const template = catalog.templates.find(t => t.id === id);
       expect(template, id).toBeDefined();
@@ -125,6 +125,208 @@ describe("catalog", () => {
       "operations-design": [["運用の体制", "監視の表", "バックアップと復旧", "定常作業"], ["Operations roles", "Monitoring", "Backup and recovery", "Routine tasks"]],
       "incident-response": [["検知と連絡先", "切り分けの手順", "暫定対応", "記録の残し方"], ["Detection and contacts", "Diagnosis", "Temporary response", "Recording the incident"]],
     };
+    const catalog = loadCatalog();
+    for (const [id, [ja, en]] of Object.entries(headings)) {
+      const template = catalog.templates.find(t => t.id === id);
+      expect(template, id).toBeDefined();
+      for (const heading of ja) expect(template!.body.ja).toContain(`## ${heading}\n`);
+      for (const heading of en) expect(template!.body.en).toContain(`## ${heading}\n`);
+      expect(template!.guideText?.ja).toBeTruthy();
+      expect(template!.guideText?.en).toBeTruthy();
+    }
+  });
+  it("provides all 14 overview and management templates with localized headings", () => {
+    const headings: Record<string, [string[], string[]]> = {
+  "project-charter": [
+    [
+      "目的",
+      "成功の物差し",
+      "範囲とやらないこと",
+      "関係者と権限",
+      "前提と制約",
+      "主な節目"
+    ],
+    [
+      "Purpose",
+      "Measures of success",
+      "Scope and non-goals",
+      "Stakeholders and authority",
+      "Assumptions and constraints",
+      "Major milestones"
+    ]
+  ],
+  "background-and-problem": [
+    [
+      "誰が",
+      "今どうしていて",
+      "何に困っているか",
+      "代わりの手段",
+      "解決したら何が変わるか"
+    ],
+    [
+      "Who",
+      "Current situation",
+      "Problems",
+      "Alternatives",
+      "Expected change"
+    ]
+  ],
+  "stakeholders": [
+    [
+      "関係者の表",
+      "体制",
+      "承認者"
+    ],
+    [
+      "Stakeholders",
+      "Roles and responsibilities",
+      "Approvers"
+    ]
+  ],
+  "glossary": [
+    [
+      "用語の表"
+    ],
+    [
+      "Terms"
+    ]
+  ],
+  "roadmap": [
+    [
+      "版・節目の表",
+      "判断の待ち"
+    ],
+    [
+      "Releases and milestones",
+      "Pending decisions"
+    ]
+  ],
+  "current-status": [
+    [
+      "今の版と状態",
+      "直近で決めたこと",
+      "次にやること",
+      "止まっていること"
+    ],
+    [
+      "Current version and status",
+      "Recent decisions",
+      "Next steps",
+      "Blocked work"
+    ]
+  ],
+  "scope": [
+    [
+      "対象",
+      "対象外",
+      "境界で判断が要るもの",
+      "変更の手続き"
+    ],
+    [
+      "In scope",
+      "Out of scope",
+      "Boundary decisions",
+      "Change procedure"
+    ]
+  ],
+  "project-plan": [
+    [
+      "進め方",
+      "体制",
+      "品質の確かめ方",
+      "報告と会議体",
+      "リスクの扱い",
+      "変更の扱い"
+    ],
+    [
+      "Approach",
+      "Team",
+      "Quality verification",
+      "Reporting and meetings",
+      "Risk management",
+      "Change management"
+    ]
+  ],
+  "communication-plan": [
+    [
+      "会議体の表",
+      "連絡の手段"
+    ],
+    [
+      "Meetings",
+      "Communication channels"
+    ]
+  ],
+  "meeting-minutes": [
+    [
+      "日時・参加者",
+      "議題",
+      "決まったこと",
+      "宿題"
+    ],
+    [
+      "Date and participants",
+      "Agenda",
+      "Decisions",
+      "Action items"
+    ]
+  ],
+  "sprint": [
+    [
+      "ゴール",
+      "含むTicket",
+      "レビューの結果",
+      "振り返り"
+    ],
+    [
+      "Goal",
+      "Included tickets",
+      "Review results",
+      "Retrospective"
+    ]
+  ],
+  "phase": [
+    [
+      "工程の目的",
+      "成果物の一覧",
+      "完了の判定の基準",
+      "承認の表"
+    ],
+    [
+      "Phase purpose",
+      "Deliverables",
+      "Completion criteria",
+      "Approvals"
+    ]
+  ],
+  "retrospective": [
+    [
+      "よかったこと",
+      "困ったこと",
+      "次に変えること"
+    ],
+    [
+      "What went well",
+      "What was difficult",
+      "Changes for next time"
+    ]
+  ],
+  "completion-handover": [
+    [
+      "目的の達成度",
+      "成果物の一覧と場所",
+      "残った作業",
+      "運用の引継ぎ先と注意点"
+    ],
+    [
+      "Achievement of objectives",
+      "Deliverables and locations",
+      "Remaining work",
+      "Operations handover and cautions"
+    ]
+  ]
+};
+    expect(Object.keys(headings)).toHaveLength(14);
     const catalog = loadCatalog();
     for (const [id, [ja, en]] of Object.entries(headings)) {
       const template = catalog.templates.find(t => t.id === id);
