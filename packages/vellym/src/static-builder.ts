@@ -229,8 +229,11 @@ export async function buildStatic(configPath: string): Promise<StaticBuildResult
   const dirty = status === null ? null : status !== "";
   const contentHash = createHash("sha256")
     .update(
-      repository.pages
-        .map((entry) => `${entry.relativePath}:${entry.hash}`)
+      [
+        ...repository.pages.map((entry) => `${entry.relativePath}:${entry.hash}`),
+        ...[...repository.pluginFiles].flatMap(([pluginId, files]) =>
+          files.map((file) => `${pluginId}:${file.relativePath}:${file.hash}`))
+      ]
         .sort()
         .join("\n")
     )

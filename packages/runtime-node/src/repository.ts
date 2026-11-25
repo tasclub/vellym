@@ -1,5 +1,6 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { open, readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import {
   isAlias,
   isNode,
@@ -24,6 +25,9 @@ import {
 } from "@vellym-internal/core";
 import type {
   PluginDefinitionContext,
+  PluginFileKindContribution,
+  PluginFileRecord,
+  PluginFileSetValidator,
   PluginDiagnostic,
   PluginIndexRow,
   PluginRecordProjectorFactory,
@@ -112,11 +116,23 @@ const ignoredDirectories = new Set([
   "coverage"
 ]);
 
-async function findRepositoryEntries(root: string): Promise<{
+function matchesFileKind(name: string, pattern: string): boolean {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replaceAll("*", ".*").replaceAll("?", ".");
+  return new RegExp(`^${escaped}$`).test(name);
+}
+
+async function findRepositoryEntries(
+  root: string,
+  fileKinds: LoadRepositoryOptions["fileKinds"]
+): Promise<{
   files: string[];
+  pluginPaths: string[];
   directories: string[];
 }> {
   const files: string[] = [];
+  const pluginPaths: string[] = [];
+  const patterns = [...(fileKinds?.values() ?? [])].flat();
   const excluded = new Set(await excludedDirectoriesFor(root));
   const directories: string[] = [root];
   async function visitDirectory(directory: string): Promise<void> {
@@ -130,17 +146,14 @@ async function findRepositoryEntries(root: string): Promise<{
           directories.push(target);
           await visitDirectory(target);
         }
-      } else if (
-        entry.isFile() &&
-        /\.ya?ml$/i.test(entry.name) &&
-        entry.name !== "_index.yaml"
-      ) {
-        files.push(target);
+      } else if (entry.isFile()) {
+        if (/\.ya?ml$/i.test(entry.name) && entry.name !== "_index.yaml") files.push(target);
+        if (patterns.some((kind) => matchesFileKind(entry.name, kind.pattern))) pluginPaths.push(target);
       }
     }
   }
   await visitDirectory(root);
-  return { files, directories };
+  return { files, pluginPaths, directories };
 }
 
 function folderDiagnostic(
@@ -339,6 +352,96 @@ export interface LoadRepositoryOptions {
    * 1回だけ実行し、返された診断は`file`・`path`・`code`で重複を除く。
    */
   recordSetValidators?: ReadonlyMap<string, PluginRecordSetValidator[]>;
+  fileKinds?: ReadonlyMap<string, readonly PluginFileKindContribution[]>;
+  fileSetValidators?: ReadonlyMap<string, ReadonlyMap<string, PluginFileSetValidator[]>>;
+}
+
+async function loadPluginFiles(
+  contentRoot: string,
+  paths: readonly string[],
+  options: LoadRepositoryOptions,
+  definitions: readonly PluginResourceRecord[],
+  diagnostics: Diagnostic[]
+): Promise<RepositorySnapshot["pluginFiles"]> {
+  const result = new Map<string, readonly PluginFileRecord[]>();
+  const seen = new Set(diagnostics.map(diagnosticDedupKey));
+  const report = (item: PluginDiagnostic): void => {
+    const key = diagnosticDedupKey(item);
+    if (!seen.has(key)) { seen.add(key); diagnostics.push({ ...item }); }
+  };
+  const context: PluginDefinitionContext = {
+    records: (kind) => definitions.filter((record) => record.kind === kind),
+    reportDiagnostic: report
+  };
+  for (const [pluginId, kinds] of options.fileKinds ?? []) {
+    const records = new Map<string, PluginFileRecord>();
+    const byKind = new Map<string, PluginFileRecord[]>();
+    for (const kind of kinds) {
+      const accepted: PluginFileRecord[] = [];
+      byKind.set(kind.id, accepted);
+      for (const sourcePath of paths) {
+        if (!matchesFileKind(path.basename(sourcePath), kind.pattern)) continue;
+        const relativePath = path.relative(contentRoot, sourcePath).replaceAll("\\", "/");
+        try {
+          // Read at most the limit plus one, even if a file grows after discovery.
+          const handle = await open(sourcePath, "r");
+          let bytes: Buffer;
+          try {
+            if ((await handle.stat()).size > kind.maxBytes) {
+              report({ file: relativePath, severity: "error", code: "PLUGIN_FILE_TOO_LARGE",
+                message: { ja: `ファイルが上限の${kind.maxBytes}バイトを超えています`,
+                  en: `The file exceeds the limit of ${kind.maxBytes} bytes` } });
+              continue;
+            }
+            const chunks: Buffer[] = [];
+            let total = 0;
+            while (total <= kind.maxBytes) {
+              const chunk = Buffer.alloc(Math.min(64 * 1024, kind.maxBytes - total + 1));
+              const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+              if (!bytesRead) break;
+              chunks.push(chunk.subarray(0, bytesRead));
+              total += bytesRead;
+            }
+            bytes = Buffer.concat(chunks);
+          } finally { await handle.close(); }
+          if (bytes.length > kind.maxBytes) {
+            report({ file: relativePath, severity: "error", code: "PLUGIN_FILE_TOO_LARGE",
+              message: { ja: `ファイルが上限の${kind.maxBytes}バイトを超えています`,
+                en: `The file exceeds the limit of ${kind.maxBytes} bytes` } });
+            continue;
+          }
+          let value: unknown;
+          try { value = JSON.parse(bytes.toString("utf8")); } catch {
+            report({ file: relativePath, severity: "error", code: "PLUGIN_FILE_JSON_INVALID",
+              message: { ja: "JSONファイルを解析できません", en: "Could not parse the JSON file" } });
+            continue;
+          }
+          const record = { relativePath, hash: createHash("sha256").update(bytes).digest("hex"), value };
+          records.set(relativePath, record);
+          accepted.push(record);
+        } catch {
+          report({ file: relativePath, severity: "error", code: "PLUGIN_FILE_READ_FAILED",
+            message: { ja: "ファイルを読み込めません", en: "Could not read the file" } });
+        }
+      }
+      accepted.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+    }
+    result.set(pluginId, [...records.values()].sort((a, b) => a.relativePath.localeCompare(b.relativePath)));
+    for (const [id, validators] of options.fileSetValidators?.get(pluginId) ?? []) {
+      if (!byKind.has(id)) continue;
+      for (const validate of new Set(validators)) {
+        try {
+          for (const item of validate(byKind.get(id)!, context) ?? []) report(item);
+        } catch {
+          report({ file: ".", path: `${pluginId}/${id}`, severity: "warning",
+            code: "PLUGIN_FILE_SET_VALIDATION_FAILED",
+            message: { ja: `ファイル種別${id}の検査が失敗しました`,
+              en: `The file set check for ${id} failed` } });
+        }
+      }
+    }
+  }
+  return result;
 }
 
 /** 抽出済みリソースからプラグインへ渡すレコードを作る。pathもFSも渡さない */
@@ -476,7 +579,7 @@ export async function loadRepository(
   options: LoadRepositoryOptions = {}
 ): Promise<RepositorySnapshot> {
   await assertContentRoot(contentRoot);
-  const { files, directories } = await findRepositoryEntries(contentRoot);
+  const { files, pluginPaths, directories } = await findRepositoryEntries(contentRoot, options.fileKinds);
   const fileStats = await statRepositoryFiles(files);
   const entries: PageEntry[] = [];
   // projectorを持つkind（＝大量にあるデータ）。定義を読み終えるまで索引行を作れない
@@ -620,6 +723,7 @@ export async function loadRepository(
   }
 
   const entryIndex = deriveRepositoryEntryIndex(entries);
+  const pluginFiles = await loadPluginFiles(contentRoot, pluginPaths, options, definitionRecords, diagnostics);
   diagnostics.push(...entryIndex.diagnostics);
   diagnostics.push(...repositoryReferenceDiagnostics(entryIndex));
   for (const folder of folders) {
@@ -655,6 +759,7 @@ export async function loadRepository(
   }
   return {
     contentRoot,
+    pluginFiles,
     ...(options.knownKinds ? { knownKinds: options.knownKinds } : {}),
     ...(options.treeKinds ? { treeKinds: options.treeKinds } : {}),
     ...(options.kindSchemas ? { kindSchemaSignature: kindSchemaSignature(options.kindSchemas) } : {}),

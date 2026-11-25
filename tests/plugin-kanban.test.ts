@@ -55,6 +55,7 @@ function activate() {
     registerCommand: (value) => commands.push(value),
     registerRecordProjection: (kind, value) => projections.set(kind, value),
     registerRecordSetValidator: () => {},
+    registerFileKind: () => {}, registerFileSetValidator: () => {},
     reportDiagnostic: () => {}
   });
   return { kinds, views, projections, commands };

@@ -9,6 +9,9 @@ import { validatePluginManifest, type Diagnostic } from "@vellym-internal/core";
 import {
   PLUGIN_MANIFEST_FIELD,
   type PluginCommandContribution,
+  type PluginFileKindContribution,
+  type PluginFileRecord,
+  type PluginFileSetValidator,
   type PluginCommandInput,
   type PluginKindContribution,
   type PluginManifest,
@@ -62,6 +65,8 @@ export interface LoadedPlugin {
    * hostはkindについて何も知らないまま、行がそろう後に1回ずつ呼ぶ。
    */
   recordSetValidators: Map<string, PluginRecordSetValidator[]>;
+  fileKinds?: PluginFileKindContribution[];
+  fileSetValidators?: Map<string, PluginFileSetValidator[]>;
 }
 
 export interface PluginRegistry {
@@ -105,12 +110,18 @@ export function pluginKinds(registry: PluginRegistry): {
   projections: ReadonlyMap<string, PluginRecordProjectorFactory>;
   recordSetValidators: ReadonlyMap<string, PluginRecordSetValidator[]>;
   kindSchemas: ReadonlyMap<string, PluginKindContribution["specSchema"]>;
+  fileKinds?: ReadonlyMap<string, readonly PluginFileKindContribution[]>;
+  fileSetValidators?: ReadonlyMap<string, ReadonlyMap<string, PluginFileSetValidator[]>>;
 } {
   const treeKinds = new Set<string>();
   const projections = new Map<string, PluginRecordProjectorFactory>();
   const recordSetValidators = new Map<string, PluginRecordSetValidator[]>();
   const kindSchemas = new Map<string, PluginKindContribution["specSchema"]>();
+  const fileKinds = new Map<string, readonly PluginFileKindContribution[]>();
+  const fileSetValidators = new Map<string, ReadonlyMap<string, PluginFileSetValidator[]>>();
   for (const plugin of registry.plugins) {
+    fileKinds.set(plugin.id, plugin.fileKinds ?? []);
+    fileSetValidators.set(plugin.id, plugin.fileSetValidators ?? new Map());
     for (const contribution of plugin.kinds) {
       // 所有するプラグインが1つに決まっているkindだけを対象にする。
       if (registry.kinds.get(contribution.kind) !== plugin) continue;
@@ -137,7 +148,9 @@ export function pluginKinds(registry: PluginRegistry): {
     treeKinds,
     projections,
     recordSetValidators,
-    kindSchemas
+    kindSchemas,
+    fileKinds,
+    fileSetValidators
   };
 }
 
@@ -448,13 +461,30 @@ async function loadOne(
     views: [],
     commands: [],
     projections: new Map(),
-    recordSetValidators: new Map()
+    recordSetValidators: new Map(),
+    fileKinds: [],
+    fileSetValidators: new Map()
   };
 
   const host: VellymPluginHost = {
     pluginId: plugin.id,
     hostVersion,
     registerKind: (contribution) => plugin.kinds.push(contribution),
+    registerFileKind: (contribution) => {
+      if (!contribution.id || !contribution.pattern ||
+          /[/\\\0]/.test(contribution.pattern) || contribution.pattern.startsWith(".") ||
+          contribution.format !== "json" ||
+          !Number.isSafeInteger(contribution.maxBytes) || contribution.maxBytes <= 0 ||
+          plugin.fileKinds!.some((item) => item.id === contribution.id)) {
+        throw new Error("Invalid file kind registration");
+      }
+      plugin.fileKinds!.push({ ...contribution });
+    },
+    registerFileSetValidator: (id, validate) => {
+      const list = plugin.fileSetValidators!.get(id) ?? [];
+      if (!list.includes(validate)) list.push(validate);
+      plugin.fileSetValidators!.set(id, list);
+    },
     registerView: (contribution) => plugin.views.push(contribution),
     registerCommand: (contribution) => plugin.commands.push(contribution),
     registerRecordProjection: (kind, project) => plugin.projections.set(kind, project),
@@ -736,6 +766,7 @@ export function buildPluginView(options: {
   /** 開いているリソースについての注意 */
   targetDiagnostics?: readonly PluginDiagnostic[];
   definitions(kind: string): readonly PluginResourceRecord[];
+  pluginFiles?: ReadonlyMap<string, readonly PluginFileRecord[]>;
   locale: string;
   isStatic: boolean;
   /** 同じkindに複数のビューがある場合に、どれを出すか */
@@ -753,6 +784,7 @@ export function buildPluginView(options: {
     locale: options.locale,
     isStatic: options.isStatic,
     target: options.target,
+    files: options.pluginFiles?.get(plugin.id) ?? [],
     records: options.definitions
   };
   let descriptor: PluginViewDescriptor;
@@ -862,6 +894,7 @@ export function buildPluginViewFromSnapshot(options: {
     }[];
     diagnostics: readonly Diagnostic[];
     definitionRecords?: readonly PluginResourceRecord[];
+    pluginFiles?: ReadonlyMap<string, readonly PluginFileRecord[]>;
   };
   /** 開いた資源の`metadata.name` */
   name: string;
@@ -931,6 +964,7 @@ export function buildPluginViewFromSnapshot(options: {
         }
       : {}),
     definitions: (kind) => definitions.filter((record) => record.kind === kind),
+    ...(snapshot.pluginFiles ? { pluginFiles: snapshot.pluginFiles } : {}),
     locale: options.locale,
     isStatic: options.isStatic,
     ...(options.viewId ? { viewId: options.viewId } : {})

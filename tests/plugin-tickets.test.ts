@@ -140,6 +140,7 @@ function activate() {
     registerCommand: (contribution) => commands.set(contribution.id, contribution),
     registerRecordProjection: (kind, create) => projections.set(kind, create),
     registerRecordSetValidator: (kind, validate) => recordSetValidators.set(kind, validate),
+    registerFileKind: () => {}, registerFileSetValidator: () => {},
     reportDiagnostic: () => {}
   });
   return { kinds, views, commands, projections, recordSetValidators };

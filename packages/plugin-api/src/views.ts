@@ -284,8 +284,17 @@ export interface PluginDefinitionContext {
   reportDiagnostic?(diagnostic: PluginDiagnostic): void;
 }
 
+/** 登録されたJSONファイル。pathはcontent root相対、hashは元のバイト列のSHA-256。 */
+export interface PluginFileRecord {
+  relativePath: string;
+  hash: string;
+  value: unknown;
+}
+
 /** descriptorを組み立てるときにCoreが渡す文脈 */
 export interface PluginViewContext extends PluginDefinitionContext {
+  /** このプラグインが登録したファイルだけ。relativePathの順。 */
+  files?: readonly PluginFileRecord[];
   /**
    * 文書の要求locale。Node側で決まる。
    *

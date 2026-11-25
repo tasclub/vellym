@@ -10,6 +10,7 @@ import type { PluginLocalizedText } from "./text.js";
 import type { PluginIndexValue } from "./records.js";
 import type {
   PluginDefinitionContext,
+  PluginFileRecord,
   PluginFieldDescriptor,
   PluginViewContext,
   PluginViewProvider
@@ -191,11 +192,29 @@ export type PluginCommandResult =
  * **登録関数だけを持つ。** ファイルシステム、content rootのpath、Coreの内部
  * モジュールは渡さない。プラグインが読むのは抽出済みレコードだけである。
  */
+export interface PluginFileKindContribution {
+  id: string;
+  /** ファイル名だけのglob。`*`と`?`を使える。パス・隠しファイルは不可。 */
+  pattern: string;
+  format: "json";
+  /** 読み込みを許す最大バイト数（正の安全な整数）。 */
+  maxBytes: number;
+}
+
+/** ファイル種別の全件検証。例外は警告、同じ関数と診断は重複除去する。 */
+export type PluginFileSetValidator = (
+  files: readonly PluginFileRecord[],
+  context: PluginDefinitionContext
+) => readonly PluginDiagnostic[];
+
 export interface VellymPluginHost {
   readonly pluginId: string;
   /** 実行中のVellym本体のversion。`engines.vellym`の判定は読み込み前に済んでいる */
   readonly hostVersion: string;
   registerKind(contribution: PluginKindContribution): void;
+  registerFileKind(contribution: PluginFileKindContribution): void;
+  /** 自分のregisterFileKindのidを指定する。 */
+  registerFileSetValidator(id: string, validate: PluginFileSetValidator): void;
   registerView(contribution: PluginViewContribution): void;
   registerCommand(contribution: PluginCommandContribution): void;
   /**

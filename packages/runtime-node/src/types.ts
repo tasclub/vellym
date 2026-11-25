@@ -48,6 +48,7 @@ export interface FolderPatch {
 }
 
 export interface RepositorySnapshot {
+  pluginFiles: ReadonlyMap<string, readonly import("@vellym/plugin-api").PluginFileRecord[]>;
   contentRoot: string;
   /** この読み込みで既知として扱ったプラグインのkind */
   knownKinds?: ReadonlySet<string>;

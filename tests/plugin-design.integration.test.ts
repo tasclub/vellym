@@ -102,6 +102,7 @@ function activated() {
     registerCommand: (value) => commands.set(value.id, value),
     registerRecordProjection: (kind, value) => projections.set(kind, value),
     registerRecordSetValidator: () => {},
+    registerFileKind: () => {}, registerFileSetValidator: () => {},
     reportDiagnostic: () => {}
   });
   return { kinds, views, projections, commands };
@@ -406,6 +407,7 @@ describe("design plugin on the real runtime", () => {
       registerKind: (value) => { kinds.set(value.kind, value); },
       registerView: () => {}, registerCommand: () => {}, registerRecordProjection: () => {},
       registerRecordSetValidator: (kind, value) => { validators.set(kind, [value]); },
+      registerFileKind: () => {}, registerFileSetValidator: () => {},
       reportDiagnostic: () => {}
     });
     const repository = await loadRepository(path.resolve("tests/fixtures/design-canvas"), undefined, {

@@ -27,6 +27,7 @@ function activated() {
     registerView: (v) => { views.push(v); },
     registerRecordProjection: () => { throw new Error("Design resources must stay in records()"); },
     registerRecordSetValidator: (_kind, v) => { validators.push(v); },
+    registerFileKind: () => {}, registerFileSetValidator: () => {},
     reportDiagnostic: () => {}
   });
   return { kinds, commands, views, validators };
