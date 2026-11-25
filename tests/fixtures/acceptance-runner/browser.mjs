@@ -1,6 +1,6 @@
 export async function open(ctx) {
     const root = await ctx.temporary("runner-browser");
-    const initialized = ctx.cli(root, "init", "--size", "personal", "--method", "hybrid", "--level", "light", "--language", "ja");
+    const initialized = ctx.cli(root, "init", "--language", "ja");
     ctx.expect(initialized.status, initialized.stderr).toBe(0);
     const server = await ctx.start(root);
     const page = await ctx.page(server.origin);

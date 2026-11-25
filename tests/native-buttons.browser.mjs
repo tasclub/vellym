@@ -137,7 +137,7 @@ try {
 
 
   await tab.getByRole("button", { name: "Expand all", exact: true }).click();
-  await tab.getByRole("button", { name: "Create" }).click();
+  await tab.getByRole("button", { name: "Create in Documents", exact: true }).click();
   await expect(tab.getByRole("menu")).toBeVisible();
   await expectNoNativeButtons(tab, "document tree");
 
