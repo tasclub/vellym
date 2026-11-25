@@ -61,6 +61,11 @@ await cp(
   path.join(output, "setup-packs/v3"),
   { recursive: true }
 );
+await cp(
+  path.join(root, "packages/runtime-node/src/font-licenses"),
+  path.join(output, "font-licenses"),
+  { recursive: true }
+);
 const notices = await generateThirdPartyNotices(
   root,
   path.join(root, "packages/vellym/THIRD-PARTY-NOTICES.md")

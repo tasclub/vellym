@@ -19,6 +19,7 @@ import {
 } from "./config.js";
 import { RuntimeError } from "./errors.js";
 import { readAsset, saveAsset, saveFontAsset } from "./assets.js";
+import { fetchGoogleFont } from "./fonts.js";
 import { readGitHistory } from "./git-history.js";
 import { readGitChanges, writeGitChanges, readChangeDiff } from "./git-changes.js";
 import {
@@ -660,6 +661,11 @@ export async function startDevServer(options: {
         request.headers.origin,
         request.headers.host
       );
+      if (url.pathname === "/api/v1/fonts/google" && request.method === "POST") {
+        const { loadedConfig: config } = requireReady();
+        json(response, 200, envelope(await fetchGoogleFont(config, await readJson(request))));
+        return;
+      }
       if (url.pathname === "/api/v1/assets" && request.method === "GET") {
         const { loadedConfig: config } = requireReady();
         const asset = await readAsset(config.assetsRoot, url.searchParams.get("path") ?? "");
