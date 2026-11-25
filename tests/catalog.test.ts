@@ -5,10 +5,6 @@ import { validateCatalog } from "../packages/runtime-node/src/catalog/validate.j
 import { loadPlugins, pluginResourceTemplates } from "../packages/runtime-node/src/plugins.js";
 import work from "../packages/plugin-tickets/templates/work.json";
 import { validatePluginManifest } from "../packages/core/src/index.js";
-import { mkdtempSync, writeFileSync, symlinkSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { projectTicket, readTrackers, trackerDefinitionDiagnostics } from "../packages/ticket-engine/src/index.js";
 const resources = [{ ...work, id: "tickets:work", pluginId: "tickets",
   group: { ja: "チケット管理を作る", en: "Create ticket management" } }];
@@ -86,26 +82,18 @@ describe("catalog", () => {
       expect(set.items.map(item => "template" in item ? item.template : item.resource)).toEqual(expected[set.id]);
     }
     expect(catalog.sets.find(s => s.id === "phase")?.repeat?.page).toBe("phase");
-    const root = mkdtempSync(path.join(tmpdir(), "vellym-catalog-"));
-    try {
-      symlinkSync(path.resolve("node_modules"), path.join(root, "node_modules"), "dir");
-      writeFileSync(path.join(root, "vellym.config.yaml"), 'schemaVersion: "1.0"\ncontentRoot: .\noutputDir: dist\nui:\n  language: en\ni18n:\n  defaultLocale: en\nstatic:\n  publicBaseUrl: https://example.com/\nplugins: ["@vellym/tickets", "@vellym/kanban", "@vellym/wbs"]\n');
-      for (const template of templates) for (const locale of ["ja", "en"] as const) {
-        const spec = template.spec[locale];
-        const record = { kind: "TicketTracker", name: "tracker", title: "Tracker", relativePath: "tracker.yaml", readOnly: false, spec };
-        expect(trackerDefinitionDiagnostics([record]), `${template.id} ${locale}`).toEqual([]);
-        if (["tickets:work", "tickets:backlog", "tickets:bug"].includes(template.id)) {
-          const trackers = readTrackers({ records: () => [record] });
-          const ticket = { ...record, kind: "Ticket", name: "ticket", relativePath: "ticket.yaml", spec: { status: "done", fields: {} } };
-          expect(projectTicket(trackers, ticket)?.diagnostics?.map(d => d.code)).toContain("TICKET_RULE_VIOLATION");
-          expect(projectTicket(trackers, { ...ticket, spec: { status: "done", fields: { updatedDocuments: "None needed" } } })?.diagnostics ?? []).toEqual([]);
-        }
-        writeFileSync(path.join(root, "tracker.yaml"), JSON.stringify({ apiVersion: "vellym.tasclub.com/v1", kind: "TicketTracker", metadata: { name: "tracker", title: "Tracker" }, spec }));
-        const result = spawnSync(process.execPath, [path.resolve("packages/vellym/dist/cli.mjs"), "validate", "--config", path.join(root, "vellym.config.yaml"), "--json"], { encoding: "utf8" });
-        expect(result.status, result.stderr + result.stdout).toBe(0);
-        expect(JSON.parse(result.stdout).diagnostics, `${template.id} ${locale}`).toEqual([]);
+    for (const template of templates) for (const locale of ["ja", "en"] as const) {
+      const spec = template.spec[locale];
+      const record = { kind: "TicketTracker", name: "tracker", title: "Tracker", relativePath: "tracker.yaml", readOnly: false, spec };
+      expect(trackerDefinitionDiagnostics([record]), `${template.id} ${locale}`).toEqual([]);
+      if (["tickets:work", "tickets:backlog", "tickets:bug"].includes(template.id)) {
+        const trackers = readTrackers({ records: () => [record] });
+        const ticket = { ...record, kind: "Ticket", name: "ticket", relativePath: "ticket.yaml", spec: { status: "done", fields: {} } };
+        expect(projectTicket(trackers, ticket)?.diagnostics?.map(d => d.code)).toContain("TICKET_RULE_VIOLATION");
+        expect(projectTicket(trackers, { ...ticket, spec: { status: "done", fields: { updatedDocuments: "None needed" } } })?.diagnostics ?? []).toEqual([]);
       }
-    } finally { rmSync(root, { recursive: true, force: true }); }
+    }
+    // The CLI validate of every template runs in catalog-validate.integration.test.ts.
   });
   it("rejects malformed resource definitions and duplicate contributions", () => {
     const catalog = structuredClone(loadCatalog(resources));

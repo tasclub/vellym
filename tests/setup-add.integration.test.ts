@@ -8,8 +8,11 @@ import { planAdd, applyAdd, type AddRequest } from "../packages/runtime-node/src
 import { loadCatalog } from "../packages/runtime-node/src/catalog/load.js";
 import type { LoadedConfig } from "../packages/runtime-node/src/types.js";
 import work from "../packages/plugin-tickets/templates/work.json";
-const resources = [{ ...work, id: "tickets:work", pluginId: "tickets",
-  group: { ja: "チケット管理を作る", en: "Create ticket management" } }];
+import review from "../packages/plugin-tickets/templates/review.json";
+const group = { ja: "チケット管理を作る", en: "Create ticket management" };
+// The repeated "phase" set holds the review resource; "start" holds only documents.
+const resources = [{ ...work, id: "tickets:work", pluginId: "tickets", group },
+  { ...review, id: "tickets:review", pluginId: "tickets", group }];
 
 const faults = vi.hoisted(() => ({ renames: 0, failRename: 0, failWrite: false, race: "", freeze: false }));
 vi.mock("node:crypto", async importOriginal => {
@@ -116,15 +119,16 @@ describe("setup add planning and execution", () => {
   });
 
   it("requires repeat names and creates separate folders even with the same name", async () => {
-    await expect(planAdd(config, request({ kind: "set", id: "sprint" }))).rejects.toMatchObject({ status: 400 });
-    const input = request({ kind: "set", id: "sprint", name: "Sprint 1", folder: "iterations" });
+    await expect(planAdd(config, request({ kind: "set", id: "phase" }))).rejects.toMatchObject({ status: 400 });
+    const input = request({ kind: "set", id: "phase", name: "Phase 1", folder: "iterations" });
     const first = await planAdd(config, input, { resources });
     await applyAdd(config, first, { resources });
     const second = await planAdd(config, input, { resources });
-    expect(second.files.every(file => file.relativePath.startsWith("iterations/sprint-1-2/"))).toBe(true);
+    expect(second.files.every(file => file.relativePath.startsWith("iterations/phase-1-2/"))).toBe(true);
     await applyAdd(config, second, { resources });
-    expect(await entries()).toContain("iterations/sprint-1-2/work.yaml");
-    expect(await entries()).toContain("iterations/sprint-1/decision.yaml");
+    expect(await entries()).toContain("iterations/phase-1/review.yaml");
+    expect(await entries()).toContain("iterations/phase-1-2/review.yaml");
+    expect(await entries()).toContain("iterations/phase-1/phase.yaml");
   });
 
   it("routes by-feature roles only when a feature name or folder exists", async () => {
@@ -157,18 +161,18 @@ describe("setup add planning and execution", () => {
     });
   });
   it("skips unavailable set resources with a localized reason", async () => {
-    const plan = await planAdd(config, request({ kind: "set", id: "sprint", name: "Sprint 1", folder: "iterations" }));
-    expect(plan.files.at(-1)).toMatchObject({ relativePath: "iterations/sprint-1/work.yaml", status: "skip",
+    const plan = await planAdd(config, request({ kind: "set", id: "phase", name: "Phase 1", folder: "iterations" }));
+    expect(plan.files.find(file => file.relativePath.endsWith("/review.yaml"))).toMatchObject({ relativePath: "iterations/phase-1/review.yaml", status: "skip",
       reason: { code: "PLUGIN_NOT_ENABLED", message: { ja: expect.any(String), en: expect.any(String) } } });
     await applyAdd(config, plan);
-    expect(await entries()).not.toContain("iterations/sprint-1/work.yaml");
-    expect(await entries()).toContain("iterations/sprint-1/decision.yaml");
+    expect(await entries()).not.toContain("iterations/phase-1/review.yaml");
+    expect(await entries()).toContain("iterations/phase-1/phase.yaml");
   });
   it("rejects changed, removed or newly enabled resource definitions at apply time", async () => {
-    const input = request({ kind: "set", id: "sprint", name: "Sprint 1", folder: "iterations" });
+    const input = request({ kind: "set", id: "phase", name: "Phase 1", folder: "iterations" });
     const plan = await planAdd(config, input, { resources });
     const changed = structuredClone(resources);
-    changed[0]!.spec.ja.statuses[0]!.label = "Changed unselected locale";
+    changed[1]!.spec.ja.statuses[0]!.label = "Changed unselected locale";
     for (const options of [{ resources: changed }, {}]) {
       await expect(applyAdd(config, plan, options)).rejects.toMatchObject({ status: 409 });
     }
@@ -180,7 +184,8 @@ describe("setup add planning and execution", () => {
   it("routes ordinary set items independently, unless folder overrides all roles", async () => {
     const plan = await planAdd(config, request({ kind: "set", id: "start" }));
     expect(plan.files.filter(file => file.kind === "Page").map(file => file.relativePath)).toEqual([
-      "requirements/functional-requirements.yaml", "architecture/decisions/decision.yaml"
+      "overview/project-charter.yaml", "overview/background-and-problem.yaml",
+      "overview/stakeholders.yaml", "overview/glossary.yaml"
     ]);
     await applyAdd(config, plan);
     const override = await planAdd(config, request({ kind: "set", id: "start", folder: "custom" }));
