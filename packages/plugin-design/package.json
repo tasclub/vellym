@@ -23,7 +23,7 @@
   },
   "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --format=esm --platform=browser --outfile=dist/browser/index.js --external:@vellym/plugin-api && esbuild src/render/vector.ts src/render/boolean.ts --bundle --splitting --format=esm --platform=browser --outdir=dist/browser/render"
+    "build": "tsc -p tsconfig.build.json && esbuild src/node.ts --bundle --format=esm --platform=node --outfile=dist/node.js --external:@vellym/plugin-api && esbuild src/browser.ts --bundle --splitting --format=esm --platform=browser --jsx=automatic --outdir=dist/browser --entry-names=index --loader:.css=text --external:react --external:react-dom --external:react-dom/client --external:react/jsx-runtime --external:@vellym/plugin-api --external:@vellym/plugin-api/react && esbuild src/render/vector.ts src/render/boolean.ts --bundle --splitting --format=esm --platform=browser --outdir=dist/browser/render"
   },
   "publishConfig": { "access": "public" },
   "peerDependencies": {

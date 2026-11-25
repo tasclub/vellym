@@ -5,6 +5,8 @@ export const designText = {
   tokenMissing: { ja: "参照先のトークンがありません", en: "Referenced token does not exist." },
   invalidResolver: { ja: "Resolverの定義・参照またはモードの選択が不正です", en: "Invalid resolver definition, reference, or mode selection." },
   canvas: { ja: "キャンバス", en: "Canvas" },
+  defaultMode: { ja: "既定", en: "Default" },
+  emptyCanvas: { ja: "フレーム（F）でボードを作る", en: "Create a board with Frame (F)" },
   createCanvas: { ja: "デザインキャンバスを作成", en: "New design canvas" },
   createBoard: { ja: "ボードを追加", en: "New board" },
   createComponent: { ja: "部品を作成", en: "New component" },

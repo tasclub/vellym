@@ -1,0 +1,5 @@
+/* These rules live inside each board's shadow root, not in the host document. */
+:host { all: initial; display: block; }
+.design-board-content { all: initial; display: block; position: relative; font: 16px/normal sans-serif; color: #000; direction: ltr; text-align: left; }
+.design-board-content *, .design-board-content *::before, .design-board-content *::after { box-sizing: border-box; }
+.design-board-content svg { display: block; overflow: visible; }
