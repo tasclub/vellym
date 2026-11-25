@@ -46,7 +46,7 @@ export default definePlugin({
     // Keep all four kinds as definition records so views and validation read the same source.
     host.registerRecordSetValidator(DESIGN_CANVAS_KIND, (_rows, context) => validateDesign(context));
     host.registerView({
-      id: DESIGN_CANVAS_VIEW_ID, label: text.canvas, static: false,
+      id: DESIGN_CANVAS_VIEW_ID, label: text.canvas, static: true,
       view(context) {
         const canvas = context.target?.kind === DESIGN_CANVAS_KIND ? context.target : undefined;
         const children = (kind: string) => context.records(kind)
