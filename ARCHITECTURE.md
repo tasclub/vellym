@@ -200,6 +200,8 @@ comes from being local:
 | Cross-site writes | Origin validation; resource deletion requires Origin | `tests/security/http-boundary.integration.test.ts` |
 | Cross-origin reads | No CORS grants | `tests/security/http-boundary.integration.test.ts` |
 | Content sniffing, framing, referrer leakage | Security response headers | `tests/security/http-boundary.integration.test.ts` |
+| Git option injection through paths | Treat requested paths as paths, not Git options | `tests/security/git-arguments.integration.test.ts` |
+| Accidental network exposure | Loopback bind by default; warning for public bind | `tests/security/cli-defaults.integration.test.ts` |
 
 If you add an endpoint, it inherits the header and origin handling from the shared
 helpers — but the path boundary check is per-operation and must be written explicitly.
