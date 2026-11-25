@@ -5,7 +5,7 @@ import type {
   PluginSpecWrite
 } from "@vellym/plugin-api";
 
-import { ApiError, createPluginResource, fetchPageEdit, isStaticApp, patchPage } from "../shared/api.js";
+import { ApiError, createPluginResource, deletePluginResource, fetchPageEdit, isStaticApp, patchPage } from "../shared/api.js";
 import type { PluginSpecValue } from "../shared/field-input.js";
 import type { PluginViewPayload } from "./plugin-list-view.js";
 import { readPluginViewSettings, writePluginViewSettings } from "./view-settings.js";
@@ -81,6 +81,18 @@ export function createRenderContext(options: {
       return options.onOpenResource(name);
     },
     ...(options.onRunCommand ? { runCommand: options.onRunCommand } : {}),
+    async deleteResource(name, { baseHash }) {
+      if (isStaticApp()) {
+        return { ok: false, reason: "error", message: options.describeError(new ApiError("Deleting is unavailable in static output.", 405, [], "STATIC_WRITE_UNAVAILABLE")) };
+      }
+      try {
+        await deletePluginResource(name, options.payload.pluginId, baseHash);
+        await options.onSaved();
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, reason: error instanceof ApiError && error.status === 409 ? "conflict" : "error", message: options.describeError(error) };
+      }
+    },
     async createResourceNow(draft) {
       if (isStaticApp()) {
         const error = new ApiError("Saving is unavailable in static output.", 405, [], "STATIC_WRITE_UNAVAILABLE");

@@ -23,6 +23,7 @@ import { readGitHistory } from "./git-history.js";
 import { readGitChanges, writeGitChanges, readChangeDiff } from "./git-changes.js";
 import {
   createPluginResource,
+  deletePluginResource,
   parsePluginResourceDraft,
   pluginResourceRelativePath
 } from "./plugin-resources.js";
@@ -1398,6 +1399,28 @@ export async function startDevServer(options: {
         return;
       }
       // 未作成Resourceの初回保存。commandとは分け、離脱だけでは到達しない。
+      const deleteResourceMatch = url.pathname.match(/^\/api\/v1\/plugins\/resources\/([a-z0-9-]+)$/);
+      if (deleteResourceMatch && request.method === "DELETE") {
+        if (!request.headers.origin) {
+          throw new RuntimeError("Originが必要です", 403, "ORIGIN");
+        }
+        assertAllowedOrigin(request.method, request.headers.origin, request.headers.host);
+        const ready = requireReady();
+        const body = (await readJson(request)) as { pluginId?: unknown; baseHash?: unknown };
+        if (typeof body.pluginId !== "string" || typeof body.baseHash !== "string" || !/^[a-f0-9]{64}$/.test(body.baseHash)) {
+          throw new RuntimeError("削除の指定が不正です", 400, "INVALID_JSON");
+        }
+        const entry = ready.snapshot.byName.get(deleteResourceMatch[1]!);
+        if (!entry) throw new RuntimeError("リソースが見つかりません", 404, "NOT_FOUND");
+        if (pluginRegistry?.kinds.get(entry.kind)?.id !== body.pluginId) {
+          throw new RuntimeError("このkindの削除は許可されていません", 403, "READ_ONLY");
+        }
+        await deletePluginResource(ready.loadedConfig.contentRoot, entry.relativePath, body.baseHash);
+        snapshot = await loadRepository(ready.loadedConfig.contentRoot, snapshot, kindOptions);
+        publishChange();
+        json(response, 200, envelope({ name: deleteResourceMatch[1] }, snapshot.diagnostics));
+        return;
+      }
       if (url.pathname === "/api/v1/plugins/resources" && request.method === "POST") {
         const ready = requireReady();
         const body = (await readJson(request)) as { baseHash?: unknown; draft?: unknown };

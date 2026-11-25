@@ -1,10 +1,10 @@
-import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
+import { mkdir, realpath, stat, writeFile, readFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { stringify } from "yaml";
 import { STABLE_API_VERSION, validateResource } from "@vellym-internal/core";
 import type { PluginResourceDraft } from "@vellym/plugin-api";
 import { RuntimeError } from "./errors.js";
-import { isInside } from "./path-utils.js";
+import { contentHash, isInside } from "./path-utils.js";
 
 /** content root相対のフォルダとして安全か。外へ出る指定を受け付けない */
 function safeFolder(value: string | undefined): string {
@@ -15,6 +15,21 @@ function safeFolder(value: string | undefined): string {
     throw new RuntimeError("作成先が不正です", 400, "INVALID_FOLDER");
   }
   return parts.join("/");
+}
+
+export async function deletePluginResource(contentRoot: string, relativePath: string, baseHash: string): Promise<void> {
+  const rootReal = await realpath(contentRoot);
+  const sourceReal = await realpath(path.join(contentRoot, relativePath));
+  if (!isInside(rootReal, sourceReal)) {
+    throw new RuntimeError("contentRoot外の削除は許可されていません", 422, "PATH_BOUNDARY");
+  }
+  if (!(await stat(sourceReal)).isFile()) {
+    throw new RuntimeError("通常ファイル以外は削除できません", 422, "UNSAFE_FILE");
+  }
+  if (contentHash(await readFile(sourceReal, "utf8")) !== baseHash) {
+    throw new RuntimeError("外部変更を検出しました", 409, "HASH_CONFLICT");
+  }
+  await unlink(sourceReal);
 }
 
 /** 書き込み前にも作成先を確定し、command応答と初回保存で同じpathを使う */

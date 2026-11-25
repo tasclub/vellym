@@ -318,6 +318,8 @@ export interface PluginRenderContext extends PluginViewContext {
   runCommand?(id: string, input: Readonly<Record<string, PluginInputValue>>): Promise<PluginSaveResult>;
   /** Create a resource immediately without navigating to a draft. */
   createResourceNow?(draft: PluginResourceDraft & { name: string }): Promise<PluginCreateResult>;
+  /** Delete a registered resource using the hash obtained when it was loaded. */
+  deleteResource?(name: string, options: { baseHash: string }): Promise<PluginSaveResult>;
   /**
    * 開いているリソースの正本へ書き戻す。
    *

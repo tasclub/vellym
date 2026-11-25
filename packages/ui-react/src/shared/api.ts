@@ -715,6 +715,14 @@ export function createPluginResource(
   });
 }
 
+export function deletePluginResource(name: string, pluginId: string, baseHash: string): Promise<Envelope<{ name: string }>> {
+  return request(`/api/v1/plugins/resources/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pluginId, baseHash })
+  });
+}
+
 export function fetchPage(
   name: string,
   signal?: AbortSignal
