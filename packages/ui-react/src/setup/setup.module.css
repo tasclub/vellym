@@ -15,6 +15,22 @@
     font-size: var(--size-ui);
   }
   .setup-brand { font-weight: 800; }
+  .init-card { max-width: 1120px; }
+  .init-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-6); }
+  .init-columns > div { min-width: 0; }
+  .init-field, .init-folder { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--space-3); align-items: center; }
+  .init-field select, .init-folder input { width: 100%; min-width: 0; padding: var(--space-2); font: inherit; }
+  .init-check { display: flex; gap: var(--space-3); align-items: center; margin-top: var(--space-4); }
+  .init-check input { flex: none; width: 18px; height: 18px; }
+  .init-path, .init-files { overflow-wrap: anywhere; }
+  .init-files li { padding-block: var(--space-2); }
+  .init-tree, .init-tree ul { list-style: none; padding: 0; margin: 0; }
+  .init-tree ul[role="group"] { padding-inline-start: var(--space-5); }
+  .init-tree li { padding-block: var(--space-2); }
+  .init-tree li:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+  @media (max-width: 900px) {
+    .init-columns { grid-template-columns: 1fr; }
+  }
   .setup-steps {
     display: flex;
     justify-content: center;

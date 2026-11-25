@@ -1,0 +1,6 @@
+[
+  { "id": "tickets", "packageName": "@vellym/tickets", "titleKey": "init.plugin.tickets.title", "hintKey": "init.plugin.tickets.hint" },
+  { "id": "kanban", "packageName": "@vellym/kanban", "titleKey": "init.plugin.kanban.title", "hintKey": "init.plugin.kanban.hint" },
+  { "id": "wbs", "packageName": "@vellym/wbs", "titleKey": "init.plugin.wbs.title", "hintKey": "init.plugin.wbs.hint" },
+  { "id": "design", "packageName": "@vellym/design", "titleKey": "init.plugin.design.title", "hintKey": "init.plugin.design.hint" }
+]
