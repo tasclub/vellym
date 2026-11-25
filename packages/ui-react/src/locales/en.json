@@ -260,6 +260,7 @@
   "error.FOLDER_METADATA": "The folder display information is not valid.",
   "error.FOLDER_PATH": "The folder path is not valid.",
   "error.FOLDER_VALIDATION": "Validation of the folder failed.",
+  "error.GOOGLE_FONT": "Could not download the font from Google Fonts. Check the family name and weights, and your network connection.",
   "error.HASH_CONFLICT": "This document changed elsewhere. Review the content before saving.",
   "error.HOST": "This connection origin is not allowed.",
   "error.INTERNAL": "An internal server error occurred. Check the output in the terminal you started Vellym from.",

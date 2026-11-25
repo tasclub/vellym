@@ -261,6 +261,7 @@
   "error.FOLDER_METADATA": "フォルダの表示情報が正しくありません。",
   "error.FOLDER_PATH": "フォルダのパスが正しくありません。",
   "error.FOLDER_VALIDATION": "フォルダの検証に失敗しました。",
+  "error.GOOGLE_FONT": "Google Fontsからフォントを取得できませんでした。ファミリー名と太さを確かめ、ネットワークにつながっているか確認してください。",
   "error.HASH_CONFLICT": "この文書は別の場所で変更されました。内容を確認してから保存してください。",
   "error.HOST": "許可されていない接続元です。",
   "error.INTERNAL": "サーバー内部でエラーが発生しました。詳細は起動した端末の出力を確認してください。",
