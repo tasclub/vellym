@@ -63,6 +63,24 @@ function slugOf(value: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
 }
 
+/**
+ * The file or folder name made from a name the user typed (FR-08).
+ *
+ * Names that are ASCII after NFKC keep the slug they always had. Names with other characters
+ * (Japanese) keep the characters: only what a path cannot hold becomes "-".
+ * This is the visible file name, not `metadata.name`. Returns "" when nothing
+ * is left; the caller then uses the template's own name.
+ */
+function fileNameOf(value: string): string {
+  // Full-width Latin ("Ｆｉｘ") folds to ASCII and keeps its old slug too.
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7f]*$/.test(value.normalize("NFKC"))) return slugOf(value);
+  // eslint-disable-next-line no-control-regex
+  const name = value.normalize("NFC").replace(/[/\\:*?"<>|\p{Cc}\s]/gu, "-")
+    .replace(/-{2,}/g, "-").replace(/^[-.]+|[-.]+$/g, "");
+  return Array.from(name).slice(0, 60).join("").replace(/[-.]+$/g, "");
+}
+
 function identity(kind: string): string {
   const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
   let value = (BigInt(Date.now()) << 80n) | BigInt(`0x${randomBytes(10).toString("hex")}`);
@@ -147,7 +165,7 @@ async function buildPlan(config: LoadedConfig, input: AddRequest, options: AddOp
     const base = folders.get(folderId)!;
     if (typeof target !== "string" && target.feature) {
       if (!request.name) invalid("機能別の文書には名前か作成先が必要です");
-      return path.posix.join(base, slugOf(request.name) || "feature");
+      return path.posix.join(base, fileNameOf(request.name) || "feature");
     }
     return base;
   };
@@ -229,7 +247,7 @@ async function buildPlan(config: LoadedConfig, input: AddRequest, options: AddOp
     const namePrefix = template ? "page" : "resource";
     await ensureFolders(folder);
     const rawFilename = template
-      ? customName ? `${slugOf(customName) || "page"}.yaml` : template.fileName[language]
+      ? customName && fileNameOf(customName) ? `${fileNameOf(customName)}.yaml` : template.fileName[language]
       : resource!.fileName[language];
     const filename = /\.ya?ml$/i.test(rawFilename) ? rawFilename : `${rawFilename}.yaml`;
     const relativePath = path.posix.join(folder, filename);
@@ -267,7 +285,7 @@ async function buildPlan(config: LoadedConfig, input: AddRequest, options: AddOp
       const first = set.items.find(item => "template" in item);
       const role = first && "template" in first ? catalog.templates.find(item => item.id === first.template)!.role : "management";
       const base = destination(role);
-      const slug = slugOf(request.name) || set.repeat.folderName[language];
+      const slug = fileNameOf(request.name) || set.repeat.folderName[language];
       directory = path.posix.join(base, slug);
       let suffix = 2;
       while (await observe(directory)) directory = path.posix.join(base, `${slug}-${suffix++}`);

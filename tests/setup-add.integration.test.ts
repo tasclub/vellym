@@ -131,6 +131,51 @@ describe("setup add planning and execution", () => {
     expect(await entries()).toContain("iterations/phase-1/phase.yaml");
   });
 
+  describe("file names from Japanese names (FR-08, ticket-01m86saddname000000000000)", () => {
+    it("keeps Japanese names, makes a separate file per name and skips the same name", async () => {
+      const first = await planAdd(config, request({ name: "認証方式を決める", language: "ja" }));
+      expect(first.files.at(-1)).toMatchObject({ relativePath: "アーキテクチャ/決定記録/認証方式を決める.yaml", status: "create" });
+      await applyAdd(config, first);
+      const other = await planAdd(config, request({ name: "ログの保存期間を決める", language: "ja" }));
+      expect(other.files.at(-1)).toMatchObject({ relativePath: "アーキテクチャ/決定記録/ログの保存期間を決める.yaml", status: "create" });
+      await applyAdd(config, other);
+      const again = await planAdd(config, request({ name: "認証方式を決める", language: "ja" }));
+      expect(again.files.at(-1)).toMatchObject({ relativePath: "アーキテクチャ/決定記録/認証方式を決める.yaml", status: "skip", reason: { code: "EXISTS" } });
+      const page = parse(await fs.readFile(path.join(config.contentRoot, "アーキテクチャ/決定記録/認証方式を決める.yaml"), "utf8"));
+      expect(page.metadata.name).toMatch(/^page-[0-9a-hjkmnp-tv-z]{26}$/);
+    });
+
+    it("names a repeated set folder after a Japanese name", async () => {
+      const plan = await planAdd(config, request({ kind: "set", id: "phase", name: "スプリント1", folder: "iterations" }), { resources });
+      expect(plan.files.map(file => file.relativePath)).toEqual([
+        "iterations/_index.yaml", "iterations/スプリント1/_index.yaml", "iterations/スプリント1/phase.yaml", "iterations/スプリント1/review.yaml"
+      ]);
+      await applyAdd(config, plan, { resources });
+      expect(await entries()).toContain("iterations/スプリント1/review.yaml");
+    });
+
+    it.each([
+      ["設計/../外", "設計-..-外.yaml"],
+      ["決定 a/b", "決定-a-b.yaml"],
+      ["<決定>|メモ", "決定-メモ.yaml"],
+      ["..決定..", "決定.yaml"],
+      ["a/b", "a-b.yaml"],
+      ["..", "決定記録.yaml"],
+      ["<>", "決定記録.yaml"],
+      ["/ ／", "決定記録.yaml"]
+    ])("keeps %s inside the destination folder", async (name, file) => {
+      const plan = await planAdd(config, request({ name, language: "ja" }));
+      expect(plan.files.at(-1)!.relativePath).toBe(`アーキテクチャ/決定記録/${file}`);
+      await applyAdd(config, plan);
+      expect(await entries()).toContain(`アーキテクチャ/決定記録/${file}`);
+    });
+
+    it("cuts long Japanese names at 60 code points", async () => {
+      const plan = await planAdd(config, request({ name: "あ".repeat(70), language: "ja" }));
+      expect(plan.files.at(-1)!.relativePath).toBe(`アーキテクチャ/決定記録/${"あ".repeat(60)}.yaml`);
+    });
+  });
+
   it("routes by-feature roles only when a feature name or folder exists", async () => {
     await structure("by-feature");
     const template = loadCatalog().templates.find(item => item.role === "requirements")!;
