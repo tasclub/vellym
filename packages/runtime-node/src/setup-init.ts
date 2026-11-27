@@ -168,10 +168,23 @@ export async function planInit(projectRoot: string, input: InitRequest): Promise
   }
   const dependencies = { ...pkg.dependencies as Record<string, string> };
   const devDependencies = { ...pkg.devDependencies as Record<string, string> };
+  let added = 0;
   for (const plugin of plugins) {
-    if (!(plugin.name in dependencies) && !(plugin.name in devDependencies)) dependencies[plugin.name] = plugin.version === "*" ? "*" : `^${plugin.version.replace(/^\^/, "")}`;
+    if (!(plugin.name in dependencies) && !(plugin.name in devDependencies)) {
+      dependencies[plugin.name] = plugin.version === "*" ? "*" : `^${plugin.version.replace(/^\^/, "")}`;
+      added++;
+    }
   }
-  if (!("vellym" in dependencies) && !("vellym" in devDependencies)) devDependencies.vellym = `^${version}`;
+  if (!("vellym" in dependencies) && !("vellym" in devDependencies)) {
+    devDependencies.vellym = `^${version}`;
+    added++;
+  }
+  // Nothing to add: leave the user's file byte for byte (no reformatting).
+  if (existing && added === 0) {
+    files.push({ relativePath: "package.json", status: "skip", source: "", reason: "up-to-date" });
+    const plan = { projectRoot, request, files };
+    return { ...plan, planHash: fileHash(canonical({ plan, state })) };
+  }
   if (Object.keys(dependencies).length) pkg.dependencies = dependencies;
   if (Object.keys(devDependencies).length) pkg.devDependencies = devDependencies;
   files.push({ relativePath: "package.json", status: existing ? "update" : "create",

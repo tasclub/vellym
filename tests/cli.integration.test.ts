@@ -918,7 +918,9 @@ spec:
       await access(path.join(root, "docs/vellym.config.yaml"));
       expect(result.stdout).toContain("npm install");
       const plan = JSON.parse(run(initArgs(root, ["--language", "en", "--dry-run", "--json"])).stdout);
-      expect(plan.update).toContain("package.json");
+      // The first init added vellym, so a second run has nothing to add (ticket-01m86sinitpkgskip000000000).
+      expect(plan.skip).toContain("package.json");
+      expect(plan.update).not.toContain("package.json");
     });
 
     it("leaves a broken package.json untouched, warns, and finishes the rest", async () => {

@@ -106,6 +106,30 @@ describe("init planning and execution", () => {
       ...original, dependencies: { ...original.dependencies, "@vellym/kanban": "^0.3.0-beta" }
     });
   });
+  it("leaves an up-to-date package.json byte for byte", async () => {
+    const source = '{\n    "name": "four",\n    "devDependencies": { "vellym": "^0.1.0" },\n    "dependencies": { "@vellym/tickets": "1" }\n}\n';
+    await fs.writeFile(path.join(root, "package.json"), source);
+    const plan = await planInit(root, request({ plugins: ["@vellym/tickets"] }));
+    expect(plan.files.find(file => file.relativePath === "package.json")).toMatchObject({ status: "skip", reason: "up-to-date" });
+    await applyInit(plan);
+    expect(await read("package.json")).toBe(source);
+  });
+  it("updates a four-space package.json that lacks the dependencies", async () => {
+    await fs.writeFile(path.join(root, "package.json"), '{\n    "name": "four"\n}\n');
+    const plan = await planInit(root, request());
+    expect(plan.files.find(file => file.relativePath === "package.json")!.status).toBe("update");
+    await applyInit(plan);
+    expect(JSON.parse(await read("package.json"))).toMatchObject({ name: "four", devDependencies: { vellym: expect.stringMatching(/^\^/) } });
+  });
+  it("skips package.json on the second init", async () => {
+    await applyInit(await planInit(root, request({ plugins: ["@vellym/tickets"] })));
+    const before = await read("package.json");
+    const plan = await planInit(root, request({ plugins: ["@vellym/tickets"] }));
+    expect(plan.files.find(file => file.relativePath === "package.json")).toMatchObject({ status: "skip", reason: "up-to-date" });
+    expect(plan.files.every(file => file.status === "skip")).toBe(true);
+    await applyInit(plan);
+    expect(await read("package.json")).toBe(before);
+  });
   it.each(["{broken", "null", "[]", '{"dependencies":false}'])("skips malformed package.json: %s", async source => {
     await fs.writeFile(path.join(root, "package.json"), source);
     const plan = await planInit(root, request());
