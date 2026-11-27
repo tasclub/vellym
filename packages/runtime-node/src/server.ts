@@ -58,8 +58,17 @@ import {
 import { applyInit, planInit, type InitRequest } from "./setup-init.js";
 import { applyAdd, planAdd, type AddRequest, type AddPlan } from "./setup-add.js";
 import { loadCatalog } from "./catalog/load.js";
-import { pluginResourceTemplates } from "./plugins.js";
+import { pluginResourceTemplates, pluginGuideSections } from "./plugins.js";
 import { appendGuideSection } from "./vellym-guide.js";
+async function setupHostVersion(): Promise<string> {
+  for (const relative of ["../package.json", "../../vellym/package.json"]) {
+    try {
+      const manifest = JSON.parse(await readFile(new URL(relative, import.meta.url), "utf8"));
+      if (manifest.name === "vellym" && typeof manifest.version === "string") return manifest.version;
+    } catch { /* Try the workspace location. */ }
+  }
+  throw new Error("Cannot determine the Vellym version");
+}
 import {
   applySlugMigration,
   planSlugMigration,
@@ -680,10 +689,13 @@ export async function startDevServer(options: {
       ) {
         requireSetup();
         const input = objectInput(await readJson(request));
-        const plan = await planInit(projectRoot, {
+        const base = await planInit(projectRoot, {
           ...input as unknown as InitRequest,
+          guideSections: [],
           ...(options.hostVersion ? { hostVersion: options.hostVersion } : {})
         });
+        const registry = await loadPlugins({ configDir: path.join(projectRoot, base.request.root), packageNames: base.request.plugins.map(p => typeof p === "string" ? p : p.name), hostVersion: options.hostVersion ?? base.request.hostVersion ?? await setupHostVersion() });
+        const plan = await planInit(projectRoot, { ...base.request, guideSections: pluginGuideSections(registry.plugins, base.request.language) });
         const nextConfigPath = path.join(projectRoot, plan.request.root, "vellym.config.yaml");
         json(response, 200, envelope({ ...plan, configPath: nextConfigPath }));
         return;
@@ -696,10 +708,13 @@ export async function startDevServer(options: {
         const raw = objectInput(await readJson(request));
         assertPlanHash(raw.planHash);
         const input = objectInput(raw.request);
-        const plan = await planInit(projectRoot, {
+        const base = await planInit(projectRoot, {
           ...input as unknown as InitRequest,
+          guideSections: [],
           ...(options.hostVersion ? { hostVersion: options.hostVersion } : {})
         });
+        const registry = await loadPlugins({ configDir: path.join(projectRoot, base.request.root), packageNames: base.request.plugins.map(p => typeof p === "string" ? p : p.name), hostVersion: options.hostVersion ?? base.request.hostVersion ?? await setupHostVersion() });
+        const plan = await planInit(projectRoot, { ...base.request, guideSections: pluginGuideSections(registry.plugins, base.request.language) });
         if (plan.planHash !== raw.planHash) {
           throw new RuntimeError(
             "preview後に対象が変更されました。もう一度確認してください",

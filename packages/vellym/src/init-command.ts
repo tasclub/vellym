@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { OFFICIAL_PLUGINS, VELLYM_VERSION } from "./version.js";
 import { getMessages, type CliLanguage } from "./cli-messages.js";
-import { applyInit, planInit, type InitRequest } from "@vellym-internal/runtime-node";
+import { applyInit, planInit, loadPlugins, pluginGuideSections, type InitRequest } from "@vellym-internal/runtime-node";
 import { loadCatalog } from "../../runtime-node/src/catalog/load.js";
 
 export interface InitializeOptions {
@@ -40,6 +40,9 @@ export async function initializeProject(targetArgument?: string, options: Initia
     hostVersion: VELLYM_VERSION
   };
   const target = path.resolve(targetArgument ?? ".");
+  const registry = await loadPlugins({ configDir: path.join(target, request.root), packageNames: request.plugins.map(p => typeof p === "string" ? p : p.name), hostVersion: VELLYM_VERSION });
+  request.guideSections = pluginGuideSections(registry.plugins, language);
+  const missing = request.plugins.some(p => !registry.plugins.some(plugin => plugin.packageName === (typeof p === "string" ? p : p.name)));
   // The shared planner requires an existing root. For a new dry-run target use
   // an isolated empty scratch project, never creating anything in the target.
   let scratch: string | undefined;
@@ -86,4 +89,5 @@ export async function initializeProject(targetArgument?: string, options: Initia
   }))];
   if (guides.length) process.stdout.write(`${messages.initGuides()}\n${guides.map(url => `  ${url}`).join("\n")}\n`);
   process.stdout.write(`${messages.initAgentGuide(request.root)}\n`);
+  if (missing) process.stdout.write(`${messages.initGuideMissing()}\n`);
 }

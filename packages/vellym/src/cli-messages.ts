@@ -45,6 +45,7 @@ export interface CliMessages {
   initNext(): string;
   initLinks(): string;
   initGuides(): string;
+  initGuideMissing(): string;
   initAgentGuide(contentRoot: string): string;
   initPackageJsonUnreadable(): string;
   initPlan(target: string, create: string[], skip: string[], update: string[]): string;
@@ -75,7 +76,9 @@ AI向け案内: https://vellym.tasclub.com/llms.txt
 `,
   addHelp: () => `vellym add template|set <id> [--folder <path>] [--name <名前>]
 vellym add --list [template|set]
+vellym add guide [--config <path>] [--dry-run] [--json]
 
+インストール済みプラグインの使い方をVELLYM.mdに追記します。
 --guide / --no-guide: VELLYM.mdへ追記するか（既定は追記しない）
 --dry-run: 計画だけ表示  --json: JSON出力  --config <path>: 設定
 プラグインのテンプレートは <プラグインID>:<ID> と --folder を指定します。
@@ -188,6 +191,7 @@ Options:
   initNext: () => "次のコマンド:",
   initLinks: () => "利用ガイド: https://vellym.tasclub.com/\nAI向け案内: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "プラグインの使い方:",
+  initGuideMissing: () => "プラグインを入れた後にvellym add guideで使い方の節をVELLYM.mdに足せます。",
   initAgentGuide: (root) => `AGENTS.mdに次の1行を追加してください:\n作業前に${root === "." ? "" : `${root}/`}VELLYM.mdを読んでください。`,
   initPackageJsonUnreadable: () => "注意: package.jsonがJSONとして読めません。変更していないので、手で直してください。",
   initPlan: (target, create, skip, update) => [
@@ -225,7 +229,9 @@ List schemas: vellym schema --list
 `,
   addHelp: () => `vellym add template|set <id> [--folder <path>] [--name <name>]
 vellym add --list [template|set]
+vellym add guide [--config <path>] [--dry-run] [--json]
 
+Append installed plugin guides to VELLYM.md.
 --guide / --no-guide: append to VELLYM.md (default: no append)
 --dry-run: preview only  --json: JSON output  --config <path>: configuration
 For plugin templates use <plugin-id>:<id> and --folder.
@@ -338,6 +344,7 @@ Run vellym migrate --to v1 --plan first and commit your work before applying it.
   initNext: () => "Next commands:",
   initLinks: () => "User guide: https://vellym.tasclub.com/en/\nAI guide: https://vellym.tasclub.com/llms.txt",
   initGuides: () => "How to use the plugins:",
+  initGuideMissing: () => "After installing plugins, run vellym add guide to add their guide sections to VELLYM.md.",
   initAgentGuide: (root) => `Add this line to AGENTS.md:\nRead ${root === "." ? "" : `${root}/`}VELLYM.md before starting work.`,
   initPackageJsonUnreadable: () => "Warning: package.json is not valid JSON. It was left unchanged; fix it by hand.",
   initPlan: (target, create, skip, update) => [

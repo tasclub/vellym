@@ -1,6 +1,7 @@
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 import { API_SCHEMA_VERSION } from "@vellym-internal/core";
-import { appendGuideSection, applyAdd, loadConfig, loadPlugins, planAdd, pluginResourceTemplates, RuntimeError } from "@vellym-internal/runtime-node";
+import { appendGuideSection, applyAdd, loadConfig, loadPlugins, planAdd, pluginResourceTemplates, pluginGuideSections, RuntimeError } from "@vellym-internal/runtime-node";
 import { loadCatalog } from "../../runtime-node/src/catalog/load.js";
 import { VELLYM_VERSION } from "./version.js";
 
@@ -34,6 +35,18 @@ export async function addCommand(args: string[], configPath: string): Promise<nu
   const output = (data: unknown, text: string) => process.stdout.write(json
     ? `${JSON.stringify({ apiSchemaVersion: API_SCHEMA_VERSION, data, diagnostics: plugins.diagnostics }, null, 2)}\n`
     : `${text}\n`);
+  if (positional[0] === "guide") {
+    if (positional.length !== 1 || values.has("--folder") || values.has("--name") || values.has("--language") || flags.has("--guide") || flags.has("--no-guide") || flags.has("--list")) throw new AddUsageError("add guide [--config <path>] [--dry-run] [--json]");
+    const guidePath = path.join(path.dirname(loaded.configPath), "VELLYM.md");
+    const source = await readFile(guidePath, "utf8");
+    const sections = pluginGuideSections(plugins.plugins, language);
+    const existing = sections.filter(section => source.includes(`<!-- vellym:guide:${section.id} -->`));
+    const added = sections.filter(section => !existing.includes(section));
+    const missing = loaded.config.plugins.filter(name => !plugins.plugins.some(plugin => plugin.packageName === name));
+    if (!flags.has("--dry-run")) for (const section of added) await appendGuideSection(guidePath, section);
+    output({ added: added.map(s => s.id), existing: existing.map(s => s.id), missing, dryRun: flags.has("--dry-run") }, `added: ${added.map(s => s.id).join(", ")}\nexisting: ${existing.map(s => s.id).join(", ")}\nmissing: ${missing.join(", ")}`);
+    return 0;
+  }
   if (flags.has("--list")) {
     if (positional.length > 1 || (positional[0] && !["template", "set"].includes(positional[0])) || values.has("--folder") || values.has("--name") || flags.has("--guide") || flags.has("--no-guide") || flags.has("--dry-run")) throw new AddUsageError("add --list [template|set]");
     const entries = [

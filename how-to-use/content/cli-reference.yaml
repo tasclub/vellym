@@ -63,6 +63,7 @@ spec:
 
         `vellym add --list [template|set]`で候補を一覧し、
         `vellym add template|set <id> [--folder <path>] [--name <name>]`で追加する。
+        プラグインのインストール後は `vellym add guide [--config <path>] [--dry-run] [--json]` で使い方の節をVELLYM.mdに追加できる。既存の節は重複しない。
         プラグインのテンプレートは`<plugin-id>:<id>`と`--folder`を指定する。
         `--dry-run`で計画を確認でき、`--json`でJSON出力する。`--guide`は`VELLYM.md`へ追記し、
         既定の`--no-guide`では追記しない。`--config <path>`で設定を指定できる。
@@ -216,6 +217,7 @@ spec:
 
             List candidates with `vellym add --list [template|set]`, then use
             `vellym add template|set <id> [--folder <path>] [--name <name>]`.
+            After installing plugins, run `vellym add guide [--config <path>] [--dry-run] [--json]` to append their guide sections to VELLYM.md without duplicates.
             Plugin templates require `<plugin-id>:<id>` and `--folder`. Use `--dry-run`
             to preview and `--json` for JSON. `--guide` appends to `VELLYM.md`;
             the default `--no-guide` does not. `--config <path>` selects a config.
