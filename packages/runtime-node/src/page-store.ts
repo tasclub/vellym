@@ -89,12 +89,15 @@ function richTextChanges(
   return changes;
 }
 
+const MAX_SPEC_VALUE_DEPTH = 64;
+
 /**
  * 正本へ書ける値か。関数・undefined・循環を弾き、入れ子の深さも制限する。
  * プラグインが宣言したpathの下とはいえ、任意の構造を無検査で書かせない。
+ * デザインの図形の木ではフレームの入れ子1段で深さが2ずつ増えるため、30段ほどを許す。
  */
 function isSpecValue(value: unknown, depth: number): boolean {
-  if (depth > 4) return false;
+  if (depth > MAX_SPEC_VALUE_DEPTH) return false;
   if (value === null) return true;
   const type = typeof value;
   if (type === "string" || type === "number" || type === "boolean") {

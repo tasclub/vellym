@@ -654,6 +654,68 @@ describe("saving a plugin kind", () => {
     expect(saved).toContain("# プラグインが解釈しない項目");
   });
 
+  it("saves design trees and enforces the spec value depth limit", async () => {
+    const contentRoot = await mkdtemp(path.join(tmpdir(), "vellym-save-depth-"));
+    const relativePath = "board.yaml";
+    const source = [
+      "apiVersion: vellym.tasclub.com/v1",
+      "kind: Ticket",
+      "metadata:",
+      "  name: board-01",
+      "  title: Design board",
+      "spec:",
+      "  status: open",
+      ""
+    ].join("\n");
+
+    try {
+      await writeFile(path.join(contentRoot, relativePath), source);
+      const snapshot = await loadRepository(contentRoot, undefined, {
+        knownKinds: new Set(["Ticket"])
+      });
+      const loaded = snapshot.byName.get("board-01");
+      expect(loaded).toBeDefined();
+
+      const root = { children: [{ fills: [{ color: "#123456" }] }] };
+      await savePage(
+        contentRoot,
+        loaded!,
+        parsePagePatch({
+          baseHash: loaded!.hash,
+          specValues: [{ path: ["root"], value: root }]
+        })
+      );
+      const saved = await readFile(path.join(contentRoot, relativePath), "utf8");
+      expect(saved).toContain('color: "#123456"');
+
+      const nestedArray = (levels: number): unknown => {
+        let value: unknown = null;
+        for (let level = 0; level < levels; level += 1) value = [value];
+        return value;
+      };
+      const patchFor = (value: unknown) => ({
+        baseHash: "0".repeat(64),
+        specValues: [{ path: ["root"], value }]
+      });
+      const expectBadRequest = (value: unknown) => {
+        try {
+          parsePagePatch(patchFor(value));
+        } catch (error) {
+          expect(error).toMatchObject({ status: 400 });
+          return;
+        }
+        throw new Error("Expected an invalid spec value to return 400");
+      };
+
+      expect(() => parsePagePatch(patchFor(nestedArray(64)))).not.toThrow();
+      expectBadRequest(nestedArray(65));
+      expectBadRequest(() => undefined);
+      expectBadRequest(Number.NaN);
+    } finally {
+      await rm(contentRoot, { recursive: true, force: true });
+    }
+  });
+
   it("refuses to write through the fields path into core-owned parts of spec", () => {
     for (const key of ["blocks", "locale", "translations"]) {
       expect(() =>
