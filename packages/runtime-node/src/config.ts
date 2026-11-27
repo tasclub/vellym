@@ -1,6 +1,15 @@
 import { execFile } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  readFile,
+  readlink,
+  realpath,
+  rename,
+  rm,
+  writeFile
+} from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { parse, parseDocument } from "yaml";
@@ -63,6 +72,59 @@ export async function planContentRootChange(
   const projectRoot = path.dirname(absoluteConfig);
   const contentRoot = relativeContentRoot(value);
   const resolvedContentRoot = path.resolve(projectRoot, contentRoot);
+  const realProjectRoot = await realpath(projectRoot);
+  let boundaryCandidate = resolvedContentRoot;
+  const missingSegments: string[] = [];
+  let realContentRoot: string;
+  for (;;) {
+    try {
+      realContentRoot = path.resolve(
+        await realpath(boundaryCandidate),
+        ...missingSegments
+      );
+      break;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ELOOP") {
+        throw new RuntimeError(
+          "contentRootはproject root内の相対pathで指定してください",
+          400,
+          "CONTENT_ROOT"
+        );
+      }
+      if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+
+      let info;
+      try {
+        info = await lstat(boundaryCandidate);
+      } catch (statError) {
+        const statCode = (statError as NodeJS.ErrnoException).code;
+        if (statCode !== "ENOENT" && statCode !== "ENOTDIR") throw statError;
+      }
+      if (info?.isSymbolicLink()) {
+        const target = await readlink(boundaryCandidate);
+        boundaryCandidate = path.isAbsolute(target)
+          ? target
+          : path.resolve(path.dirname(boundaryCandidate), target);
+        continue;
+      }
+
+      const parent = path.dirname(boundaryCandidate);
+      if (parent === boundaryCandidate) throw error;
+      missingSegments.unshift(path.basename(boundaryCandidate));
+      boundaryCandidate = parent;
+    }
+  }
+  if (
+    realContentRoot !== realProjectRoot &&
+    !isInside(realProjectRoot, realContentRoot)
+  ) {
+    throw new RuntimeError(
+      "contentRootはproject root内の相対pathで指定してください",
+      400,
+      "CONTENT_ROOT"
+    );
+  }
   const source = await readFile(absoluteConfig, "utf8");
   let exists = true;
   let pages = 0;

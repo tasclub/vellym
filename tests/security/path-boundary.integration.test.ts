@@ -1,7 +1,11 @@
 import path from "node:path";
-import { unlink } from "node:fs/promises";
+import { symlink, unlink } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fixture } from "./helpers.js";
+import {
+  applyContentRootChange,
+  planContentRootChange
+} from "../../packages/runtime-node/src/config.js";
 
 type Fixture = Awaited<ReturnType<typeof fixture>>;
 type Row = { name: string; route: string; method?: string; field?: string; body?: Record<string, unknown>; control: string; kind?: "image" | "root" | "plugin" | "static" };
@@ -56,11 +60,8 @@ describe("path boundaries", () => {
     expect(control.status, `control ${row.name}: ${body}`).toBeLessThan(300);
   });
   for (const attack of attacks) {
-    // Known vulnerability: content-root planning follows a symlink outside the project.
-    // See ticket-01m86ssecrootlink000000000.
-    for (const knownFailure of [false, true]) {
-    const selected = rows.filter(row => (attack === "symlink" && row.kind === "root") === knownFailure);
-    const test = attack === "symlink" && process.platform === "win32" ? it.skip : knownFailure ? it.fails : it;
+    const selected = rows;
+    const test = attack === "symlink" && process.platform === "win32" ? it.skip : it;
     if (!selected.length) continue;
     test.each(selected)(`$name rejects ${attack}`, async row => {
       if (row.name === "template" && process.platform !== "win32") await unlink(path.join(f.project, "content/link.yaml"));
@@ -83,6 +84,52 @@ describe("path boundaries", () => {
         }
       } else { expect(response.status).toBeGreaterThanOrEqual(400); expect(response.status).toBeLessThan(500); }
     });
-    }
   }
+
+  it.skipIf(process.platform === "win32")(
+    "content root accepts a symlink inside the project",
+    async () => {
+      const alias = path.join(f.project, "content-alias");
+      await symlink(path.join(f.project, "content"), alias);
+      const response = await send(
+        f,
+        rows.find(row => row.kind === "root")!,
+        "content-alias"
+      );
+      const body = await response.text();
+      expect(response.status, body).toBe(200);
+    }
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "content root rejects a missing path beneath an outside symlink",
+    async () => {
+      const response = await send(
+        f,
+        rows.find(row => row.kind === "root")!,
+        "link-dir/missing"
+      );
+      const body = await response.text();
+      expect(response.status, body).toBe(400);
+      expect(body).not.toContain(f.marker);
+    }
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "content root apply rechecks a symlink boundary",
+    async () => {
+      const alias = path.join(f.project, "content-alias");
+      await symlink(path.join(f.project, "content"), alias);
+      const configPath = path.join(f.project, "vellym.config.yaml");
+      const plan = await planContentRootChange(configPath, "content-alias");
+      await unlink(alias);
+      await symlink(path.join(f.dir, "outside"), alias);
+      await expect(applyContentRootChange(configPath, plan))
+        .rejects.toMatchObject({
+          status: 400,
+          code: "CONTENT_ROOT",
+          message: "contentRootはproject root内の相対pathで指定してください"
+        });
+    }
+  );
 });
