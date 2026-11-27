@@ -18,8 +18,8 @@ async function files(ctx, root) {
 }
 async function workspace(ctx) {
   if (!ctx.state.initialized) {
-    // Isolate later scenarios from a broken first-run CLI. Do not mark A01/A02
-    // PASS: this fixture is explicitly different from browser initialization.
+    // A01〜A03 (first start, browser setup, CLI init) moved to
+    // e2e/acceptance/core-setup-a.spec.ts; later steps share a CLI-made project.
     const root = await ctx.temporary("core-workspace");
     const result = ctx.cli(root, "init", "--language", "ja");
     assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -37,9 +37,8 @@ async function workspace(ctx) {
     const server = await ctx.start(root);
     const page = await ctx.page(server.origin);
     const generated = await ctx.json(server.origin, "repository");
-    Object.assign(ctx.state, server, { root, page, generated, initialized: true, fallback: true });
+    Object.assign(ctx.state, server, { root, page, generated, initialized: true });
   }
-  if (ctx.state.fallback) ctx.note("A01の未初期化起動が失敗したため、後続の独立確認にはCLIのpersonal/hybrid/lightで生成した別の一時projectを使用。A01/A02の合格根拠にはしない。");
   const { page, origin } = ctx.state;
   await page.goto(origin, { waitUntil: "networkidle" });
   await page.getByRole("treegrid", { name: "文書", exact: true }).waitFor();
@@ -103,123 +102,6 @@ async function append(page, editor, text) {
 }
 
 export const steps = [
-  { id: id(1), title: "未初期化projectを起動する", async run(ctx) {
-    const root = await ctx.temporary("core-a");
-    ctx.git(root, "init", "-q");
-    ctx.git(root, "config", "user.name", "Acceptance");
-    ctx.git(root, "config", "user.email", "acceptance@example.invalid");
-    ctx.git(root, "config", "commit.gpgSign", "false");
-    const server = await ctx.start(root);
-    const page = await ctx.page(server.origin);
-    Object.assign(ctx.state, server, { root, page });
-    await page.goto(server.origin, { waitUntil: "networkidle" });
-    await ctx.check("設定なしでもserverが生存し3段階のセットアップが開く", async () => {
-      assert.equal(server.server.exitCode, null);
-      await ctx.expect(page.getByRole("list", { name: "セットアップの進行状況" }).locator("li")).toHaveCount(3);
-    });
-    await ctx.check("文書・検索・編集・構成管理は初期化前に利用できない", async () => {
-      for (const name of ["全文検索を開く", "編集", "新規作成", "設定"]) await ctx.expect(button(page, name)).toHaveCount(0);
-      await ctx.expect(page.getByRole("treegrid")).toHaveCount(0);
-    });
-    await ctx.check("project rootとcontent保存先が一時project内", async () => {
-      await ctx.expect(page.getByText(root, { exact: true })).toBeVisible();
-      const input = page.locator("dl > div").filter({ has: page.locator("dt", { hasText: /^content root$/ }) }).locator("input");
-      await input.fill(contentRoot);
-      assert(!ctx.path.relative(root, ctx.path.resolve(root, await input.inputValue())).startsWith(".."));
-    });
-    await ctx.check("戻る・進むで選択を保持", async () => {
-      await button(page, "次へ").click();
-      await page.getByRole("radio", { name: /^軽量/ }).check();
-      await button(page, "戻る").click();
-      await button(page, "次へ").click();
-      await ctx.expect(page.getByRole("radio", { name: /^軽量/ })).toBeChecked();
-      await button(page, "戻る").click();
-    });
-  } },
-  { id: id(2), title: "ブラウザから初期化する", async run(ctx) {
-    const { page, root, origin, server } = ctx.state;
-    if (!page) ctx.blocked("A01 server unavailable");
-    await ctx.check("個人・ハイブリッドを選択できる", async () => {
-      await page.locator("dl > div").filter({ has: page.locator("dt", { hasText: "プロジェクト規模" }) }).locator("select").selectOption("personal");
-      await page.locator("dl > div").filter({ has: page.locator("dt", { hasText: "開発方式" }) }).locator("select").selectOption("hybrid");
-    });
-    await button(page, "次へ").click();
-    await page.getByRole("radio", { name: /^軽量/ }).check();
-    await button(page, "次へ").click();
-    await button(page, "この内容で生成").waitFor();
-    await ctx.check("適用前に作成予定・既存・競合を確認でき、戻っても選択保持", async () => {
-      await ctx.expect(page.getByRole("tree")).toBeVisible();
-      await ctx.expect(button(page, "この内容で生成")).toBeEnabled();
-      const before = await page.getByRole("tree").innerText();
-      await button(page, "戻る").click();
-      await button(page, "次へ").click();
-      await ctx.expect(button(page, "この内容で生成")).toBeEnabled();
-      assert.equal(await page.getByRole("tree").innerText(), before);
-      await ctx.expect(page.getByText(/既存|競合/).first()).toBeVisible();
-    });
-    // 0.5.1で「上書きしません」の説明文を消した（ticket-01m83uitextsetup0000000001）。既存・競合の表示は
-    // 上の確認で見ているので、ここでは適用前にファイルが変わらないことだけを確かめる。
-    await ctx.check("適用前はファイルを変更しない", async () => {
-      assert.deepEqual(await files(ctx, root), {});
-    });
-    await button(page, "この内容で生成").click();
-    // Some versions expose a completion button rather than entering immediately.
-    const enter = page.getByRole("button", { name: /文書を開く|はじめる|ワークスペースを開く|プロジェクトを開く/ });
-    await Promise.race([tree(page).waitFor(), enter.first().waitFor()]);
-    if (await enter.first().isVisible()) await enter.first().click();
-    await tree(page).waitFor();
-    ctx.state.initialized = true;
-    const repository = await ctx.json(origin, "repository");
-    ctx.state.generated = repository;
-    await ctx.check("同じserverで最初のPageと生成文書ツリーが開く", async () => {
-      assert.equal(server.exitCode, null);
-      assert(repository.pages.length > 0);
-      await ctx.expect(page.getByRole("heading", { level: 1 })).toContainText(repository.pages[0].title);
-      assert((await tree(page).innerText()).includes(repository.pages[0].title));
-    });
-    await ctx.check("設定・Page YAMLは試験directory内だけ、静的HTMLなし", async () => {
-      const all = await files(ctx, root);
-      assert(all["vellym.config.yaml"]);
-      assert(Object.keys(all).some((file) => file.startsWith(`${contentRoot}/`) && file.endsWith(".yaml")));
-      assert(!all["dist/vellym/index.html"]);
-      for (const file of Object.keys(all)) assert(file === "vellym.config.yaml" || file === "package.json" || file.startsWith(`${contentRoot}/`), `Unexpected file: ${file}`);
-    });
-    await ctx.check("validateは0終了し画面と同じPage数", async () => {
-      const result = ctx.cli(root, "validate", "--json");
-      assert.equal(result.status, 0, result.stderr);
-      const data = JSON.parse(result.stdout);
-      ctx.note(`CLI validate: ${result.stdout}`);
-      assert.equal(data.data.pages.length, repository.pages.length, result.stdout);
-      await ctx.expect(page.getByText(String(repository.pages.length), { exact: true }).first()).toBeVisible();
-    });
-    await ctx.check("自動commitされず全ファイル未追跡、Git commit済み表示なし", async () => {
-      assert.notEqual(ctx.command(root, "git", ["rev-parse", "HEAD"]).status, 0);
-      assert(ctx.git(root, "status", "--short").split("\n").every((line) => line.startsWith("??")));
-      await ctx.expect(page.getByText(/Git commit済み|コミット済み/)).toHaveCount(0);
-    });
-    ctx.git(root, "add", "."); ctx.git(root, "commit", "-qm", "manual acceptance baseline");
-    assert.equal(ctx.git(root, "status", "--short"), "");
-  } },
-  { id: id(3), title: "CLI initのpreviewと非上書き", async run(ctx) {
-    const { root } = await workspace(ctx);
-    const before = await files(ctx, root), baseline = ctx.git(root, "rev-parse", "HEAD");
-    const options = ["--size", "personal", "--method", "hybrid", "--level", "light", "--language", "ja", "--content-root", contentRoot];
-    const plan = ctx.cli(root, "init", ...options, "--dry-run", "--json");
-    await ctx.check("--dry-runは既存または競合を報告しファイル無変更", async () => {
-      assert.equal(plan.status, 0, plan.stderr);
-      const report = JSON.parse(plan.stdout);
-      assert.match(JSON.stringify(report), /existing|conflict|skip/);
-      assert.deepEqual(await files(ctx, root), before);
-    });
-    const apply = ctx.cli(root, "init", ...options);
-    await ctx.check("競合時applyは失敗し既存YAML・baseline・git statusを保持", async () => {
-      assert.notEqual(apply.status, 0);
-      assert.deepEqual(await files(ctx, root), before);
-      assert.equal(ctx.git(root, "rev-parse", "HEAD"), baseline);
-      assert.equal(ctx.git(root, "status", "--short"), "");
-    });
-    ctx.note(JSON.stringify({ plan, apply }));
-  } },
   { id: id(4), title: "PCの階層閲覧", async run(ctx) {
     const { page, generated } = await workspace(ctx);
     const pages = generated.pages;
