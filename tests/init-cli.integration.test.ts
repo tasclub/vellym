@@ -57,7 +57,9 @@ describe("init CLI arguments", () => {
         const expected = await planInit(root, {
           root: "docs", structure,
           numbered: numbered ?? loadCatalog().structures.find(item => item.id === structure)!.numberedByDefault,
-          supplementGuide: false, plugins: [], language: "en", hostVersion: version
+          supplementGuide: false, plugins: [], language: "en", hostVersion: version,
+          // The CLI always reads plugin guide sections now (none without plugins).
+          guideSections: []
         });
         expect(actual.files).toEqual(expected.files);
         expect(actual.planHash).toBe(expected.planHash);
