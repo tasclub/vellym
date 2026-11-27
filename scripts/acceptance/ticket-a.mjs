@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 
 const id = (number) => `TICKET-MANUAL-A${String(number).padStart(2, "0")}`;
-const init = (ctx, cwd, target, ...extra) => ctx.cli(cwd, "init", target, "--size", "personal", "--method", "hybrid", "--language", "ja", "--level", "light", ...extra);
+const init = (ctx, cwd, target, ...extra) => ctx.cli(cwd, "init", target, "--language", "ja", ...extra);
 const run = (cwd, command, args, timeout = 300_000) => {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", timeout });
   if (result.error) throw result.error;
@@ -48,17 +48,27 @@ export const steps = [
       assert(manifest.name.length <= 214);
     });
     await ctx.check("vellym.config.yamlのpluginsが空配列", async () => {
-      assert.match(await ctx.fs.readFile(ctx.path.join(target, "vellym.config.yaml"), "utf8"), /^plugins: \[\]$/m);
+      assert.match(await ctx.fs.readFile(ctx.path.join(target, "docs/vellym.config.yaml"), "utf8"), /^plugins: \[\]$/m);
     });
-    await ctx.check("既にpackage.jsonがあると、再実行しても1文字も変わらない", async () => {
+    await ctx.check("既にpackage.jsonがあり依存が全部あると、再実行しても1文字も変わらない（2回目も同じ）", async () => {
       const existing = ctx.path.join(root, "existing");
       await ctx.fs.mkdir(existing);
-      const original = '{\n  "name": "keep-me",\n  "version": "9.9.9",\n  "scripts": { "x": "echo" }\n}\n';
+      const original = '{\n    "name": "keep-me",\n    "version": "9.9.9",\n    "scripts": { "x": "echo" },\n    "devDependencies": { "vellym": "^0.1.0" }\n}\n';
       await ctx.fs.writeFile(ctx.path.join(existing, "package.json"), original);
-      init(ctx, root, existing);
+      assert.equal(init(ctx, root, existing).status, 0);
       assert.equal(await ctx.fs.readFile(ctx.path.join(existing, "package.json"), "utf8"), original);
       init(ctx, root, existing);
       assert.equal(await ctx.fs.readFile(ctx.path.join(existing, "package.json"), "utf8"), original);
+    });
+    await ctx.check("既にpackage.jsonがありvellymの依存が無いと、devDependenciesにvellymだけが足され、他の項目は変わらない", async () => {
+      const missing = ctx.path.join(root, "missing");
+      await ctx.fs.mkdir(missing);
+      const original = { name: "keep-me", version: "9.9.9", scripts: { x: "echo" } };
+      await ctx.fs.writeFile(ctx.path.join(missing, "package.json"), `${JSON.stringify(original, null, 2)}\n`);
+      assert.equal(init(ctx, root, missing).status, 0);
+      const updated = JSON.parse(await ctx.fs.readFile(ctx.path.join(missing, "package.json"), "utf8"));
+      const cli = JSON.parse(await ctx.fs.readFile(ctx.path.join(process.cwd(), "packages/vellym/package.json"), "utf8"));
+      assert.deepEqual(updated, { ...original, devDependencies: { vellym: `^${cli.version}` } });
     });
     await ctx.check("壊れたJSONのpackage.jsonは書き換えず、診断を示し、initの他の処理は完了する", async () => {
       const broken = ctx.path.join(root, "broken");
@@ -67,7 +77,7 @@ export const steps = [
       const outcome = init(ctx, root, broken);
       assert.equal(await ctx.fs.readFile(ctx.path.join(broken, "package.json"), "utf8"), "{broken");
       assert.match(outcome.stdout + outcome.stderr, /package\.json/);
-      await ctx.fs.access(ctx.path.join(broken, "vellym.config.yaml"));
+      await ctx.fs.access(ctx.path.join(broken, "docs/vellym.config.yaml"));
     });
   } },
 
@@ -111,7 +121,8 @@ export const steps = [
     // dependencies must not satisfy it.
     const root = await ctx.temporary("ticket-a03");
     assert.equal(init(ctx, ctx.repository, root).status, 0);
-    const config = ctx.path.join(root, "vellym.config.yaml");
+    await ctx.write(root, "docs/guide.yaml", 'apiVersion: vellym.tasclub.com/v1\nkind: Page\nmetadata: { name: acceptance-guide, title: 受入ガイド }\nspec:\n  locale: ja\n  blocks:\n    - { id: body, type: rich-text, content: "受入確認の本文" }\n');
+    const config = ctx.path.join(root, "docs/vellym.config.yaml");
     await ctx.fs.writeFile(config, (await ctx.fs.readFile(config, "utf8")).replace("plugins: []", 'plugins:\n  - "@vellym/tickets"'));
     const install = run(root, "npm", ["install", "--no-audit", "--no-fund", packs.vellym]);
     assert.equal(install.status, 0, install.stderr);

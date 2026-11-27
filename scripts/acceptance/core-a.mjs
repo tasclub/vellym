@@ -3,7 +3,7 @@ import { parse } from "yaml";
 
 const id = (number) => `CORE-MANUAL-A${String(number).padStart(2, "0")}`;
 const button = (page, name) => page.getByRole("button", { name, exact: true });
-const contentRoot = "docs/content";
+const contentRoot = "docs";
 async function files(ctx, root) {
   const entries = await ctx.fs.readdir(root, { recursive: true, withFileTypes: true });
   const result = {};
@@ -21,8 +21,16 @@ async function workspace(ctx) {
     // Isolate later scenarios from a broken first-run CLI. Do not mark A01/A02
     // PASS: this fixture is explicitly different from browser initialization.
     const root = await ctx.temporary("core-workspace");
-    const result = ctx.cli(root, "init", "--size", "personal", "--method", "hybrid", "--level", "light", "--language", "ja", "--content-root", contentRoot);
+    const result = ctx.cli(root, "init", "--language", "ja");
     assert.equal(result.status, 0, result.stdout + result.stderr);
+    // The new init creates only the frame (one root Page). A04 needs a nested
+    // first Page (breadcrumbs) and A05 needs two hits for "目的".
+    const folder = (title) => `apiVersion: vellym.tasclub.com/v1\nkind: Folder\nmetadata:\n  title: ${title}\nspec:\n  locale: ja\n  order: []\n`;
+    await ctx.write(root, `${contentRoot}/acceptance/_index.yaml`, folder("受入"));
+    await ctx.write(root, `${contentRoot}/acceptance/section/_index.yaml`, folder("受入の節"));
+    for (const [file, name, title] of [["acceptance/guide.yaml", "acceptance-guide", "受入ガイド"], ["acceptance/section/detail.yaml", "acceptance-detail", "受入詳細"]]) {
+      await ctx.write(root, `${contentRoot}/${file}`, `apiVersion: vellym.tasclub.com/v1\nkind: Page\nmetadata: { name: ${name}, title: ${title} }\nspec:\n  locale: ja\n  blocks:\n    - { id: body, type: rich-text, content: "## 目的\\n\\n受入確認の本文\\n\\n## 見出し\\n\\n続きの本文" }\n`);
+    }
     ctx.git(root, "init", "-q");
     ctx.git(root, "config", "user.name", "Acceptance"); ctx.git(root, "config", "user.email", "acceptance@example.invalid");
     ctx.git(root, "config", "commit.gpgSign", "false"); ctx.git(root, "add", "."); ctx.git(root, "commit", "-qm", "manual acceptance baseline");

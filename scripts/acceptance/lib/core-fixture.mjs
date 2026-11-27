@@ -5,9 +5,10 @@ import { stringify } from "yaml";
 // The baseline predates the files created in A06/A07, just as in the manual flow.
 export async function createCoreWorkspace(ctx) {
   const root = await ctx.temporary("core-workspace");
-  const contentRoot = "docs/content";
-  const result = ctx.cli(root, "init", "--size", "personal", "--method", "hybrid", "--level", "light", "--language", "ja", "--content-root", contentRoot);
+  const contentRoot = "docs";
+  const result = ctx.cli(root, "init", "--language", "ja");
   assert.equal(result.status, 0, result.stdout + result.stderr);
+  await ctx.write(root, `${contentRoot}/_index.yaml`, "apiVersion: vellym.tasclub.com/v1\nkind: Folder\nmetadata:\n  title: 文書\nspec:\n  locale: ja\n  order: []\n");
   ctx.git(root, "init", "-q");
   ctx.git(root, "config", "user.name", "Acceptance");
   ctx.git(root, "config", "user.email", "acceptance@example.invalid");
