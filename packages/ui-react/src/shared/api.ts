@@ -129,122 +129,6 @@ interface StaticPluginViewIndex {
   views: Record<string, { viewIds: string[] }>;
 }
 
-export type SetupMode = "recommended" | "templates" | "empty";
-export type ProjectSize = "personal" | "small-team" | "medium-large";
-export type DevelopmentMethod = "agile" | "hybrid" | "waterfall";
-export type DocumentationLevel = "light" | "standard" | "strict";
-export type SetupOperation = "initialize" | "add";
-export type SetupReferenceModel =
-  | "iso-12207"
-  | "pmbok"
-  | "iso-29148"
-  | "arc42"
-  | "adr"
-  | "c4-model"
-  | "security";
-
-export interface SetupCatalogFolder {
-  id: string;
-  parentId?: string;
-  areaId: string;
-  order: number;
-  referenceModels: SetupReferenceModel[];
-  title: string;
-  defaultName: string;
-  description: string;
-}
-
-export interface SetupCatalogPage {
-  id: string;
-  parentFolderId?: string;
-  order: number;
-  areaId?: string;
-  requiredness: "core" | "recommended" | "conditional" | "optional";
-  minimumLevel: DocumentationLevel;
-  sizes: ProjectSize[];
-  methods: DevelopmentMethod[];
-  dependencies?: string[];
-  related?: string[];
-  templateFamilyId?: string;
-  referenceModels: SetupReferenceModel[];
-  version: string;
-  title: string;
-  defaultFileName: string;
-  description: string;
-}
-
-export interface SetupCatalog {
-  packId: string;
-  packVersion: string;
-  packSchemaVersion: string;
-  locale: "ja" | "en";
-  areas: Array<{ id: string; order: number; title: string }>;
-  folders: SetupCatalogFolder[];
-  pages: SetupCatalogPage[];
-  referenceModels: SetupReferenceModel[];
-  sizes: ProjectSize[];
-  methods: DevelopmentMethod[];
-  levels: DocumentationLevel[];
-}
-
-export interface SetupInput {
-  operation?: SetupOperation;
-  mode?: SetupMode;
-  size?: ProjectSize;
-  method?: DevelopmentMethod;
-  level?: DocumentationLevel;
-  selectedTemplateIds?: string[];
-  selectedFolderIds?: string[];
-  conflictResolutions: Record<string, "skip" | "alternate">;
-  contentRoot: string;
-  language: "ja" | "en";
-  folderNames: Record<string, string>;
-  pageFileNames: Record<string, string>;
-  pageTitles: Record<string, string>;
-  plannedPageIds?: Record<string, string>;
-}
-
-export interface SetupPlan {
-  operation: SetupOperation;
-  mode?: SetupMode;
-  size?: ProjectSize;
-  method?: DevelopmentMethod;
-  level?: DocumentationLevel;
-  selectedTemplateIds: string[];
-  selectedFolderIds: string[];
-  conflictResolutions: Record<string, "skip" | "alternate">;
-  projectRoot: string;
-  contentRoot: string;
-  language: "ja" | "en";
-  folderNames: Record<string, string>;
-  pageFileNames: Record<string, string>;
-  pageTitles: Record<string, string>;
-  plannedPageIds: Record<string, string>;
-  recommendationReasons: Record<string, string>;
-  recommendationReasonKinds: Record<string, "criteria" | "dependency" | "ancestor" | "explicit">;
-  files: Array<{
-    relativePath: string;
-    kind?: "page" | "folder" | "config" | "package-json";
-    nodeId?: string;
-    templateId?: string;
-    folderId?: string;
-    parentFolderId?: string;
-    areaId?: string;
-    pageId?: string;
-    slug?: string;
-    title: string;
-    status: "create" | "reuse" | "skip" | "conflict";
-    conflictReason?: "path" | "page-id" | "template-existing" | "ancestor";
-  }>;
-  planHash: string;
-}
-
-export interface SetupApplyResult {
-  state: "ready";
-  created: SetupPlan["files"];
-  skipped: SetupPlan["files"];
-}
-
 export interface InitInput {
   root: "docs" | "vellym" | ".";
   structure: "by-type" | "by-phase" | "by-feature";
@@ -614,14 +498,6 @@ export async function fetchBootstrap(
   };
 }
 
-/** Legacy wizard types remain until the wizard is migrated to the init API. */
-export function fetchSetupCatalog(
-  language: "ja" | "en",
-  signal?: AbortSignal
-): Promise<Envelope<SetupCatalog>> {
-  return request(`/api/v1/setup/catalog?language=${language}`, { signal });
-}
-
 export function fetchInitCatalog(language: "ja" | "en", signal?: AbortSignal): Promise<Envelope<InitCatalog>> {
   return request(`/api/v1/setup/catalog?language=${language}`, { signal });
 }
@@ -651,31 +527,6 @@ export function applyTemplates(plan: TemplatePlan): Promise<Envelope<{
 }>> {
   return request("/api/v1/templates/apply", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(plan)
-  });
-}
-
-export function previewSetup(
-  input: SetupInput
-): Promise<Envelope<SetupPlan>> {
-  return request("/api/v1/setup/plan", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
-  });
-}
-
-export function applySetup(
-  input: SetupInput,
-  plan: Pick<SetupPlan, "planHash" | "plannedPageIds">
-): Promise<Envelope<SetupApplyResult>> {
-  return request("/api/v1/setup/apply", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ...input,
-      planHash: plan.planHash,
-      plannedPageIds: plan.plannedPageIds
-    })
   });
 }
 

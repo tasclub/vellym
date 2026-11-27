@@ -6,8 +6,20 @@ import { loadCatalog } from "./catalog/load.js";
 import type { FolderDef } from "./catalog/types.js";
 import { RuntimeError } from "./errors.js";
 import { applyFileTransaction, checkFileBoundary, fileHash, type FileOp } from "./file-transaction.js";
-import { packageNameFrom } from "./setup.js";
 import { vellymGuide } from "./vellym-guide.js";
+
+/** ディレクトリ名をnpmの命名規則へ正規化する。`npm init`と同じ導出にする。 */
+export function packageNameFrom(projectRoot: string): string {
+  const normalized = path
+    .basename(path.resolve(projectRoot))
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9\-._~]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^[._-]+/, "")
+    .replace(/-+$/, "")
+    .slice(0, 214);
+  return normalized || "vellym-project";
+}
 
 export interface InitRequest {
   root: "docs" | "vellym" | ".";
