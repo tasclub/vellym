@@ -110,7 +110,11 @@ export function SetupWizard(props: {
       await applyInit(plan);
       // The generated index is the entry page. Let the app reload bootstrap
       // at its explicit URL rather than selecting some pre-existing document.
-      window.history.replaceState(null, "", `/${language}/pages/vellym-index/`);
+      // When an existing index.yaml was kept (skipped), vellym-index does not
+      // exist: open the workspace and let it pick the entry instead.
+      const entry = root === "." ? "index.yaml" : `${root}/index.yaml`;
+      const created = plan.files.some(file => file.relativePath === entry && file.status === "create");
+      window.history.replaceState(null, "", created ? `/${language}/pages/vellym-index/` : `/${language}/`);
       props.onComplete();
     } catch (error) {
       setFailedApply(true);
