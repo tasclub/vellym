@@ -15,6 +15,17 @@ import { children, indexBoard, parents, pickAt, selectable, type Selection } fro
 import { boardElement, enclosing, measureNode, Overlay } from "./overlay.js";
 import type { Bounds } from "./viewport.js";
 import { Presentation } from "./presentation.js";
+import type { DesignNode } from "../model/types.js";
+import { angleOf, HANDLES, moveNodes, movable, resizable, resizeNodes, rotateNodes,
+  type Handle, type WorldBox } from "../edit/transform.js";
+
+/** A drag of the selection: the model changes only on release (one undo step). */
+interface TransformGesture {
+  pointer: number; kind: "move" | "resize" | "rotate"; handle?: Handle;
+  start: { x: number; y: number }; roots: Map<string, DesignNode>; ids: Map<string, string[]>;
+  boxes: Map<string, Map<string, WorldBox>>; frame?: WorldBox; angle: number;
+  rotations: Map<string, Map<string, number>>; next?: Map<string, DesignNode>;
+}
 
 export function CanvasScreen({ context }: PluginViewProps) {
   const data = context.rendererData as unknown as CanvasRendererData;
@@ -33,7 +44,10 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const [marquee, setMarquee] = useState<Bounds>();
   const space = useRef(false);
   const gesture = useRef<{ pointer: number; x: number; y: number; start: { x: number; y: number };
-    hit?: { board: string; chain: string[] }; moved: boolean; shift: boolean; deep: boolean } | undefined>(undefined);
+    hit?: { board: string; chain: string[] }; moved: boolean; shift: boolean; deep: boolean;
+    moveItems?: Selection[] } | undefined>(undefined);
+  const transform = useRef<TransformGesture | undefined>(undefined);
+  const [preview, setPreview] = useState<ReadonlyMap<string, DesignNode>>();
   const [hand, setHand] = useState(false);
   const [modes, setModes] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -55,7 +69,10 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const active = pages.some(item => item.id === page) ? page : pages[0]?.id ?? "";
   const onPage = (id: string) => { setPage(id); setSelected([]); setHover(undefined); setMarquee(undefined); gesture.current = undefined; };
   const onPageContent = (item: { page?: string }) => (item.page ?? pages[0]?.id ?? "") === active;
-  const boards = data.boards.filter(board => board.spec?.root && onPageContent(board.spec));
+  const saved = data.boards.filter(board => board.spec?.root && onPageContent(board.spec));
+  // While dragging, the touched boards draw the previewed root (no hash, so they re-render).
+  const boards = preview ? saved.map(board => preview.has(board.name)
+    ? { ...board, hash: undefined, spec: { ...board.spec, root: preview.get(board.name)! } } : board) : saved;
   const notes = (data.canvas?.spec.notes ?? []).filter(onPageContent);
   const identity = (row: { name?: string; relativePath: string; hash?: string }) =>
     [row.name ?? row.relativePath, row.hash ?? row];
@@ -63,7 +80,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     data.components.map(identity), data.styles.map(identity), data.tokenFiles.map(identity), modes]);
   const resolution = useMemo(() => canvasResolution(data, modes), [dependencyKey, store.getSnapshot()]);
   const geometry = useMemo(() => boards.map(board => ({ name: board.name, x: board.spec.x, y: board.spec.y,
-    index: indexBoard(board.spec.root) })), [incoming.boards, active, store.getSnapshot()]);
+    index: indexBoard(board.spec.root) })), [incoming.boards, active, store.getSnapshot(), preview]);
   useLayoutEffect(() => {
     setSelected(previous => {
       const next = previous.filter(item => {
@@ -112,7 +129,95 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const merge = (items: Selection[], add: boolean) => setSelected(previous => add
     ? [...previous, ...items.filter(item => !previous.some(other => item.board === other.board && item.id === other.id))]
     : items);
+  const byBoard = (items: readonly Selection[]) => {
+    const groups = new Map<string, string[]>();
+    for (const item of items) groups.set(item.board, [...groups.get(item.board) ?? [], item.id]);
+    return groups;
+  };
+  const savedRoot = (name: string) => saved.find(board => board.name === name)?.spec.root;
+  const handles: readonly Handle[] = !store.editable || !selected.length ? []
+    : [...byBoard(selected)].some(([name, ids]) => {
+        const board = geometry.find(item => item.name === name);
+        return board && movable(board.index, ids).length;
+      }) ? HANDLES
+    : selected.length === 1 && geometry.some(board => board.name === selected[0]!.board &&
+        resizable(board.index, [selected[0]!.id]).length) ? ["e", "s", "se"] : [];
+  const rotatable = handles.length === HANDLES.length;
+  const beginTransform = (pointer: number, kind: TransformGesture["kind"], items: readonly Selection[],
+    start: { x: number; y: number }, handle?: Handle) => {
+    const world = navigation.world.current;
+    if (!world || !store.editable) return;
+    const ids = byBoard(items), roots = new Map<string, DesignNode>();
+    const boxes = new Map<string, Map<string, WorldBox>>(), rotations = new Map<string, Map<string, number>>();
+    const all: WorldBox[] = [];
+    for (const [name, list] of ids) {
+      const board = geometry.find(item => item.name === name), root = savedRoot(name);
+      if (!board || !root) continue;
+      roots.set(name, root);
+      const measured = new Map<string, WorldBox>(), angles = new Map<string, number>();
+      for (const id of list) {
+        const box = measureNode(world, board, id);
+        if (box) {
+          const value = { cx: box.x + box.width / 2, cy: box.y + box.height / 2, width: box.width, height: box.height, rotation: box.rotation };
+          measured.set(id, value);
+          all.push(value);
+        }
+        angles.set(id, board.index.get(id)?.node.rotation ?? 0);
+      }
+      boxes.set(name, measured);
+      rotations.set(name, angles);
+    }
+    if (!all.length) return;
+    const outer = all.map(box => enclosing({ x: box.cx - box.width / 2, y: box.cy - box.height / 2,
+      width: box.width, height: box.height, rotation: box.rotation }));
+    const left = Math.min(...outer.map(box => box.x)), top = Math.min(...outer.map(box => box.y));
+    const right = Math.max(...outer.map(box => box.x + box.width)), bottom = Math.max(...outer.map(box => box.y + box.height));
+    const frame = all.length > 1 ? { cx: (left + right) / 2, cy: (top + bottom) / 2, width: right - left, height: bottom - top, rotation: 0 } : undefined;
+    const centre = frame ?? all[0]!;
+    transform.current = { pointer, kind, handle, start, roots, ids, boxes, frame, rotations,
+      angle: angleOf(centre.cx, centre.cy, start.x, start.y) };
+    setHover(undefined);
+  };
+  const updateTransform = (event: { clientX: number; clientY: number; shiftKey: boolean; altKey: boolean }) => {
+    const drag = transform.current;
+    if (!drag) return;
+    const point = worldPoint(event.clientX, event.clientY), dx = point.x - drag.start.x, dy = point.y - drag.start.y;
+    const centre = drag.frame ?? [...drag.boxes.values()].flatMap(map => [...map.values()])[0]!;
+    const delta = angleOf(centre.cx, centre.cy, point.x, point.y) - drag.angle;
+    const next = new Map<string, DesignNode>();
+    for (const [name, root] of drag.roots) {
+      const ids = drag.ids.get(name) ?? [];
+      const after = drag.kind === "move" ? moveNodes(root, ids, dx, dy)
+        : drag.kind === "resize" ? resizeNodes(root, drag.boxes.get(name)!, drag.handle!, dx, dy,
+          { keepRatio: event.shiftKey, fromCenter: event.altKey }, drag.frame)
+        : rotateNodes(root, ids, delta, event.shiftKey, drag.rotations.get(name)!);
+      if (after !== root) next.set(name, after);
+    }
+    drag.next = next;
+    setPreview(next);
+  };
+  const endTransform = (commit: boolean) => {
+    const drag = transform.current;
+    transform.current = undefined;
+    if (!drag) return false;
+    if (commit && drag.next?.size) {
+      store.apply({ changes: [...drag.next].map(([targetName, after]) =>
+        ({ targetName, before: drag.roots.get(targetName)!, after })) });
+    }
+    setPreview(undefined);
+    return true;
+  };
+  const nudge = (dx: number, dy: number) => {
+    const changes = [...byBoard(selected)].flatMap(([name, ids]) => {
+      const before = savedRoot(name);
+      const after = before && moveNodes(before, ids, dx, dy);
+      return before && after && after !== before ? [{ targetName: name, before, after }] : [];
+    });
+    // Held or repeated arrows within the history's merge window become one undo step.
+    if (changes.length) store.apply({ changes, mergeKey: `nudge:${selected.map(item => `${item.board}/${item.id}`).sort().join(",")}` });
+  };
   const finishGesture = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (transform.current?.pointer === event.pointerId) { endTransform(true); return; }
     const drag = gesture.current;
     if (!drag || drag.pointer !== event.pointerId) return;
     gesture.current = undefined;
@@ -210,23 +315,45 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           {t(context.isStatic ? "emptyCanvasStatic" : "emptyCanvas")}
         </p>}
         <div ref={navigation.viewport} data-testid="design-viewport" role="region" aria-label={t("canvasNavigation")}
-          tabIndex={0} aria-keyshortcuts="H V Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape"
+          tabIndex={0} aria-keyshortcuts="H V Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
           onPointerDown={event => {
             // Portal events can reach React before the viewport's native pan listener.
             if (event.defaultPrevented || hand || space.current || event.button !== 0 || event.pointerType === "touch" || editable(event)) return;
             event.currentTarget.focus({ preventScroll: true });
             event.preventDefault();
             event.currentTarget.setPointerCapture(event.pointerId);
+            const start = worldPoint(event.clientX, event.clientY);
+            const handle = (event.target as Element).closest?.("[data-handle]")?.getAttribute("data-handle");
+            if (handle && store.editable) {
+              beginTransform(event.pointerId, handle.startsWith("rotate-") ? "rotate" : "resize", selected, start,
+                handle.startsWith("rotate-") ? undefined : handle as Handle);
+              return;
+            }
+            const hit = hitAt(event.clientX, event.clientY), deep = event.ctrlKey || event.metaKey;
+            // Pressing a node selects it at once so the same drag can move it.
+            let moveItems: Selection[] | undefined;
+            const item = hit && store.editable ? choose(hit, deep ? "deep" : "normal") : undefined;
+            if (item && isSelected(item)) moveItems = selected;
+            else if (item && !event.shiftKey) { moveItems = [item]; setSelected([item]); }
             gesture.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY,
-              start: worldPoint(event.clientX, event.clientY), hit: hitAt(event.clientX, event.clientY),
-              shift: event.shiftKey, deep: event.ctrlKey || event.metaKey, moved: false };
+              start, hit, shift: event.shiftKey, deep, moved: false, moveItems };
             setHover(undefined);
           }}
           onPointerMove={event => {
+            if (transform.current) {
+              if (transform.current.pointer === event.pointerId) updateTransform(event);
+              return;
+            }
             const drag = gesture.current;
             if (drag) {
               if (drag.pointer !== event.pointerId) return;
               if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) >= 3) drag.moved = true;
+              if (drag.moved && drag.hit && drag.moveItems?.length) {
+                gesture.current = undefined;
+                beginTransform(event.pointerId, "move", drag.moveItems, drag.start);
+                updateTransform(event);
+                return;
+              }
               if (drag.moved && !drag.hit) {
                 const end = worldPoint(event.clientX, event.clientY);
                 setMarquee({ x: Math.min(drag.start.x, end.x), y: Math.min(drag.start.y, end.y),
@@ -238,8 +365,8 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
             } else setHover(undefined);
           }}
           onPointerUp={finishGesture}
-          onPointerCancel={() => { gesture.current = undefined; setMarquee(undefined); }}
-          onLostPointerCapture={() => { gesture.current = undefined; setMarquee(undefined); }}
+          onPointerCancel={() => { gesture.current = undefined; setMarquee(undefined); endTransform(false); }}
+          onLostPointerCapture={() => { gesture.current = undefined; setMarquee(undefined); endTransform(false); }}
           onPointerLeave={() => setHover(undefined)}
           onDoubleClick={event => {
             if (hand || space.current || editable(event)) return;
@@ -248,8 +375,16 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           }}
           onKeyDown={event => {
             if (editable(event) || event.ctrlKey || event.metaKey || event.altKey) return;
+            const arrow = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, [number, number]>)[event.key];
+            if (arrow && store.editable && selected.length && !transform.current) {
+              event.preventDefault();
+              const step = event.shiftKey ? 10 : 1;
+              nudge(arrow[0] * step, arrow[1] * step);
+              return;
+            }
             if (event.code === "Space") { space.current = true; setHover(undefined); }
             if (event.key.toLowerCase() === "h") setHover(undefined);
+            if (event.key === "Escape" && endTransform(false)) return;
             if (event.key === "Escape") { setSelected([]); setHover(undefined); gesture.current = undefined; setMarquee(undefined); }
             if (event.key === "Enter") {
               event.preventDefault();
@@ -278,7 +413,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
               }}>{board.title ?? board.name}</button>)}
             <Notes notes={notes} />
             <Overlay world={navigation.world} boards={geometry} selection={selected} hover={hover} marquee={marquee}
-              revision={store.getSnapshot()} onBounds={setSelectionBounds} />
+              revision={preview ?? store.getSnapshot()} onBounds={setSelectionBounds} handles={handles} rotatable={rotatable} />
           </div>
         </div>
       </div>

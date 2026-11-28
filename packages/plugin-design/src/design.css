@@ -60,3 +60,27 @@
 }
 .design-hover { box-shadow: inset 0 0 0 calc(1px / var(--design-scale, 1)) #1d4ed8; }
 .design-marquee { box-shadow: inset 0 0 0 calc(1px / var(--design-scale, 1)) #1d4ed8; background: #1d4ed81a; }
+.design-handles { position: absolute; transform-origin: center; }
+.design-handle, .design-rotate {
+  position: absolute;
+  box-sizing: border-box;
+  translate: -50% -50%;
+  pointer-events: auto;
+  touch-action: none;
+}
+.design-handle {
+  width: calc(8px / var(--design-scale, 1));
+  height: calc(8px / var(--design-scale, 1));
+  background: #fff;
+  box-shadow: inset 0 0 0 calc(1px / var(--design-scale, 1)) #1d4ed8;
+}
+.design-handle-nw, .design-handle-se { cursor: nwse-resize; }
+.design-handle-ne, .design-handle-sw { cursor: nesw-resize; }
+.design-handle-n, .design-handle-s { cursor: ns-resize; }
+.design-handle-e, .design-handle-w { cursor: ew-resize; }
+/* Rotation zones sit just outside each corner, under the resize handle. */
+.design-rotate { width: calc(24px / var(--design-scale, 1)); height: calc(24px / var(--design-scale, 1)); cursor: grab; }
+.design-rotate-nw { translate: -85% -85%; }
+.design-rotate-ne { translate: -15% -85%; }
+.design-rotate-se { translate: -15% -15%; }
+.design-rotate-sw { translate: -85% -15%; }
