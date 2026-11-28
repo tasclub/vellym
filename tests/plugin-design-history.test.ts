@@ -83,6 +83,29 @@ describe("autosave and external changes", () => {
     expect(store.root("board")?.x).toBe(1);
     store.dispose();
   });
+  it("moves a board's position as its own change: undo, merged nudges, and saving x/y without the root", async () => {
+    vi.useFakeTimers();
+    const { store, save } = setup();
+    const nudge = (from: number, to: number) => ({ mergeKey: "nudge:board", changes: [{ targetName: "board", field: "position" as const,
+      before: { x: from, y: 0 }, after: { x: to, y: 0 } }] });
+    expect(store.position("board")).toEqual({ x: 0, y: 0 });
+    expect(store.apply(nudge(0, 1))).toBe(true);
+    expect(store.apply(nudge(1, 2))).toBe(true);
+    // A stale "before" is refused like a root change.
+    expect(store.apply(nudge(0, 5))).toBe(false);
+    expect(store.history.undoCount).toBe(1);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(save).toHaveBeenCalledWith([{ path: ["x"], value: 2 }, { path: ["y"], value: 0 }], { targetName: "board", baseHash: "h0" });
+    store.undo();
+    expect(store.position("board")).toEqual({ x: 0, y: 0 });
+    // A root and a position change of the same board in one operation write together.
+    store.apply({ changes: [{ targetName: "board", before: root(), after: root(3) },
+      { targetName: "board", field: "position", before: { x: 0, y: 0 }, after: { x: 10, y: 20 } }] });
+    await vi.advanceTimersByTimeAsync(800);
+    expect(save.mock.calls.at(-1)![0]).toEqual([{ path: ["root"], value: root(3) }, { path: ["x"], value: 10 }, { path: ["y"], value: 20 }]);
+    store.dispose();
+  });
+
   it("defers the host's self-notification until the save response hash arrives", async () => {
     vi.useFakeTimers();
     const { store, save, reload } = setup();

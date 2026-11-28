@@ -16,6 +16,7 @@ import { boardElement, enclosing, measureNode, Overlay } from "./overlay.js";
 import type { Bounds } from "./viewport.js";
 import { Presentation } from "./presentation.js";
 import type { DesignNode } from "../model/types.js";
+import type { BoardPosition, DesignChange } from "../edit/operations.js";
 import { Toolbar } from "../tools/toolbar.js";
 import { createNode, DEFAULT_BOARD, DEFAULT_SIZE, drawBounds, flows, imageNode, insertChild, newNodeId,
   parentFrame, toParent, TOOL_KEYS, type DrawTool, type Point, type Rect, type Tool } from "../tools/shape-tools.js";
@@ -40,6 +41,8 @@ interface TransformGesture {
   start: { x: number; y: number }; roots: Map<string, DesignNode>; ids: Map<string, string[]>;
   boxes: Map<string, Map<string, WorldBox>>; frame?: WorldBox; angle: number;
   rotations: Map<string, Map<string, number>>; next?: Map<string, DesignNode>;
+  /** Boards whose root is selected move as a whole (their `spec.x`/`y`). */
+  positions: Map<string, BoardPosition>; nextPositions?: Map<string, BoardPosition>;
 }
 
 export function CanvasScreen({ context }: PluginViewProps) {
@@ -63,6 +66,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     moveItems?: Selection[] } | undefined>(undefined);
   const transform = useRef<TransformGesture | undefined>(undefined);
   const [preview, setPreview] = useState<ReadonlyMap<string, DesignNode>>();
+  const [previewPositions, setPreviewPositions] = useState<ReadonlyMap<string, BoardPosition>>();
   const [activeGradient, setActiveGradient] = useState<{ list: PaintList; paint: number }>();
   useLayoutEffect(() => setActiveGradient(undefined), [selected]);
   useLayoutEffect(() => setTextRange(range => range && selected.length === 1 && selected[0]!.board === range.board &&
@@ -100,8 +104,10 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const onPageContent = (item: { page?: string }) => (item.page ?? pages[0]?.id ?? "") === active;
   const saved = data.boards.filter(board => board.spec?.root && onPageContent(board.spec));
   // While dragging, the touched boards draw the previewed root (no hash, so they re-render).
-  const boards = preview ? saved.map(board => preview.has(board.name)
-    ? { ...board, hash: undefined, spec: { ...board.spec, root: preview.get(board.name)! } } : board) : saved;
+  const boards = preview || previewPositions ? saved.map(board => {
+    const root = preview?.get(board.name), position = previewPositions?.get(board.name);
+    return root || position ? { ...board, hash: undefined, spec: { ...board.spec, ...(root ? { root } : {}), ...position } } : board;
+  }) : saved;
   const notes = (data.canvas?.spec.notes ?? []).filter(onPageContent);
   const identity = (row: { name?: string; relativePath: string; hash?: string }) =>
     [row.name ?? row.relativePath, row.hash ?? row];
@@ -109,7 +115,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     data.components.map(identity), data.styles.map(identity), data.tokenFiles.map(identity), modes]);
   const resolution = useMemo(() => canvasResolution(data, modes), [dependencyKey, store.getSnapshot()]);
   const geometry = useMemo(() => boards.map(board => ({ name: board.name, x: board.spec.x, y: board.spec.y,
-    index: indexBoard(board.spec.root) })), [incoming.boards, active, store.getSnapshot(), preview]);
+    index: indexBoard(board.spec.root) })), [incoming.boards, active, store.getSnapshot(), preview, previewPositions]);
   useLayoutEffect(() => {
     setSelected(previous => {
       const next = previous.filter(item => {
@@ -203,7 +209,12 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     const right = Math.max(...outer.map(box => box.x + box.width)), bottom = Math.max(...outer.map(box => box.y + box.height));
     const frame = all.length > 1 ? { cx: (left + right) / 2, cy: (top + bottom) / 2, width: right - left, height: bottom - top, rotation: 0 } : undefined;
     const centre = frame ?? all[0]!;
-    transform.current = { pointer, kind, handle, start, roots, ids, boxes, frame, rotations,
+    const positions = new Map<string, BoardPosition>();
+    if (kind === "move") for (const [name, list] of ids) {
+      const board = saved.find(row => row.name === name);
+      if (board && list.includes(board.spec.root.id)) positions.set(name, store.position(name) ?? { x: board.spec.x, y: board.spec.y });
+    }
+    transform.current = { pointer, kind, handle, start, roots, ids, boxes, frame, rotations, positions,
       angle: angleOf(centre.cx, centre.cy, start.x, start.y) };
     setHover(undefined);
   };
@@ -230,6 +241,12 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     }
     const centre = drag.frame ?? [...drag.boxes.values()].flatMap(map => [...map.values()])[0]!;
     const delta = angleOf(centre.cx, centre.cy, point.x, point.y) - drag.angle;
+    if (drag.kind === "move" && drag.positions.size) {
+      const moved = new Map([...drag.positions].map(([name, position]) =>
+        [name, { x: Math.round((position.x + dx) * 100) / 100, y: Math.round((position.y + dy) * 100) / 100 }] as const));
+      drag.nextPositions = moved;
+      setPreviewPositions(moved);
+    }
     for (const [name, root] of drag.roots) {
       const ids = drag.ids.get(name) ?? [];
       const after = drag.kind === "move" ? moveNodes(root, ids, dx, dy)
@@ -245,18 +262,26 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     const drag = transform.current;
     transform.current = undefined;
     if (!drag) return false;
-    if (commit && drag.next?.size) {
-      store.apply({ changes: [...drag.next].map(([targetName, after]) =>
-        ({ targetName, before: drag.roots.get(targetName)!, after })) });
-    }
+    const changes: DesignChange[] = [
+      ...[...drag.next ?? []].map(([targetName, after]) => ({ targetName, before: drag.roots.get(targetName)!, after })),
+      ...[...drag.nextPositions ?? []].filter(([name, after]) => after.x !== drag.positions.get(name)!.x || after.y !== drag.positions.get(name)!.y)
+        .map(([targetName, after]) => ({ targetName, field: "position" as const, before: drag.positions.get(targetName)!, after }))
+    ];
+    if (commit && changes.length) store.apply({ changes });
     setPreview(undefined);
+    setPreviewPositions(undefined);
     return true;
   };
   const nudge = (dx: number, dy: number) => {
-    const changes = [...byBoard(selected)].flatMap(([name, ids]) => {
-      const before = savedRoot(name);
+    const changes = [...byBoard(selected)].flatMap(([name, ids]): DesignChange[] => {
+      const before = savedRoot(name), board = saved.find(row => row.name === name);
       const after = before && moveNodes(before, ids, dx, dy);
-      return before && after && after !== before ? [{ targetName: name, before, after }] : [];
+      const out: DesignChange[] = before && after && after !== before ? [{ targetName: name, before, after }] : [];
+      if (board && ids.includes(board.spec.root.id)) {
+        const at = store.position(name) ?? { x: board.spec.x, y: board.spec.y };
+        out.push({ targetName: name, field: "position", before: at, after: { x: at.x + dx, y: at.y + dy } });
+      }
+      return out;
     });
     // Held or repeated arrows within the history's merge window become one undo step.
     if (changes.length) store.apply({ changes, mergeKey: `nudge:${selected.map(item => `${item.board}/${item.id}`).sort().join(",")}` });
@@ -588,7 +613,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
               const root = savedRoot(item.board);
               if (box && root) {
                 transform.current = { pointer: event.pointerId, kind: "gradient", start, roots: new Map([[item.board, root]]),
-                  ids: new Map([[item.board, [item.id]]]), boxes: new Map(), rotations: new Map(), angle: 0,
+                  ids: new Map([[item.board, [item.id]]]), boxes: new Map(), rotations: new Map(), positions: new Map(), angle: 0,
                   stop: { board: item.board, id: item.id, ...activeGradient, index: Number(stopHandle),
                     box: { cx: box.x + box.width / 2, cy: box.y + box.height / 2, width: box.width, height: box.height, rotation: box.rotation } } };
               }
@@ -716,6 +741,21 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
                 position: "absolute", left: board.spec.x, top: board.spec.y - 28, height: 24, minHeight: 24,
                 padding: "0 4px", fontSize: 12, whiteSpace: "nowrap", color: "#1f2937", background: "#fff",
                 border: isSelected({ board: board.name, id: board.spec.root.id }) ? "2px solid #1d4ed8" : "1px solid #64748b"
+              }} onPointerDown={event => {
+                // Dragging a board's label moves the board.
+                if (!store.editable || hand || space.current || event.button !== 0 || event.pointerType === "touch") return;
+                const index = geometry.find(item => item.name === board.name)!.index;
+                if (!selectable(index, board.spec.root.id)) return;
+                const item = { board: board.name, id: board.spec.root.id };
+                const items = isSelected(item) ? selected : [item];
+                if (!isSelected(item)) setSelected([item]);
+                // Keys (Shift+2, Delete, arrows) go to the canvas, as after a click.
+                event.preventDefault();
+                navigation.viewport.current?.focus({ preventScroll: true });
+                navigation.viewport.current?.setPointerCapture(event.pointerId);
+                gesture.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY,
+                  start: worldPoint(event.clientX, event.clientY), hit: { board: board.name, chain: [board.spec.root.id] },
+                  shift: false, deep: false, moved: false, moveItems: items };
               }} onClick={() => {
                 if (selectable(geometry.find(item => item.name === board.name)!.index, board.spec.root.id))
                   setSelected([{ board: board.name, id: board.spec.root.id }]);

@@ -47,8 +47,9 @@ export function useDesignEdit(data: CanvasRendererData, context: PluginRenderCon
     };
   }, [store]);
   const withRoots = <T extends { name: string; spec: object }>(row: T): T => {
-    const root = store.root(row.name);
-    return store.editable && root ? { ...row, spec: { ...row.spec, root } } : row;
+    const root = store.root(row.name), position = store.position(row.name);
+    if (!store.editable || (!root && !position)) return row;
+    return { ...row, spec: { ...row.spec, ...(root ? { root } : {}), ...(position && "x" in row.spec ? position : {}) } };
   };
   return {
     store, reloaded,

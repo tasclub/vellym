@@ -156,3 +156,36 @@ test("handles resize with Shift and Alt, corners rotate with 15-degree Shift ste
     .toMatchObject({ width: 640, height: 430 });
   expect((await new AxeBuilder({ page }).include('[data-testid="design-canvas"]').analyze()).violations).toEqual([]);
 });
+
+test("a board moves by dragging its label or its empty area, and with arrow keys @DESIGN-A01", async ({ page, server, project }) => {
+  await open(page, server);
+  const spec = async () => parse(await readFile(boardFile(project.content), "utf8")).spec;
+  const host = page.getByTestId("design-board-board");
+  const start = (await host.boundingBox())!;
+  // Drag the label: the board moves and its node tree is not rewritten.
+  const before = (await spec()).root;
+  await drag(page, await centre(page, "design-board-label-board"), 50, 30);
+  await expect.poll(async () => (await host.boundingBox())!.x).toBeCloseTo(start.x + 50, 0);
+  await settle(page);
+  await expect.poll(async () => { const value = await spec(); return [value.x, value.y]; }).toEqual([90, 70]);
+  expect((await spec()).root).toEqual(before);
+  // The label follows the board.
+  const label = (await page.getByTestId("design-board-label-board").boundingBox())!;
+  expect(label.x).toBeCloseTo(start.x + 50, 0);
+  // Undo puts it back in one step.
+  await page.getByTestId("design-viewport").focus();
+  await page.keyboard.press("Control+z");
+  await settle(page);
+  await expect.poll(async () => { const value = await spec(); return [value.x, value.y]; }).toEqual([40, 40]);
+
+  // Pressing an empty area of the board selects it; dragging that moves the board too.
+  await drag(page, { x: start.x + 500, y: start.y + 200 }, -20, 10);
+  await settle(page);
+  await expect.poll(async () => { const value = await spec(); return [value.x, value.y]; }).toEqual([20, 50]);
+  await expect(page.getByTestId("design-selection")).toHaveAttribute("data-node", "board/root");
+  // Arrows: 1px, Shift 10px.
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Shift+ArrowDown");
+  await settle(page);
+  await expect.poll(async () => { const value = await spec(); return [value.x, value.y]; }).toEqual([21, 60]);
+});
