@@ -28,9 +28,9 @@ describe("model operation history", () => {
     const history = new DesignHistory();
     for (let i = 0; i < 110; i++) history.push(op(i, i + 1));
     expect(history.undoCount).toBe(100);
-    for (let i = 109; i >= 10; i--) expect(history.undo()?.changes[0]?.before.x).toBe(i);
+    for (let i = 109; i >= 10; i--) expect((history.undo()?.changes[0]?.before as DesignNode | undefined)?.x).toBe(i);
     expect(history.undo()).toBeUndefined();
-    for (let i = 10; i < 110; i++) expect(history.redo()?.changes[0]?.after.x).toBe(i + 1);
+    for (let i = 10; i < 110; i++) expect((history.redo()?.changes[0]?.after as DesignNode | undefined)?.x).toBe(i + 1);
     expect(history.redo()).toBeUndefined();
   });
   it("merges only continuous keyed nudges inside 500ms, retaining the first before value", () => {
@@ -61,8 +61,8 @@ describe("model operation history", () => {
     const history = new DesignHistory();
     const operation = op();
     history.push(operation);
-    operation.changes[0]!.before.x = 99;
-    expect(history.undo()?.changes[0]?.before.x).toBe(0);
+    (operation.changes[0]!.before as DesignNode).x = 99;
+    expect((history.undo()?.changes[0]?.before as DesignNode | undefined)?.x).toBe(0);
   });
 });
 
@@ -103,6 +103,56 @@ describe("autosave and external changes", () => {
       { targetName: "board", field: "position", before: { x: 0, y: 0 }, after: { x: 10, y: 20 } }] });
     await vi.advanceTimersByTimeAsync(800);
     expect(save.mock.calls.at(-1)![0]).toEqual([{ path: ["root"], value: root(3) }, { path: ["x"], value: 10 }, { path: ["y"], value: 20 }]);
+    store.dispose();
+  });
+
+  it("keeps a canvas's pages and a board's page as changes: saved alone, and a cleared page deletes its key", async () => {
+    vi.useFakeTimers();
+    const { store, save } = setup();
+    expect(store.pages("canvas")).toEqual([]);
+    expect(store.pageOf("board")).toBeUndefined();
+    const pages = [{ id: "p1", title: "Page 1" }, { id: "p2", title: "Page 2" }];
+    expect(store.apply({ changes: [{ targetName: "canvas", field: "pages", before: [], after: pages },
+      { targetName: "board", field: "page", before: undefined, after: "p2" }] })).toBe(true);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(save).toHaveBeenCalledWith([{ path: ["pages"], value: pages }], { targetName: "canvas", baseHash: "c0" });
+    expect(save).toHaveBeenCalledWith([{ path: ["page"], value: "p2" }], { targetName: "board", baseHash: "h0" });
+    store.undo();
+    expect(store.pages("canvas")).toEqual([]);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(save).toHaveBeenCalledWith([{ path: ["page"], value: null }], expect.objectContaining({ targetName: "board" }));
+    store.dispose();
+  });
+
+  it("ignores a refresh taken between the files of one save, and forgets resources it deletes", async () => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const two = (canvasHash: string, boardHash: string) => ({ ...data(boardHash), canvas: { ...data().canvas!, hash: canvasHash } });
+    const save = vi.fn<PluginRenderContext["save"]>(async (_writes, options) => {
+      if (options?.targetName === "board") await gate;
+      return { ok: true, hash: options?.targetName === "canvas" ? "c1" : "h1" };
+    });
+    const reload = vi.fn();
+    const store = new DesignStore(data(), { save } as unknown as PluginRenderContext, reload);
+    store.apply({ changes: [{ targetName: "canvas", field: "pages", before: [], after: [{ id: "p1" }] },
+      { targetName: "board", field: "page", before: undefined, after: "p1" }] });
+    await vi.advanceTimersByTimeAsync(800);
+    // The host refreshed after the canvas file: the board still shows its old hash.
+    store.observe(two("c1", "h0"));
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reload).not.toHaveBeenCalled();
+    store.observe(two("c1", "h1"));
+    expect(reload).not.toHaveBeenCalled();
+    // Deleting the board ourselves: the refresh without it is not an external change.
+    store.forget("board");
+    expect(store.history.undoCount).toBe(0);
+    store.observe({ ...two("c1", "h1"), boards: [] });
+    expect(reload).not.toHaveBeenCalled();
+    // A really different hash still reloads.
+    store.observe({ ...two("c9", "h1"), boards: [] });
+    expect(reload).toHaveBeenCalledOnce();
     store.dispose();
   });
 

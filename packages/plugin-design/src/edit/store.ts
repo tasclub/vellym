@@ -3,7 +3,7 @@ import type { CanvasRendererData } from "../render/board-view.js";
 import type { DesignNode } from "../model/types.js";
 import { Autosave } from "./autosave.js";
 import { DesignHistory } from "./history.js";
-import { fieldOf, sameValue, type BoardPosition, type DesignOperation } from "./operations.js";
+import { fieldOf, sameValue, type BoardPosition, type DesignChange, type DesignOperation, type DesignPage } from "./operations.js";
 
 type Snapshot = Map<string, string | undefined>;
 function hashes(data: CanvasRendererData): Snapshot {
@@ -22,8 +22,13 @@ export class DesignStore {
   private roots = new Map<string, DesignNode>();
   private positions = new Map<string, BoardPosition>();
   /** Which parts of each resource are unsaved. */
-  private dirtyFields = new Map<string, Set<"root" | "position">>();
+  private dirtyFields = new Map<string, Set<DesignChange["field"] & string | "root">>();
+  /** Canvas page lists and board pages, like roots: the model's own copy while editing. */
+  private pageLists = new Map<string, DesignPage[]>();
+  private boardPages = new Map<string, string | undefined>();
   private known: Snapshot;
+  /** Hashes our own saves replaced: data still showing one of them is stale, not an external edit. */
+  private replaced = new Map<string, Set<string>>();
   private dirty = new Map<string, number>();
   private revision = 0;
   private saving = false;
@@ -47,21 +52,49 @@ export class DesignStore {
   private emit() { this.version++; this.listeners.forEach(listener => listener()); }
   root(name: string) { return this.roots.get(name); }
   position(name: string) { return this.positions.get(name); }
+  pages(name: string) { return this.pageLists.get(name); }
+  /** A board's page as the model has it: `undefined` when it has no explicit page; `null` when unknown. */
+  pageOf(name: string): string | undefined | null { return this.boardPages.has(name) ? this.boardPages.get(name) : null; }
+  /**
+   * Before deleting a resource ourselves: stop tracking it, so the refresh without it is not taken
+   * for an external change, and drop the history steps that touch it.
+   */
+  forget(name: string) {
+    this.known.delete(name);
+    this.roots.delete(name); this.positions.delete(name); this.boardPages.delete(name);
+    this.dirty.delete(name); this.dirtyFields.delete(name); this.replaced.delete(name);
+    this.history.forget(name);
+    this.emit();
+  }
+  private current(change: DesignChange): unknown {
+    const field = fieldOf(change);
+    return field === "position" ? this.positions.get(change.targetName)
+      : field === "pages" ? this.pageLists.get(change.targetName) ?? []
+      : field === "page" ? this.boardPages.get(change.targetName) : this.roots.get(change.targetName);
+  }
   private adoptRoots(data: CanvasRendererData) {
     for (const row of [...data.boards, ...data.components]) {
       if (row.spec.root && !this.dirty.has(row.name)) this.roots.set(row.name, row.spec.root);
     }
     for (const row of data.boards) {
-      if (!this.dirty.has(row.name) && typeof row.spec.x === "number" && typeof row.spec.y === "number")
-        this.positions.set(row.name, { x: row.spec.x, y: row.spec.y });
+      if (this.dirty.has(row.name)) continue;
+      if (typeof row.spec.x === "number" && typeof row.spec.y === "number") this.positions.set(row.name, { x: row.spec.x, y: row.spec.y });
+      this.boardPages.set(row.name, typeof row.spec.page === "string" ? row.spec.page : undefined);
     }
+    if (data.canvas && !this.dirty.has(data.canvas.name))
+      this.pageLists.set(data.canvas.name, (data.canvas.spec.pages ?? []) as DesignPage[]);
   }
   observe(data: CanvasRendererData) {
     if (!this.editable) return;
     // The host refreshes rendererData before context.save resolves with its hash.
     if (this.saving) { this.deferred = data; return; }
     const incoming = hashes(data);
+    // A refresh taken between the files of one multi-file save still carries the hashes this save
+    // replaced: it is out of date, so wait for the next one instead of reloading everything.
+    const stale = [...this.known].some(([name, hash]) => incoming.get(name) !== hash && this.replaced.get(name)?.has(incoming.get(name) ?? ""));
+    if (stale) return;
     if (!unchangedHashes(this.known, incoming)) { this.externalChange(); return; }
+    this.replaced.clear();
     // Newly created resources have no previous model/hash to invalidate. In
     // particular, the host's "New board" flow must not look like an external edit.
     this.known = incoming;
@@ -72,8 +105,7 @@ export class DesignStore {
     const names = new Set<string>();
     for (const change of operation.changes) {
       const key = `${change.targetName}:${fieldOf(change)}`;
-      const current = fieldOf(change) === "position" ? this.positions.get(change.targetName) : this.roots.get(change.targetName);
-      if (names.has(key) || !this.known.get(change.targetName) || !sameValue(current, change.before)) return false;
+      if (names.has(key) || !this.known.get(change.targetName) || !sameValue(this.current(change), change.before)) return false;
       names.add(key);
     }
     if (operation.changes.every(change => sameValue(change.before, change.after))) return false;
@@ -95,6 +127,8 @@ export class DesignStore {
     for (const change of operation.changes) {
       const value = structuredClone(reverse ? change.before : change.after);
       if (change.field === "position") this.positions.set(change.targetName, value as BoardPosition);
+      else if (change.field === "pages") this.pageLists.set(change.targetName, value as DesignPage[]);
+      else if (change.field === "page") this.boardPages.set(change.targetName, value as string | undefined);
       else this.roots.set(change.targetName, value as DesignNode);
       this.dirty.set(change.targetName, ++this.revision);
       const fields = this.dirtyFields.get(change.targetName) ?? new Set();
@@ -114,6 +148,8 @@ export class DesignStore {
     this.dirtyFields.clear();
     this.roots.clear();
     this.positions.clear();
+    this.pageLists.clear();
+    this.boardPages.clear();
     this.reload(); // Reload the whole canvas, including partially saved multi-file operations.
   }
   private async save() {
@@ -128,7 +164,10 @@ export class DesignStore {
       // Only what changed is written: a moved board does not rewrite its node tree.
       const writes = [
         ...(fields.has("root") ? [{ path: ["root"], value: structuredClone(this.roots.get(name)!) }] : []),
-        ...(fields.has("position") && position ? [{ path: ["x"], value: position.x }, { path: ["y"], value: position.y }] : [])
+        ...(fields.has("position") && position ? [{ path: ["x"], value: position.x }, { path: ["y"], value: position.y }] : []),
+        ...(fields.has("pages") ? [{ path: ["pages"], value: structuredClone(this.pageLists.get(name) ?? []) }] : []),
+        // A board back on "the first page" loses its key (null deletes it).
+        ...(fields.has("page") ? [{ path: ["page"], value: this.boardPages.get(name) ?? null }] : [])
       ];
       return { name, revision, writes };
     });
@@ -147,6 +186,8 @@ export class DesignStore {
         }
         // A persisted root save must return a hash; never fall back to a fresh blind save.
         if (!result.hash) throw new Error("Missing saved resource hash");
+        const old = this.known.get(item.name);
+        if (old) this.replaced.set(item.name, new Set([...this.replaced.get(item.name) ?? [], old]));
         this.known.set(item.name, result.hash);
         if (this.dirty.get(item.name) === item.revision) { this.dirty.delete(item.name); this.dirtyFields.delete(item.name); }
       }

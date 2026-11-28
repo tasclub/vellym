@@ -112,4 +112,6 @@ test("from a blank canvas: a board, every shape, an image, saved YAML and deleti
   await page.getByTestId("design-confirm-ok").click();
   await expect.poll(async () => (await boards(project.content)).length).toBe(0);
   await expect(page.getByTestId("design-empty")).toBeVisible();
+  // Our own delete is not taken for an external change (no reload notice).
+  await expect(page.getByTestId("design-reloaded")).toHaveCount(0);
 });

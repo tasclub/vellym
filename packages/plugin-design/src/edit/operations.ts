@@ -15,7 +15,22 @@ export interface PositionChange {
   before: BoardPosition;
   after: BoardPosition;
 }
-export type DesignChange = RootChange | PositionChange;
+/** A canvas's page list (`DesignCanvas.spec.pages`). */
+export type DesignPage = { id: string; title?: string } & Record<string, unknown>;
+export interface PagesChange {
+  targetName: string;
+  field: "pages";
+  before: DesignPage[];
+  after: DesignPage[];
+}
+/** Which page a board is on (`DesignBoard.spec.page`; undefined = the first page). */
+export interface PageChange {
+  targetName: string;
+  field: "page";
+  before: string | undefined;
+  after: string | undefined;
+}
+export type DesignChange = RootChange | PositionChange | PagesChange | PageChange;
 export interface DesignOperation {
   changes: DesignChange[];
   /** Only repeated nudges use a key. Drags and input commits are separate operations. */

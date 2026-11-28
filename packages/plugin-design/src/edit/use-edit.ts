@@ -47,12 +47,16 @@ export function useDesignEdit(data: CanvasRendererData, context: PluginRenderCon
     };
   }, [store]);
   const withRoots = <T extends { name: string; spec: object }>(row: T): T => {
-    const root = store.root(row.name), position = store.position(row.name);
-    if (!store.editable || (!root && !position)) return row;
-    return { ...row, spec: { ...row.spec, ...(root ? { root } : {}), ...(position && "x" in row.spec ? position : {}) } };
+    const root = store.root(row.name), position = store.position(row.name), page = store.pageOf(row.name);
+    if (!store.editable || (!root && !position && page === null)) return row;
+    const spec: Record<string, unknown> = { ...row.spec, ...(root ? { root } : {}), ...(position && "x" in row.spec ? position : {}) };
+    if (page !== null && "canvas" in row.spec) { if (page === undefined) delete spec.page; else spec.page = page; }
+    return { ...row, spec } as T;
   };
+  const pages = data.canvas && store.editable ? store.pages(data.canvas.name) : undefined;
   return {
     store, reloaded,
-    data: { ...data, boards: data.boards.map(withRoots), components: data.components.map(withRoots) }
+    data: { ...data, canvas: data.canvas && pages ? { ...data.canvas, spec: { ...data.canvas.spec, pages: pages.length ? pages : undefined } } : data.canvas,
+      boards: data.boards.map(withRoots), components: data.components.map(withRoots) }
   };
 }

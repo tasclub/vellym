@@ -32,6 +32,12 @@ export class DesignHistory {
     this.lastTime = -Infinity;
     return operation;
   }
+  /** Drop every step that touches a resource that no longer exists (it cannot be undone or redone). */
+  forget(name: string) {
+    const keep = (operation: DesignOperation) => !operation.changes.some(change => change.targetName === name);
+    this.past = this.past.filter(keep);
+    this.future = this.future.filter(keep);
+  }
   clear() {
     this.past = [];
     this.future = [];

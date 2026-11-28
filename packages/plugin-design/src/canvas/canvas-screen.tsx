@@ -26,6 +26,7 @@ import { useDrawing } from "./use-drawing.js";
 import { useClipboard } from "./use-clipboard.js";
 import { inspectorContext } from "./inspector-context.js";
 import { Rulers } from "./rulers.js";
+import { usePages } from "./use-pages.js";
 import { distances, type Distance } from "../edit/snap.js";
 import { enclosing, measureNode } from "./overlay.js";
 
@@ -116,6 +117,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const drawn = useDrawing(m, tool, setTool);
   const clip = useClipboard(m);
   const onPage = (id: string) => { setPage(id); setSelected([]); setHover(undefined); selection.cancel(); };
+  const pageOps = usePages(m, onPage);
   const gradientItem = activeGradient && selected.length === 1 ? selected[0] : undefined;
   const gradientPaint = gradientItem && geometry.find(row => row.name === gradientItem.board)?.index.get(gradientItem.id)?.node[activeGradient!.list]?.[activeGradient!.paint];
   const inspector = inspectorContext(m, { tokens: resolution.context.tokens ?? {}, editable: store.editable && !transform.transform.current,
@@ -190,8 +192,9 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     </div>
     <div className="design-canvas-frame">
       <LeftPanel locale={locale} initial={pages.length ? "pages" : "layers"}
-        pages={pages.length ? <Pages pages={pages} active={active} onChange={onPage} locale={locale} />
-          : <p className="design-inspector-empty">{t("noPages")}</p>}
+        pages={<Pages pages={pages} active={active} onChange={onPage} locale={locale} editable={store.editable}
+          onAdd={pageOps.add} onRename={pageOps.rename} onMove={pageOps.move}
+          onDelete={id => { void pageOps.remove(id); }} boardCount={pageOps.boardCount} />}
         layers={<Layers locale={locale} editable={store.editable && !transform.transform.current}
           boards={boards.map(board => ({ name: board.name, title: board.title ?? board.name, root: board.spec.root }))}
           selected={selected}

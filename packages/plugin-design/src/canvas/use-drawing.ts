@@ -119,6 +119,7 @@ export function useDrawing(m: CanvasModel, tool: Tool, setTool: (tool: Tool) => 
     for (const name of names) {
       const row = m.saved.find(board => board.name === name);
       if (!row?.hash || !context.deleteResource) continue;
+      store.forget(name);
       const result = await context.deleteResource(name, { baseHash: row.hash });
       if (!result.ok) { m.setStatus(result.message); break; }
     }
