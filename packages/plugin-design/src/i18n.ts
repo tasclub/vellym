@@ -3,6 +3,7 @@ export const designText = {
   present: { ja: "プレゼン", en: "Present" },
   tools: { ja: "ツール", en: "Tools" },
   inspector: { ja: "プロパティ", en: "Properties" },
+  pasteInvalid: { ja: "貼り付けた内容がデザインの形に合いません", en: "The pasted content does not fit the design format." },
   sectionGrids: { ja: "段組の目安線", en: "Layout grids" },
   addGrid: { ja: "目安線を追加", en: "Add layout grid" },
   gridPattern: { ja: "種類", en: "Type" },

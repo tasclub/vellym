@@ -106,6 +106,12 @@ test("duplicate, Alt+drag, copy and paste across boards, cut and delete @DESIGN-
   await settle(page);
   await expect.poll(async () => (await children(project.content)).find(child => child.id === "a-2")).toMatchObject({ x: 20, y: 20 });
 
+  // Our clipboard text with a node that does not fit the format: nothing is pasted, and it says so.
+  const before = (await children(project.content)).length;
+  await clip(page, "paste", JSON.stringify({ "vellym-design-nodes": 1, board: "one", parentIds: ["root"], nodes: [{ id: "x", width: 3 }] }));
+  await expect(page.getByRole("status").filter({ hasText: /形に合いません|does not fit/ })).toBeVisible();
+  expect((await children(project.content)).length).toBe(before);
+
   // Cut takes it out; Delete removes the selection; neither touches the board.
   await select(page, "a-2");
   await clip(page, "cut");

@@ -2,6 +2,8 @@ import type { DesignNode } from "../model/types.js";
 import { indexBoard, type BoardIndex } from "./selection.js";
 import { removeNode } from "./transform.js";
 import { isContainer } from "./tree.js";
+import { DESIGN_NODE_SCHEMA } from "../model/schema.js";
+import { matchesSchema } from "../model/check.js";
 
 /** What is copied: nodes with their own subtrees (selected descendants of a selected node are not repeated). */
 export interface Copied { nodes: DesignNode[]; board: string; parentIds: string[] }
@@ -24,12 +26,19 @@ export function collect(index: BoardIndex, ids: readonly string[]): { nodes: Des
 export function serialize(copied: Copied): string {
   return JSON.stringify({ [CLIPBOARD_MARKER]: 1, ...copied });
 }
-export function parseClipboard(text: string): Copied | undefined {
-  try {
-    const value = JSON.parse(text) as Record<string, unknown>;
-    if (value[CLIPBOARD_MARKER] !== 1 || !Array.isArray(value.nodes)) return;
-    return { nodes: value.nodes as DesignNode[], board: String(value.board ?? ""), parentIds: (value.parentIds as string[]) ?? [] };
-  } catch { return; }
+/**
+ * Our nodes on the clipboard: `undefined` when the text is not ours (paste nothing, say nothing),
+ * `invalid` when it is ours but a node does not fit the design format (say so, paste nothing).
+ */
+export function parseClipboard(text: string): Copied | "invalid" | undefined {
+  let value: Record<string, unknown>;
+  try { value = JSON.parse(text) as Record<string, unknown>; } catch { return; }
+  if (typeof value !== "object" || value === null || value[CLIPBOARD_MARKER] !== 1) return;
+  if (!Array.isArray(value.nodes) || !value.nodes.length) return "invalid";
+  const schema = DESIGN_NODE_SCHEMA as Record<string, unknown>;
+  if (!value.nodes.every(node => matchesSchema(node, schema, schema))) return "invalid";
+  return { nodes: value.nodes as DesignNode[], board: String(value.board ?? ""),
+    parentIds: Array.isArray(value.parentIds) ? value.parentIds.map(String) : [] };
 }
 
 /** A fresh, unused id like `rectangle-3` (ids match ^[a-z0-9][a-z0-9-]{0,39}$). */

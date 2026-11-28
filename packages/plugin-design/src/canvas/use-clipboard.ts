@@ -81,6 +81,7 @@ export function useClipboard(m: CanvasModel) {
       const copied = text ? parseClipboard(text) : clipboard.current;
       if (!copied) return;
       event.preventDefault();
+      if (copied === "invalid") { m.setStatus(m.t("pasteInvalid")); return; }
       pasteNodes(copied);
     }
   };
