@@ -7,7 +7,12 @@
  * **`export *`を使わない。** ReactはCJSであり、`export *`はバンドラが付けた
  * 内部名をそのまま再輸出するため、minifyで`a`・`b`のような名前になって
  * `useState`が消える。名前を1つずつ書くことが、この契約の中身である。
+ *
+ * **既定のexport（`import React from "react"`）も渡す。** 多くのReactの部品
+ * （例: react-colorful）はこの形で読み込み、無いとプラグインの画面ごと読めない。
  */
+import React from "react";
+export default React;
 export {
   Children,
   Component,

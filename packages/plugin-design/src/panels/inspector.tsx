@@ -2,6 +2,10 @@ import { useState, type KeyboardEvent } from "react";
 import { designText } from "../i18n.js";
 import { InspectorLocale } from "./fields/locale.js";
 import { inspectorSections, type InspectorContext, type InspectorTab } from "./sections.js";
+// Built-in sections register themselves on import, in this order.
+import "./paint.js";
+import "./stroke.js";
+import "./effects.js";
 
 const TABS: readonly [InspectorTab, keyof typeof designText][] = [["design", "tabDesign"], ["prototype", "tabPrototype"], ["code", "tabCode"]];
 

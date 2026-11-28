@@ -8,6 +8,7 @@ import { MIXED, NumberField, type FieldValue } from "./fields/number-field.js";
 import type { TokenOption } from "./fields/token-button.js";
 
 export type InspectorTab = "design" | "prototype" | "code";
+export type PaintList = "fills" | "strokes";
 export interface InspectorTarget { board: string; node: DesignNode; index: BoardIndex }
 export interface InspectorBoard { name: string; title: string; width?: number; height?: number }
 export interface InspectorContext {
@@ -18,6 +19,14 @@ export interface InspectorContext {
   editable: boolean;
   /** Tokens whose values are lengths (px, rem, numbers). */
   lengthTokens: readonly TokenOption[];
+  /** Tokens whose values are colours, and a resolver for previews (token → CSS colour). */
+  colorTokens: readonly TokenOption[];
+  resolveColor(value: string): string | undefined;
+  /** Upload an image and return its asset path (absent in static output). */
+  uploadImage?(file: File): Promise<string | undefined>;
+  /** The gradient whose stop handles are shown on the canvas (one selected node only). */
+  activeGradient?: { list: PaintList; paint: number };
+  setActiveGradient(value: { list: PaintList; paint: number } | undefined): void;
   /** Change every target; one call is one operation. `mergeKey` joins quick repeats. */
   update(patch: (target: InspectorTarget) => Partial<DesignNode> | undefined, mergeKey?: string): void;
   selectBoard(name: string): void;

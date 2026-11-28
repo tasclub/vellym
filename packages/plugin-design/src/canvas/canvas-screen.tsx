@@ -21,13 +21,17 @@ import { createNode, DEFAULT_BOARD, DEFAULT_SIZE, drawBounds, flows, imageNode, 
   parentFrame, toParent, TOOL_KEYS, type DrawTool, type Point, type Rect, type Tool } from "../tools/shape-tools.js";
 import { naturalSize } from "../tools/image-tool.js";
 import { Inspector } from "../panels/inspector.js";
-import type { InspectorContext } from "../panels/sections.js";
+import type { InspectorContext, PaintList } from "../panels/sections.js";
+import { isGradient, positionAt, type Gradient } from "../panels/gradient-axis.js";
+import { rotate } from "../edit/transform.js";
 import { angleOf, HANDLES, moveNodes, movable, resizable, resizeNodes, rotateNodes, updateNodes,
   type Handle, type WorldBox } from "../edit/transform.js";
 
 /** A drag of the selection: the model changes only on release (one undo step). */
 interface TransformGesture {
-  pointer: number; kind: "move" | "resize" | "rotate"; handle?: Handle;
+  pointer: number; kind: "move" | "resize" | "rotate" | "gradient"; handle?: Handle;
+  /** For a gradient stop drag: which paint and stop, and the node's measured box. */
+  stop?: { board: string; id: string; list: PaintList; paint: number; index: number; box: WorldBox };
   start: { x: number; y: number }; roots: Map<string, DesignNode>; ids: Map<string, string[]>;
   boxes: Map<string, Map<string, WorldBox>>; frame?: WorldBox; angle: number;
   rotations: Map<string, Map<string, number>>; next?: Map<string, DesignNode>;
@@ -54,6 +58,8 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     moveItems?: Selection[] } | undefined>(undefined);
   const transform = useRef<TransformGesture | undefined>(undefined);
   const [preview, setPreview] = useState<ReadonlyMap<string, DesignNode>>();
+  const [activeGradient, setActiveGradient] = useState<{ list: PaintList; paint: number }>();
+  useLayoutEffect(() => setActiveGradient(undefined), [selected]);
   const [tool, setTool] = useState<Tool>("select");
   const hand = tool === "hand";
   const setHand = (value: boolean) => setTool(value ? "hand" : "select");
@@ -195,9 +201,25 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     const drag = transform.current;
     if (!drag) return;
     const point = worldPoint(event.clientX, event.clientY), dx = point.x - drag.start.x, dy = point.y - drag.start.y;
+    const next = new Map<string, DesignNode>();
+    if (drag.kind === "gradient" && drag.stop) {
+      const { board, id, list, paint, index, box } = drag.stop, root = drag.roots.get(board)!;
+      const node = geometry.find(item => item.name === board)?.index.get(id)?.node;
+      const paints = node && (indexBoard(root).get(id)?.node[list] ?? []);
+      const target = paints?.[paint];
+      if (!paints || !isGradient(target)) return;
+      const local = rotate(point.x - box.cx, point.y - box.cy, -box.rotation);
+      const position = positionAt(target, box.width, box.height, local);
+      if (position === undefined) return;
+      const updated = paints.map((item, i) => i === paint ? { ...item, stops: (item as Gradient).stops.map((stop, n) => n === index ? { ...stop, position } : stop) } : item);
+      const after = updateNodes(root, new Map([[id, { [list]: updated } as Partial<DesignNode>]]));
+      next.set(board, after);
+      drag.next = next;
+      setPreview(next);
+      return;
+    }
     const centre = drag.frame ?? [...drag.boxes.values()].flatMap(map => [...map.values()])[0]!;
     const delta = angleOf(centre.cx, centre.cy, point.x, point.y) - drag.angle;
-    const next = new Map<string, DesignNode>();
     for (const [name, root] of drag.roots) {
       const ids = drag.ids.get(name) ?? [];
       const after = drag.kind === "move" ? moveNodes(root, ids, dx, dy)
@@ -303,6 +325,11 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const lengthTokens = Object.entries(resolution.context.tokens ?? {})
     .filter(([, value]) => typeof value === "number" || /^-?\d*\.?\d+(?:px|rem|em)?$/.test(String(value)))
     .map(([path, value]) => ({ path, value })).sort((a, b) => a.path.localeCompare(b.path));
+  const colorTokens = Object.entries(resolution.context.tokens ?? {})
+    .filter(([, value]) => typeof value === "string" && /^(?:#|rgba?\(|hsla?\(|color\(|oklch\(|oklab\(|lab\(|lch\()/i.test(value))
+    .map(([path, value]) => ({ path, value })).sort((a, b) => a.path.localeCompare(b.path));
+  const gradientItem = activeGradient && selected.length === 1 ? selected[0] : undefined;
+  const gradientPaint = gradientItem && geometry.find(row => row.name === gradientItem.board)?.index.get(gradientItem.id)?.node[activeGradient!.list]?.[activeGradient!.paint];
   const inspector: InspectorContext = {
     targets: selected.flatMap(item => {
       const board = geometry.find(row => row.name === item.board), node = board?.index.get(item.id)?.node;
@@ -310,7 +337,18 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     }),
     boards: boards.map(board => ({ name: board.name, title: board.title ?? board.name,
       width: board.spec.root.width, height: board.spec.root.height })),
-    locale, editable: store.editable && !transform.current, lengthTokens,
+    locale, editable: store.editable && !transform.current, lengthTokens, colorTokens,
+    resolveColor: value => {
+      const token = /^\{(.+)\}$/.exec(value)?.[1];
+      const resolved = token ? resolution.context.tokens?.[token] : value;
+      return typeof resolved === "string" ? resolved : undefined;
+    },
+    ...(context.uploadAsset && store.editable ? { uploadImage: async (file: File) => {
+      const result = await context.uploadAsset!(file);
+      if (!result.ok) { setStatus(`${t("uploadFailed")}: ${result.message}`); return undefined; }
+      return result.path;
+    } } : {}),
+    activeGradient, setActiveGradient,
     update(patch, mergeKey) {
       const changes = [...byBoard(selected)].flatMap(([name]) => {
         const before = savedRoot(name), board = geometry.find(row => row.name === name);
@@ -462,6 +500,19 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
               setHover(undefined);
               return;
             }
+            const stopHandle = (event.target as Element).closest?.("[data-gradient-stop]")?.getAttribute("data-gradient-stop");
+            if (stopHandle !== null && stopHandle !== undefined && store.editable && activeGradient && selected.length === 1) {
+              const item = selected[0]!, board = geometry.find(row => row.name === item.board), world = navigation.world.current;
+              const box = board && world ? measureNode(world, board, item.id) : undefined;
+              const root = savedRoot(item.board);
+              if (box && root) {
+                transform.current = { pointer: event.pointerId, kind: "gradient", start, roots: new Map([[item.board, root]]),
+                  ids: new Map([[item.board, [item.id]]]), boxes: new Map(), rotations: new Map(), angle: 0,
+                  stop: { board: item.board, id: item.id, ...activeGradient, index: Number(stopHandle),
+                    box: { cx: box.x + box.width / 2, cy: box.y + box.height / 2, width: box.width, height: box.height, rotation: box.rotation } } };
+              }
+              return;
+            }
             const handle = (event.target as Element).closest?.("[data-handle]")?.getAttribute("data-handle");
             if (handle && store.editable) {
               beginTransform(event.pointerId, handle.startsWith("rotate-") ? "rotate" : "resize", selected, start,
@@ -582,7 +633,8 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
               }}>{board.title ?? board.name}</button>)}
             <Notes notes={notes} />
             <Overlay world={navigation.world} boards={geometry} selection={selected} hover={hover} marquee={marquee}
-              revision={preview ?? store.getSnapshot()} onBounds={setSelectionBounds} handles={handles} rotatable={rotatable} />
+              revision={preview ?? store.getSnapshot()} onBounds={setSelectionBounds} handles={handles} rotatable={rotatable}
+              gradient={gradientItem && isGradient(gradientPaint) ? { item: gradientItem, paint: gradientPaint } : undefined} />
           </div>
         </div>
       </div>

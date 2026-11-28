@@ -1,7 +1,8 @@
 import { useLayoutEffect, useState, type RefObject } from "react";
 import type { BoardIndex, Selection } from "../edit/selection.js";
 import type { Bounds } from "./viewport.js";
-import type { Handle } from "../edit/transform.js";
+import { rotate, type Handle } from "../edit/transform.js";
+import { stopOffset, type Gradient } from "../panels/gradient-axis.js";
 
 export interface BoardGeometry { name: string; x: number; y: number; index: BoardIndex }
 export interface NodeBox extends Bounds { rotation: number }
@@ -50,11 +51,13 @@ const place: Record<Handle, [number, number]> = {
   nw: [0, 0], n: [50, 0], ne: [100, 0], e: [100, 50], se: [100, 100], s: [50, 100], sw: [0, 100], w: [0, 50]
 };
 
-export function Overlay({ world, boards, selection, hover, marquee, revision, onBounds, handles = [], rotatable = false }: {
+export function Overlay({ world, boards, selection, hover, marquee, revision, onBounds, handles = [], rotatable = false, gradient }: {
   world: RefObject<HTMLDivElement | null>; boards: BoardGeometry[]; selection: Selection[];
   hover?: Selection; marquee?: Bounds; revision: unknown; onBounds: (bounds?: Bounds) => void;
   /** Resize handles to offer around the selection (none while editing is unavailable). */
   handles?: readonly Handle[]; rotatable?: boolean;
+  /** Stop handles for one selected node's gradient, along the same axis the CSS draws. */
+  gradient?: { item: Selection; paint: Gradient };
 }) {
   const [boxes, setBoxes] = useState<{ item: Selection; box: NodeBox; hover: boolean }[]>([]);
   useLayoutEffect(() => {
@@ -81,6 +84,15 @@ export function Overlay({ world, boards, selection, hover, marquee, revision, on
     return () => cancelAnimationFrame(frame);
   }, [world, boards, selection, hover, revision, onBounds]);
   const frame = selectionFrame(boxes.filter(entry => !entry.hover).map(entry => entry.box));
+  const target = gradient && boxes.find(entry => !entry.hover && entry.item.board === gradient.item.board && entry.item.id === gradient.item.id)?.box;
+  const at = (t: number) => {
+    if (!target || !gradient) return;
+    const offset = stopOffset(gradient.paint, target.width, target.height, t);
+    if (!offset) return;
+    const turned = rotate(offset.x, offset.y, target.rotation);
+    return { x: target.x + target.width / 2 + turned.x, y: target.y + target.height / 2 + turned.y };
+  };
+  const ends = [at(0), at(1)];
   return <div className="design-overlay" aria-hidden="true">
     {boxes.map(({ item, box, hover }) => <div key={`${hover}/${item.board}/${item.id}`}
       className={hover ? "design-hover" : "design-selection"}
@@ -94,6 +106,16 @@ export function Overlay({ world, boards, selection, hover, marquee, revision, on
       {handles.map(handle => <div key={handle} className={`design-handle design-handle-${handle}`}
         data-handle={handle} data-testid={`design-handle-${handle}`}
         style={{ left: `${place[handle][0]}%`, top: `${place[handle][1]}%` }} />)}
+    </div>}
+    {gradient && ends[0] && ends[1] && <div className="design-gradient" data-testid="design-gradient-handles">
+      <svg className="design-gradient-axis" style={{ overflow: "visible", position: "absolute", left: 0, top: 0, width: 1, height: 1 }}>
+        <line x1={ends[0].x} y1={ends[0].y} x2={ends[1].x} y2={ends[1].y} />
+      </svg>
+      {gradient.paint.stops.map((stop, i) => {
+        const p = at(stop.position)!;
+        return <div key={i} className="design-gradient-stop" data-gradient-stop={i} data-testid={`design-gradient-stop-${i}`}
+          style={{ left: p.x, top: p.y, background: stop.color }} />;
+      })}
     </div>}
     {marquee && <div className="design-marquee" data-testid="design-marquee"
       style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }} />}

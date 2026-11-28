@@ -33,7 +33,8 @@
   "devDependencies": {
     "@vellym/plugin-api": "*",
     "esbuild": "^0.28.1",
-    "paper": "0.17.0"
+    "paper": "0.17.0",
+    "react-colorful": "5.8.1"
   },
   "vellym": {
     "id": "design",

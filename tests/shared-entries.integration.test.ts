@@ -14,7 +14,7 @@ const assets = path.join(clientRoot, "assets");
  * ことになっており、`useState`が`a`になって消えていた。
  */
 const REQUIRED_EXPORTS: Record<string, readonly string[]> = {
-  "react": ["useState", "useEffect", "useMemo", "useRef", "createElement"],
+  "react": ["default", "useState", "useEffect", "useMemo", "useRef", "createElement"],
   "react-dom/client": ["createRoot", "createPortal"],
   "react/jsx-runtime": ["jsx", "jsxs", "Fragment"],
   "@vellym/plugin-api/ui": ["Button", "Dialog", "DataTable", "FieldInput", "ChoiceControl", "InputControl", "Icon", "KindIcon"],
@@ -54,6 +54,8 @@ describe.skipIf(!built)("shared entries for plugins", () => {
           `${name} から ${key} が読めない`
         ).toBeDefined();
       }
+      // The default export is the same React (plugins mix `React.x` and named imports).
+      if (name === "react") expect(module.default.useState).toBe(module.useState);
     }
   });
 
