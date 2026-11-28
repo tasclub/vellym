@@ -20,7 +20,9 @@ import { Toolbar } from "../tools/toolbar.js";
 import { createNode, DEFAULT_BOARD, DEFAULT_SIZE, drawBounds, flows, imageNode, insertChild, newNodeId,
   parentFrame, toParent, TOOL_KEYS, type DrawTool, type Point, type Rect, type Tool } from "../tools/shape-tools.js";
 import { naturalSize } from "../tools/image-tool.js";
-import { angleOf, HANDLES, moveNodes, movable, resizable, resizeNodes, rotateNodes,
+import { Inspector } from "../panels/inspector.js";
+import type { InspectorContext } from "../panels/sections.js";
+import { angleOf, HANDLES, moveNodes, movable, resizable, resizeNodes, rotateNodes, updateNodes,
   type Handle, type WorldBox } from "../edit/transform.js";
 
 /** A drag of the selection: the model changes only on release (one undo step). */
@@ -298,6 +300,36 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     navigation.viewport.current?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => { if (confirmDelete) cancelDelete.current?.focus(); }, [confirmDelete]);
+  const lengthTokens = Object.entries(resolution.context.tokens ?? {})
+    .filter(([, value]) => typeof value === "number" || /^-?\d*\.?\d+(?:px|rem|em)?$/.test(String(value)))
+    .map(([path, value]) => ({ path, value })).sort((a, b) => a.path.localeCompare(b.path));
+  const inspector: InspectorContext = {
+    targets: selected.flatMap(item => {
+      const board = geometry.find(row => row.name === item.board), node = board?.index.get(item.id)?.node;
+      return board && node ? [{ board: item.board, node, index: board.index }] : [];
+    }),
+    boards: boards.map(board => ({ name: board.name, title: board.title ?? board.name,
+      width: board.spec.root.width, height: board.spec.root.height })),
+    locale, editable: store.editable && !transform.current, lengthTokens,
+    update(patch, mergeKey) {
+      const changes = [...byBoard(selected)].flatMap(([name]) => {
+        const before = savedRoot(name), board = geometry.find(row => row.name === name);
+        if (!before || !board) return [];
+        const map = new Map(inspector.targets.filter(target => target.board === name).flatMap(target => {
+          const value = patch(target);
+          return value ? [[target.node.id, value] as const] : [];
+        }));
+        const after = map.size ? updateNodes(before, map) : before;
+        return after !== before ? [{ targetName: name, before, after }] : [];
+      });
+      if (changes.length) store.apply({ changes, ...(mergeKey ? { mergeKey } : {}) });
+    },
+    selectBoard(name) {
+      const board = geometry.find(row => row.name === name);
+      const root = board && [...board.index.values()].find(item => item.depth === 0)?.node.id;
+      if (root !== undefined) setSelected([{ board: name, id: root }]);
+    }
+  };
   const finishGesture = (event: React.PointerEvent<HTMLDivElement>) => {
     if (draw.current?.pointer === event.pointerId) { finishDraw(worldPoint(event.clientX, event.clientY)); return; }
     if (transform.current?.pointer === event.pointerId) { endTransform(true); return; }
@@ -554,6 +586,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           </div>
         </div>
       </div>
+      <Inspector context={inspector} />
     </div>
     {presenting && <Presentation data={data} start={presenting} context={resolution.context} fontsCss={fonts}
       locale={context.locale} onClose={() => { setPresenting(undefined); presentButton.current?.focus(); }} />}

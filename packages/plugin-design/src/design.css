@@ -112,3 +112,46 @@
 .design-rotate-ne { translate: -15% -85%; }
 .design-rotate-se { translate: -15% -15%; }
 .design-rotate-sw { translate: -85% -15%; }
+
+/* The right panel. */
+.design-inspector {
+  width: 264px; flex-shrink: 0; overflow: auto; border-left: var(--border-width) solid var(--border-strong);
+  background: var(--surface-raised); color: var(--text-primary); font-size: var(--text-body);
+}
+.design-inspector-tabs { display: flex; border-bottom: var(--border-width) solid var(--border-strong); }
+.design-inspector-tabs button {
+  flex: 1; min-height: 34px; font: inherit; border: 0; background: transparent; color: var(--text-primary); cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.design-inspector-tabs button[aria-selected="true"] { border-bottom-color: var(--text-primary); font-weight: 700; }
+.design-inspector-summary, .design-inspector-empty { margin: var(--space-3) var(--space-4); color: var(--text-muted); }
+.design-inspector-section { padding: var(--space-3) var(--space-4); border-bottom: var(--border-width) solid var(--border-strong); }
+.design-inspector-section h2 { margin: 0 0 var(--space-3); font-size: var(--text-body); }
+.design-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.design-field { display: flex; flex-direction: column; gap: 2px; position: relative; min-width: 0; }
+.design-field label { color: var(--text-muted); font-size: 12px; }
+.design-field input, .design-field select {
+  min-height: 30px; min-width: 0; padding: 0 var(--space-2); font: inherit; color: var(--text-primary);
+  border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-page);
+}
+.design-field input:focus-visible, .design-field select:focus-visible, .design-inspector button:focus-visible {
+  outline: 2px solid var(--text-primary); outline-offset: 1px;
+}
+.design-field-suffix { position: absolute; right: var(--space-2); bottom: 6px; color: var(--text-muted); pointer-events: none; }
+.design-token-picker { position: absolute; right: 2px; bottom: 2px; }
+.design-token-picker > button {
+  min-width: 26px; min-height: 26px; padding: 0; font: inherit; border: 0; background: transparent; color: var(--text-primary); cursor: pointer;
+}
+.design-token-list {
+  position: absolute; z-index: 4; right: 0; top: 100%; min-width: 200px; max-height: 240px; overflow: auto;
+  display: flex; flex-direction: column; padding: var(--space-2);
+  border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-raised);
+}
+.design-token-list button, .design-board-list button {
+  display: flex; justify-content: space-between; gap: var(--space-3); min-height: 30px; padding: 0 var(--space-2);
+  font: inherit; text-align: left; border: 0; background: transparent; color: var(--text-primary); cursor: pointer;
+}
+.design-token-list button:hover, .design-board-list button:hover { background: var(--surface-sunken); }
+.design-token-value { color: var(--text-muted); }
+.design-board-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.design-board-list button { width: 100%; }

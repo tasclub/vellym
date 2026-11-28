@@ -34,8 +34,9 @@ export function pickAt(index: BoardIndex, chain: readonly string[], selection: r
     const at = chain.findIndex(id => selection.includes(id));
     if (at >= 0) return chain[Math.max(0, at - 1)];
   }
+  // Re-pick at the selection's level. A selected board root has no peers: clicking inside it picks its child.
   const peers = chain.find(id => selection.some(selected =>
-    index.has(selected) && index.get(selected)!.parentId === index.get(id)!.parentId));
+    index.get(selected)?.parentId !== undefined && index.get(selected)!.parentId === index.get(id)!.parentId));
   return peers ?? chain[Math.max(0, chain.length - 2)];
 }
 

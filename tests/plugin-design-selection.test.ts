@@ -21,6 +21,7 @@ describe("design selection", () => {
   it("picks outside-in, then peers at the selected depth", () => {
     expect(pickAt(index, chain, [], "normal")).toBe("group");
     expect(pickAt(index, chain, ["peer"], "normal")).toBe("inner");
+    expect(pickAt(index, chain, ["root"], "normal")).toBe("group");
     expect(pickAt(index, ["root"], [], "normal")).toBe("root");
     expect(pickAt(index, [], [], "normal")).toBeUndefined();
   });
