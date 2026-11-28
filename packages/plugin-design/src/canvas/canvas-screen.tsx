@@ -16,6 +16,10 @@ import { boardElement, enclosing, measureNode, Overlay } from "./overlay.js";
 import type { Bounds } from "./viewport.js";
 import { Presentation } from "./presentation.js";
 import type { DesignNode } from "../model/types.js";
+import { Toolbar } from "../tools/toolbar.js";
+import { createNode, DEFAULT_BOARD, DEFAULT_SIZE, drawBounds, flows, imageNode, insertChild, newNodeId,
+  parentFrame, toParent, TOOL_KEYS, type DrawTool, type Point, type Rect, type Tool } from "../tools/shape-tools.js";
+import { naturalSize } from "../tools/image-tool.js";
 import { angleOf, HANDLES, moveNodes, movable, resizable, resizeNodes, rotateNodes,
   type Handle, type WorldBox } from "../edit/transform.js";
 
@@ -48,7 +52,14 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     moveItems?: Selection[] } | undefined>(undefined);
   const transform = useRef<TransformGesture | undefined>(undefined);
   const [preview, setPreview] = useState<ReadonlyMap<string, DesignNode>>();
-  const [hand, setHand] = useState(false);
+  const [tool, setTool] = useState<Tool>("select");
+  const hand = tool === "hand";
+  const setHand = (value: boolean) => setTool(value ? "hand" : "select");
+  const drawing = tool !== "select" && tool !== "hand";
+  const draw = useRef<{ pointer: number; tool: DrawTool; start: Point; client: Point;
+    hit?: { board: string; chain: string[] }; moved: boolean } | undefined>(undefined);
+  const [confirmDelete, setConfirmDelete] = useState<string[]>();
+  const cancelDelete = useRef<HTMLButtonElement>(null);
   const [modes, setModes] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -216,7 +227,79 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     // Held or repeated arrows within the history's merge window become one undo step.
     if (changes.length) store.apply({ changes, mergeKey: `nudge:${selected.map(item => `${item.board}/${item.id}`).sort().join(",")}` });
   };
+  /** The frame under a point (the board root at least) and its world box. */
+  const parentAt = (hit: { board: string; chain: string[] }) => {
+    const board = geometry.find(item => item.name === hit.board), world = navigation.world.current;
+    const parentId = board && parentFrame(board.index, hit.chain);
+    const box = board && parentId !== undefined && world ? measureNode(world, board, parentId) : undefined;
+    if (!board || parentId === undefined || !box) return;
+    return { board, parentId, box: { cx: box.x + box.width / 2, cy: box.y + box.height / 2,
+      width: box.width, height: box.height, rotation: box.rotation } };
+  };
+  const insert = (boardName: string, parentId: string, node: DesignNode) => {
+    const before = savedRoot(boardName);
+    if (!before) return;
+    const after = insertChild(before, parentId, node);
+    if (after !== before && store.apply({ changes: [{ targetName: boardName, before, after }] }))
+      setSelected([{ board: boardName, id: node.id }]);
+  };
+  const finishDraw = (end: Point) => {
+    const drag = draw.current;
+    draw.current = undefined;
+    setMarquee(undefined);
+    if (!drag) return;
+    setTool("select"); // Like Figma: back to the select tool after each shape.
+    const size = DEFAULT_SIZE[drag.tool];
+    const rect = drag.moved ? drawBounds(drag.tool, drag.start, end, { square: keys.current.shift, fromCenter: keys.current.alt })
+      : { x: drag.start.x, y: drag.start.y, ...size };
+    const parent = drag.hit && parentAt(drag.hit);
+    if (!parent) {
+      if (drag.tool === "frame") void addBoard(drag.moved ? rect : { x: drag.start.x, y: drag.start.y, ...DEFAULT_BOARD });
+      else setStatus(t("drawOnBoard"));
+      return;
+    }
+    const local = toParent(rect, parent.box);
+    insert(parent.board.name, parent.parentId,
+      createNode(drag.tool, newNodeId(parent.board.index, drag.tool), local, !flows(parent.board.index.get(parent.parentId)?.node)));
+  };
+  const keys = useRef({ shift: false, alt: false });
+  const placeImages = async (files: FileList | File[], client?: Point) => {
+    if (!context.uploadAsset || !store.editable) return;
+    const world = navigation.world.current;
+    for (const file of [...files].filter(item => item.type.startsWith("image/"))) {
+      // Drop point → the frame under it; otherwise the centre of the selected (or first) board.
+      const hit = client && hitAt(client.x, client.y);
+      const fallback = selected[0]?.board ?? boards[0]?.name;
+      const parent = hit ? parentAt(hit) : undefined;
+      const board = parent?.board ?? geometry.find(item => item.name === fallback);
+      if (!board || !world) { setStatus(t("drawOnBoard")); return; }
+      const rootId = [...board.index.values()].find(item => item.depth === 0)!.node.id;
+      const target = parent ?? parentAt({ board: board.name, chain: [rootId] });
+      if (!target) return;
+      const centre = client ? worldPoint(client.x, client.y) : { x: target.box.cx, y: target.box.cy };
+      const local = toParent({ x: centre.x, y: centre.y, width: 0, height: 0 }, target.box);
+      setStatus("");
+      const [uploaded, natural] = await Promise.all([context.uploadAsset(file), naturalSize(file)]);
+      if (!uploaded.ok) { setStatus(`${t("uploadFailed")}: ${uploaded.message}`); return; }
+      const node = imageNode(newNodeId(target.board.index, "image"), uploaded.path, natural, local, file.name);
+      insert(target.board.name, target.parentId, flows(target.board.index.get(target.parentId)?.node)
+        ? { ...node, x: undefined, y: undefined } as DesignNode : node);
+    }
+  };
+  const deleteBoards = async (names: string[]) => {
+    setConfirmDelete(undefined);
+    for (const name of names) {
+      const row = saved.find(board => board.name === name);
+      if (!row?.hash || !context.deleteResource) continue;
+      const result = await context.deleteResource(name, { baseHash: row.hash });
+      if (!result.ok) { setStatus(result.message); break; }
+    }
+    setSelected([]);
+    navigation.viewport.current?.focus({ preventScroll: true });
+  };
+  useLayoutEffect(() => { if (confirmDelete) cancelDelete.current?.focus(); }, [confirmDelete]);
   const finishGesture = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (draw.current?.pointer === event.pointerId) { finishDraw(worldPoint(event.clientX, event.clientY)); return; }
     if (transform.current?.pointer === event.pointerId) { endTransform(true); return; }
     const drag = gesture.current;
     if (!drag || drag.pointer !== event.pointerId) return;
@@ -250,20 +333,23 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
       }
     } else if (!drag.shift) setSelected([]);
   };
-  const addBoard = async () => {
+  const addBoard = async (place?: Rect) => {
     if (busy || !context.createResourceNow || !data.canvas) return;
     setBusy(true);
     setStatus("");
     try {
-      const x = Math.max(0, ...boards.map(board => board.spec.x + (board.spec.root.width ?? 0) + 80));
+      const x = place ? Math.round(place.x) : Math.max(0, ...boards.map(board => board.spec.x + (board.spec.root.width ?? 0) + 80));
+      const name = boardResourceName(data.canvas.name);
       const result = await context.createResourceNow({
-        kind: DESIGN_BOARD_KIND, name: boardResourceName(data.canvas.name),
+        kind: DESIGN_BOARD_KIND, name,
         title: t("boardName").replace("{number}", String(data.boards.length + 1)),
         folder: [folderOf(data.canvas.relativePath), "+boards"].filter(Boolean).join("/"),
-        spec: { canvas: data.canvas.name, ...(active ? { page: active } : {}), x, y: 0,
-          root: { id: "root", type: "frame", width: 390, height: 844, children: [] } }
+        spec: { canvas: data.canvas.name, ...(active ? { page: active } : {}), x, y: place ? Math.round(place.y) : 0,
+          root: { id: "root", type: "frame", width: Math.max(1, Math.round(place?.width ?? DEFAULT_BOARD.width)),
+            height: Math.max(1, Math.round(place?.height ?? DEFAULT_BOARD.height)), fills: [{ color: "#ffffff" }], children: [] } }
       });
       if (!result.ok) setStatus(result.message);
+      else if (place) setSelected([{ board: result.name, id: "root" }]);
     } catch {
       setStatus(t("createBoardFailed"));
     } finally {
@@ -276,7 +362,9 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     {data.notices?.length > 0 && <ul role="alert">{data.notices.map((notice, i) =>
       <li key={i}>{locale === "ja" ? notice.ja : notice.en}</li>)}</ul>}
     <div className="design-canvas-tools" role="group" aria-label={t("navigation")}>
-      <button type="button" data-testid="design-hand" aria-pressed={hand} onClick={() => setHand(!hand)}>{t("hand")}</button>
+      {/* Drawing needs a saved canvas: an unsaved draft cannot hold boards yet (no createResourceNow). */}
+      <Toolbar tool={tool} onTool={next => { setTool(next); setHover(undefined); }} locale={locale}
+        editable={store.editable && !!context.createResourceNow} onImage={context.uploadAsset ? files => { void placeImages(files); } : undefined} />
       <button type="button" data-testid="design-zoom-reset" onClick={navigation.reset}>{t("actualSize")}</button>
       <button type="button" data-testid="design-zoom-fit" onClick={() => navigation.fit()}>{t("fitAll")}</button>
       <button type="button" data-testid="design-zoom-selection" disabled={!selected.length} onClick={() => navigation.fit(true)}>{t("fitSelection")}</button>
@@ -300,6 +388,18 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
       </label>)}
       {store.editable && context.createResourceNow && <button type="button" data-testid="design-add-board"
         disabled={busy} onClick={() => { void addBoard(); }}>{t("createBoard")}</button>}
+      {confirmDelete && <div className="design-confirm" role="alertdialog" aria-modal="false"
+        aria-labelledby="design-confirm-text" data-testid="design-confirm-delete"
+        onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setConfirmDelete(undefined); navigation.viewport.current?.focus(); } }}>
+        <p id="design-confirm-text">{confirmDelete.length === 1
+          ? t("deleteBoardConfirm").replace("{name}", saved.find(board => board.name === confirmDelete[0])?.title ?? confirmDelete[0]!)
+          : t("deleteBoardsConfirm").replace("{count}", String(confirmDelete.length))}</p>
+        <div>
+          <button ref={cancelDelete} type="button" data-testid="design-confirm-cancel"
+            onClick={() => { setConfirmDelete(undefined); navigation.viewport.current?.focus(); }}>{t("cancel")}</button>
+          <button type="button" data-testid="design-confirm-ok" onClick={() => { void deleteBoards(confirmDelete); }}>{t("deleteConfirm")}</button>
+        </div>
+      </div>}
       <span role="status">{status}</span>
       <span role="status" data-testid="design-selection-status">{selected.length ? t("selectedCount").replace("{count}", String(selected.length)) : ""}</span>
       {store.editable && <span role="status" data-testid="design-save-status" data-state={store.status}>
@@ -315,7 +415,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           {t(context.isStatic ? "emptyCanvasStatic" : "emptyCanvas")}
         </p>}
         <div ref={navigation.viewport} data-testid="design-viewport" role="region" aria-label={t("canvasNavigation")}
-          tabIndex={0} aria-keyshortcuts="H V Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
+          tabIndex={0} aria-keyshortcuts="H V F R O L Delete Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
           onPointerDown={event => {
             // Portal events can reach React before the viewport's native pan listener.
             if (event.defaultPrevented || hand || space.current || event.button !== 0 || event.pointerType === "touch" || editable(event)) return;
@@ -323,6 +423,13 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
             event.preventDefault();
             event.currentTarget.setPointerCapture(event.pointerId);
             const start = worldPoint(event.clientX, event.clientY);
+            keys.current = { shift: event.shiftKey, alt: event.altKey };
+            if (drawing && store.editable) {
+              draw.current = { pointer: event.pointerId, tool: tool as DrawTool, start, client: { x: event.clientX, y: event.clientY },
+                hit: hitAt(event.clientX, event.clientY), moved: false };
+              setHover(undefined);
+              return;
+            }
             const handle = (event.target as Element).closest?.("[data-handle]")?.getAttribute("data-handle");
             if (handle && store.editable) {
               beginTransform(event.pointerId, handle.startsWith("rotate-") ? "rotate" : "resize", selected, start,
@@ -340,6 +447,20 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
             setHover(undefined);
           }}
           onPointerMove={event => {
+            keys.current = { shift: event.shiftKey, alt: event.altKey };
+            if (draw.current) {
+              const drag = draw.current;
+              if (drag.pointer !== event.pointerId) return;
+              if (Math.hypot(event.clientX - drag.client.x, event.clientY - drag.client.y) >= 3) drag.moved = true;
+              if (drag.moved) {
+                const box = drawBounds(drag.tool, drag.start, worldPoint(event.clientX, event.clientY),
+                  { square: event.shiftKey, fromCenter: event.altKey });
+                setMarquee({ x: Math.min(box.x, box.x + box.width), y: Math.min(box.y, box.y + box.height),
+                  width: Math.abs(box.width), height: Math.abs(box.height) });
+              }
+              return;
+            }
+            if (drawing) return;
             if (transform.current) {
               if (transform.current.pointer === event.pointerId) updateTransform(event);
               return;
@@ -365,16 +486,32 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
             } else setHover(undefined);
           }}
           onPointerUp={finishGesture}
-          onPointerCancel={() => { gesture.current = undefined; setMarquee(undefined); endTransform(false); }}
-          onLostPointerCapture={() => { gesture.current = undefined; setMarquee(undefined); endTransform(false); }}
+          onPointerCancel={() => { draw.current = undefined; gesture.current = undefined; setMarquee(undefined); endTransform(false); }}
+          onLostPointerCapture={() => { if (draw.current) return; gesture.current = undefined; setMarquee(undefined); endTransform(false); }}
           onPointerLeave={() => setHover(undefined)}
+          onDragOver={event => { if (store.editable && context.uploadAsset && event.dataTransfer.types.includes("Files")) event.preventDefault(); }}
+          onDrop={event => {
+            if (!store.editable || !context.uploadAsset || !event.dataTransfer.files.length) return;
+            event.preventDefault();
+            void placeImages(event.dataTransfer.files, { x: event.clientX, y: event.clientY });
+          }}
           onDoubleClick={event => {
-            if (hand || space.current || editable(event)) return;
+            if (drawing || hand || space.current || editable(event)) return;
             const hit = hitAt(event.clientX, event.clientY), item = hit && choose(hit, "enter");
             if (item) merge([item], event.shiftKey);
           }}
           onKeyDown={event => {
             if (editable(event) || event.ctrlKey || event.metaKey || event.altKey) return;
+            const next = TOOL_KEYS[event.key.toLowerCase()];
+            // H and V are the viewport's own keys (they switch the hand); F, R, O and L pick a drawing tool.
+            if (next && next !== "hand" && next !== "select" && store.editable && context.createResourceNow && !event.shiftKey) { setTool(next); setHover(undefined); return; }
+            if ((event.key === "Delete" || event.key === "Backspace") && store.editable && context.deleteResource && selected.length &&
+                selected.every(item => geometry.find(board => board.name === item.board)?.index.get(item.id)?.parentId === undefined)) {
+              event.preventDefault();
+              setConfirmDelete([...new Set(selected.map(item => item.board))]);
+              return;
+            }
+            if (event.key === "Escape" && drawing) { draw.current = undefined; setMarquee(undefined); setTool("select"); return; }
             const arrow = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, [number, number]>)[event.key];
             if (arrow && store.editable && selected.length && !transform.current) {
               event.preventDefault();
@@ -396,7 +533,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           onKeyUp={event => { if (event.code === "Space") space.current = false; }}
           onBlur={() => { space.current = false; }}
           style={{ position: "absolute", inset: 0, overflow: "hidden", touchAction: "none", background: "#e5e7eb",
-            color: "#1f2937", cursor: hand ? "grab" : "default" }}>
+            color: "#1f2937", cursor: hand ? "grab" : drawing ? "crosshair" : "default" }}>
           <div ref={navigation.world} data-testid="design-board-stage" style={{
             position: "absolute", left: 0, top: 0, width: "100%", height: "100%", transformOrigin: "0 0", willChange: "transform"
           }}>

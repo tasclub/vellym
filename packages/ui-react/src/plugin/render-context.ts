@@ -5,7 +5,7 @@ import type {
   PluginSpecWrite
 } from "@vellym/plugin-api";
 
-import { ApiError, createPluginResource, deletePluginResource, fetchPageEdit, isStaticApp, patchPage, savePluginFile } from "../shared/api.js";
+import { ApiError, createPluginResource, deletePluginResource, fetchPageEdit, isStaticApp, patchPage, savePluginFile, uploadImage } from "../shared/api.js";
 import type { PluginSpecValue } from "../shared/field-input.js";
 import type { PluginViewPayload } from "./plugin-list-view.js";
 import { readPluginViewSettings, writePluginViewSettings } from "./view-settings.js";
@@ -93,6 +93,16 @@ export function createRenderContext(options: {
         return { ok: false, reason: error instanceof ApiError && error.status === 409 ? "conflict" : "error", message: options.describeError(error) };
       }
     },
+    ...(isStaticApp() ? {} : {
+      async uploadAsset(file: Blob) {
+        try {
+          const result = await uploadImage(file instanceof File ? file : new File([file], "image", { type: file.type }));
+          return { ok: true as const, path: result.data.path };
+        } catch (error) {
+          return { ok: false as const, message: options.describeError(error) };
+        }
+      }
+    }),
     async deleteResource(name, { baseHash }) {
       if (isStaticApp()) {
         return { ok: false, reason: "error", message: options.describeError(new ApiError("Deleting is unavailable in static output.", 405, [], "STATIC_WRITE_UNAVAILABLE")) };

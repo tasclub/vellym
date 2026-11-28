@@ -40,6 +40,34 @@
   font-weight: 700;
 }
 .design-canvas-tools button:disabled { color: var(--text-muted); cursor: default; }
+.design-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.design-canvas-tools select {
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--text-body);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+.design-canvas-screen select:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+.design-visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.design-confirm {
+  position: absolute; z-index: 3; top: var(--space-4); left: 50%; translate: -50% 0;
+  display: flex; flex-direction: column; gap: var(--space-3); max-width: 420px;
+  padding: var(--space-4); border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--text-primary);
+}
+.design-confirm div { display: flex; justify-content: flex-end; gap: var(--space-3); }
+.design-confirm button {
+  min-height: 34px; padding: 0 var(--space-4); font: inherit; cursor: pointer;
+  border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-raised); color: var(--text-primary);
+}
 .design-canvas-screen button:focus-visible {
   outline: 2px solid var(--text-primary);
   outline-offset: 2px;

@@ -300,6 +300,10 @@ export type PluginCreateResult =
   | { ok: true; name: string }
   | { ok: false; reason: "conflict" | "error"; message: string };
 
+export type PluginUploadResult =
+  | { ok: true; path: string }
+  | { ok: false; message: string };
+
 export type PluginOpenResourceResult =
   | { ok: true }
   | { ok: false; message: string; reason: "not-found" | "unavailable" };
@@ -338,6 +342,12 @@ export interface PluginRenderContext extends PluginViewContext {
   runCommand?(id: string, input: Readonly<Record<string, PluginInputValue>>): Promise<PluginSaveResult>;
   /** Create a resource immediately without navigating to a draft. */
   createResourceNow?(draft: PluginResourceDraft & { name: string }): Promise<PluginCreateResult>;
+  /**
+   * Upload an image to the project's assets. The host checks the type and size.
+   * `path` is relative to the assets root (what an image node stores). Absent in
+   * static output.
+   */
+  uploadAsset?(file: Blob): Promise<PluginUploadResult>;
   /** Delete a registered resource using the hash obtained when it was loaded. */
   deleteResource?(name: string, options: { baseHash: string }): Promise<PluginSaveResult>;
   /** Save a registered JSON file using its loaded hash, or null to create it. */

@@ -48,6 +48,19 @@ describe("plugin render context", () => {
     expect(context({ saveDraft: vi.fn() }).createResourceNow).toBeUndefined();
   });
 
+  it("uploads an image to the assets API and returns its path", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      apiSchemaVersion: "1", data: { path: "2026/11/a.png", url: "asset:2026/11/a.png" }, diagnostics: []
+    }), { status: 201, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetcher);
+    const result = await context({}).uploadAsset!(new Blob(["x"], { type: "image/png" }));
+    expect(result).toEqual({ ok: true, path: "2026/11/a.png" });
+    const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/assets");
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>)["Content-Type"]).toBe("image/png");
+  });
+
   it("creates immediately and refreshes without using navigation", async () => {
     const saved = vi.fn();
     const open = vi.fn(async () => ({ ok: true as const }));
