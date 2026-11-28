@@ -201,6 +201,9 @@ comes from being local:
 | Cross-origin reads | No CORS grants | `tests/security/http-boundary.integration.test.ts` |
 | Content sniffing, framing, referrer leakage | Security response headers | `tests/security/http-boundary.integration.test.ts` |
 | Git option injection through paths | Treat requested paths as paths, not Git options | `tests/security/git-arguments.integration.test.ts` |
+| Path traversal through APIs | Validate paths and confine filesystem access | `tests/security/path-boundary.integration.test.ts` |
+| Absolute path disclosure in errors | Avoid exposing local paths in responses and diagnostics | `tests/security/information-leak.integration.test.ts` |
+| Setup writes and font downloads outside intended boundaries | Confine writes, exclude generated folders and restrict font hosts | `tests/security/setup-boundary.integration.test.ts` |
 | Accidental network exposure | Loopback bind by default; warning for public bind | `tests/security/cli-defaults.integration.test.ts` |
 
 If you add an endpoint, it inherits the header and origin handling from the shared
