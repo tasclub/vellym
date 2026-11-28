@@ -29,7 +29,7 @@ spec:
 
         ## ファイルとデータ
 
-        キャンバスは1フォルダにまとめます。キャンバス、共有スタイル、ボード、部品は、それぞれの`metadata.name`を使ったYAMLファイルです。ボードと部品は`+boards/`・`+components/`に1件ずつ保存します。トークンはDTCG JSONのまま`.tokens.json`へ置き、必要ならResolver JSONも使います。
+        キャンバスは、作るときに選んだフォルダにそのまま置きます（キャンバス専用のフォルダは作りません）。同じフォルダに複数のキャンバスを置けます。キャンバス、共有スタイル、ボード、部品は、それぞれの`metadata.name`を使ったYAMLファイルです。ボードと部品は、キャンバスと同じフォルダの`+boards/`・`+components/`に1件ずつ保存します（文書ツリーには出ません）。トークンはDTCG JSONのまま`.tokens.json`へ置き、必要ならResolver JSONも使います。
 
         ```text
         docs/app/
@@ -126,7 +126,7 @@ spec:
 
             ## Files and data
 
-            Keep each canvas in its own folder. The canvas, shared styles, boards, and components are YAML resources named by their `metadata.name`. Store each board and component separately under `+boards/` and `+components/`. Keep tokens as DTCG JSON in `.tokens.json`; a Resolver JSON file is optional.
+            A canvas is placed directly in the folder you choose when creating it (no folder of its own), and one folder can hold several canvases. The canvas, shared styles, boards, and components are YAML resources named by their `metadata.name`. Each board and component is stored separately under `+boards/` and `+components/` next to the canvas (they do not appear in the document tree). Keep tokens as DTCG JSON in `.tokens.json`; a Resolver JSON file is optional.
 
             ```text
             docs/app/

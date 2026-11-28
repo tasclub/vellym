@@ -1,11 +1,10 @@
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { PluginFileRecord } from "@vellym/plugin-api";
-import type { PluginViewProps } from "@vellym/plugin-api/react";
 import type {
   DesignBoardSpec, DesignCanvasSpec, DesignComponentSpec, DesignNode, DesignStylesSpec
 } from "../model/types.js";
-import { CREATE_BOARD_COMMAND_ID, type DesignNotice } from "../model/index.js";
+import type { DesignNotice } from "../model/index.js";
 import { designText } from "../i18n.js";
 import { mergeTokens } from "../tokens/dtcg.js";
 import { resolveTokens, tokenToCss } from "../tokens/resolve.js";
@@ -249,42 +248,3 @@ export const BoardView = memo(function BoardView({ board, context, fontsCss, loc
 }, (a, b) => a.board.name === b.board.name && (a.board.hash !== undefined && b.board.hash !== undefined
   ? a.board.hash === b.board.hash : a.board === b.board) && a.context === b.context && a.fontsCss === b.fontsCss && a.locale === b.locale
   && a.onNodeEvent === b.onNodeEvent && a.editing === b.editing);
-
-export function DesignCanvasView({ context }: PluginViewProps) {
-  const data = context.rendererData as unknown as CanvasRendererData;
-  const [modes, setModes] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState("");
-  const t = (key: keyof typeof designText) => designText[key][context.locale === "ja" ? "ja" : "en"];
-  // Host descriptor updates recreate rows. Compare only shared dependencies, not boards.
-  const identity = (row: { name?: string; relativePath: string; hash?: string }) =>
-    [row.name ?? row.relativePath, row.hash ?? row];
-  const dependencyKey = JSON.stringify([data.canvas && identity(data.canvas),
-    data.components.map(identity), data.styles.map(identity), data.tokenFiles.map(identity), modes]);
-  const resolution = useMemo(() => canvasResolution(data, modes), [dependencyKey]);
-  const fonts = fontFaceCss(data.canvas?.spec.fonts ?? []);
-  return <section data-testid="design-canvas" style={{ padding: 12 }}>
-    <h2>{data.canvas?.title ?? data.canvas?.name ?? t("canvas")}</h2>
-    {data.notices?.length > 0 && <div role="alert"><ul>{data.notices.map((notice, i) =>
-      <li key={i}>{context.locale === "ja" ? notice.ja : notice.en}</li>)}</ul></div>}
-    {Object.entries(resolution.modifiers).map(([modifier, options]) => <label key={modifier}>{modifier}
-      <select data-testid={`design-mode-${modifier}`} value={modes[modifier] ?? ""} onChange={event =>
-        setModes(previous => {
-          const next = { ...previous };
-          if (event.target.value) next[modifier] = event.target.value;
-          else delete next[modifier];
-          return next;
-        })}>
-        <option value="">{t("defaultMode")}</option>
-        {options.map(option => <option key={option} value={option}>{option}</option>)}
-      </select></label>)}
-    {!context.isStatic && context.runCommand && <button type="button" data-testid="design-add-board" onClick={() => {
-      void context.runCommand?.(CREATE_BOARD_COMMAND_ID, {}).then(result => setStatus(result?.ok === false ? result.message : ""));
-    }}>{t("createBoard")}</button>}
-    <span role="status">{status}</span>
-    {!data.boards?.length && <p>{t("emptyCanvas")}</p>}
-    <div data-testid="design-board-stage" style={{ position: "relative", minHeight: 900, overflow: "auto" }}>
-      {data.boards?.filter(board => board.spec?.root).map(board =>
-        <BoardView key={board.name} board={board} context={resolution.context} fontsCss={fonts} locale={context.locale} />)}
-    </div>
-  </section>;
-}
