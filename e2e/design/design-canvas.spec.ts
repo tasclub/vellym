@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
-import { stringify } from "yaml";
+import { parse, stringify } from "yaml";
 import { cliPath, test as base, expect } from "../fixtures.js";
 import type { Page } from "@playwright/test";
 
@@ -33,6 +33,84 @@ const test = base.extend({
   }
 });
 test.use({ plugins: ["design"] });
+
+test.describe("canvas creation", () => {
+  test.use({
+    project: async ({ project }, use) => {
+      const config = parse(await readFile(project.config, "utf8"));
+      config.ui.language = "ja";
+      config.i18n.defaultLocale = "ja";
+      await writeFile(project.config, stringify(config));
+      await use(project);
+    }
+  });
+
+  test("Japanese canvas folders, bodyless drafts and immediate boards @DESIGN-A01", async ({ page, server, project }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(server);
+    const title = "画面の設計";
+    const create = async () => {
+      await page.getByRole("button", { name: "新規作成", exact: true }).click();
+      await page.getByRole("menuitem", { name: "デザインキャンバスを作成", exact: true }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("textbox").fill(title);
+      await dialog.getByRole("button", { name: "デザインキャンバスを作成", exact: true }).click();
+      await expect(page.getByTestId("document-save")).toBeVisible();
+      await expect(page.getByRole("group", { name: "書式", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /見出し2|画像を挿入/ })).toHaveCount(0);
+      await expect(page.locator('[contenteditable="true"]')).toHaveCount(0);
+      await expect(page.locator(".page-editor-surface")).toHaveAttribute("data-plugin-paper-width", "full");
+      await expect(page.locator(".page-editor-surface input")).toHaveValue(title);
+      await page.getByTestId("document-save").click();
+      await expect(page.getByTestId("document-save")).toHaveCount(0);
+      await expect(page.getByTestId("design-add-board")).toBeVisible();
+    };
+    // Select a root document so the canvas is created at the content root.
+    await page.getByRole("treegrid").getByRole("row", { name: /Fixture topic/ }).click();
+    await create();
+    expect(await readdir(project.content)).toContain(title);
+    const folder = path.join(project.content, title);
+    const canvasFiles = (await readdir(folder)).filter(file => file.endsWith(".yaml"));
+    expect(canvasFiles).toHaveLength(1);
+    const canvas = parse(await readFile(path.join(folder, canvasFiles[0]!), "utf8"));
+    expect(canvas.metadata.title).toBe(title);
+    expect(canvas.metadata.name).toMatch(/^design-canvas-/);
+    const paper = page.locator(".browse-workspace > .document-paper");
+    await expect(paper).toHaveAttribute("data-plugin-paper-width", "full");
+    await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(1);
+    const canvasBox = (await page.getByTestId("design-canvas").boundingBox())!;
+    const workspaceBox = (await page.locator(".browse-workspace").boundingBox())!;
+    expect(canvasBox.width).toBeGreaterThanOrEqual(800);
+    expect(workspaceBox.width - canvasBox.width).toBeLessThan(180);
+    expect((await page.getByTestId("design-viewport").boundingBox())!.height).toBeGreaterThanOrEqual(480);
+    const url = page.url();
+    for (let number = 1; number <= 2; number++) {
+      await page.getByTestId("design-add-board").click();
+      await expect(page.getByRole("button", { name: `ボード ${number}`, exact: true })).toBeVisible();
+      await expect(page.getByTestId("design-add-board")).toBeEnabled();
+      expect(page.url()).toBe(url);
+      await expect(page.getByTestId("document-save")).toHaveCount(0);
+    }
+    const boardFiles = (await readdir(path.join(folder, "+boards"))).filter(file => file.endsWith(".yaml"));
+    expect(boardFiles).toHaveLength(2);
+    const boards = await Promise.all(boardFiles.map(async file =>
+      parse(await readFile(path.join(folder, "+boards", file), "utf8"))));
+    expect(boards.map(board => board.metadata.title).sort()).toEqual(["ボード 1", "ボード 2"]);
+    expect(boards.every(board => board.spec.canvas === canvas.metadata.name)).toBe(true);
+    expect((await new AxeBuilder({ page }).include('[data-testid="design-canvas"]').analyze()).violations).toEqual([]);
+    await page.getByTestId("design-hand").click();
+    await expect(page.getByTestId("design-hand")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("design-hand")).not.toHaveCSS("background-color",
+      await page.getByTestId("design-zoom-reset").evaluate(element => getComputedStyle(element).backgroundColor));
+    await page.screenshot({ path: testInfo.outputPath("full-canvas.png") });
+    await page.reload();
+    await expect(page.getByRole("button", { name: /^ボード [12]$/ })).toHaveCount(2);
+    // Select the root document again so the second canvas is created beside the first.
+    await page.getByRole("treegrid").getByRole("row", { name: /Fixture topic/ }).click();
+    await create();
+    expect(await readdir(project.content)).toContain(`${title}-2`);
+  });
+});
 
 async function openCanvas(page: Page, origin: string) {
   await page.goto(origin);

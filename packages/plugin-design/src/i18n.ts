@@ -18,6 +18,8 @@ export const designText = {
   emptyCanvas: { ja: "フレーム（F）でボードを作る", en: "Create a board with Frame (F)" },
   createCanvas: { ja: "デザインキャンバスを作成", en: "New design canvas" },
   createBoard: { ja: "ボードを追加", en: "New board" },
+  boardName: { ja: "ボード {number}", en: "Board {number}" },
+  createBoardFailed: { ja: "ボードを作成できませんでした", en: "Could not create the board." },
   createComponent: { ja: "部品を作成", en: "New component" },
   createStyles: { ja: "共有スタイルを作成", en: "New shared styles" },
   name: { ja: "名前", en: "Name" },

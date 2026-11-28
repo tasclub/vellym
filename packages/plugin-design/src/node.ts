@@ -6,7 +6,7 @@ import {
   DESIGN_CANVAS_SPEC_SCHEMA, DESIGN_BOARD_SPEC_SCHEMA,
   DESIGN_COMPONENT_SPEC_SCHEMA, DESIGN_STYLES_SPEC_SCHEMA
 } from "./model/index.js";
-import { canvasResourceName, childResourceName, folderOf } from "./model/names.js";
+import { canvasResourceName, childResourceName, folderOf, folderNameOf } from "./model/names.js";
 import { validateDesign } from "./model/validate.js";
 import { designText as text } from "./i18n.js";
 import { resolveTokens } from "./tokens/resolve.js";
@@ -54,7 +54,7 @@ export default definePlugin({
           .slice().sort((a, b) => a.name.localeCompare(b.name)).map(row);
         return {
           type: "detail", id: DESIGN_CANVAS_VIEW_ID, kind: DESIGN_CANVAS_KIND,
-          fields: [], body: "none", undeclaredFields: "hidden",
+          fields: [], body: "none", undeclaredFields: "hidden", paperWidth: "full",
           rendererData: {
             canvas: canvas ? row(canvas) : null,
             boards: children(DESIGN_BOARD_KIND), components: children(DESIGN_COMPONENT_KIND),
@@ -79,8 +79,12 @@ export default definePlugin({
         const name = canvasResourceName(title);
         const parent = typeof context.input?.folder === "string" ? context.input.folder.trim()
           : context.target ? folderOf(context.target.relativePath) : "";
+        const base = [parent, folderNameOf(title)].filter(Boolean).join("/");
+        const occupied = new Set(context.records(DESIGN_CANVAS_KIND).map(record => folderOf(record.relativePath)));
+        let folder = base;
+        for (let index = 2; occupied.has(folder); index++) folder = `${base}-${index}`;
         return context.createResource({
-          kind: DESIGN_CANVAS_KIND, name, title, folder: [parent, name].filter(Boolean).join("/"),
+          kind: DESIGN_CANVAS_KIND, name, title, folder,
           spec: { formatVersion: 1 }
         });
       }

@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PluginViewProps } from "@vellym/plugin-api/react";
 import { BoardView, canvasResolution, type CanvasRendererData } from "../render/board-view.js";
 import { fontFaceCss } from "../render/fonts.js";
-import { CREATE_BOARD_COMMAND_ID } from "../model/index.js";
+import { DESIGN_BOARD_KIND } from "../model/index.js";
+import { boardResourceName, folderOf } from "../model/names.js";
+// @ts-expect-error esbuild imports stylesheets as text.
+import canvasCss from "../design.css";
 import { designText } from "../i18n.js";
 import { Pages } from "./pages.js";
 import { Notes } from "./notes.js";
@@ -22,6 +25,18 @@ function CanvasContent({ context, data }: PluginViewProps & { data: CanvasRender
   const [hand, setHand] = useState(false);
   const [modes, setModes] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const screen = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const element = screen.current;
+    if (!element) return;
+    const resize = () => element.style.setProperty("--design-top", `${element.getBoundingClientRect().top + 16}px`);
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(element);
+    window.addEventListener("resize", resize);
+    return () => { observer.disconnect(); window.removeEventListener("resize", resize); };
+  }, []);
   const pages = data.canvas?.spec.pages ?? [];
   const active = pages.some(item => item.id === page) ? page : pages[0]?.id ?? "";
   const onPage = (id: string) => { setPage(id); setSelected(undefined); };
@@ -39,11 +54,31 @@ function CanvasContent({ context, data }: PluginViewProps & { data: CanvasRender
   const navigation = useViewport({ hand, onHand: setHand, bounds: [...bounds,
     ...notes.map(note => ({ x: note.x, y: note.y, width: 280, height: note.kind === "title" ? 40 : 100 }))],
     selected: bounds[boards.findIndex(board => board.name === selected)], pageKey: active });
-  return <section data-testid="design-canvas" aria-label={t("canvas")} style={{ padding: 12 }}>
-    <h2>{data.canvas?.title ?? data.canvas?.name ?? t("canvas")}</h2>
+  const addBoard = async () => {
+    if (busy || !context.createResourceNow || !data.canvas) return;
+    setBusy(true);
+    setStatus("");
+    try {
+      const x = Math.max(0, ...boards.map(board => board.spec.x + (board.spec.root.width ?? 0) + 80));
+      const result = await context.createResourceNow({
+        kind: DESIGN_BOARD_KIND, name: boardResourceName(data.canvas.name),
+        title: t("boardName").replace("{number}", String(data.boards.length + 1)),
+        folder: [folderOf(data.canvas.relativePath), "+boards"].filter(Boolean).join("/"),
+        spec: { canvas: data.canvas.name, ...(active ? { page: active } : {}), x, y: 0,
+          root: { id: "root", type: "frame", width: 390, height: 844, children: [] } }
+      });
+      if (!result.ok) setStatus(result.message);
+    } catch {
+      setStatus(t("createBoardFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <section ref={screen} className="design-canvas-screen" data-testid="design-canvas" aria-label={t("canvas")}>
+    <style>{canvasCss}</style>
     {data.notices?.length > 0 && <ul role="alert">{data.notices.map((notice, i) =>
       <li key={i}>{locale === "ja" ? notice.ja : notice.en}</li>)}</ul>}
-    <div role="group" aria-label={t("navigation")} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 8 }}>
+    <div className="design-canvas-tools" role="group" aria-label={t("navigation")}>
       <button type="button" data-testid="design-hand" aria-pressed={hand} onClick={() => setHand(!hand)}>{t("hand")}</button>
       <button type="button" data-testid="design-zoom-reset" onClick={navigation.reset}>{t("actualSize")}</button>
       <button type="button" data-testid="design-zoom-fit" onClick={() => navigation.fit()}>{t("fitAll")}</button>
@@ -61,12 +96,11 @@ function CanvasContent({ context, data }: PluginViewProps & { data: CanvasRender
           {options.map(option => <option key={option} value={option}>{option}</option>)}
         </select>
       </label>)}
-      {!context.isStatic && context.runCommand && <button type="button" data-testid="design-add-board" onClick={() => {
-        void context.runCommand?.(CREATE_BOARD_COMMAND_ID, {}).then(result => setStatus(result?.ok === false ? result.message : ""));
-      }}>{t("createBoard")}</button>}
+      {!context.isStatic && context.createResourceNow && <button type="button" data-testid="design-add-board"
+        disabled={busy} onClick={() => { void addBoard(); }}>{t("createBoard")}</button>}
       <span role="status">{status}</span>
     </div>
-    <div style={{ display: "flex", height: "max(480px, 65vh)", border: "1px solid #cbd5e1" }}>
+    <div className="design-canvas-frame">
       {pages.length > 0 && <Pages pages={pages} active={active} onChange={onPage} locale={locale} />}
       <div id="design-page-panel" role={pages.length ? "tabpanel" : undefined}
         aria-labelledby={pages.length ? `design-page-${pages.findIndex(item => item.id === active)}` : undefined}

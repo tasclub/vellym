@@ -1715,6 +1715,8 @@ export function App() {
           />
         ) : (
         <EditorWorkspace
+          paperWidth={pluginView?.descriptor.type === "detail" ? pluginView.descriptor.paperWidth : undefined}
+          showBody={pluginView?.descriptor.type !== "detail" || pluginView.descriptor.body !== "none"}
           focusRequest={editorFocusRequest}
           onOpenChanges={view && gitStatus.available && gitStatus.files.some((f) => f.path === view.relativePath) ? () => { setChangePath(view.relativePath); setArea("changes"); } : undefined}
           view={view}

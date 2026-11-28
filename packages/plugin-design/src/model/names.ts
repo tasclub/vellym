@@ -3,6 +3,12 @@ export function slugOf(value: string): string {
     .replace(/^-+|-+$/g, "").slice(0, 40);
 }
 
+/** Keep Unicode names while replacing separators and unsafe path characters. */
+export function folderNameOf(title: string): string {
+  return title.normalize("NFKC").toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "design-canvas";
+}
+
 function suffix(): string {
   const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
   return Array.from(globalThis.crypto.getRandomValues(new Uint8Array(6)),

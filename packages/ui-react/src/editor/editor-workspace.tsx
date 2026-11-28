@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { PluginPaperWidth } from "@vellym/plugin-api";
 import type {
   BlockEditAssessment,
   PageSummary,
@@ -238,6 +239,8 @@ export function EditorWorkspace(props: {
   title: string;
   slug: string;
   blocks: RichTextBlock[];
+  paperWidth?: PluginPaperWidth;
+  showBody?: boolean;
   pages: PageSummary[];
   editing: boolean;
   canEdit: boolean;
@@ -436,7 +439,7 @@ export function EditorWorkspace(props: {
       <section className="workspace browse-workspace">
         {props.aboveSurface}
         <Notices {...props} view={props.view} draft={props.draft} />
-        <div className="document-paper">
+        <div className="document-paper" data-plugin-paper-width={props.paperWidth}>
           <HistoryDocument
             key={props.view.relativePath}
             view={props.view}
@@ -484,6 +487,7 @@ export function EditorWorkspace(props: {
         {props.aboveSurface}
         {props.editLanguageControls}
         <div className={styles["edit-toolbar"]} role="toolbar" aria-label={t("editor.toolbarLabel")}>
+          {props.showBody !== false && <>
           <div className={styles["history-actions"]} role="group" aria-label={t("editor.historyGroup")}>
             <Button
               icon
@@ -592,6 +596,7 @@ export function EditorWorkspace(props: {
           )}
           {Object.values(imageStatuses).some((status) => status.uploading > 0) && <span role="status">{t("editor.imageUploading")}</span>}
           {Object.entries(imageStatuses).map(([key, status]) => status.error && <span key={key} role="alert">{status.error}</span>)}
+          </>}
           <span className={`status ${props.saveState}`} aria-live="polite">
             {props.saveState === "dirty"
               ? t("editor.statusDirty")
@@ -698,7 +703,8 @@ export function EditorWorkspace(props: {
           const isActive = localeDraft.locale === (props.editLocale ?? localeDraft.locale);
           return (
             <div
-              className="page-editor-surface"
+              className={`page-editor-surface${props.paperWidth ? " document-paper" : ""}`}
+              data-plugin-paper-width={props.paperWidth}
               id={isActive ? "locale-editor-panel" : undefined}
               role="tabpanel"
               hidden={!isActive}
@@ -722,11 +728,11 @@ export function EditorWorkspace(props: {
                     : props.onTitleChange(event.target.value)}
                 />
               </label>
-              {isActive && (props.blockAssessments.some((block) => !block.supported) ||
+              {props.showBody !== false && isActive && (props.blockAssessments.some((block) => !block.supported) ||
                 (currentView.page.spec.blocks?.length ?? 0) > localeDraft.blocks.length) && (
                 <div className="notice" role="note">{t("editor.preservedBlocks")}</div>
               )}
-              {localeDraft.blocks.map((block, index) => {
+              {props.showBody !== false && localeDraft.blocks.map((block, index) => {
                 const assessment = isActive
                   ? props.blockAssessments.find((item) => item.id === block.id)
                   : undefined;
@@ -787,7 +793,7 @@ export function EditorWorkspace(props: {
       </div>
       <div className="edit-mobile-fallback">
         <p className="notice">{t("editor.mobileUnavailable")}</p>
-        <div className="document-paper">
+        <div className="document-paper" data-plugin-paper-width={props.paperWidth}>
           <DocumentView view={props.view} onNavigatePage={props.onNavigatePage} />
         </div>
       </div>

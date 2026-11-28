@@ -1,5 +1,52 @@
-/* These rules live inside each board's shadow root, not in the host document. */
+/* Board rules are also installed in each board's shadow root. */
 :host { all: initial; display: block; }
 .design-board-content { all: initial; display: block; position: relative; font: 16px/normal sans-serif; color: #000; direction: ltr; text-align: left; }
 .design-board-content *, .design-board-content *::before, .design-board-content *::after { box-sizing: border-box; }
 .design-board-content svg { display: block; overflow: visible; }
+
+/* Canvas controls use the host's design tokens without importing host components. */
+.design-canvas-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: max(540px, calc(100dvh - var(--design-top, 240px)));
+  min-width: 0;
+}
+.design-canvas-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.design-canvas-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: var(--text-body);
+  line-height: 1.3;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.design-canvas-tools button:hover:not(:disabled) { background: var(--surface-sunken); }
+.design-canvas-tools button[aria-pressed="true"] {
+  background: var(--text-primary);
+  color: var(--surface-page);
+  font-weight: 700;
+}
+.design-canvas-tools button:disabled { color: var(--text-muted); cursor: default; }
+.design-canvas-screen button:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+.design-canvas-frame {
+  display: flex;
+  flex: 1;
+  min-height: 480px;
+  border: var(--border-width) solid var(--border-strong);
+}

@@ -5,7 +5,7 @@ export function Pages({ pages, active, onChange, locale }: {
   pages: NonNullable<DesignCanvasSpec["pages"]>; active: string; onChange: (id: string) => void; locale: "ja" | "en";
 }) {
   return <aside style={{ width: 160, flexShrink: 0, padding: 8, borderRight: "1px solid #cbd5e1", overflow: "auto" }}>
-    <h3 id="design-pages-heading">{designText.pages[locale]}</h3>
+    <h2 id="design-pages-heading">{designText.pages[locale]}</h2>
     <div role="tablist" aria-labelledby="design-pages-heading" aria-orientation="vertical" data-testid="design-pages">
       {pages.map((page, index) => <button key={page.id} type="button" role="tab"
         id={`design-page-${index}`} aria-controls="design-page-panel" aria-selected={active === page.id}

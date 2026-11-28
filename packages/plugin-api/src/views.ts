@@ -206,6 +206,8 @@ export interface PluginDetailViewDescriptor {
   type: "detail";
   id: string;
   kind: string;
+  /** Optional paper width, shared with list views. */
+  paperWidth?: PluginPaperWidth;
   /** Node側で解決した、自前rendererに必要な最小データ。 */
   rendererData?: Readonly<Record<string, unknown>>;
   fields: readonly PluginFieldDescriptor[];
