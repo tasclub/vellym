@@ -50,3 +50,13 @@
   min-height: 480px;
   border: var(--border-width) solid var(--border-strong);
 }
+.design-overlay { position: absolute; inset: 0; pointer-events: none; }
+.design-selection, .design-hover, .design-marquee {
+  position: absolute;
+  box-sizing: border-box;
+  /* Box shadows retain fractional widths (borders round before world scaling). */
+  box-shadow: inset 0 0 0 calc(2px / var(--design-scale, 1)) #1d4ed8;
+  transform-origin: center;
+}
+.design-hover { box-shadow: inset 0 0 0 calc(1px / var(--design-scale, 1)) #1d4ed8; }
+.design-marquee { box-shadow: inset 0 0 0 calc(1px / var(--design-scale, 1)) #1d4ed8; background: #1d4ed81a; }

@@ -33,6 +33,7 @@ export function useViewport({ hand, onHand, bounds, selected, pageKey }: {
   const apply = () => {
     const v = view.current;
     if (world.current) world.current.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.scale})`;
+    world.current?.style.setProperty("--design-scale", String(v.scale));
     if (zoomLabel.current) zoomLabel.current.value = `${Math.round(v.scale * 100)}%`;
   };
   const fit = (selection = false) => {

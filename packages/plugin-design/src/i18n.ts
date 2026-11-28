@@ -1,5 +1,6 @@
 /** Node contributions and diagnostics share the same Japanese/English dictionary. */
 export const designText = {
+  selectedCount: { ja: "{count}個を選択中", en: "{count} selected" },
   saving: { ja: "保存中", en: "Saving" },
   saved: { ja: "保存しました", en: "Saved" },
   saveFailed: { ja: "保存できませんでした", en: "Could not save" },
