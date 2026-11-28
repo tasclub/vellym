@@ -194,3 +194,31 @@
   box-shadow: 0 0 0 calc(2px / var(--design-scale, 1)) #fff, 0 0 0 calc(3px / var(--design-scale, 1)) #1d4ed8;
 }
 .design-inspector-note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); color: var(--text-muted); }
+
+/* The left panel: pages and layers. */
+.design-left-panel {
+  width: 240px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
+  border-right: var(--border-width) solid var(--border-strong); background: var(--surface-raised); color: var(--text-primary);
+}
+.design-left-panel-body { flex: 1; overflow: auto; }
+.design-pages { padding: var(--space-3); }
+.design-pages h2 { margin: 0 0 var(--space-2); font-size: var(--text-body); }
+.design-layers { list-style: none; margin: 0; padding: var(--space-2) 0; }
+.design-layer { outline: none; cursor: default; }
+.design-layer:focus-visible > .design-layer-row { outline: 2px solid var(--text-primary); outline-offset: -2px; }
+.design-layer[aria-selected="true"] > .design-layer-row { background: var(--surface-sunken); font-weight: 700; }
+.design-layer[data-drop="above"] > .design-layer-row { box-shadow: inset 0 2px 0 #1d4ed8; }
+.design-layer[data-drop="below"] > .design-layer-row { box-shadow: inset 0 -2px 0 #1d4ed8; }
+.design-layer[data-drop="inside"] > .design-layer-row { box-shadow: inset 0 0 0 2px #1d4ed8; }
+.design-layer-row { display: flex; align-items: center; gap: var(--space-1, 4px); min-height: 28px; padding-inline-end: var(--space-2); }
+.design-layer-twisty { width: 18px; flex-shrink: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.design-layer-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.design-layer-hidden { color: var(--text-muted); }
+.design-layer-kind { margin-inline-end: 6px; color: var(--text-muted); font-size: 11px; font-weight: 400; }
+.design-layer-name-input { flex: 1; min-width: 0; min-height: 24px; font: inherit; }
+.design-layer-actions { display: flex; gap: 2px; }
+.design-layer-actions button {
+  min-width: 24px; min-height: 24px; padding: 0; font-size: 12px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-primary); cursor: pointer;
+}
+.design-layer-actions button:hover { background: var(--surface-sunken); }

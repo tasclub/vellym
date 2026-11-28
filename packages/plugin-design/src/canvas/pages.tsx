@@ -4,7 +4,7 @@ import { designText } from "../i18n.js";
 export function Pages({ pages, active, onChange, locale }: {
   pages: NonNullable<DesignCanvasSpec["pages"]>; active: string; onChange: (id: string) => void; locale: "ja" | "en";
 }) {
-  return <aside style={{ width: 160, flexShrink: 0, padding: 8, borderRight: "1px solid #cbd5e1", overflow: "auto" }}>
+  return <div className="design-pages">
     <h2 id="design-pages-heading">{designText.pages[locale]}</h2>
     <div role="tablist" aria-labelledby="design-pages-heading" aria-orientation="vertical" data-testid="design-pages">
       {pages.map((page, index) => <button key={page.id} type="button" role="tab"
@@ -21,5 +21,5 @@ export function Pages({ pages, active, onChange, locale }: {
           (event.currentTarget.parentElement?.children[next] as HTMLElement)?.focus();
         }} onClick={() => onChange(page.id)}>{page.title ?? page.id}</button>)}
     </div>
-  </aside>;
+  </div>;
 }

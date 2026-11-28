@@ -24,6 +24,8 @@ import { newText, textOf, withSpans } from "../tools/text-tool.js";
 import type { TextEditing } from "../render/text-edit.js";
 import type { TextNode, TextSpan } from "../model/types.js";
 import { Inspector } from "../panels/inspector.js";
+import { LeftPanel } from "../panels/left-panel.js";
+import { Layers } from "../panels/layers.js";
 import type { InspectorContext, PaintList } from "../panels/sections.js";
 import { isGradient, positionAt, type Gradient } from "../panels/gradient-axis.js";
 import { rotate } from "../edit/transform.js";
@@ -540,7 +542,23 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
       </span>}
     </div>
     <div className="design-canvas-frame">
-      {pages.length > 0 && <Pages pages={pages} active={active} onChange={onPage} locale={locale} />}
+      <LeftPanel locale={locale} initial={pages.length ? "pages" : "layers"}
+        pages={pages.length ? <Pages pages={pages} active={active} onChange={onPage} locale={locale} />
+          : <p className="design-inspector-empty">{t("noPages")}</p>}
+        layers={<Layers locale={locale} editable={store.editable && !transform.current}
+          boards={boards.map(board => ({ name: board.name, title: board.title ?? board.name, root: board.spec.root }))}
+          selected={selected}
+          onSelect={(items, mode) => {
+            const usable = items.filter(item => {
+              const board = geometry.find(row => row.name === item.board);
+              return board && selectable(board.index, item.id);
+            });
+            if (mode === "replace") setSelected(usable);
+            else if (mode === "add") merge(usable, true);
+            else setSelected(previous => usable.reduce((list, item) => list.some(other => other.board === item.board && other.id === item.id)
+              ? list.filter(other => other.board !== item.board || other.id !== item.id) : [...list, item], previous));
+          }}
+          apply={(board, before, after) => store.apply({ changes: [{ targetName: board, before: store.root(board) ?? before, after }] })} />} />
       <div id="design-page-panel" role={pages.length ? "tabpanel" : undefined}
         aria-labelledby={pages.length ? `design-page-${pages.findIndex(item => item.id === active)}` : undefined}
         style={{ flex: 1, minWidth: 0, position: "relative", overflow: "hidden" }}>
