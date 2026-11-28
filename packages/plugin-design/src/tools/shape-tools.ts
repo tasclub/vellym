@@ -3,10 +3,10 @@ import type { BoardIndex } from "../edit/selection.js";
 import { rotate, updateNodes } from "../edit/transform.js";
 
 export type DrawTool = "frame" | "rectangle" | "ellipse" | "line" | "polygon" | "star";
-export type Tool = "select" | "hand" | DrawTool;
+export type Tool = "select" | "hand" | "text" | DrawTool;
 export const DRAW_TOOLS: readonly DrawTool[] = ["frame", "rectangle", "ellipse", "line", "polygon", "star"];
 /** Single-key shortcuts (Figma's). Polygon and star are chosen from the shape list. */
-export const TOOL_KEYS: Readonly<Record<string, Tool>> = { v: "select", h: "hand", f: "frame", r: "rectangle", o: "ellipse", l: "line" };
+export const TOOL_KEYS: Readonly<Record<string, Tool>> = { v: "select", h: "hand", f: "frame", r: "rectangle", o: "ellipse", l: "line", t: "text" };
 
 export interface Rect { x: number; y: number; width: number; height: number }
 export interface Point { x: number; y: number }
@@ -56,7 +56,7 @@ function lineBox(box: Rect): Rect & { rotation?: number } {
 const round = (value: number) => Math.round(value * 100) / 100;
 const GREY = [{ color: "#d9d9d9" }];
 
-export function newNodeId(index: BoardIndex, tool: DrawTool | "image"): string {
+export function newNodeId(index: BoardIndex, tool: DrawTool | "image" | "text"): string {
   for (let n = 1; ; n++) if (!index.has(`${tool}-${n}`)) return `${tool}-${n}`;
 }
 

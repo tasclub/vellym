@@ -185,6 +185,10 @@ export function nodeCss(node: DesignNode, parentLayout: ParentLayout | undefined
   else set("borderRadius", corners(node.radius, ctx));
   set("opacity", node.opacity); set("mixBlendMode", node.blendMode);
   if (node.rotation !== undefined) css.rotate = `${node.rotation}deg`;
+  if (node.type === "text" && (node.verticalAlign === "middle" || node.verticalAlign === "bottom")) {
+    css.display = "flex"; css.flexDirection = "column";
+    css.justifyContent = node.verticalAlign === "middle" ? "center" : "flex-end";
+  }
   if (node.visible === false) css.display = "none";
   const blur = length(node.blur, ctx), backgroundBlur = length(node.backgroundBlur, ctx);
   if (blur !== undefined) css.filter = `blur(${blur})`;

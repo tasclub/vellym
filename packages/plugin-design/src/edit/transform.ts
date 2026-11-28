@@ -156,3 +156,14 @@ export function rotateNodes(root: DesignNode, ids: readonly string[], delta: num
 
 /** Angle in degrees of a point around a centre, clockwise from the +x axis. */
 export const angleOf = (cx: number, cy: number, x: number, y: number) => Math.atan2(y - cy, x - cx) * 180 / Math.PI;
+
+/** The tree without one node (and its children). */
+export function removeNode(root: DesignNode, id: string): DesignNode {
+  const visit = (node: DesignNode): DesignNode => {
+    if (!containers.has(node.type)) return node;
+    const list = (node as { children: DesignNode[] }).children;
+    const kept = list.filter(child => child.id !== id).map(visit);
+    return kept.length === list.length && kept.every((child, i) => child === list[i]) ? node : { ...node, children: kept } as DesignNode;
+  };
+  return visit(root);
+}

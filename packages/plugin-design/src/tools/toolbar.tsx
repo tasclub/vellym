@@ -5,7 +5,7 @@ import type { Tool } from "./shape-tools.js";
 type Text = keyof typeof designText;
 const MAIN: readonly [Tool, Text, string][] = [
   ["select", "toolSelect", "V"], ["hand", "hand", "H"], ["frame", "toolFrame", "F"],
-  ["rectangle", "toolRectangle", "R"], ["ellipse", "toolEllipse", "O"], ["line", "toolLine", "L"]
+  ["rectangle", "toolRectangle", "R"], ["ellipse", "toolEllipse", "O"], ["line", "toolLine", "L"], ["text", "toolText", "T"]
 ];
 
 /** Drawing tools. The host's own buttons are not used (plugins do not import ui-react). */

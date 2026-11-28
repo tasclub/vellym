@@ -27,6 +27,9 @@ export interface InspectorContext {
   /** The gradient whose stop handles are shown on the canvas (one selected node only). */
   activeGradient?: { list: PaintList; paint: number };
   setActiveGradient(value: { list: PaintList; paint: number } | undefined): void;
+  /** Characters last selected while editing a text (formatting then applies to them only). */
+  textRange?: { board: string; id: string; start: number; end: number };
+  clearTextRange(): void;
   /** Change every target; one call is one operation. `mergeKey` joins quick repeats. */
   update(patch: (target: InspectorTarget) => Partial<DesignNode> | undefined, mergeKey?: string): void;
   selectBoard(name: string): void;

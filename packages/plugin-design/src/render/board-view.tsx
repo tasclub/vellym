@@ -10,6 +10,7 @@ import { designText } from "../i18n.js";
 import { mergeTokens } from "../tokens/dtcg.js";
 import { resolveTokens, tokenToCss } from "../tokens/resolve.js";
 import { resolveResolver } from "../tokens/resolver.js";
+import { TextEditingContext, TextEditor, useTextEditing, type TextEditing } from "./text-edit.js";
 import { nodeCss, type ParentLayout, type StrokeDefinition, type StrokeOverlay } from "./css.js";
 import { resolveNode, resolveValue, type ResolveContext } from "./resolve.js";
 import { vectorPath, type VectorNode, type VectorPath } from "./vector.js";
@@ -159,10 +160,12 @@ function Vector({ node, ctx, path }: { node: DesignNode; ctx: ResolveContext; pa
 
 function NodeView({ node, parent, ctx, path }: { node: DesignNode; parent?: ParentLayout; ctx: ResolveContext; path: string }) {
   const locale = useContext(LocaleContext);
+  const editing = useTextEditing();
   const vector = ["ellipse", "line", "polygon", "star", "path", "boolean"].includes(node.type);
   const css = nodeCss(vector ? { ...node, fills: [], strokes: [] } as DesignNode : node, parent, { ...ctx, strokeIdPrefix: path });
   let content;
   if (vector) content = <Vector node={node} ctx={ctx} path={path} />;
+  else if (node.type === "text" && editing?.id === node.id) content = <TextEditor resolved={node} ctx={ctx} />;
   else if (node.type === "text") content = node.spans ? node.spans.map((span, i) => {
     const style = nodeCss({ id: `${node.id}-${i}`, type: "text", ...span }, undefined, ctx).declarations;
     const { position: _position, boxSizing: _boxSizing, width: _width, whiteSpace: _whiteSpace, ...appearance } = style;
@@ -175,6 +178,8 @@ function NodeView({ node, parent, ctx, path }: { node: DesignNode; parent?: Pare
     const parentLayout = { ...(node.type === "frame" ? node.layout : {}), width: node.width, height: node.height };
     content = node.children.map(child => <NodeView key={child.id} node={child} parent={parentLayout} ctx={ctx} path={`${path}-${child.id.length}-${child.id}`} />);
   } else if (node.type === "instance") content = <span role="alert">{designText.componentMissing[locale === "ja" ? "ja" : "en"]}</span>;
+  // Middle/bottom text sits in one column so its runs stay on shared lines.
+  if (node.type === "text" && (node.verticalAlign === "middle" || node.verticalAlign === "bottom")) content = <div style={{ minWidth: 0 }}>{content}</div>;
   return <div data-testid={`design-node-${node.id}`} data-node-id={node.id} data-node-type={node.type}
     style={css.declarations as CSSProperties}>{content}{css.strokeOverlay && <StrokeLayer overlay={css.strokeOverlay} />}</div>;
 }
@@ -191,10 +196,12 @@ interface BoardViewProps {
   fontsCss: string;
   locale?: string;
   onNodeEvent?: (event: NodeEvent) => void;
+  /** The text being edited in place on this board, if any. */
+  editing?: TextEditing;
 }
 
 /** The board hash gates tree work; dependencies invalidate only when their content changes. */
-export const BoardView = memo(function BoardView({ board, context, fontsCss, locale = "en", onNodeEvent }: BoardViewProps) {
+export const BoardView = memo(function BoardView({ board, context, fontsCss, locale = "en", onNodeEvent, editing }: BoardViewProps) {
   const host = useRef<HTMLDivElement>(null);
   const [shadow, setShadow] = useState<ShadowRoot>();
   useLayoutEffect(() => {
@@ -235,11 +242,13 @@ export const BoardView = memo(function BoardView({ board, context, fontsCss, loc
     position: "absolute", left: board.spec.x, top: board.spec.y, width: root.width, height: root.height,
     contentVisibility: "auto", containIntrinsicSize: `${root.width ?? 0}px ${root.height ?? 0}px`
   }}>{shadow && createPortal(<><style>{boardCss + "\n" + fontsCss}</style>
-    <LocaleContext.Provider value={locale}><div className="design-board-content"><NodeView node={root} ctx={context} path={board.name} /></div></LocaleContext.Provider>
+    <LocaleContext.Provider value={locale}><TextEditingContext.Provider value={editing}>
+      <div className="design-board-content"><NodeView node={root} ctx={context} path={board.name} /></div>
+    </TextEditingContext.Provider></LocaleContext.Provider>
   </>, shadow)}</div>;
 }, (a, b) => a.board.name === b.board.name && (a.board.hash !== undefined && b.board.hash !== undefined
   ? a.board.hash === b.board.hash : a.board === b.board) && a.context === b.context && a.fontsCss === b.fontsCss && a.locale === b.locale
-  && a.onNodeEvent === b.onNodeEvent);
+  && a.onNodeEvent === b.onNodeEvent && a.editing === b.editing);
 
 export function DesignCanvasView({ context }: PluginViewProps) {
   const data = context.rendererData as unknown as CanvasRendererData;

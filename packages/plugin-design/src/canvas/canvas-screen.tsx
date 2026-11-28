@@ -20,11 +20,14 @@ import { Toolbar } from "../tools/toolbar.js";
 import { createNode, DEFAULT_BOARD, DEFAULT_SIZE, drawBounds, flows, imageNode, insertChild, newNodeId,
   parentFrame, toParent, TOOL_KEYS, type DrawTool, type Point, type Rect, type Tool } from "../tools/shape-tools.js";
 import { naturalSize } from "../tools/image-tool.js";
+import { newText, textOf, withSpans } from "../tools/text-tool.js";
+import type { TextEditing } from "../render/text-edit.js";
+import type { TextNode, TextSpan } from "../model/types.js";
 import { Inspector } from "../panels/inspector.js";
 import type { InspectorContext, PaintList } from "../panels/sections.js";
 import { isGradient, positionAt, type Gradient } from "../panels/gradient-axis.js";
 import { rotate } from "../edit/transform.js";
-import { angleOf, HANDLES, moveNodes, movable, resizable, resizeNodes, rotateNodes, updateNodes,
+import { angleOf, HANDLES, moveNodes, movable, removeNode, resizable, resizeNodes, rotateNodes, updateNodes,
   type Handle, type WorldBox } from "../edit/transform.js";
 
 /** A drag of the selection: the model changes only on release (one undo step). */
@@ -60,13 +63,18 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const [preview, setPreview] = useState<ReadonlyMap<string, DesignNode>>();
   const [activeGradient, setActiveGradient] = useState<{ list: PaintList; paint: number }>();
   useLayoutEffect(() => setActiveGradient(undefined), [selected]);
+  useLayoutEffect(() => setTextRange(range => range && selected.length === 1 && selected[0]!.board === range.board &&
+    selected[0]!.id === range.id ? range : undefined), [selected]);
   const [tool, setTool] = useState<Tool>("select");
   const hand = tool === "hand";
   const setHand = (value: boolean) => setTool(value ? "hand" : "select");
   const drawing = tool !== "select" && tool !== "hand";
-  const draw = useRef<{ pointer: number; tool: DrawTool; start: Point; client: Point;
+  const draw = useRef<{ pointer: number; tool: DrawTool | "text"; start: Point; client: Point;
     hit?: { board: string; chain: string[] }; moved: boolean } | undefined>(undefined);
   const [confirmDelete, setConfirmDelete] = useState<string[]>();
+  /** The text edited in place, and the characters last selected in it (for run formatting). */
+  const [editingText, setEditingText] = useState<{ board: string; id: string; isNew: boolean }>();
+  const [textRange, setTextRange] = useState<{ board: string; id: string; start: number; end: number }>();
   const cancelDelete = useRef<HTMLButtonElement>(null);
   const [modes, setModes] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -264,17 +272,55 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     const before = savedRoot(boardName);
     if (!before) return;
     const after = insertChild(before, parentId, node);
-    if (after !== before && store.apply({ changes: [{ targetName: boardName, before, after }] }))
+    if (after !== before && store.apply({ changes: [{ targetName: boardName, before, after }] })) {
       setSelected([{ board: boardName, id: node.id }]);
+      return true;
+    }
+    return false;
   };
+  const startEditing = (board: string, id: string) => {
+    const node = geometry.find(row => row.name === board)?.index.get(id)?.node;
+    if (!store.editable || node?.type !== "text" || node.locked) return false;
+    setSelected([{ board, id }]);
+    setTextRange(undefined);
+    setEditingText({ board, id, isNew: false });
+    return true;
+  };
+  const commitText = (spans: TextSpan[]) => {
+    const edit = editingText;
+    setEditingText(undefined);
+    navigation.viewport.current?.focus({ preventScroll: true });
+    if (!edit) return;
+    // Read the store's root at commit time: the editor's closure is from when the edit began.
+    const before = store.root(edit.board) ?? savedRoot(edit.board), node = before && indexBoard(before).get(edit.id)?.node;
+    if (!before || node?.type !== "text") return;
+    const next = withSpans(node, spans);
+    if (!textOf(next).trim()) {
+      // An empty text goes away: a new one undoes its own insertion; an old one is removed.
+      if (edit.isNew) store.undo();
+      else store.apply({ changes: [{ targetName: edit.board, before, after: removeNode(before, edit.id) }] });
+      setSelected([]);
+      return;
+    }
+    const after = updateNodes(before, new Map([[edit.id, { text: next.text, spans: next.spans } as Partial<DesignNode>]]));
+    if (after !== before) store.apply({ changes: [{ targetName: edit.board, before, after }] });
+  };
+  const textEditing = useMemo<TextEditing | undefined>(() => {
+    if (!editingText) return;
+    const node = geometry.find(row => row.name === editingText.board)?.index.get(editingText.id)?.node;
+    if (node?.type !== "text") return;
+    return { id: editingText.id, source: node as TextNode, label: t("editText"), onCommit: commitText,
+      onRange: range => setTextRange(range && { board: editingText.board, id: editingText.id, ...range }) };
+    // Fixed for one edit: re-creating it would rebuild the editor's DOM.
+  }, [editingText]);
   const finishDraw = (end: Point) => {
     const drag = draw.current;
     draw.current = undefined;
     setMarquee(undefined);
     if (!drag) return;
     setTool("select"); // Like Figma: back to the select tool after each shape.
-    const size = DEFAULT_SIZE[drag.tool];
-    const rect = drag.moved ? drawBounds(drag.tool, drag.start, end, { square: keys.current.shift, fromCenter: keys.current.alt })
+    const size = drag.tool === "text" ? { width: 0, height: 0 } : DEFAULT_SIZE[drag.tool];
+    const rect = drag.moved ? drawBounds(drag.tool === "text" ? "rectangle" : drag.tool, drag.start, end, { square: keys.current.shift, fromCenter: keys.current.alt })
       : { x: drag.start.x, y: drag.start.y, ...size };
     const parent = drag.hit && parentAt(drag.hit);
     if (!parent) {
@@ -283,8 +329,17 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
       return;
     }
     const local = toParent(rect, parent.box);
+    const placed = !flows(parent.board.index.get(parent.parentId)?.node);
+    if (drag.tool === "text") {
+      const id = newNodeId(parent.board.index, "text");
+      if (insert(parent.board.name, parent.parentId, newText(id, local, drag.moved, placed))) {
+        setTextRange(undefined);
+        setEditingText({ board: parent.board.name, id, isNew: true });
+      }
+      return;
+    }
     insert(parent.board.name, parent.parentId,
-      createNode(drag.tool, newNodeId(parent.board.index, drag.tool), local, !flows(parent.board.index.get(parent.parentId)?.node)));
+      createNode(drag.tool, newNodeId(parent.board.index, drag.tool), local, placed));
   };
   const keys = useRef({ shift: false, alt: false });
   const placeImages = async (files: FileList | File[], client?: Point) => {
@@ -348,13 +403,21 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
       if (!result.ok) { setStatus(`${t("uploadFailed")}: ${result.message}`); return undefined; }
       return result.path;
     } } : {}),
-    activeGradient, setActiveGradient,
+    activeGradient, setActiveGradient, textRange, clearTextRange: () => setTextRange(undefined),
     update(patch, mergeKey) {
+      // A text being edited is finished first (its blur commits what was typed), so the change
+      // below applies to the latest text and the editor cannot overwrite it later.
+      if (editingText) {
+        const host = navigation.world.current && boardElement(navigation.world.current, editingText.board);
+        (host?.shadowRoot?.querySelector(".design-text-editor") as HTMLElement | null)?.blur();
+      }
       const changes = [...byBoard(selected)].flatMap(([name]) => {
-        const before = savedRoot(name), board = geometry.find(row => row.name === name);
+        const before = store.root(name) ?? savedRoot(name), board = geometry.find(row => row.name === name);
         if (!before || !board) return [];
+        const fresh = indexBoard(before);
         const map = new Map(inspector.targets.filter(target => target.board === name).flatMap(target => {
-          const value = patch(target);
+          const node = fresh.get(target.node.id)?.node;
+          const value = node && patch({ ...target, node, index: fresh });
           return value ? [[target.node.id, value] as const] : [];
         }));
         const after = map.size ? updateNodes(before, map) : before;
@@ -485,7 +548,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           {t(context.isStatic ? "emptyCanvasStatic" : "emptyCanvas")}
         </p>}
         <div ref={navigation.viewport} data-testid="design-viewport" role="region" aria-label={t("canvasNavigation")}
-          tabIndex={0} aria-keyshortcuts="H V F R O L Delete Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
+          tabIndex={0} aria-keyshortcuts="H V F R O L T Delete Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
           onPointerDown={event => {
             // Portal events can reach React before the viewport's native pan listener.
             if (event.defaultPrevented || hand || space.current || event.button !== 0 || event.pointerType === "touch" || editable(event)) return;
@@ -495,7 +558,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
             const start = worldPoint(event.clientX, event.clientY);
             keys.current = { shift: event.shiftKey, alt: event.altKey };
             if (drawing && store.editable) {
-              draw.current = { pointer: event.pointerId, tool: tool as DrawTool, start, client: { x: event.clientX, y: event.clientY },
+              draw.current = { pointer: event.pointerId, tool: tool as DrawTool | "text", start, client: { x: event.clientX, y: event.clientY },
                 hit: hitAt(event.clientX, event.clientY), moved: false };
               setHover(undefined);
               return;
@@ -536,7 +599,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
               if (drag.pointer !== event.pointerId) return;
               if (Math.hypot(event.clientX - drag.client.x, event.clientY - drag.client.y) >= 3) drag.moved = true;
               if (drag.moved) {
-                const box = drawBounds(drag.tool, drag.start, worldPoint(event.clientX, event.clientY),
+                const box = drawBounds(drag.tool === "text" ? "rectangle" : drag.tool, drag.start, worldPoint(event.clientX, event.clientY),
                   { square: event.shiftKey, fromCenter: event.altKey });
                 setMarquee({ x: Math.min(box.x, box.x + box.width), y: Math.min(box.y, box.y + box.height),
                   width: Math.abs(box.width), height: Math.abs(box.height) });
@@ -579,6 +642,10 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
             void placeImages(event.dataTransfer.files, { x: event.clientX, y: event.clientY });
           }}
           onDoubleClick={event => {
+            if (!drawing && !hand && !space.current && !editable(event)) {
+              const hit = hitAt(event.clientX, event.clientY);
+              if (hit && startEditing(hit.board, hit.chain[0]!)) return;
+            }
             if (drawing || hand || space.current || editable(event)) return;
             const hit = hitAt(event.clientX, event.clientY), item = hit && choose(hit, "enter");
             if (item) merge([item], event.shiftKey);
@@ -606,6 +673,10 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
             if (event.key.toLowerCase() === "h") setHover(undefined);
             if (event.key === "Escape" && endTransform(false)) return;
             if (event.key === "Escape") { setSelected([]); setHover(undefined); gesture.current = undefined; setMarquee(undefined); }
+            if (event.key === "Enter" && !event.shiftKey && selected.length === 1 && startEditing(selected[0]!.board, selected[0]!.id)) {
+              event.preventDefault();
+              return;
+            }
             if (event.key === "Enter") {
               event.preventDefault();
               setSelected(geometry.flatMap(board => (event.shiftKey ? parents : children)(board.index,
@@ -620,7 +691,8 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           <div ref={navigation.world} data-testid="design-board-stage" style={{
             position: "absolute", left: 0, top: 0, width: "100%", height: "100%", transformOrigin: "0 0", willChange: "transform"
           }}>
-            {boards.map(board => <BoardView key={board.name} board={board} context={resolution.context} fontsCss={fonts} locale={context.locale} />)}
+            {boards.map(board => <BoardView key={board.name} board={board} context={resolution.context} fontsCss={fonts} locale={context.locale}
+              editing={textEditing && editingText?.board === board.name ? textEditing : undefined} />)}
             {boards.map(board => <button key={board.name} type="button" data-testid={`design-board-label-${board.name}`}
               aria-pressed={isSelected({ board: board.name, id: board.spec.root.id })} style={{
                 position: "absolute", left: board.spec.x, top: board.spec.y - 28, height: 24, minHeight: 24,
