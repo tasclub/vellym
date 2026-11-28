@@ -1,5 +1,9 @@
 /** Node contributions and diagnostics share the same Japanese/English dictionary. */
 export const designText = {
+  saving: { ja: "保存中", en: "Saving" },
+  saved: { ja: "保存しました", en: "Saved" },
+  saveFailed: { ja: "保存できませんでした", en: "Could not save" },
+  externalReload: { ja: "外部で変更されたため読み直しました。保存していない直前の操作は取り消されました", en: "Reloaded because the files changed externally. Recent unsaved edits were discarded." },
   invalidToken: { ja: "トークンの型または値が不正です", en: "Invalid token type or value." },
   tokenCycle: { ja: "トークンの参照が循環しています", en: "Token references form a cycle." },
   tokenMissing: { ja: "参照先のトークンがありません", en: "Referenced token does not exist." },

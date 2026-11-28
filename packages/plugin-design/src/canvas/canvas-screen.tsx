@@ -10,6 +10,7 @@ import { designText } from "../i18n.js";
 import { Pages } from "./pages.js";
 import { Notes } from "./notes.js";
 import { useViewport } from "./viewport.js";
+import { useDesignEdit } from "../edit/use-edit.js";
 
 export function CanvasScreen({ context }: PluginViewProps) {
   const data = context.rendererData as unknown as CanvasRendererData;
@@ -17,7 +18,8 @@ export function CanvasScreen({ context }: PluginViewProps) {
   return <CanvasContent key={data.canvas?.name ?? ""} context={context} data={data} />;
 }
 
-function CanvasContent({ context, data }: PluginViewProps & { data: CanvasRendererData }) {
+function CanvasContent({ context, data: incoming }: PluginViewProps & { data: CanvasRendererData }) {
+  const { store, data, reloaded } = useDesignEdit(incoming, context);
   const locale = context.locale === "ja" ? "ja" : "en";
   const t = (key: keyof typeof designText) => designText[key][locale];
   const [page, setPage] = useState(data.canvas?.spec.pages?.[0]?.id ?? "");
@@ -47,7 +49,7 @@ function CanvasContent({ context, data }: PluginViewProps & { data: CanvasRender
     [row.name ?? row.relativePath, row.hash ?? row];
   const dependencyKey = JSON.stringify([data.canvas && identity(data.canvas),
     data.components.map(identity), data.styles.map(identity), data.tokenFiles.map(identity), modes]);
-  const resolution = useMemo(() => canvasResolution(data, modes), [dependencyKey]);
+  const resolution = useMemo(() => canvasResolution(data, modes), [dependencyKey, store.getSnapshot()]);
   const fonts = fontFaceCss(data.canvas?.spec.fonts ?? []);
   const bounds = boards.map(board => ({ x: board.spec.x, y: board.spec.y,
     width: board.spec.root.width ?? 0, height: board.spec.root.height ?? 0 }));
@@ -76,6 +78,7 @@ function CanvasContent({ context, data }: PluginViewProps & { data: CanvasRender
   };
   return <section ref={screen} className="design-canvas-screen" data-testid="design-canvas" aria-label={t("canvas")}>
     <style>{canvasCss}</style>
+    {reloaded && <p role="alert" data-testid="design-reloaded">{t("externalReload")}</p>}
     {data.notices?.length > 0 && <ul role="alert">{data.notices.map((notice, i) =>
       <li key={i}>{locale === "ja" ? notice.ja : notice.en}</li>)}</ul>}
     <div className="design-canvas-tools" role="group" aria-label={t("navigation")}>
@@ -96,9 +99,12 @@ function CanvasContent({ context, data }: PluginViewProps & { data: CanvasRender
           {options.map(option => <option key={option} value={option}>{option}</option>)}
         </select>
       </label>)}
-      {!context.isStatic && context.createResourceNow && <button type="button" data-testid="design-add-board"
+      {store.editable && context.createResourceNow && <button type="button" data-testid="design-add-board"
         disabled={busy} onClick={() => { void addBoard(); }}>{t("createBoard")}</button>}
       <span role="status">{status}</span>
+      {store.editable && <span role="status" data-testid="design-save-status" data-state={store.status}>
+        {store.status ? t(store.status) : ""}{store.error ? `: ${store.error}` : ""}
+      </span>}
     </div>
     <div className="design-canvas-frame">
       {pages.length > 0 && <Pages pages={pages} active={active} onChange={onPage} locale={locale} />}
