@@ -228,3 +228,23 @@
   border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--text-primary);
 }
 .design-align button:disabled { color: var(--text-muted); cursor: default; }
+
+/* Snapping guides, gaps, distances and layout grids (in world units; lines stay 1px on screen). */
+.design-guide { position: absolute; background: #e5484d; }
+.design-guide[data-axis="x"] { width: calc(1px / var(--design-scale, 1)); }
+.design-guide[data-axis="y"] { height: calc(1px / var(--design-scale, 1)); }
+.design-measure { position: absolute; background: #e5484d; }
+.design-measure-x { height: calc(1px / var(--design-scale, 1)); }
+.design-measure-y { width: calc(1px / var(--design-scale, 1)); }
+.design-measure span {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; padding: 0 calc(3px / var(--design-scale, 1));
+  font: calc(11px / var(--design-scale, 1)) / 1.4 sans-serif; color: #fff; background: #e5484d; border-radius: calc(2px / var(--design-scale, 1)); white-space: nowrap;
+}
+.design-grid { position: absolute; background: rgba(255, 0, 0, 0.1); }
+.design-grid-grid { background: transparent; box-shadow: inset 0 0 0 calc(0.5px / var(--design-scale, 1)) rgba(255, 0, 0, 0.25); }
+.design-rulers { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.design-ruler { position: absolute; left: 0; top: 0; background: rgba(255, 255, 255, 0.92); }
+.design-ruler-x { border-bottom: 1px solid #94a3b8; }
+.design-ruler-y { border-right: 1px solid #94a3b8; }
+.design-ruler line { stroke: #64748b; stroke-width: 1; }
+.design-ruler text { font: 9px sans-serif; fill: #334155; }

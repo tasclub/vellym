@@ -25,6 +25,9 @@ import { useSelection } from "./use-selection.js";
 import { useDrawing } from "./use-drawing.js";
 import { useClipboard } from "./use-clipboard.js";
 import { inspectorContext } from "./inspector-context.js";
+import { Rulers } from "./rulers.js";
+import { distances, type Distance } from "../edit/snap.js";
+import { enclosing, measureNode } from "./overlay.js";
 
 export function CanvasScreen({ context }: PluginViewProps) {
   const data = context.rendererData as unknown as CanvasRendererData;
@@ -48,6 +51,9 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const [status, setStatus] = useState("");
   const [presenting, setPresenting] = useState<string>();
   const [activeGradient, setActiveGradient] = useState<{ list: PaintList; paint: number }>();
+  const [rulers, setRulers] = useState(false);
+  /** Alt+hover: distances from the selection to the node under the pointer. */
+  const [measures, setMeasures] = useState<Distance[]>([]);
   useLayoutEffect(() => setActiveGradient(undefined), [selected]);
   const space = useRef(false);
   const presentButton = useRef<HTMLButtonElement>(null);
@@ -115,6 +121,18 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const inspector = inspectorContext(m, { tokens: resolution.context.tokens ?? {}, editable: store.editable && !transform.transform.current,
     activeGradient, setActiveGradient, textRange: drawn.textRange, clearTextRange: () => drawn.setTextRange(undefined),
     arrange: clip.arrange, beforeChange: drawn.finishEditing });
+  const measureTo = (event: { clientX: number; clientY: number }) => {
+    const world = navigation.world.current, hit = m.hitAt(event.clientX, event.clientY), item = hit && m.choose(hit, "normal");
+    if (!world || !item || !selected.length || m.isSelected(item)) { setMeasures([]); return; }
+    const box = (target: Selection) => {
+      const board = geometry.find(row => row.name === target.board), measured = board && measureNode(world, board, target.id);
+      return measured && enclosing(measured);
+    };
+    const own = selected.map(box).filter(value => value !== undefined), other = box(item);
+    if (!own.length || !other) { setMeasures([]); return; }
+    const x = Math.min(...own.map(b => b.x)), y = Math.min(...own.map(b => b.y));
+    setMeasures(distances({ x, y, width: Math.max(...own.map(b => b.x + b.width)) - x, height: Math.max(...own.map(b => b.y + b.height)) - y }, other));
+  };
   const boardRoot = (name: string) => saved.find(board => board.name === name)?.spec.root.id;
   const onlyNodes = selected.length > 0 && selected.every(item => geometry.find(board => board.name === item.board)?.index.get(item.id)?.parentId !== undefined);
   const onlyBoards = selected.length > 0 && selected.every(item => boardRoot(item.board) === item.id);
@@ -132,6 +150,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
       <button type="button" data-testid="design-zoom-fit" onClick={() => navigation.fit()}>{t("fitAll")}</button>
       <button type="button" data-testid="design-zoom-selection" disabled={!selected.length} onClick={() => navigation.fit(true)}>{t("fitSelection")}</button>
       <output ref={navigation.zoomLabel} aria-label={t("zoom")} data-testid="design-zoom">100%</output>
+      <button type="button" data-testid="design-rulers-toggle" aria-pressed={rulers} onClick={() => setRulers(value => !value)}>{t("rulers")}</button>
       <button ref={presentButton} type="button" data-testid="design-present" onClick={() => {
         const start = boards.find(board => board.spec.startingPoint) ?? boards[0];
         if (start) setPresenting(start.name);
@@ -190,11 +209,12 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
       <div id="design-page-panel" role={pages.length ? "tabpanel" : undefined}
         aria-labelledby={pages.length ? `design-page-${pages.findIndex(item => item.id === active)}` : undefined}
         style={{ flex: 1, minWidth: 0, position: "relative", overflow: "hidden" }}>
+        {rulers && <Rulers world={navigation.world} />}
         {!boards.length && <p data-testid="design-empty" style={{ position: "absolute", zIndex: 1, top: 12, left: 12, pointerEvents: "none" }}>
           {t(context.isStatic ? "emptyCanvasStatic" : "emptyCanvas")}
         </p>}
         <div ref={navigation.viewport} data-testid="design-viewport" role="region" aria-label={t("canvasNavigation")}
-          tabIndex={0} aria-keyshortcuts="H V F R O L T Delete Control+C Control+X Control+V Control+D Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
+          tabIndex={0} aria-keyshortcuts="H V F R O L T Shift+R Delete Control+C Control+X Control+V Control+D Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
           onPointerDown={event => {
             // Portal events can reach React before the viewport's native pan listener.
             if (event.defaultPrevented || hand || space.current || event.button !== 0 || event.pointerType === "touch" || editableTarget(event)) return;
@@ -226,8 +246,10 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
               return;
             }
             if (selection.move(event)) return;
-            if (!event.buttons && !hand && !space.current && event.pointerType !== "touch") selection.hover(event);
-            else setHover(undefined);
+            if (!event.buttons && !hand && !space.current && event.pointerType !== "touch") {
+              selection.hover(event);
+              if (event.altKey) measureTo(event); else if (measures.length) setMeasures([]);
+            } else setHover(undefined);
           }}
           onPointerUp={event => {
             if (drawn.draw.current?.pointer === event.pointerId) { drawn.finishDraw(m.worldPoint(event.clientX, event.clientY)); return; }
@@ -236,7 +258,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           }}
           onPointerCancel={() => { drawn.cancelDraw(); selection.cancel(); transform.end(false); }}
           onLostPointerCapture={() => { if (drawn.draw.current) return; selection.cancel(); transform.end(false); }}
-          onPointerLeave={() => setHover(undefined)}
+          onPointerLeave={() => { setHover(undefined); setMeasures([]); }}
           {...clip.events}
           onDragOver={event => { if (store.editable && context.uploadAsset && event.dataTransfer.types.includes("Files")) event.preventDefault(); }}
           onDrop={event => {
@@ -257,12 +279,14 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
               clip.duplicateSelection();
               return;
             }
+            if (event.key === "Alt" && !editableTarget(event)) event.preventDefault();
             if (editableTarget(event) || event.ctrlKey || event.metaKey || event.altKey) return;
             if ((event.key === "Delete" || event.key === "Backspace") && store.editable && onlyNodes) {
               event.preventDefault();
               clip.deleteNodes();
               return;
             }
+            if (event.shiftKey && event.key.toLowerCase() === "r") { event.preventDefault(); setRulers(value => !value); return; }
             const next = TOOL_KEYS[event.key.toLowerCase()];
             // H and V are the viewport's own keys (they switch the hand); F, R, O, L and T pick a drawing tool.
             if (next && next !== "hand" && next !== "select" && store.editable && context.createResourceNow && !event.shiftKey) { setTool(next); setHover(undefined); return; }
@@ -294,7 +318,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
               setHover(undefined);
             }
           }}
-          onKeyUp={event => { if (event.code === "Space") space.current = false; }}
+          onKeyUp={event => { if (event.code === "Space") space.current = false; if (event.key === "Alt") setMeasures([]); }}
           onBlur={() => { space.current = false; }}
           style={{ position: "absolute", inset: 0, overflow: "hidden", touchAction: "none", background: "#e5e7eb",
             color: "#1f2937", cursor: hand ? "grab" : drawing ? "crosshair" : "default" }}>
@@ -326,7 +350,8 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
             <Notes notes={notes} />
             <Overlay world={navigation.world} boards={geometry} selection={selected} hover={hover} marquee={marquee}
               revision={preview ?? store.getSnapshot()} onBounds={setSelectionBounds} handles={transform.handles} rotatable={transform.rotatable}
-              gradient={gradientItem && isGradient(gradientPaint) ? { item: gradientItem, paint: gradientPaint } : undefined} />
+              gradient={gradientItem && isGradient(gradientPaint) ? { item: gradientItem, paint: gradientPaint } : undefined}
+              guides={previews.marks?.guides} gaps={previews.marks?.gaps} measures={measures} />
           </div>
         </div>
       </div>

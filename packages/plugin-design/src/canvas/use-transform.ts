@@ -8,6 +8,9 @@ import { angleOf, HANDLES, moveNodes, movable, resizable, resizeNodes, rotate, r
 import { isGradient, positionAt, type Gradient } from "../panels/gradient-axis.js";
 import type { PaintList } from "../panels/sections.js";
 import { enclosing, measureNode } from "./overlay.js";
+import { gridLines, handleEdges, snapBox, type Gap, type Guide, type SnapTargets } from "../edit/snap.js";
+import { resizeBox } from "../edit/transform.js";
+import type { Bounds } from "./viewport.js";
 import { byBoard, type CanvasModel } from "./model.js";
 
 /** A drag of the selection: the model changes only on release (one undo step). */
@@ -22,13 +25,16 @@ export interface TransformGesture {
   positions: Map<string, BoardPosition>; nextPositions?: Map<string, BoardPosition>;
   /** Alt+drag: the roots before the copies were made (what one undo returns to). */
   origins?: Map<string, DesignNode>; restore?: Selection[];
+  /** What a move or a one-node resize snaps to, and the moving box at the start (world units). */
+  snap?: { targets: SnapTargets; box: Bounds; world: WorldBox };
 }
 
 /** What a drag draws before it commits: replaced roots and board positions. */
 export function usePreviews() {
   const [preview, setPreview] = useState<ReadonlyMap<string, DesignNode>>();
   const [previewPositions, setPreviewPositions] = useState<ReadonlyMap<string, BoardPosition>>();
-  return { preview, setPreview, previewPositions, setPreviewPositions };
+  const [marks, setMarks] = useState<{ guides: Guide[]; gaps: Gap[] }>();
+  return { preview, setPreview, previewPositions, setPreviewPositions, marks, setMarks };
 }
 export type Previews = ReturnType<typeof usePreviews>;
 
@@ -84,9 +90,52 @@ export function useTransform(m: CanvasModel, previews: Previews) {
       if (board && list.includes(board.spec.root.id)) positions.set(name, store.position(name) ?? { x: board.spec.x, y: board.spec.y });
     }
     transform.current = { pointer, kind, handle, start, roots, ids, boxes, frame, rotations, positions,
-      angle: angleOf(centre.cx, centre.cy, start.x, start.y) };
+      angle: angleOf(centre.cx, centre.cy, start.x, start.y),
+      snap: kind === "move" || (kind === "resize" && all.length === 1 && Math.abs(all[0]!.rotation) < 0.01)
+        ? snapTargets(ids, positions, frame ? { x: left, y: top, width: right - left, height: bottom - top } : enclosing({
+          x: all[0]!.cx - all[0]!.width / 2, y: all[0]!.cy - all[0]!.height / 2, width: all[0]!.width, height: all[0]!.height, rotation: all[0]!.rotation }), centre)
+        : undefined };
     m.setHover(undefined);
   };
+
+  /**
+   * Snap targets: the moving nodes' siblings and parents (and the parents' layout grids); for
+   * whole boards, the other boards. Only what is on the page now (measured once per drag).
+   */
+  const snapTargets = (ids: Map<string, string[]>, positions: Map<string, BoardPosition>, box: Bounds, world: WorldBox) => {
+    const element = m.world.current!, boxes: Bounds[] = [], lines = { x: [] as number[], y: [] as number[] };
+    for (const [name, list] of ids) {
+      const board = geometry.find(item => item.name === name);
+      if (!board) continue;
+      const moving = new Set(list);
+      for (const id of list) {
+        const parentId = board.index.get(id)?.parentId;
+        if (parentId === undefined) continue;
+        const parent = board.index.get(parentId)!.node;
+        const parentBox = measureNode(element, board, parentId);
+        if (parentBox) {
+          boxes.push(enclosing(parentBox));
+          if (parent.type === "frame" && Math.abs(parentBox.rotation) < 0.01) {
+            const grid = gridLines(parentBox, parent.layoutGrids);
+            lines.x.push(...grid.x); lines.y.push(...grid.y);
+          }
+        }
+        for (const child of "children" in parent && Array.isArray(parent.children) ? parent.children as DesignNode[] : []) {
+          if (moving.has(child.id) || child.visible === false) continue;
+          const sibling = measureNode(element, board, child.id);
+          if (sibling) boxes.push(enclosing(sibling));
+        }
+      }
+    }
+    if (positions.size) for (const board of geometry) {
+      if (positions.has(board.name)) continue;
+      const root = [...board.index.values()].find(item => item.depth === 0)!;
+      const other = measureNode(element, board, root.node.id);
+      if (other) boxes.push(enclosing(other));
+    }
+    return { targets: { boxes, lines }, box, world };
+  };
+  const snapThreshold = () => 4 / (Number(m.world.current?.style.getPropertyValue("--design-scale")) || 1);
 
   /** A gradient stop handle on the canvas (one selected node). */
   const beginStop = (pointer: number, start: { x: number; y: number }, active: { list: PaintList; paint: number }, index: number) => {
@@ -116,10 +165,24 @@ export function useTransform(m: CanvasModel, previews: Previews) {
     m.setSelected(copies);
   };
 
-  const update = (event: { clientX: number; clientY: number; shiftKey: boolean; altKey: boolean }) => {
+  const update = (event: { clientX: number; clientY: number; shiftKey: boolean; altKey: boolean; ctrlKey?: boolean; metaKey?: boolean }) => {
     const drag = transform.current;
     if (!drag) return;
-    const point = m.worldPoint(event.clientX, event.clientY), dx = point.x - drag.start.x, dy = point.y - drag.start.y;
+    const point = m.worldPoint(event.clientX, event.clientY);
+    let dx = point.x - drag.start.x, dy = point.y - drag.start.y;
+    // Snap unless Ctrl/Cmd is held: the moved box (or the dragged edges of a resized one).
+    const snapping = drag.snap && !event.ctrlKey && !event.metaKey;
+    if (drag.snap && snapping && drag.kind === "move") {
+      const result = snapBox({ ...drag.snap.box, x: drag.snap.box.x + dx, y: drag.snap.box.y + dy }, drag.snap.targets, snapThreshold());
+      dx += result.dx; dy += result.dy;
+      previews.setMarks({ guides: result.guides, gaps: result.gaps });
+    } else if (drag.snap && snapping && drag.kind === "resize" && !event.altKey && !event.shiftKey) {
+      const sized = resizeBox(drag.snap.world, drag.handle!, dx, dy, { keepRatio: false, fromCenter: false });
+      const box = { x: sized.cx - sized.width / 2, y: sized.cy - sized.height / 2, width: sized.width, height: sized.height };
+      const result = snapBox(box, drag.snap.targets, snapThreshold(), handleEdges(box, drag.handle!));
+      dx += result.dx; dy += result.dy;
+      previews.setMarks({ guides: result.guides, gaps: [] });
+    } else previews.setMarks(undefined);
     const next = new Map<string, DesignNode>();
     if (drag.kind === "gradient" && drag.stop) {
       const { board, id, list, paint, index, box } = drag.stop, root = drag.roots.get(board)!;
@@ -169,6 +232,7 @@ export function useTransform(m: CanvasModel, previews: Previews) {
     else if (drag.restore) m.setSelected(drag.restore);
     previews.setPreview(undefined);
     previews.setPreviewPositions(undefined);
+    previews.setMarks(undefined);
     return true;
   };
 

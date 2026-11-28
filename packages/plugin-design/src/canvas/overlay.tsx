@@ -3,6 +3,8 @@ import type { BoardIndex, Selection } from "../edit/selection.js";
 import type { Bounds } from "./viewport.js";
 import { rotate, type Handle } from "../edit/transform.js";
 import { stopOffset, type Gradient } from "../panels/gradient-axis.js";
+import { gridRects, type Distance, type Gap, type Guide } from "../edit/snap.js";
+import type { LayoutGrid } from "../model/types.js";
 
 export interface BoardGeometry { name: string; x: number; y: number; index: BoardIndex }
 export interface NodeBox extends Bounds { rotation: number }
@@ -51,15 +53,19 @@ const place: Record<Handle, [number, number]> = {
   nw: [0, 0], n: [50, 0], ne: [100, 0], e: [100, 50], se: [100, 100], s: [50, 100], sw: [0, 100], w: [0, 50]
 };
 
-export function Overlay({ world, boards, selection, hover, marquee, revision, onBounds, handles = [], rotatable = false, gradient }: {
+export function Overlay({ world, boards, selection, hover, marquee, revision, onBounds, handles = [], rotatable = false, gradient,
+  guides = [], gaps = [], measures = [] }: {
   world: RefObject<HTMLDivElement | null>; boards: BoardGeometry[]; selection: Selection[];
   hover?: Selection; marquee?: Bounds; revision: unknown; onBounds: (bounds?: Bounds) => void;
   /** Resize handles to offer around the selection (none while editing is unavailable). */
   handles?: readonly Handle[]; rotatable?: boolean;
   /** Stop handles for one selected node's gradient, along the same axis the CSS draws. */
   gradient?: { item: Selection; paint: Gradient };
+  /** Snapping guides and equal gaps while dragging; Alt+hover distances. */
+  guides?: readonly Guide[]; gaps?: readonly Gap[]; measures?: readonly Distance[];
 }) {
   const [boxes, setBoxes] = useState<{ item: Selection; box: NodeBox; hover: boolean }[]>([]);
+  const [grids, setGrids] = useState<{ key: string; rect: Bounds; color?: string; pattern: LayoutGrid["pattern"] }[]>([]);
   useLayoutEffect(() => {
     const measure = () => {
       if (!world.current) return;
@@ -79,6 +85,18 @@ export function Overlay({ world, boards, selection, hover, marquee, revision, on
       }
     };
     measure();
+    // Layout grids of every frame on the page (unrotated frames only).
+    const measureGrids = () => {
+      if (!world.current) return;
+      setGrids(boards.flatMap(board => [...board.index.values()].flatMap(({ node }) => {
+        const list = node.type === "frame" ? node.layoutGrids?.filter(grid => grid.visible !== false) ?? [] : [];
+        if (!list.length) return [];
+        const box = measureNode(world.current!, board, node.id);
+        if (!box || Math.abs(box.rotation) > 0.01) return [];
+        return list.flatMap((grid, g) => gridRects(box, grid).map((rect, i) => ({ key: `${board.name}/${node.id}/${g}/${i}`, rect, color: grid.color, pattern: grid.pattern })));
+      })));
+    };
+    measureGrids();
     // Board portals mount in their own layout effect; measure once after that commit too.
     const frame = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(frame);
@@ -117,6 +135,16 @@ export function Overlay({ world, boards, selection, hover, marquee, revision, on
           style={{ left: p.x, top: p.y, background: stop.color }} />;
       })}
     </div>}
+    {grids.map(({ key, rect, color, pattern }) => <div key={key} className={`design-grid design-grid-${pattern}`} data-testid="design-layout-grid"
+      style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height, ...(color ? { background: color } : {}) }} />)}
+    {guides.map((guide, i) => <div key={`g${i}`} className="design-guide" data-testid="design-guide" data-axis={guide.axis}
+      style={guide.axis === "x" ? { left: guide.at, top: guide.from, height: guide.to - guide.from }
+        : { top: guide.at, left: guide.from, width: guide.to - guide.from }} />)}
+    {[...gaps.map(gap => ({ ...gap, kind: "gap" })), ...measures.map(item => ({ ...item, kind: "measure" }))].map((item, i) =>
+      <div key={`m${i}`} className={`design-measure design-measure-${item.axis}`} data-testid={item.kind === "gap" ? "design-gap" : "design-distance"}
+        style={item.axis === "x" ? { left: item.from, top: item.at, width: item.to - item.from } : { top: item.from, left: item.at, height: item.to - item.from }}>
+        <span>{item.size}</span>
+      </div>)}
     {marquee && <div className="design-marquee" data-testid="design-marquee"
       style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }} />}
   </div>;
