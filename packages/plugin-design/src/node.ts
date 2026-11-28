@@ -6,7 +6,7 @@ import {
   DESIGN_CANVAS_SPEC_SCHEMA, DESIGN_BOARD_SPEC_SCHEMA,
   DESIGN_COMPONENT_SPEC_SCHEMA, DESIGN_STYLES_SPEC_SCHEMA
 } from "./model/index.js";
-import { canvasResourceName, childResourceName, folderOf, folderNameOf } from "./model/names.js";
+import { canvasResourceName, childResourceName, folderOf } from "./model/names.js";
 import { validateDesign } from "./model/validate.js";
 import { designText as text } from "./i18n.js";
 import { resolveTokens } from "./tokens/resolve.js";
@@ -77,14 +77,9 @@ export default definePlugin({
           file: ".", severity: "warning", code: "DESIGN_CANVAS_TITLE_REQUIRED", message: text.nameRequired
         }] };
         const name = canvasResourceName(title);
-        const occupied = new Set(context.records(DESIGN_CANVAS_KIND).map(record => folderOf(record.relativePath)));
-        let parent = typeof context.input?.folder === "string" ? context.input.folder.trim()
+        // The canvas sits directly in the chosen folder; its boards share that folder's +boards/.
+        const folder = typeof context.input?.folder === "string" ? context.input.folder.trim()
           : context.target ? folderOf(context.target.relativePath) : "";
-        // A canvas folder holds one canvas: from inside one, create the new canvas beside it.
-        while (parent && occupied.has(parent)) parent = folderOf(parent);
-        const base = [parent, folderNameOf(title)].filter(Boolean).join("/");
-        let folder = base;
-        for (let index = 2; occupied.has(folder); index++) folder = `${base}-${index}`;
         return context.createResource({
           kind: DESIGN_CANVAS_KIND, name, title, folder,
           spec: { formatVersion: 1 }

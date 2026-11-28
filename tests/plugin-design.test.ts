@@ -52,7 +52,7 @@ describe("design registration and commands", () => {
       expect.objectContaining({ code: "DESIGN_CANVAS_NOT_FOUND" })
     ]));
   });
-  it("creates valid drafts with metadata-name filenames and canvas folders named after the title", async () => {
+  it("creates valid drafts with metadata-name filenames with canvases directly in the chosen folder", async () => {
     const { commands, kinds } = activated();
     const drafts: PluginResourceDraft[] = [];
     const commandContext: PluginCommandContext = {
@@ -64,7 +64,7 @@ describe("design registration and commands", () => {
       }
     };
     for (const c of commands) expect((await c.run(commandContext)).ok).toBe(true);
-    expect(drafts[0]!.folder).toBe("design/my-app");
+    expect(drafts[0]!.folder).toBe("design");
     expect(drafts[0]!.spec).toEqual({ formatVersion: 1 });
     expect(drafts[1]!.folder).toBe("design/app/+boards");
     expect(drafts[1]!.spec.x).toBe(470);

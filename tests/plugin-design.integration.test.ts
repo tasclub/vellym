@@ -347,7 +347,7 @@ describe("creation commands", () => {
     const draft = capture.drafts[0]!;
     expect(draft.kind).toBe(DESIGN_CANVAS_KIND);
     expect(draft.title).toBe("UXキャンバス");
-    expect(draft.folder).toBe("30-設計/uxキャンバス");
+    expect(draft.folder).toBe("30-設計");
     expect(draft.spec).toEqual({ formatVersion: 1 });
     expect(draft.name).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
   });

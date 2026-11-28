@@ -45,7 +45,7 @@ test.describe("canvas creation", () => {
     }
   });
 
-  test("Japanese canvas folders, bodyless drafts and immediate boards @DESIGN-A01", async ({ page, server, project }, testInfo) => {
+  test("Japanese canvases in the chosen folder, bodyless drafts and immediate boards @DESIGN-A01", async ({ page, server, project }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(server);
     const title = "画面の設計";
@@ -70,11 +70,16 @@ test.describe("canvas creation", () => {
     // Select a root document so the canvas is created at the content root.
     await page.getByRole("treegrid").getByRole("row", { name: /Fixture topic/ }).click();
     await create();
-    expect(await readdir(project.content)).toContain(title);
-    const folder = path.join(project.content, title);
-    const canvasFiles = (await readdir(folder)).filter(file => file.endsWith(".yaml"));
-    expect(canvasFiles).toHaveLength(1);
-    const canvas = parse(await readFile(path.join(folder, canvasFiles[0]!), "utf8"));
+    // The canvas sits directly in the chosen folder (the content root): no folder of its own.
+    const folder = project.content;
+    const canvasesIn = async () => (await Promise.all((await readdir(folder)).filter(file => file.endsWith(".yaml"))
+      .map(async file => parse(await readFile(path.join(folder, file), "utf8"))))).filter(item => item.kind === "DesignCanvas");
+    expect(await readdir(folder)).not.toContain(title);
+    const [canvas, ...others] = await canvasesIn();
+    expect(others).toHaveLength(0);
+    const tree = page.getByRole("treegrid").first();
+    await expect(tree.getByRole("row", { name: title, exact: true })).toHaveAttribute("aria-level", "1");
+    await expect(tree.getByRole("button", { name: new RegExp(`^(フォルダ|Open).*${title}`) })).toHaveCount(0);
     expect(canvas.metadata.title).toBe(title);
     expect(canvas.metadata.name).toMatch(/^design-canvas-/);
     const paper = page.locator(".browse-workspace > .document-paper");
@@ -107,10 +112,10 @@ test.describe("canvas creation", () => {
     await page.screenshot({ path: testInfo.outputPath("full-canvas.png") });
     await page.reload();
     await expect(page.getByRole("button", { name: /^ボード [12]$/ })).toHaveCount(2);
-    // Creating from inside the open canvas puts the new canvas beside it, not inside its folder.
+    // Creating from the open canvas puts the next canvas beside it, and the boards stay with their canvas.
     await create();
-    expect(await readdir(project.content)).toContain(`${title}-2`);
-    expect((await readdir(folder)).filter(file => file.endsWith(".yaml"))).toHaveLength(1);
+    expect((await canvasesIn()).map(item => item.metadata.title)).toEqual([title, title]);
+    expect((await readdir(path.join(folder, "+boards"))).filter(file => file.endsWith(".yaml"))).toHaveLength(2);
   });
 });
 
