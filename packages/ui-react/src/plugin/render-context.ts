@@ -105,23 +105,27 @@ export function createRenderContext(options: {
         return { ok: false, reason: error instanceof ApiError && error.status === 409 ? "conflict" : "error", message: options.describeError(error) };
       }
     },
-    async createResourceNow(draft) {
-      if (isStaticApp()) {
-        const error = new ApiError("Saving is unavailable in static output.", 405, [], "STATIC_WRITE_UNAVAILABLE");
-        return { ok: false, reason: "error", message: options.describeError(error) };
+    // An unsaved draft cannot own children yet: resources created now would point at
+    // a record that does not exist if the draft is discarded.
+    ...(options.saveDraft ? {} : {
+      async createResourceNow(draft) {
+        if (isStaticApp()) {
+          const error = new ApiError("Saving is unavailable in static output.", 405, [], "STATIC_WRITE_UNAVAILABLE");
+          return { ok: false, reason: "error", message: options.describeError(error) };
+        }
+        try {
+          const result = await createPluginResource(draft);
+          await options.onSaved();
+          return { ok: true, name: result.data.name };
+        } catch (error) {
+          return {
+            ok: false,
+            reason: error instanceof ApiError && error.status === 409 ? "conflict" : "error",
+            message: options.describeError(error)
+          };
+        }
       }
-      try {
-        const result = await createPluginResource(draft);
-        await options.onSaved();
-        return { ok: true, name: result.data.name };
-      } catch (error) {
-        return {
-          ok: false,
-          reason: error instanceof ApiError && error.status === 409 ? "conflict" : "error",
-          message: options.describeError(error)
-        };
-      }
-    },
+    }),
     getViewSettings() {
       return readPluginViewSettings({
         projectRoot: options.projectRoot,

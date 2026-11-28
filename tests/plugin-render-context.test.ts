@@ -44,23 +44,25 @@ function context(overrides: {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("plugin render context", () => {
-  it("creates immediately and refreshes without using draft or navigation", async () => {
+  it("offers no immediate creation while the open resource is an unsaved draft", () => {
+    expect(context({ saveDraft: vi.fn() }).createResourceNow).toBeUndefined();
+  });
+
+  it("creates immediately and refreshes without using navigation", async () => {
     const saved = vi.fn();
-    const draftSave = vi.fn();
     const open = vi.fn(async () => ({ ok: true as const }));
     const fetcher = vi.fn(async () => new Response(JSON.stringify({
       apiSchemaVersion: "1", data: { name: "new-page", relativePath: "new-page.yaml" }, diagnostics: []
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetcher);
     const draft = { kind: "Page", name: "new-page", title: "New", spec: {} };
-    const render = context({ onSaved: saved, saveDraft: draftSave, onOpenResource: open });
+    const render = context({ onSaved: saved, onOpenResource: open });
     expect(await render.createResourceNow!(draft)).toEqual({ ok: true, name: "new-page" });
     expect(fetcher).toHaveBeenCalledOnce();
     const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/api/v1/plugins/resources");
     expect(JSON.parse(String(init.body))).toEqual({ baseHash: null, draft });
     expect(saved).toHaveBeenCalledOnce();
-    expect(draftSave).not.toHaveBeenCalled();
     expect(open).not.toHaveBeenCalled();
   });
 

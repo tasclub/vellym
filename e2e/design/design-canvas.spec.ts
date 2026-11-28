@@ -61,6 +61,8 @@ test.describe("canvas creation", () => {
       await expect(page.locator('[contenteditable="true"]')).toHaveCount(0);
       await expect(page.locator(".page-editor-surface")).toHaveAttribute("data-plugin-paper-width", "full");
       await expect(page.locator(".page-editor-surface input")).toHaveValue(title);
+      // Boards need a saved canvas: an unsaved draft offers no immediate creation.
+      await expect(page.getByTestId("design-add-board")).toHaveCount(0);
       await page.getByTestId("document-save").click();
       await expect(page.getByTestId("document-save")).toHaveCount(0);
       await expect(page.getByTestId("design-add-board")).toBeVisible();
@@ -105,10 +107,10 @@ test.describe("canvas creation", () => {
     await page.screenshot({ path: testInfo.outputPath("full-canvas.png") });
     await page.reload();
     await expect(page.getByRole("button", { name: /^ボード [12]$/ })).toHaveCount(2);
-    // Select the root document again so the second canvas is created beside the first.
-    await page.getByRole("treegrid").getByRole("row", { name: /Fixture topic/ }).click();
+    // Creating from inside the open canvas puts the new canvas beside it, not inside its folder.
     await create();
     expect(await readdir(project.content)).toContain(`${title}-2`);
+    expect((await readdir(folder)).filter(file => file.endsWith(".yaml"))).toHaveLength(1);
   });
 });
 

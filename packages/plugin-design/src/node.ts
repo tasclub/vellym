@@ -77,10 +77,12 @@ export default definePlugin({
           file: ".", severity: "warning", code: "DESIGN_CANVAS_TITLE_REQUIRED", message: text.nameRequired
         }] };
         const name = canvasResourceName(title);
-        const parent = typeof context.input?.folder === "string" ? context.input.folder.trim()
-          : context.target ? folderOf(context.target.relativePath) : "";
-        const base = [parent, folderNameOf(title)].filter(Boolean).join("/");
         const occupied = new Set(context.records(DESIGN_CANVAS_KIND).map(record => folderOf(record.relativePath)));
+        let parent = typeof context.input?.folder === "string" ? context.input.folder.trim()
+          : context.target ? folderOf(context.target.relativePath) : "";
+        // A canvas folder holds one canvas: from inside one, create the new canvas beside it.
+        while (parent && occupied.has(parent)) parent = folderOf(parent);
+        const base = [parent, folderNameOf(title)].filter(Boolean).join("/");
         let folder = base;
         for (let index = 2; occupied.has(folder); index++) folder = `${base}-${index}`;
         return context.createResource({
