@@ -630,11 +630,18 @@ export async function loadRepository(
     try {
       source = await readFile(sourcePath, "utf8");
     } catch (error) {
+      const errorCode = error && typeof error === "object" && "code" in error
+        ? error.code
+        : undefined;
+      const code = typeof errorCode === "string" ? errorCode : undefined;
       diagnostics.push({
         file: relativePath,
         severity: "error",
         code: "READ_ERROR",
-        message: error instanceof Error ? error.message : String(error)
+        message: {
+          ja: `ファイルを読めません${code === undefined ? "" : `（${code}）`}`,
+          en: `Could not read the file${code === undefined ? "" : ` (${code})`}`
+        }
       });
       continue;
     }

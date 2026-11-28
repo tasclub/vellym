@@ -32,8 +32,7 @@ describe("error information disclosure", () => {
     await diagnostics();
   });
   // root bypasses mode 000, so it cannot reproduce a permission error.
-  // READ_ERROR currently embeds the OS error's absolute filename.
-  it.skipIf(process.getuid?.() === 0).fails("does not disclose paths for unreadable pages", async () => {
+  it.skipIf(process.getuid?.() === 0)("does not disclose paths for unreadable pages", async () => {
     const file = path.join(f.project, "content/unreadable.yaml");
     await writeFile(file, "apiVersion: vellym.tasclub.com/v1\nkind: Page\nmetadata: { name: unreadable, title: Unreadable }\nspec: { blocks: [] }\n");
     await chmod(file, 0);
