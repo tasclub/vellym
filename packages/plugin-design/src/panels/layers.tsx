@@ -62,11 +62,21 @@ export function Layers({ boards, selected, onSelect, apply, editable, locale }: 
   }, [boards, open]);
   const focused = rows.find(row => key(row.board, row.node.id) === focus) ??
     rows.find(row => isSelected(row.board, row.node.id)) ?? rows[0];
+  const pendingFocus = useRef(0);
   const focusRow = (row: Row | undefined) => {
     if (!row) return;
     setFocus(key(row.board, row.node.id));
-    requestAnimationFrame(() => tree.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key(row.board, row.node.id))}"]`)?.focus());
+    cancelAnimationFrame(pendingFocus.current);
+    const was = document.activeElement;
+    pendingFocus.current = requestAnimationFrame(() => {
+      // The frame can come late on a busy page: if the focus went elsewhere in the meantime
+      // (another row, a field being typed in), leave it there.
+      const current = document.activeElement;
+      if (current !== was && current !== document.body && current !== null) return;
+      tree.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key(row.board, row.node.id))}"]`)?.focus();
+    });
   };
+  const startRename = (id: string) => { cancelAnimationFrame(pendingFocus.current); setRenaming(id); };
   useEffect(() => {
     const row = rows.find(item => isSelected(item.board, item.node.id));
     if (row) tree.current?.querySelector(`[data-key="${CSS.escape(key(row.board, row.node.id))}"]`)?.scrollIntoView({ block: "nearest" });
@@ -115,7 +125,7 @@ export function Layers({ boards, selected, onSelect, apply, editable, locale }: 
         onSelect([{ board: row.board, id: row.node.id }], event.shiftKey ? "add" : event.ctrlKey || event.metaKey ? "toggle" : "replace");
         break;
       case "F2":
-        if (editable && row.level > 1) { event.preventDefault(); setRenaming(key(row.board, row.node.id)); }
+        if (editable && row.level > 1) { event.preventDefault(); startRename(key(row.board, row.node.id)); }
         break;
     }
   };
@@ -139,7 +149,7 @@ export function Layers({ boards, selected, onSelect, apply, editable, locale }: 
           onSelect([{ board: row.board, id: row.node.id }], event.shiftKey ? "add" : event.ctrlKey || event.metaKey ? "toggle" : "replace");
           setFocus(id);
         }}
-        onDoubleClick={event => { if (editable && row.level > 1 && !(event.target as Element).closest("button")) setRenaming(id); }}
+        onDoubleClick={event => { if (editable && row.level > 1 && !(event.target as Element).closest("button")) startRename(id); }}
         onDragStart={event => { setDragging({ board: row.board, id: row.node.id }); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", id); }}
         onDragEnd={() => { setDragging(undefined); setDrop(undefined); }}
         onDragOver={event => {
