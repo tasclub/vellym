@@ -14,6 +14,7 @@ import { useDesignEdit } from "../edit/use-edit.js";
 import { children, indexBoard, parents, pickAt, selectable, type Selection } from "../edit/selection.js";
 import { boardElement, enclosing, measureNode, Overlay } from "./overlay.js";
 import type { Bounds } from "./viewport.js";
+import { Presentation } from "./presentation.js";
 
 export function CanvasScreen({ context }: PluginViewProps) {
   const data = context.rendererData as unknown as CanvasRendererData;
@@ -37,6 +38,8 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   const [modes, setModes] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [presenting, setPresenting] = useState<string>();
+  const presentButton = useRef<HTMLButtonElement>(null);
   const screen = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const element = screen.current;
@@ -173,6 +176,11 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
       <button type="button" data-testid="design-zoom-fit" onClick={() => navigation.fit()}>{t("fitAll")}</button>
       <button type="button" data-testid="design-zoom-selection" disabled={!selected.length} onClick={() => navigation.fit(true)}>{t("fitSelection")}</button>
       <output ref={navigation.zoomLabel} aria-label={t("zoom")} data-testid="design-zoom">100%</output>
+      <button ref={presentButton} type="button" data-testid="design-present" onClick={() => {
+        const start = boards.find(board => board.spec.startingPoint) ?? boards[0];
+        if (start) setPresenting(start.name);
+        else setStatus(t("noStartingBoard"));
+      }}>{t("present")}</button>
       {Object.entries(resolution.modifiers).map(([modifier, options]) => <label key={modifier}>{modifier}
         <select data-testid={`design-mode-${modifier}`} value={modes[modifier] ?? ""} onChange={event =>
           setModes(previous => {
@@ -275,5 +283,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
         </div>
       </div>
     </div>
+    {presenting && <Presentation data={data} start={presenting} context={resolution.context} fontsCss={fonts}
+      locale={context.locale} onClose={() => { setPresenting(undefined); presentButton.current?.focus(); }} />}
   </section>;
 }

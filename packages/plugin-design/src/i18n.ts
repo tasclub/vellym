@@ -1,5 +1,9 @@
 /** Node contributions and diagnostics share the same Japanese/English dictionary. */
 export const designText = {
+  present: { ja: "プレゼン", en: "Present" },
+  closePresentation: { ja: "閉じる", en: "Close" },
+  noStartingBoard: { ja: "開始できるボードがありません", en: "There is no board to present." },
+  unsafeUrl: { ja: "このURLは開けません", en: "This URL cannot be opened" },
   selectedCount: { ja: "{count}個を選択中", en: "{count} selected" },
   saving: { ja: "保存中", en: "Saving" },
   saved: { ja: "保存しました", en: "Saved" },

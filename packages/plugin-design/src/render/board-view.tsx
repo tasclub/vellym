@@ -179,21 +179,58 @@ function NodeView({ node, parent, ctx, path }: { node: DesignNode; parent?: Pare
     style={css.declarations as CSSProperties}>{content}{css.strokeOverlay && <StrokeLayer overlay={css.strokeOverlay} />}</div>;
 }
 
+export interface NodeEvent {
+  boardName: string;
+  nodeId: string;
+  trigger: "click" | "hover-enter" | "hover-leave" | "press" | "release";
+  rect: DOMRect;
+}
 interface BoardViewProps {
   board: DesignRow<DesignBoardSpec>;
   context: ResolveContext;
   fontsCss: string;
   locale?: string;
+  onNodeEvent?: (event: NodeEvent) => void;
 }
 
 /** The board hash gates tree work; dependencies invalidate only when their content changes. */
-export const BoardView = memo(function BoardView({ board, context, fontsCss, locale = "en" }: BoardViewProps) {
+export const BoardView = memo(function BoardView({ board, context, fontsCss, locale = "en", onNodeEvent }: BoardViewProps) {
   const host = useRef<HTMLDivElement>(null);
   const [shadow, setShadow] = useState<ShadowRoot>();
   useLayoutEffect(() => {
     if (host.current) setShadow(host.current.shadowRoot ?? host.current.attachShadow({ mode: "open" }));
   }, []);
   const root = useMemo(() => resolveNode(board.spec.root, context), [board.hash, board.spec.root, context]);
+  useEffect(() => {
+    if (!shadow || !onNodeEvent) return;
+    const ids = new Set<string>();
+    const visit = (node: DesignNode) => {
+      if (node.reactions?.length) ids.add(node.id);
+      if ("children" in node && Array.isArray(node.children)) node.children.forEach(visit);
+    };
+    visit(root);
+    const reactionNode = (target: EventTarget | null) => {
+      for (let node = target instanceof Element ? target : null; node; node = node.parentElement) {
+        if (ids.has(node.getAttribute("data-node-id") ?? "")) return node;
+      }
+      return undefined;
+    };
+    const listeners = (["click", "pointerdown", "pointerup", "pointerover", "pointerout"] as const).map(type => {
+      const listener = (event: Event) => {
+        const node = reactionNode(event.target);
+        if (!node) return;
+        if (event instanceof PointerEvent && event.button > 0) return;
+        const related = event instanceof PointerEvent ? event.relatedTarget : null;
+        if ((type === "pointerover" || type === "pointerout") && reactionNode(related) === node) return;
+        onNodeEvent({ boardName: board.name, nodeId: node.getAttribute("data-node-id")!,
+          trigger: type === "click" ? "click" : type === "pointerdown" ? "press" : type === "pointerup" ? "release" :
+            type === "pointerover" ? "hover-enter" : "hover-leave", rect: node.getBoundingClientRect() });
+      };
+      shadow.addEventListener(type, listener);
+      return () => shadow.removeEventListener(type, listener);
+    });
+    return () => listeners.forEach(remove => remove());
+  }, [shadow, root, board.name, onNodeEvent]);
   return <div data-testid={`design-board-${board.name}`} ref={host} style={{
     position: "absolute", left: board.spec.x, top: board.spec.y, width: root.width, height: root.height,
     contentVisibility: "auto", containIntrinsicSize: `${root.width ?? 0}px ${root.height ?? 0}px`
@@ -201,7 +238,8 @@ export const BoardView = memo(function BoardView({ board, context, fontsCss, loc
     <LocaleContext.Provider value={locale}><div className="design-board-content"><NodeView node={root} ctx={context} path={board.name} /></div></LocaleContext.Provider>
   </>, shadow)}</div>;
 }, (a, b) => a.board.name === b.board.name && (a.board.hash !== undefined && b.board.hash !== undefined
-  ? a.board.hash === b.board.hash : a.board === b.board) && a.context === b.context && a.fontsCss === b.fontsCss && a.locale === b.locale);
+  ? a.board.hash === b.board.hash : a.board === b.board) && a.context === b.context && a.fontsCss === b.fontsCss && a.locale === b.locale
+  && a.onNodeEvent === b.onNodeEvent);
 
 export function DesignCanvasView({ context }: PluginViewProps) {
   const data = context.rendererData as unknown as CanvasRendererData;
