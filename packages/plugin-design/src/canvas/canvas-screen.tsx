@@ -25,6 +25,8 @@ import { newText, textOf, withSpans } from "../tools/text-tool.js";
 import type { TextEditing } from "../render/text-edit.js";
 import type { TextNode, TextSpan } from "../model/types.js";
 import { Inspector } from "../panels/inspector.js";
+import { collect, duplicate, parseClipboard, paste, removeNodes, serialize, type Copied } from "../edit/clipboard.js";
+import { alignMoves, applyMoves, distributeMoves } from "../edit/align.js";
 import { LeftPanel } from "../panels/left-panel.js";
 import { Layers } from "../panels/layers.js";
 import type { InspectorContext, PaintList } from "../panels/sections.js";
@@ -43,6 +45,8 @@ interface TransformGesture {
   rotations: Map<string, Map<string, number>>; next?: Map<string, DesignNode>;
   /** Boards whose root is selected move as a whole (their `spec.x`/`y`). */
   positions: Map<string, BoardPosition>; nextPositions?: Map<string, BoardPosition>;
+  /** Alt+drag: the roots before the copies were made (what one undo returns to). */
+  origins?: Map<string, DesignNode>; restore?: Selection[];
 }
 
 export function CanvasScreen({ context }: PluginViewProps) {
@@ -263,11 +267,12 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     transform.current = undefined;
     if (!drag) return false;
     const changes: DesignChange[] = [
-      ...[...drag.next ?? []].map(([targetName, after]) => ({ targetName, before: drag.roots.get(targetName)!, after })),
+      ...[...drag.next ?? []].map(([targetName, after]) => ({ targetName, before: drag.origins?.get(targetName) ?? drag.roots.get(targetName)!, after })),
       ...[...drag.nextPositions ?? []].filter(([name, after]) => after.x !== drag.positions.get(name)!.x || after.y !== drag.positions.get(name)!.y)
         .map(([targetName, after]) => ({ targetName, field: "position" as const, before: drag.positions.get(targetName)!, after }))
     ];
     if (commit && changes.length) store.apply({ changes });
+    else if (drag.restore) setSelected(drag.restore);
     setPreview(undefined);
     setPreviewPositions(undefined);
     return true;
@@ -404,6 +409,91 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
     navigation.viewport.current?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => { if (confirmDelete) cancelDelete.current?.focus(); }, [confirmDelete]);
+  const clipboard = useRef<Copied | undefined>(undefined);
+  const copySelection = (): Copied | undefined => {
+    const groups = [...byBoard(selected)];
+    const nodes: Copied["nodes"] = [], parentIds: string[] = [];
+    for (const [name, ids] of groups) {
+      const root = store.root(name) ?? savedRoot(name);
+      if (!root) continue;
+      const found = collect(indexBoard(root), ids);
+      nodes.push(...found.nodes); parentIds.push(...found.parentIds);
+    }
+    return nodes.length ? { nodes, parentIds, board: groups[0]![0] } : undefined;
+  };
+  const deleteNodes = () => {
+    const changes = [...byBoard(selected)].flatMap(([name, ids]) => {
+      const before = store.root(name) ?? savedRoot(name), after = before && removeNodes(before, ids);
+      return before && after && after !== before ? [{ targetName: name, before, after }] : [];
+    });
+    if (changes.length && store.apply({ changes })) setSelected([]);
+  };
+  const pasteNodes = (copied: Copied) => {
+    // Into the one selected frame, else into the board of the selection (or the first board on the page).
+    const first = selected[0], board = geometry.find(row => row.name === (first?.board ?? boards[0]?.name));
+    if (!board) { setStatus(t("drawOnBoard")); return; }
+    const one = selected.length === 1 ? board.index.get(selected[0]!.id)?.node : undefined;
+    const rootId = [...board.index.values()].find(item => item.depth === 0)!.node.id;
+    const parentId = one?.type === "frame" && !copied.nodes.some(node => node.id === one.id) ? one.id : rootId;
+    const before = store.root(board.name) ?? savedRoot(board.name);
+    if (!before) return;
+    const made = paste(before, parentId, copied, copied.board === board.name);
+    if (made.ids.length && store.apply({ changes: [{ targetName: board.name, before, after: made.root }] }))
+      setSelected(made.ids.map(id => ({ board: board.name, id })));
+  };
+  const duplicateSelection = () => {
+    const made: Selection[] = [];
+    const changes = [...byBoard(selected)].flatMap(([name, ids]) => {
+      const before = store.root(name) ?? savedRoot(name);
+      if (!before) return [];
+      const copy = duplicate(before, ids, 10, 10);
+      made.push(...copy.ids.map(id => ({ board: name, id })));
+      return copy.root !== before ? [{ targetName: name, before, after: copy.root }] : [];
+    });
+    if (changes.length && store.apply({ changes })) setSelected(made);
+  };
+  const movableSelection = selected.filter(item => {
+    const board = geometry.find(row => row.name === item.board);
+    return board && movable(board.index, [item.id]).length > 0;
+  });
+  const arrangeBy = (moves: (boxes: Map<string, Bounds>) => Map<string, { dx: number; dy: number }>) => {
+    const world = navigation.world.current;
+    if (!world) return;
+    const boxes = new Map<string, Bounds>();
+    for (const item of movableSelection) {
+      const board = geometry.find(row => row.name === item.board)!, box = measureNode(world, board, item.id);
+      if (box) boxes.set(`${item.board}/${item.id}`, enclosing(box));
+    }
+    const all = moves(boxes);
+    const changes = [...byBoard(movableSelection)].flatMap(([name, ids]) => {
+      const before = store.root(name) ?? savedRoot(name);
+      if (!before) return [];
+      const after = applyMoves(before, new Map(ids.flatMap(id => { const move = all.get(`${name}/${id}`); return move ? [[id, move] as const] : []; })));
+      return after !== before ? [{ targetName: name, before, after }] : [];
+    });
+    if (changes.length) store.apply({ changes });
+  };
+  const arrange = movableSelection.length ? {
+    canDistribute: movableSelection.length >= 3,
+    align(mode: Parameters<typeof alignMoves>[1]) {
+      arrangeBy(boxes => {
+        let frame: Bounds | undefined;
+        if (boxes.size === 1) {
+          // One node aligns within its parent.
+          const item = movableSelection[0]!, board = geometry.find(row => row.name === item.board)!;
+          const parentId = board.index.get(item.id)?.parentId;
+          const box = parentId !== undefined && navigation.world.current ? measureNode(navigation.world.current, board, parentId) : undefined;
+          frame = box && enclosing(box);
+        } else {
+          const list = [...boxes.values()];
+          const x = Math.min(...list.map(box => box.x)), y = Math.min(...list.map(box => box.y));
+          frame = { x, y, width: Math.max(...list.map(box => box.x + box.width)) - x, height: Math.max(...list.map(box => box.y + box.height)) - y };
+        }
+        return frame ? alignMoves(boxes, mode, frame) : new Map();
+      });
+    },
+    distribute(axis: "x" | "y") { arrangeBy(boxes => distributeMoves(boxes, axis)); }
+  } : undefined;
   const lengthTokens = Object.entries(resolution.context.tokens ?? {})
     .filter(([, value]) => typeof value === "number" || /^-?\d*\.?\d+(?:px|rem|em)?$/.test(String(value)))
     .map(([path, value]) => ({ path, value })).sort((a, b) => a.path.localeCompare(b.path));
@@ -431,6 +521,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
       return result.path;
     } } : {}),
     activeGradient, setActiveGradient, textRange, clearTextRange: () => setTextRange(undefined),
+    ...(arrange ? { arrange } : {}),
     update(patch, mergeKey) {
       // A text being edited is finished first (its blur commits what was typed), so the change
       // below applies to the latest text and the editor cannot overwrite it later.
@@ -519,8 +610,8 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
   return <section ref={screen} className="design-canvas-screen" data-testid="design-canvas" aria-label={t("canvas")}>
     <style>{canvasCss}</style>
     {reloaded && <p role="alert" data-testid="design-reloaded">{t("externalReload")}</p>}
-    {data.notices?.length > 0 && <ul role="alert">{data.notices.map((notice, i) =>
-      <li key={i}>{locale === "ja" ? notice.ja : notice.en}</li>)}</ul>}
+    {data.notices?.length > 0 && <div role="alert"><ul>{data.notices.map((notice, i) =>
+      <li key={i}>{locale === "ja" ? notice.ja : notice.en}</li>)}</ul></div>}
     <div className="design-canvas-tools" role="group" aria-label={t("navigation")}>
       {/* Drawing needs a saved canvas: an unsaved draft cannot hold boards yet (no createResourceNow). */}
       <Toolbar tool={tool} onTool={next => { setTool(next); setHover(undefined); }} locale={locale}
@@ -591,7 +682,7 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           {t(context.isStatic ? "emptyCanvasStatic" : "emptyCanvas")}
         </p>}
         <div ref={navigation.viewport} data-testid="design-viewport" role="region" aria-label={t("canvasNavigation")}
-          tabIndex={0} aria-keyshortcuts="H V F R O L T Delete Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
+          tabIndex={0} aria-keyshortcuts="H V F R O L T Delete Control+C Control+X Control+V Control+D Shift+0 Shift+1 Shift+2 Enter Shift+Enter Escape ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
           onPointerDown={event => {
             // Portal events can reach React before the viewport's native pan listener.
             if (event.defaultPrevented || hand || space.current || event.button !== 0 || event.pointerType === "touch" || editable(event)) return;
@@ -661,6 +752,21 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
               if (drag.moved && drag.hit && drag.moveItems?.length) {
                 gesture.current = undefined;
                 beginTransform(event.pointerId, "move", drag.moveItems, drag.start);
+                // Alt+drag moves copies; the originals stay. Copy and move are one undo step.
+                const started = transform.current as TransformGesture | undefined;
+                if (event.altKey && started) {
+                  const copies: Selection[] = [];
+                  started.origins = new Map(started.roots);
+                  for (const [name, root] of started.roots) {
+                    const made = duplicate(root, started.ids.get(name) ?? [], 0, 0);
+                    started.roots.set(name, made.root);
+                    started.ids.set(name, made.ids);
+                    copies.push(...made.ids.map(id => ({ board: name, id })));
+                  }
+                  started.positions.clear();
+                  started.restore = drag.moveItems;
+                  setSelected(copies);
+                }
                 updateTransform(event);
                 return;
               }
@@ -678,6 +784,32 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
           onPointerCancel={() => { draw.current = undefined; gesture.current = undefined; setMarquee(undefined); endTransform(false); }}
           onLostPointerCapture={() => { if (draw.current) return; gesture.current = undefined; setMarquee(undefined); endTransform(false); }}
           onPointerLeave={() => setHover(undefined)}
+          onCopy={event => {
+            if (editable(event)) return;
+            const copied = copySelection();
+            if (!copied) return;
+            event.preventDefault();
+            event.clipboardData.setData("text/plain", serialize(copied));
+            clipboard.current = copied;
+          }}
+          onCut={event => {
+            if (editable(event) || !store.editable) return;
+            const copied = copySelection();
+            if (!copied) return;
+            event.preventDefault();
+            event.clipboardData.setData("text/plain", serialize(copied));
+            clipboard.current = copied;
+            deleteNodes();
+          }}
+          onPaste={event => {
+            if (editable(event) || !store.editable) return;
+            const text = event.clipboardData.getData("text/plain");
+            // Our nodes from the system clipboard, else (nothing readable there) this screen's own copy.
+            const copied = text ? parseClipboard(text) : clipboard.current;
+            if (!copied) return;
+            event.preventDefault();
+            pasteNodes(copied);
+          }}
           onDragOver={event => { if (store.editable && context.uploadAsset && event.dataTransfer.types.includes("Files")) event.preventDefault(); }}
           onDrop={event => {
             if (!store.editable || !context.uploadAsset || !event.dataTransfer.files.length) return;
@@ -694,7 +826,18 @@ function CanvasContent({ context, data: incoming }: PluginViewProps & { data: Ca
             if (item) merge([item], event.shiftKey);
           }}
           onKeyDown={event => {
+            if (!editable(event) && (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "d" && store.editable) {
+              event.preventDefault();
+              duplicateSelection();
+              return;
+            }
             if (editable(event) || event.ctrlKey || event.metaKey || event.altKey) return;
+            if ((event.key === "Delete" || event.key === "Backspace") && store.editable && selected.length &&
+                selected.every(item => geometry.find(board => board.name === item.board)?.index.get(item.id)?.parentId !== undefined)) {
+              event.preventDefault();
+              deleteNodes();
+              return;
+            }
             const next = TOOL_KEYS[event.key.toLowerCase()];
             // H and V are the viewport's own keys (they switch the hand); F, R, O and L pick a drawing tool.
             if (next && next !== "hand" && next !== "select" && store.editable && context.createResourceNow && !event.shiftKey) { setTool(next); setHover(undefined); return; }

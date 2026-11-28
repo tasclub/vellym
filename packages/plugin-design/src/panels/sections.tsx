@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { DesignNode } from "../model/types.js";
 import type { Radius } from "../model/values.js";
 import type { BoardIndex } from "../edit/selection.js";
+import type { AlignMode } from "../edit/align.js";
 import { movable, resizable } from "../edit/transform.js";
 import { designText } from "../i18n.js";
 import { MIXED, NumberField, type FieldValue } from "./fields/number-field.js";
@@ -30,6 +31,8 @@ export interface InspectorContext {
   /** Characters last selected while editing a text (formatting then applies to them only). */
   textRange?: { board: string; id: string; start: number; end: number };
   clearTextRange(): void;
+  /** Align or distribute the selection (measured on the canvas). Absent when nothing can move. */
+  arrange?: { align(mode: AlignMode): void; distribute(axis: "x" | "y"): void; canDistribute: boolean };
   /** Change every target; one call is one operation. `mergeKey` joins quick repeats. */
   update(patch: (target: InspectorTarget) => Partial<DesignNode> | undefined, mergeKey?: string): void;
   selectBoard(name: string): void;
@@ -43,9 +46,11 @@ export interface InspectorSection {
 
 /** Other tickets add their sections here (fills, styles, prototype, code…), in display order. */
 export const inspectorSections: InspectorSection[] = [];
-export function registerSection(section: InspectorSection) {
+export function registerSection(section: InspectorSection, options: { before?: string } = {}) {
   const at = inspectorSections.findIndex(item => item.id === section.id);
-  if (at >= 0) inspectorSections[at] = section; else inspectorSections.push(section);
+  if (at >= 0) { inspectorSections[at] = section; return; }
+  const before = options.before === undefined ? -1 : inspectorSections.findIndex(item => item.id === options.before);
+  if (before >= 0) inspectorSections.splice(before, 0, section); else inspectorSections.push(section);
 }
 
 /** One value for all targets, or MIXED when they differ. */

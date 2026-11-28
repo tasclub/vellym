@@ -264,8 +264,8 @@ export function DesignCanvasView({ context }: PluginViewProps) {
   const fonts = fontFaceCss(data.canvas?.spec.fonts ?? []);
   return <section data-testid="design-canvas" style={{ padding: 12 }}>
     <h2>{data.canvas?.title ?? data.canvas?.name ?? t("canvas")}</h2>
-    {data.notices?.length > 0 && <ul role="alert">{data.notices.map((notice, i) =>
-      <li key={i}>{context.locale === "ja" ? notice.ja : notice.en}</li>)}</ul>}
+    {data.notices?.length > 0 && <div role="alert"><ul>{data.notices.map((notice, i) =>
+      <li key={i}>{context.locale === "ja" ? notice.ja : notice.en}</li>)}</ul></div>}
     {Object.entries(resolution.modifiers).map(([modifier, options]) => <label key={modifier}>{modifier}
       <select data-testid={`design-mode-${modifier}`} value={modes[modifier] ?? ""} onChange={event =>
         setModes(previous => {

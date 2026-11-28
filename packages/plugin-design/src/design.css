@@ -222,3 +222,9 @@
   background: transparent; color: var(--text-primary); cursor: pointer;
 }
 .design-layer-actions button:hover { background: var(--surface-sunken); }
+.design-align { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
+.design-align button {
+  min-height: 28px; padding: 0; font: inherit; cursor: pointer;
+  border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--text-primary);
+}
+.design-align button:disabled { color: var(--text-muted); cursor: default; }
